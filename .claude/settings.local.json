@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run *)",
+      "Bash(npx vite *)",
+      "Bash(go get *)",
+      "Bash(go vet *)"
+    ]
+  }
+}

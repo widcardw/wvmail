@@ -1,0 +1,52 @@
+<script setup lang="ts">
+import { NCard, NSelect } from 'naive-ui'
+import { NForm, NFormItem, SelectOption } from 'naive-ui'
+import { useI18n } from '../../i18n'
+import { useThemeStore } from '../../stores/theme'
+import { computed, Ref } from 'vue'
+
+const { t, locale, setLocale } = useI18n()
+const theme = useThemeStore()
+
+const themeOptions: Ref<SelectOption[]> = computed(() => [
+  { label: t.value['settings.common.theme.system'], value: 'System' },
+  { label: t.value['settings.common.theme.light'], value: 'Light' },
+  { label: t.value['settings.common.theme.dark'], value: 'Dark' },
+])
+
+const localeOptions: SelectOption[] = [
+  { label: 'English', value: 'en-US' },
+  { label: '中文', value: 'zh-CN' },
+]
+
+function handleLocaleChange(value: string) {
+  if (value === 'zh-CN' || value === 'en-US') {
+    setLocale(value)
+  }
+}
+</script>
+
+<template>
+  <div style="padding: 16px">
+    <NCard :title="t['settings.common']">
+      <NForm label-placement="left" label-width="auto">
+        <NFormItem label="Language / 语言">
+          <NSelect
+            :value="locale"
+            :options="localeOptions"
+            style="width: 200px"
+            @update:value="handleLocaleChange"
+          />
+        </NFormItem>
+        <NFormItem :label="t['settings.common.theme']">
+          <NSelect
+            :value="theme.mode"
+            :options="themeOptions"
+            style="width: 200px"
+            @update:value="(v) => theme.switchTo(v)"
+          />
+        </NFormItem>
+      </NForm>
+    </NCard>
+  </div>
+</template>
