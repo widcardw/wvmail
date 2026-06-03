@@ -22,7 +22,7 @@ const enUS: TranslationSchema = {
   'settings.llm.name': 'Name',
   'settings.llm.baseURL': 'Base URL',
   'settings.llm.apiKey': 'API Key',
-  'settings.llm.test': 'Test Connection',
+  'settings.llm.test': 'Test',
   'settings.llm.test.success': 'Connection successful',
   'settings.llm.test.fail': 'Connection failed',
   'settings.llm.test.timeout': 'Connection timed out',

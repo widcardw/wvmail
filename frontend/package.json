@@ -13,6 +13,8 @@
     "fmt": "oxfmt"
   },
   "dependencies": {
+    "@lobehub/icons-static-avatar": "^1.11.0",
+    "@lobehub/icons-static-svg": "^1.91.0",
     "@vueuse/core": "^14.3.0",
     "@wailsio/runtime": "latest",
     "pinia": "^3.0.4",

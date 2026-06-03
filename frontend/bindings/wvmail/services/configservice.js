@@ -59,9 +59,11 @@ export function SaveLLMConfigs(configs) {
 }
 
 /**
- * TestLLMConnection sends a test HTTP request to the given LLM provider's base
- * URL. It returns (true, message) on success or (false, errorMessage) on
- * failure. The request times out after 30 seconds.
+ * TestLLMConnection tests the LLM configuration by attempting a real chat
+ * completion request. If a model is specified it sends a minimal message
+ * ("Say hi in one word") to validate end-to-end connectivity. Without a model
+ * it falls back to a basic connectivity check. The request times out after 30
+ * seconds.
  * @param {$models.LLMConfig} cfg
  * @returns {$CancellablePromise<[boolean, string]>}
  */

@@ -10,6 +10,7 @@ export interface AppConfig {
 export interface LLMConfig {
   Name: string
   Provider: LLMProvider
+  Model: string
   BaseURL: string
   APIKey: string
 }
@@ -21,6 +22,8 @@ export type LLMProvider =
   | 'gemini'
   | 'minimax'
   | 'kimi'
+  | 'ollama'
+  | 'bytedance'
   | 'custom'
 
 export const LLM_PROVIDER_DEFAULTS: Record<LLMProvider, string> = {
@@ -30,6 +33,8 @@ export const LLM_PROVIDER_DEFAULTS: Record<LLMProvider, string> = {
   gemini: 'https://generativelanguage.googleapis.com',
   minimax: 'https://api.minimax.chat',
   kimi: 'https://api.moonshot.cn',
+  ollama: 'http://localhost:11434',
+  bytedance: 'https://ark.cn-beijing.volces.com/api/v3',
   custom: '',
 }
 
@@ -40,5 +45,7 @@ export const LLM_PROVIDER_LABELS: Record<LLMProvider, string> = {
   gemini: 'Gemini',
   minimax: 'MiniMax',
   kimi: 'Kimi',
+  ollama: 'Ollama',
+  bytedance: 'ByteDance',
   custom: 'Custom',
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,6 +28,7 @@ type AppConfig struct {
 type LLMConfig struct {
 	Name     string `yaml:"name"`
 	Provider string `yaml:"provider"`
+	Model    string `yaml:"model"`
 	BaseURL  string `yaml:"base_url"`
 	APIKey   string `yaml:"api_key"`
 }
@@ -240,38 +242,99 @@ func (s *ConfigService) SaveLLMConfigs(configs []LLMConfig) error {
 	return s.SaveConfig(cfg)
 }
 
-// TestLLMConnection sends a test HTTP request to the given LLM provider's base
-// URL. It returns (true, message) on success or (false, errorMessage) on
-// failure. The request times out after 30 seconds.
+// TestLLMConnection tests the LLM configuration by attempting a real chat
+// completion request. If a model is specified it sends a minimal message
+// ("Say hi in one word") to validate end-to-end connectivity. Without a model
+// it falls back to a basic connectivity check. The request times out after 30
+// seconds.
 func (s *ConfigService) TestLLMConnection(cfg LLMConfig) (bool, string) {
-	client := &http.Client{Timeout: 30 * time.Second}
-
+	client := &http.Client{Timeout: 60 * time.Second}
 	baseURL := strings.TrimRight(cfg.BaseURL, "/")
 	var req *http.Request
 	var err error
 
-	switch cfg.Provider {
-	case "anthropic":
-		req, err = http.NewRequest("GET", baseURL+"/v1/messages", nil)
-		if err == nil {
-			req.Header.Set("x-api-key", cfg.APIKey)
-			req.Header.Set("anthropic-version", "2023-06-01")
+	if cfg.Model != "" {
+		// Real chat completion test
+		var jsonBody []byte
+		switch cfg.Provider {
+		case "anthropic":
+			body := map[string]interface{}{
+				"model":      cfg.Model,
+				"max_tokens": 10,
+				"thinking":   map[string]string{"type": "disabled"},
+				"messages":   []map[string]string{{"role": "user", "content": "Say hi in one word"}},
+			}
+			jsonBody, err = json.Marshal(body)
+			if err == nil {
+				req, err = http.NewRequest("POST", baseURL+"/v1/messages", strings.NewReader(string(jsonBody)))
+				if err == nil {
+					req.Header.Set("Content-Type", "application/json")
+					req.Header.Set("x-api-key", cfg.APIKey)
+					req.Header.Set("anthropic-version", "2023-06-01")
+				}
+			}
+		case "gemini":
+			body := fmt.Sprintf(`{"contents":[{"parts":[{"text":"Say hi in one word"}]}],"model":"models/%s"}`, cfg.Model)
+			req, err = http.NewRequest("POST", baseURL+"/v1/models/"+cfg.Model+":generateContent", strings.NewReader(body))
+			if err == nil {
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("x-goog-api-key", cfg.APIKey)
+			}
+		case "ollama":
+			body := map[string]interface{}{
+				"model":    cfg.Model,
+				"messages": []map[string]string{{"role": "user", "content": "Say hi in one word"}},
+				"stream":   false,
+			}
+			jsonBody, err = json.Marshal(body)
+			if err == nil {
+				req, err = http.NewRequest("POST", baseURL+"/api/chat", strings.NewReader(string(jsonBody)))
+				if err == nil {
+					req.Header.Set("Content-Type", "application/json")
+				}
+			}
+		default:
+			// deepseek, openai, kimi, minimax, bytedance, custom
+			body := map[string]interface{}{
+				"model":      cfg.Model,
+				"messages":   []map[string]string{{"role": "user", "content": "Say hi in one word"}},
+				"max_tokens": 10,
+			}
+			jsonBody, err = json.Marshal(body)
+			if err == nil {
+				req, err = http.NewRequest("POST", baseURL+"/chat/completions", strings.NewReader(string(jsonBody)))
+				if err == nil {
+					req.Header.Set("Content-Type", "application/json")
+					req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+				}
+			}
 		}
-	case "gemini":
-		req, err = http.NewRequest("GET", baseURL+"/v1/models", nil)
-		if err == nil {
-			req.Header.Set("x-goog-api-key", cfg.APIKey)
-		}
-	case "kimi", "minimax":
-		req, err = http.NewRequest("GET", baseURL+"/v1/models", nil)
-		if err == nil {
-			req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-		}
-	default:
-		// deepseek, openai, custom – use OpenAI-compatible /v1/models
-		req, err = http.NewRequest("GET", baseURL+"/models", nil)
-		if err == nil {
-			req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	} else {
+		// Fallback – basic connectivity check
+		switch cfg.Provider {
+		case "anthropic":
+			req, err = http.NewRequest("GET", baseURL+"/v1/messages", nil)
+			if err == nil {
+				req.Header.Set("x-api-key", cfg.APIKey)
+				req.Header.Set("anthropic-version", "2023-06-01")
+			}
+		case "gemini":
+			req, err = http.NewRequest("GET", baseURL+"/v1/models", nil)
+			if err == nil {
+				req.Header.Set("x-goog-api-key", cfg.APIKey)
+			}
+		case "kimi", "minimax":
+			req, err = http.NewRequest("GET", baseURL+"/v1/models", nil)
+			if err == nil {
+				req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+			}
+		case "ollama":
+			req, err = http.NewRequest("GET", baseURL+"/api/tags", nil)
+		default:
+			req, err = http.NewRequest("GET", baseURL+"/models", nil)
+			if err == nil {
+				req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+			}
 		}
 	}
 	if err != nil {
@@ -282,15 +345,19 @@ func (s *ConfigService) TestLLMConnection(cfg LLMConfig) (bool, string) {
 	if err != nil {
 		if os.IsTimeout(err) || strings.Contains(err.Error(), "timeout") ||
 			strings.Contains(err.Error(), "deadline exceeded") {
-			return false, "Connection timed out after 30 seconds"
+			return false, "Connection timed out after 60 seconds"
 		}
 		return false, fmt.Sprintf("Connection failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true, fmt.Sprintf("Connected successfully (HTTP %d)", resp.StatusCode)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	bodyStr := strings.TrimSpace(string(body))
+	if bodyStr == "" {
+		bodyStr = "(no response body)"
 	}
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-	return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true, fmt.Sprintf("Connected successfully (HTTP %d)\n%s", resp.StatusCode, bodyStr)
+	}
+	return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, bodyStr)
 }

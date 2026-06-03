@@ -78,6 +78,13 @@ export class LLMConfig {
              */
             this["Provider"] = "";
         }
+        if (!("Model" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["Model"] = "";
+        }
         if (!("BaseURL" in $$source)) {
             /**
              * @member
