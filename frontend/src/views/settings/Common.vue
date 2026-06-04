@@ -37,7 +37,7 @@ async function openConfigFolder() {
 </script>
 
 <template>
-  <div style="padding: 16px">
+  <div style="padding: 16px; max-width: 720px">
     <NCard :title="t['settings.common']">
       <NForm label-placement="left" label-width="auto">
         <NFormItem label="Language / 语言">

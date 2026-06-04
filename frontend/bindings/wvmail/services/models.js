@@ -36,6 +36,13 @@ export class AppConfig {
              */
             this["LLMConfigs"] = [];
         }
+        if (!("EmailAccounts" in $$source)) {
+            /**
+             * @member
+             * @type {EmailAccount[]}
+             */
+            this["EmailAccounts"] = [];
+        }
 
         Object.assign(this, $$source);
     }
@@ -47,11 +54,353 @@ export class AppConfig {
      */
     static createFrom($$source = {}) {
         const $$createField2_0 = $$createType1;
+        const $$createField3_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("LLMConfigs" in $$parsedSource) {
             $$parsedSource["LLMConfigs"] = $$createField2_0($$parsedSource["LLMConfigs"]);
         }
+        if ("EmailAccounts" in $$parsedSource) {
+            $$parsedSource["EmailAccounts"] = $$createField3_0($$parsedSource["EmailAccounts"]);
+        }
         return new AppConfig(/** @type {Partial<AppConfig>} */($$parsedSource));
+    }
+}
+
+/**
+ * EmailAccount represents an email account configuration.
+ */
+export class EmailAccount {
+    /**
+     * Creates a new EmailAccount instance.
+     * @param {Partial<EmailAccount>} [$$source = {}] - The source object to create the EmailAccount.
+     */
+    constructor($$source = {}) {
+        if (!("ID" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["ID"] = "";
+        }
+        if (!("Name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["Name"] = "";
+        }
+        if (!("Email" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["Email"] = "";
+        }
+        if (!("Provider" in $$source)) {
+            /**
+             * gmail, outlook, 163, qq, custom, etc.
+             * @member
+             * @type {string}
+             */
+            this["Provider"] = "";
+        }
+        if (!("IMAPHost" in $$source)) {
+            /**
+             * IMAP settings
+             * @member
+             * @type {string}
+             */
+            this["IMAPHost"] = "";
+        }
+        if (!("IMAPPort" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["IMAPPort"] = 0;
+        }
+        if (!("IMAPUser" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["IMAPUser"] = "";
+        }
+        if (!("IMAPPass" in $$source)) {
+            /**
+             * AES-256-GCM encrypted on disk
+             * @member
+             * @type {string}
+             */
+            this["IMAPPass"] = "";
+        }
+        if (!("SMTPHost" in $$source)) {
+            /**
+             * SMTP settings
+             * @member
+             * @type {string}
+             */
+            this["SMTPHost"] = "";
+        }
+        if (!("SMTPPort" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["SMTPPort"] = 0;
+        }
+        if (!("SMTPUser" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["SMTPUser"] = "";
+        }
+        if (!("SMTPPass" in $$source)) {
+            /**
+             * AES-256-GCM encrypted on disk
+             * @member
+             * @type {string}
+             */
+            this["SMTPPass"] = "";
+        }
+        if (!("UseTLS" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["UseTLS"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EmailAccount instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {EmailAccount}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new EmailAccount(/** @type {Partial<EmailAccount>} */($$parsedSource));
+    }
+}
+
+/**
+ * EmailDetail is the full representation of an email including body content.
+ */
+export class EmailDetail {
+    /**
+     * Creates a new EmailDetail instance.
+     * @param {Partial<EmailDetail>} [$$source = {}] - The source object to create the EmailDetail.
+     */
+    constructor($$source = {}) {
+        if (!("uid" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["uid"] = 0;
+        }
+        if (!("subject" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["subject"] = "";
+        }
+        if (!("from" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from"] = "";
+        }
+        if (!("to" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["to"] = [];
+        }
+        if (!("cc" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["cc"] = [];
+        }
+        if (!("date" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["date"] = "";
+        }
+        if (!("body_text" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["body_text"] = "";
+        }
+        if (!("body_html" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["body_html"] = "";
+        }
+        if (!("flags" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["flags"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EmailDetail instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {EmailDetail}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType4;
+        const $$createField4_0 = $$createType4;
+        const $$createField8_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("to" in $$parsedSource) {
+            $$parsedSource["to"] = $$createField3_0($$parsedSource["to"]);
+        }
+        if ("cc" in $$parsedSource) {
+            $$parsedSource["cc"] = $$createField4_0($$parsedSource["cc"]);
+        }
+        if ("flags" in $$parsedSource) {
+            $$parsedSource["flags"] = $$createField8_0($$parsedSource["flags"]);
+        }
+        return new EmailDetail(/** @type {Partial<EmailDetail>} */($$parsedSource));
+    }
+}
+
+/**
+ * EmailSummary is a lightweight representation of an email for list views.
+ */
+export class EmailSummary {
+    /**
+     * Creates a new EmailSummary instance.
+     * @param {Partial<EmailSummary>} [$$source = {}] - The source object to create the EmailSummary.
+     */
+    constructor($$source = {}) {
+        if (!("uid" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["uid"] = 0;
+        }
+        if (!("subject" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["subject"] = "";
+        }
+        if (!("from" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from"] = "";
+        }
+        if (!("date" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["date"] = "";
+        }
+        if (!("flags" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["flags"] = [];
+        }
+        if (!("is_read" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["is_read"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EmailSummary instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {EmailSummary}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("flags" in $$parsedSource) {
+            $$parsedSource["flags"] = $$createField4_0($$parsedSource["flags"]);
+        }
+        return new EmailSummary(/** @type {Partial<EmailSummary>} */($$parsedSource));
+    }
+}
+
+/**
+ * FolderInfo represents a mail folder with its metadata.
+ */
+export class FolderInfo {
+    /**
+     * Creates a new FolderInfo instance.
+     * @param {Partial<FolderInfo>} [$$source = {}] - The source object to create the FolderInfo.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("delim" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["delim"] = "";
+        }
+        if (!("attrs" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["attrs"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FolderInfo instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FolderInfo}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("attrs" in $$parsedSource) {
+            $$parsedSource["attrs"] = $$createField2_0($$parsedSource["attrs"]);
+        }
+        return new FolderInfo(/** @type {Partial<FolderInfo>} */($$parsedSource));
     }
 }
 
@@ -117,3 +466,6 @@ export class LLMConfig {
 // Private type creation functions
 const $$createType0 = LLMConfig.createFrom;
 const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = EmailAccount.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $Create.Array($Create.Any);

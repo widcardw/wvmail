@@ -9,6 +9,8 @@ export interface TranslationSchema {
   'sidebar.inbox': string
   'sidebar.sent': string
   'mail.selectFolder': string
+  'mail.loading': string
+  'mail.noEmails': string
   'reminders.title': string
   'reminders.empty': string
   'settings.common': string
@@ -18,6 +20,30 @@ export interface TranslationSchema {
   'settings.common.theme.system': string
   'settings.common.openConfig': string
   'settings.accounts': string
+  'settings.accounts.add': string
+  'settings.accounts.edit': string
+  'settings.accounts.name': string
+  'settings.accounts.email': string
+  'settings.accounts.provider': string
+  'settings.accounts.imap_host': string
+  'settings.accounts.imap_port': string
+  'settings.accounts.imap_user': string
+  'settings.accounts.imap_pass': string
+  'settings.accounts.smtp_host': string
+  'settings.accounts.smtp_port': string
+  'settings.accounts.smtp_user': string
+  'settings.accounts.smtp_pass': string
+  'settings.accounts.use_tls': string
+  'settings.accounts.test': string
+  'settings.accounts.testing': string
+  'settings.accounts.test_success': string
+  'settings.accounts.test_fail': string
+  'settings.accounts.delete': string
+  'settings.accounts.delete_confirm': string
+  'settings.accounts.empty': string
+  'settings.accounts.save': string
+  'settings.accounts.cancel': string
+  'settings.accounts.provider_detected': string
   'settings.about': string
   'settings.llm': string
   'settings.llm.title': string

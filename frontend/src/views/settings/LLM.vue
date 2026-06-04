@@ -256,7 +256,7 @@ const providerTagType: Record<string, string> = {
 </script>
 
 <template>
-  <div style="padding: 1rem">
+  <div style="padding: 16px; max-width: 720px">
     <NCard :title="t['settings.llm.title']">
       <template #header-extra>
         <NButton type="primary" @click="openAdd">

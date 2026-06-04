@@ -19,9 +19,10 @@ import (
 
 // AppConfig represents the application configuration stored in YAML.
 type AppConfig struct {
-	Language   string      `yaml:"language"`
-	Theme      string      `yaml:"theme"`
-	LLMConfigs []LLMConfig `yaml:"llm_configs,omitempty"`
+	Language      string          `yaml:"language"`
+	Theme         string          `yaml:"theme"`
+	LLMConfigs    []LLMConfig     `yaml:"llm_configs,omitempty"`
+	EmailAccounts []EmailAccount  `yaml:"email_accounts,omitempty"`
 }
 
 // LLMConfig represents a single LLM provider configuration.
@@ -31,6 +32,25 @@ type LLMConfig struct {
 	Model    string `yaml:"model"`
 	BaseURL  string `yaml:"base_url"`
 	APIKey   string `yaml:"api_key"`
+}
+
+// EmailAccount represents an email account configuration.
+type EmailAccount struct {
+	ID       string `yaml:"id"`
+	Name     string `yaml:"name"`
+	Email    string `yaml:"email"`
+	Provider string `yaml:"provider"` // gmail, outlook, 163, qq, custom, etc.
+	// IMAP settings
+	IMAPHost string `yaml:"imap_host"`
+	IMAPPort int    `yaml:"imap_port"`
+	IMAPUser string `yaml:"imap_user"`
+	IMAPPass string `yaml:"imap_pass"` // AES-256-GCM encrypted on disk
+	// SMTP settings
+	SMTPHost string `yaml:"smtp_host"`
+	SMTPPort int    `yaml:"smtp_port"`
+	SMTPUser string `yaml:"smtp_user"`
+	SMTPPass string `yaml:"smtp_pass"` // AES-256-GCM encrypted on disk
+	UseTLS   bool   `yaml:"use_tls"`
 }
 
 // ConfigService provides methods for reading, writing, and managing
@@ -139,9 +159,10 @@ func decrypt(encoded string) (string, error) {
 
 func defaultConfig() AppConfig {
 	return AppConfig{
-		Language:   "en-US",
-		Theme:      "System",
-		LLMConfigs: []LLMConfig{},
+		Language:      "en-US",
+		Theme:         "System",
+		LLMConfigs:    []LLMConfig{},
+		EmailAccounts: []EmailAccount{},
 	}
 }
 
@@ -180,6 +201,21 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 			// unencrypted key, or corrupted).
 		}
 	}
+	// Decrypt email account passwords
+	for i := range cfg.EmailAccounts {
+		if cfg.EmailAccounts[i].IMAPPass != "" {
+			decrypted, err := decrypt(cfg.EmailAccounts[i].IMAPPass)
+			if err == nil {
+				cfg.EmailAccounts[i].IMAPPass = decrypted
+			}
+		}
+		if cfg.EmailAccounts[i].SMTPPass != "" {
+			decrypted, err := decrypt(cfg.EmailAccounts[i].SMTPPass)
+			if err == nil {
+				cfg.EmailAccounts[i].SMTPPass = decrypted
+			}
+		}
+	}
 	if cfg.Language == "" {
 		cfg.Language = "en-US"
 	}
@@ -188,6 +224,9 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 	}
 	if cfg.LLMConfigs == nil {
 		cfg.LLMConfigs = []LLMConfig{}
+	}
+	if cfg.EmailAccounts == nil {
+		cfg.EmailAccounts = []EmailAccount{}
 	}
 	return cfg, nil
 }
@@ -207,6 +246,23 @@ func (s *ConfigService) SaveConfig(cfg AppConfig) error {
 				return fmt.Errorf("failed to encrypt API key for %q: %w", cfg.LLMConfigs[i].Name, err)
 			}
 			cfg.LLMConfigs[i].APIKey = encrypted
+		}
+	}
+	// Encrypt email account passwords before writing
+	for i := range cfg.EmailAccounts {
+		if cfg.EmailAccounts[i].IMAPPass != "" {
+			encrypted, err := encrypt(cfg.EmailAccounts[i].IMAPPass)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt IMAP password for %q: %w", cfg.EmailAccounts[i].Email, err)
+			}
+			cfg.EmailAccounts[i].IMAPPass = encrypted
+		}
+		if cfg.EmailAccounts[i].SMTPPass != "" {
+			encrypted, err := encrypt(cfg.EmailAccounts[i].SMTPPass)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt SMTP password for %q: %w", cfg.EmailAccounts[i].Email, err)
+			}
+			cfg.EmailAccounts[i].SMTPPass = encrypted
 		}
 	}
 	data, err := yaml.Marshal(&cfg)
@@ -246,6 +302,70 @@ func (s *ConfigService) SaveLLMConfigs(configs []LLMConfig) error {
 	}
 	cfg.LLMConfigs = configs
 	return s.SaveConfig(cfg)
+}
+
+// GetAccounts returns all email accounts from the config.
+func (s *ConfigService) GetAccounts() ([]EmailAccount, error) {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	return cfg.EmailAccounts, nil
+}
+
+// SaveAccounts replaces the entire email account list in the config file.
+func (s *ConfigService) SaveAccounts(accounts []EmailAccount) error {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return err
+	}
+	cfg.EmailAccounts = accounts
+	return s.SaveConfig(cfg)
+}
+
+// AddAccount appends a new email account to the config.
+func (s *ConfigService) AddAccount(account EmailAccount) error {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return err
+	}
+	cfg.EmailAccounts = append(cfg.EmailAccounts, account)
+	return s.SaveConfig(cfg)
+}
+
+// RemoveAccount removes an email account by its ID.
+func (s *ConfigService) RemoveAccount(id string) error {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return err
+	}
+	idx := -1
+	for i, a := range cfg.EmailAccounts {
+		if a.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return fmt.Errorf("account with id %q not found", id)
+	}
+	cfg.EmailAccounts = append(cfg.EmailAccounts[:idx], cfg.EmailAccounts[idx+1:]...)
+	return s.SaveConfig(cfg)
+}
+
+// UpdateAccount updates an existing email account identified by its ID.
+func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return err
+	}
+	for i, a := range cfg.EmailAccounts {
+		if a.ID == id {
+			cfg.EmailAccounts[i] = account
+			return s.SaveConfig(cfg)
+		}
+	}
+	return fmt.Errorf("account with id %q not found", id)
 }
 
 // TestLLMConnection tests the LLM configuration by attempting a real chat

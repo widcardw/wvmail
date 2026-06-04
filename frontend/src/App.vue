@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NConfigProvider, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider } from 'naive-ui'
+import { NConfigProvider, NDialogProvider, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider, NMessageProvider } from 'naive-ui'
 import { RouterView } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'
@@ -31,20 +31,24 @@ onMounted(async () => {
     :date-locale="localeStore.naiveDateLocale"
     style="height: 100%"
   >
-    <ThemeStyles />
-    <NLayout style="height: 100%">
-      <NLayoutHeader bordered>
-        <TitleBar v-model:collapsed="collapsed" />
-      </NLayoutHeader>
-      <NLayout has-sider class="n-full">
-        <NLayoutSider bordered :collapsed="collapsed" collapse-mode="width">
-          <SideBar />
-        </NLayoutSider>
-        <NLayoutContent>
-          <RouterView />
-        </NLayoutContent>
-      </NLayout>
-    </NLayout>
+    <NMessageProvider>
+      <NDialogProvider>
+        <ThemeStyles />
+        <NLayout style="height: 100%">
+          <NLayoutHeader bordered>
+            <TitleBar v-model:collapsed="collapsed" />
+          </NLayoutHeader>
+          <NLayout has-sider class="n-full">
+            <NLayoutSider bordered :collapsed="collapsed" collapse-mode="width">
+              <SideBar />
+            </NLayoutSider>
+            <NLayoutContent>
+              <RouterView />
+            </NLayoutContent>
+          </NLayout>
+        </NLayout>
+      </NDialogProvider>
+    </NMessageProvider>
   </NConfigProvider>
 </template>
 

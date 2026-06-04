@@ -17,13 +17,32 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * AddAccount appends a new email account to the config.
+ * @param {$models.EmailAccount} account
+ * @returns {$CancellablePromise<void>}
+ */
+export function AddAccount(account) {
+    return $Call.ByID(3146667337, account);
+}
+
+/**
+ * GetAccounts returns all email accounts from the config.
+ * @returns {$CancellablePromise<$models.EmailAccount[]>}
+ */
+export function GetAccounts() {
+    return $Call.ByID(478051733).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
  * GetConfig reads the application config from disk. If the file does not exist,
  * a default config is returned without error.
  * @returns {$CancellablePromise<$models.AppConfig>}
  */
 export function GetConfig() {
     return $Call.ByID(402756751).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType2($result);
     }));
 }
 
@@ -34,6 +53,24 @@ export function GetConfig() {
  */
 export function GetConfigDir() {
     return $Call.ByID(4175515118);
+}
+
+/**
+ * RemoveAccount removes an email account by its ID.
+ * @param {string} id
+ * @returns {$CancellablePromise<void>}
+ */
+export function RemoveAccount(id) {
+    return $Call.ByID(1017403306, id);
+}
+
+/**
+ * SaveAccounts replaces the entire email account list in the config file.
+ * @param {$models.EmailAccount[]} accounts
+ * @returns {$CancellablePromise<void>}
+ */
+export function SaveAccounts(accounts) {
+    return $Call.ByID(1767874214, accounts);
 }
 
 /**
@@ -80,5 +117,17 @@ export function TestLLMConnection(cfg) {
     return $Call.ByID(3198289498, cfg);
 }
 
+/**
+ * UpdateAccount updates an existing email account identified by its ID.
+ * @param {string} id
+ * @param {$models.EmailAccount} account
+ * @returns {$CancellablePromise<void>}
+ */
+export function UpdateAccount(id, account) {
+    return $Call.ByID(4033090941, id, account);
+}
+
 // Private type creation functions
-const $$createType0 = $models.AppConfig.createFrom;
+const $$createType0 = $models.EmailAccount.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.AppConfig.createFrom;

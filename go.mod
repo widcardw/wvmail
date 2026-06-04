@@ -3,6 +3,7 @@ module wvmail
 go 1.25
 
 require (
+	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.84
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -17,6 +18,8 @@ require (
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
+	github.com/emersion/go-message v0.18.2 // indirect
+	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.7.0 // indirect
