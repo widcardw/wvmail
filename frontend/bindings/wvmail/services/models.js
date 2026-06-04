@@ -223,6 +223,20 @@ export class EmailDetail {
              */
             this["from"] = "";
         }
+        if (!("from_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_name"] = "";
+        }
+        if (!("from_addr" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_addr"] = "";
+        }
         if (!("to" in $$source)) {
             /**
              * @member
@@ -275,18 +289,18 @@ export class EmailDetail {
      * @returns {EmailDetail}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType4;
-        const $$createField4_0 = $$createType4;
-        const $$createField8_0 = $$createType4;
+        const $$createField5_0 = $$createType4;
+        const $$createField6_0 = $$createType4;
+        const $$createField10_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("to" in $$parsedSource) {
-            $$parsedSource["to"] = $$createField3_0($$parsedSource["to"]);
+            $$parsedSource["to"] = $$createField5_0($$parsedSource["to"]);
         }
         if ("cc" in $$parsedSource) {
-            $$parsedSource["cc"] = $$createField4_0($$parsedSource["cc"]);
+            $$parsedSource["cc"] = $$createField6_0($$parsedSource["cc"]);
         }
         if ("flags" in $$parsedSource) {
-            $$parsedSource["flags"] = $$createField8_0($$parsedSource["flags"]);
+            $$parsedSource["flags"] = $$createField10_0($$parsedSource["flags"]);
         }
         return new EmailDetail(/** @type {Partial<EmailDetail>} */($$parsedSource));
     }
@@ -322,6 +336,20 @@ export class EmailSummary {
              */
             this["from"] = "";
         }
+        if (!("from_name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_name"] = "";
+        }
+        if (!("from_addr" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["from_addr"] = "";
+        }
         if (!("date" in $$source)) {
             /**
              * @member
@@ -353,10 +381,10 @@ export class EmailSummary {
      * @returns {EmailSummary}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType4;
+        const $$createField6_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("flags" in $$parsedSource) {
-            $$parsedSource["flags"] = $$createField4_0($$parsedSource["flags"]);
+            $$parsedSource["flags"] = $$createField6_0($$parsedSource["flags"]);
         }
         return new EmailSummary(/** @type {Partial<EmailSummary>} */($$parsedSource));
     }

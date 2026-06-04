@@ -16,6 +16,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   const selectedEmailUid = ref<number | null>(null)
   const selectedEmailDetail = ref<EmailDetail | null>(null)
   const loadingDetail = ref(false)
+  const detailError = ref<string | null>(null)
 
   const selectedAccount = computed(() => {
     if (!selectedAccountId.value) return null
@@ -115,10 +116,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailUid.value = uid
     selectedEmailDetail.value = null
     loadingDetail.value = true
+    detailError.value = null
     try {
       const detail = await EmailService.FetchEmail(account, folder, uid)
       selectedEmailDetail.value = detail
     } catch (e) {
+      detailError.value = String(e)
       console.error('Failed to fetch email detail', e)
     } finally {
       loadingDetail.value = false
@@ -158,6 +161,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailUid,
     selectedEmailDetail,
     loadingDetail,
+    detailError,
     selectedAccount,
     currentFolders,
     currentEmails,

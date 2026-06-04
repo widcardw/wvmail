@@ -27,6 +27,8 @@ type EmailSummary struct {
 	UID       uint32   `json:"uid"`
 	Subject   string   `json:"subject"`
 	From      string   `json:"from"`
+	FromName  string   `json:"from_name"`
+	FromAddr  string   `json:"from_addr"`
 	Date      string   `json:"date"`
 	Flags     []string `json:"flags"`
 	IsRead    bool     `json:"is_read"`
@@ -37,6 +39,8 @@ type EmailDetail struct {
 	UID       uint32   `json:"uid"`
 	Subject   string   `json:"subject"`
 	From      string   `json:"from"`
+	FromName  string   `json:"from_name"`
+	FromAddr  string   `json:"from_addr"`
 	To        []string `json:"to"`
 	Cc        []string `json:"cc"`
 	Date      string   `json:"date"`
@@ -78,7 +82,7 @@ func (s *EmailService) ListFolders(account EmailAccount) ([]FolderInfo, error) {
 
 // RefreshFolders fetches folders from the IMAP server and updates the cache.
 func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error) {
-	client, err := dialIMAP(account, 30*time.Second)
+	client, err := dialIMAP(account, 60*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}
@@ -132,7 +136,7 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 // RefreshEmails fetches email summaries from the IMAP server and updates the
 // cache.
 func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, pageSize int) ([]EmailSummary, error) {
-	client, err := dialIMAP(account, 30*time.Second)
+	client, err := dialIMAP(account, 60*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}
@@ -207,13 +211,19 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 				break
 			}
 		}
-		// Build From string from the envelope
+		// Build sender name + address from envelope
 		if len(buf.Envelope.From) > 0 {
 			addr := buf.Envelope.From[0]
 			if addr.Host != "" {
-				summary.From = addr.Mailbox + "@" + addr.Host
+				summary.FromAddr = addr.Mailbox + "@" + addr.Host
 			} else {
-				summary.From = addr.Mailbox
+				summary.FromAddr = addr.Mailbox
+			}
+			summary.FromName = addr.Name
+			if summary.FromName != "" {
+				summary.From = summary.FromName + " <" + summary.FromAddr + ">"
+			} else {
+				summary.From = summary.FromAddr
 			}
 		}
 		summaries = append(summaries, summary)
@@ -247,7 +257,7 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 // RefreshEmailBody fetches the full email content from the IMAP server and
 // updates the cache.
 func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid uint32) (*EmailDetail, error) {
-	client, err := dialIMAP(account, 30*time.Second)
+	client, err := dialIMAP(account, 60*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}
@@ -299,12 +309,18 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		detail.BodyText = string(bodyBytes)
 	}
 
-	// Build addresses
+	// Build sender name + address from envelope
 	for _, addr := range buf.Envelope.From {
 		if addr.Host != "" {
-			detail.From = addr.Mailbox + "@" + addr.Host
+			detail.FromAddr = addr.Mailbox + "@" + addr.Host
 		} else {
-			detail.From = addr.Mailbox
+			detail.FromAddr = addr.Mailbox
+		}
+		detail.FromName = addr.Name
+		if detail.FromName != "" {
+			detail.From = detail.FromName + " <" + detail.FromAddr + ">"
+		} else {
+			detail.From = detail.FromAddr
 		}
 	}
 	for _, addr := range buf.Envelope.To {

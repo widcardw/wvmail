@@ -27,7 +27,9 @@ type CachedEmail struct {
 	FolderName string `gorm:"size:255;not null"`
 	UID        uint32 `gorm:"not null"`
 	Subject    string `gorm:"size:512"`
-	From       string `gorm:"size:256"`
+	From       string `gorm:"size:256"`  // display "Name <email>"
+	FromName   string `gorm:"size:128"`
+	FromAddr   string `gorm:"size:256"`
 	Date       string `gorm:"size:64"`
 	Flags      string `gorm:"size:512"` // JSON serialized []string
 	IsRead     bool
@@ -40,7 +42,9 @@ type CachedEmailBody struct {
 	FolderName string `gorm:"size:255;not null"`
 	UID       uint32 `gorm:"not null"`
 	Subject   string `gorm:"size:512"`
-	From      string `gorm:"size:256"`
+	From      string `gorm:"size:256"`  // display "Name <email>"
+	FromName  string `gorm:"size:128"`
+	FromAddr  string `gorm:"size:256"`
 	To        string `gorm:"size:512"`  // JSON serialized []string
 	Cc        string `gorm:"size:512"`  // JSON serialized []string
 	Date      string `gorm:"size:64"`
@@ -185,6 +189,8 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 			UID:        e.UID,
 			Subject:    e.Subject,
 			From:       e.From,
+			FromName:   e.FromName,
+			FromAddr:   e.FromAddr,
 			Date:       e.Date,
 			Flags:      string(flagsJSON),
 			IsRead:     e.IsRead,
@@ -221,12 +227,14 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 			json.Unmarshal([]byte(c.Flags), &flags)
 		}
 		emails = append(emails, EmailSummary{
-			UID:     c.UID,
-			Subject: c.Subject,
-			From:    c.From,
-			Date:    c.Date,
-			Flags:   flags,
-			IsRead:  c.IsRead,
+			UID:      c.UID,
+			Subject:  c.Subject,
+			From:     c.From,
+			FromName: c.FromName,
+			FromAddr: c.FromAddr,
+			Date:     c.Date,
+			Flags:    flags,
+			IsRead:   c.IsRead,
 		})
 	}
 	return emails, nil
@@ -249,6 +257,8 @@ func (m *DBManager) SaveEmailBody(accountID, folderName string, detail *EmailDet
 		UID:        detail.UID,
 		Subject:    detail.Subject,
 		From:       detail.From,
+		FromName:   detail.FromName,
+		FromAddr:   detail.FromAddr,
 		To:         string(toJSON),
 		Cc:         string(ccJSON),
 		Date:       detail.Date,
@@ -287,6 +297,8 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 		UID:      cached.UID,
 		Subject:  cached.Subject,
 		From:     cached.From,
+		FromName: cached.FromName,
+		FromAddr: cached.FromAddr,
 		To:       to,
 		Cc:       cc,
 		Date:     cached.Date,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NSpin, NEmpty, NScrollbar } from 'naive-ui'
+import { NSpin, NEmpty, NScrollbar, NAlert } from 'naive-ui'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { computed } from 'vue'
@@ -22,8 +22,32 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function getInitials(name: string): string {
-  return (name || '?').charAt(0).toUpperCase()
+function getInitials(name: string, addr: string): string {
+  return (name || addr || '?').charAt(0).toUpperCase()
+}
+
+/**
+ * Returns sender display parts. When both name and address are available,
+ * renders as bold name + <email>. Otherwise falls back to whichever exists.
+ */
+function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: string }): {
+  name: string | null
+  addr: string | null
+  fallback: string | null
+} {
+  if (detail.from_name && detail.from_addr) {
+    return { name: detail.from_name, addr: detail.from_addr, fallback: null }
+  }
+  if (detail.from_name) {
+    return { name: null, addr: null, fallback: detail.from_name }
+  }
+  if (detail.from_addr) {
+    return { name: null, addr: null, fallback: detail.from_addr }
+  }
+  if (detail.from) {
+    return { name: null, addr: null, fallback: detail.from }
+  }
+  return { name: null, addr: null, fallback: 'Unknown' }
 }
 </script>
 
@@ -31,6 +55,16 @@ function getInitials(name: string): string {
   <div class="email-detail">
     <NScrollbar style="height: 100%;">
       <NSpin :show="loading">
+        <NAlert
+          v-if="accountsStore.detailError"
+          type="error"
+          closable
+          style="margin: 12px"
+          @close="accountsStore.detailError = null"
+        >
+          {{ accountsStore.detailError }}
+        </NAlert>
+
         <template v-if="!detail && !loading">
           <NEmpty
             :description="t['mail.selectFolder']"
@@ -41,9 +75,13 @@ function getInitials(name: string): string {
         <template v-if="detail">
           <div class="detail-header">
             <div class="detail-avatar-row">
-              <div class="detail-avatar">{{ getInitials(detail.from) }}</div>
+              <div class="detail-avatar">{{ getInitials(detail.from_name, detail.from_addr) }}</div>
               <div class="detail-sender-info">
-                <span class="detail-from">{{ detail.from }}</span>
+                <span class="detail-from" v-if="senderDisplay(detail).name">
+                  <strong>{{ senderDisplay(detail).name }}</strong>
+                  <span class="detail-email">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
+                </span>
+                <span class="detail-from" v-else>{{ senderDisplay(detail).fallback }}</span>
                 <span class="detail-date">{{ formatDate(detail.date) }}</span>
               </div>
             </div>
@@ -116,6 +154,13 @@ function getInitials(name: string): string {
 .detail-from {
   font-size: 14px;
   font-weight: 600;
+}
+
+.detail-email {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.65;
+  margin-left: 4px;
 }
 
 .detail-date {

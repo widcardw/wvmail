@@ -67,7 +67,7 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
-		Width:            1024,
+		Width:            1280,
 		Height:           768,
 	})
 

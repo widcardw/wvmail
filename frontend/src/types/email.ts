@@ -21,6 +21,8 @@ export interface EmailSummary {
   uid: number
   subject: string
   from: string
+  from_name: string
+  from_addr: string
   date: string
   flags: string[]
   is_read: boolean
@@ -30,6 +32,8 @@ export interface EmailDetail {
   uid: number
   subject: string
   from: string
+  from_name: string
+  from_addr: string
   to: string[]
   cc: string[]
   date: string

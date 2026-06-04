@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NList, NListItem, NEmpty, NSpin, NThing, NScrollbar } from 'naive-ui'
+import { NEmpty, NSpin, NScrollbar } from 'naive-ui'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { computed } from 'vue'
@@ -49,34 +49,28 @@ function handleClick(email: { uid: number }) {
           style="padding: 48px 0"
         />
 
-        <NList v-else>
-          <NListItem
+        <div v-else class="email-items">
+          <div
             v-for="email in emails"
             :key="email.uid"
             class="email-item"
             :class="{ unread: !email.is_read, selected: selectedUid === email.uid }"
             @click="handleClick(email)"
           >
-            <NThing>
-              <template #avatar>
-                <div class="email-avatar">
-                  {{ (email.from || '?').charAt(0).toUpperCase() }}
-                </div>
-              </template>
-              <template #header>
+            <div class="email-row">
+              <div class="email-avatar">
+                {{ (email.from_name || email.from_addr || email.from || '?').charAt(0).toUpperCase() }}
+              </div>
+              <div class="email-body">
                 <div class="email-header">
-                  <span class="email-from">{{ email.from || 'Unknown' }}</span>
+                  <span class="email-from">{{ email.from_name || email.from_addr || email.from || 'Unknown' }}</span>
                   <span class="email-date">{{ formatDate(email.date) }}</span>
                 </div>
-              </template>
-              <template #description>
-                <div class="email-subject">
-                  {{ truncateSubject(email.subject) }}
-                </div>
-              </template>
-            </NThing>
-          </NListItem>
-        </NList>
+                <div class="email-subject">{{ truncateSubject(email.subject) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </NSpin>
     </NScrollbar>
   </div>
@@ -85,6 +79,7 @@ function handleClick(email: { uid: number }) {
 <style scoped>
 .email-list {
   height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -104,7 +99,7 @@ function handleClick(email: { uid: number }) {
 .email-item {
   cursor: pointer;
   transition: background-color 0.15s;
-  padding-left: 12px;
+  border-bottom: 1px solid var(--n-border-color);
 }
 
 .email-item:hover {
@@ -113,6 +108,54 @@ function handleClick(email: { uid: number }) {
 
 .email-item.selected {
   background-color: var(--n-primary-color-hover);
+}
+
+.email-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  overflow: hidden;
+}
+
+.email-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.email-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.email-from {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-date {
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.email-subject {
+  font-size: 12px;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+  max-width: 100%;
 }
 
 .email-item.unread .email-from {
@@ -135,35 +178,5 @@ function handleClick(email: { uid: number }) {
   color: #fff;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   flex-shrink: 0;
-}
-
-.email-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.email-from {
-  font-size: 13px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.email-date {
-  font-size: 11px;
-  opacity: 0.6;
-  white-space: nowrap;
-  margin-left: 8px;
-}
-
-.email-subject {
-  font-size: 12px;
-  opacity: 0.7;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 </style>
