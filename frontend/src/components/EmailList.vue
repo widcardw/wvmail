@@ -3,6 +3,10 @@ import { NEmpty, NSpin, NScrollbar } from 'naive-ui'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { computed } from 'vue'
+import { useThemeVars } from 'naive-ui'
+
+const themeVars = useThemeVars()
+const { primaryColor, primaryColorHover, borderColor } = themeVars.value
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -65,6 +69,7 @@ function handleClick(email: { uid: number }) {
             @click="handleClick(email)"
           >
             <div class="email-row">
+                <div class="sel-marker"></div>
               <div class="unread-marker" :class="{ visible: !email.is_read }"></div>
               <div class="email-body">
                 <div class="email-header">
@@ -96,23 +101,24 @@ function handleClick(email: { uid: number }) {
   font-weight: 600;
   opacity: 0.7;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--n-border-color);
+  border-bottom: 1px solid v-bind(borderColor);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .email-item {
   cursor: pointer;
-  transition: background-color 0.15s;
-  border-bottom: 1px solid var(--n-border-color);
+  transition: border-color 0.1s;
+  border-bottom: 1px solid v-bind(borderColor);
+  border-left: 2px solid transparent;
 }
 
 .email-item:hover {
-  background-color: var(--n-action-color);
+  border-left-color: v-bind(borderColor);
 }
 
 .email-item.selected {
-  background-color: var(--primary-color-hover);
+    border-left-color: v-bind(primaryColor);
 }
 
 .email-row {
