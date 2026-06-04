@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { NScrollbar, NMenu, NEmpty } from 'naive-ui'
+import { computed, h, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { NScrollbar, NMenu, NEmpty, NIcon } from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import type { MenuOption } from 'naive-ui'
 import { ICON_MAPPING } from '../composables/icon-mapping'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
-import { getFolderDisplay } from '../types/email'
+import { getFolderDisplay, compareFolders } from '../types/email'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
+const router = useRouter()
 
 const expandedKeys = ref<string[]>([])
 
@@ -18,8 +21,11 @@ onMounted(() => {
   }
 })
 
+function renderIconifyIcon(iconName: string) {
+  return () => h(NIcon, null, { default: () => h(Icon, { icon: iconName }) })
+}
+
 function onExpandedKeysChange(keys: string[]) {
-  // Find newly expanded accounts
   for (const key of keys) {
     if (!expandedKeys.value.includes(key)) {
       const account = accountsStore.accounts.find(a => a.ID === key)
@@ -42,33 +48,36 @@ const menuOptions = computed<MenuOption[]>(() => {
     let children: MenuOption[] | undefined
 
     if (isLoading) {
-      // Not loaded yet — placeholder will be replaced once loaded
       children = [
         {
           label: 'Loading...',
           key: `${account.ID}:__loading__`,
-          icon: () => '⏳',
+          icon: renderIconifyIcon('eos-icons:loading'),
           disabled: true,
         },
       ]
     } else if (folders && folders.length > 0) {
-      children = folders
+      const filtered = folders
         .filter(f => !f.attrs.some(a => a.includes('NoSelect') || a.includes('NonExistent')))
-        .map(f => {
-          const display = getFolderDisplay(f.name)
-          return {
-            label: display.label,
-            key: `${account.ID}:${f.name}`,
-            icon: () => display.icon,
-          }
-        })
-      // If all folders were filtered out, fall back to showing all
-      if (children.length === 0) {
+
+      if (filtered.length === 0) {
         children = folders.map(f => ({
           label: f.name,
           key: `${account.ID}:${f.name}`,
-          icon: () => '📁',
+          icon: renderIconifyIcon('ri:folder-2-fill'),
         }))
+      } else {
+        const sorted = [...filtered].sort((a, b) =>
+          compareFolders(a, b, locale.value),
+        )
+        children = sorted.map(f => {
+          const display = getFolderDisplay(f.name, locale.value)
+          return {
+            label: display.label,
+            key: `${account.ID}:${f.name}`,
+            icon: renderIconifyIcon(display.icon),
+          }
+        })
       }
     }
 
@@ -90,6 +99,7 @@ function handleUpdateValue(key: string, _item: MenuOption) {
   if (parts.length === 2) {
     const [accountId, folderName] = parts
     accountsStore.selectFolder(accountId, folderName)
+    router.push('/')
   }
 }
 </script>
@@ -106,7 +116,7 @@ function handleUpdateValue(key: string, _item: MenuOption) {
       v-else
       :root-indent="16"
       :indent="16"
-      :icon-size="24"
+      :icon-size="20"
       :collapsed-icon-size="24"
       accordion
       :expanded-keys="expandedKeys"
@@ -117,4 +127,12 @@ function handleUpdateValue(key: string, _item: MenuOption) {
   </NScrollbar>
 </template>
 
-<style scoped></style>
+<style scoped>
+:deep(.n-menu-item-content--child .n-menu-item-content-header) {
+  font-size: 13px;
+}
+
+:deep(.n-menu-item-content--child .n-menu-item-content__icon) {
+  font-size: 16px;
+}
+</style>

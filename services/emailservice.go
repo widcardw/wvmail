@@ -12,7 +12,15 @@ import (
 
 // EmailService provides methods for connecting to IMAP/SMTP email servers
 // and managing email operations.
-type EmailService struct{}
+type EmailService struct {
+	db *DBManager
+}
+
+func NewEmailService() *EmailService {
+	return &EmailService{
+		db: NewDBManager(),
+	}
+}
 
 // EmailSummary is a lightweight representation of an email for list views.
 type EmailSummary struct {
@@ -57,7 +65,19 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 }
 
 // ListFolders retrieves all available IMAP mailboxes/folders.
+// Returns cached data if available and no force refresh requested.
 func (s *EmailService) ListFolders(account EmailAccount) ([]FolderInfo, error) {
+	// Try cache first
+	cached, err := s.db.LoadFolders(account.ID)
+	if err == nil && len(cached) > 0 {
+		return cached, nil
+	}
+
+	return s.RefreshFolders(account)
+}
+
+// RefreshFolders fetches folders from the IMAP server and updates the cache.
+func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error) {
 	client, err := dialIMAP(account, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
@@ -78,19 +98,40 @@ func (s *EmailService) ListFolders(account EmailAccount) ([]FolderInfo, error) {
 		for i, a := range ld.Attrs {
 			attrs[i] = string(a)
 		}
-		fi := FolderInfo{
+		folders = append(folders, FolderInfo{
 			Name:  ld.Mailbox,
 			Delim: string(ld.Delim),
 			Attrs: attrs,
-		}
-		folders = append(folders, fi)
+		})
+	}
+
+	// Update cache
+	if err := s.db.SaveFolders(account.ID, folders); err != nil {
+		// Log but don't fail — cache is best-effort
+		fmt.Printf("failed to cache folders: %v\n", err)
 	}
 
 	return folders, nil
 }
 
 // ListEmails retrieves a page of email summaries from the specified folder.
+// Returns cached data if available.
 func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pageSize int) ([]EmailSummary, error) {
+	// Try cache first — always return page 1 from cache; pagination over
+	// cached data is disabled for simplicity (we cache the full folder).
+	if page <= 1 {
+		cached, err := s.db.LoadEmails(account.ID, folder)
+		if err == nil && len(cached) > 0 {
+			return s.paginate(cached, page, pageSize), nil
+		}
+	}
+
+	return s.RefreshEmails(account, folder, page, pageSize)
+}
+
+// RefreshEmails fetches email summaries from the IMAP server and updates the
+// cache.
+func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, pageSize int) ([]EmailSummary, error) {
 	client, err := dialIMAP(account, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
@@ -183,11 +224,29 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 		summaries[i], summaries[j] = summaries[j], summaries[i]
 	}
 
-	return summaries, nil
+	// Update cache with all fetched summaries (best-effort)
+	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
+		fmt.Printf("failed to cache emails: %v\n", err)
+	}
+
+	return s.paginate(summaries, page, pageSize), nil
 }
 
 // FetchEmail retrieves the full content of a single email by its UID.
+// Returns cached data if available.
 func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint32) (*EmailDetail, error) {
+	// Try cache first
+	cached, err := s.db.LoadEmailBody(account.ID, folder, uid)
+	if err == nil && cached != nil {
+		return cached, nil
+	}
+
+	return s.RefreshEmailBody(account, folder, uid)
+}
+
+// RefreshEmailBody fetches the full email content from the IMAP server and
+// updates the cache.
+func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid uint32) (*EmailDetail, error) {
 	client, err := dialIMAP(account, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
@@ -263,7 +322,31 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 		}
 	}
 
+	// Update cache (best-effort)
+	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
+		fmt.Printf("failed to cache email body: %v\n", err)
+	}
+
 	return detail, nil
+}
+
+// paginate returns a slice of email summaries for the given page.
+func (s *EmailService) paginate(summaries []EmailSummary, page, pageSize int) []EmailSummary {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	start := (page - 1) * pageSize
+	if start >= len(summaries) {
+		return []EmailSummary{}
+	}
+	end := start + pageSize
+	if end > len(summaries) {
+		end = len(summaries)
+	}
+	return summaries[start:end]
 }
 
 // dialIMAP connects to the IMAP server with the given timeout for the entire

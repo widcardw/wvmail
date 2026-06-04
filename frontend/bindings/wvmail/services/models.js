@@ -29,6 +29,13 @@ export class AppConfig {
              */
             this["Theme"] = "";
         }
+        if (!("DatabasePath" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["DatabasePath"] = "";
+        }
         if (!("LLMConfigs" in $$source)) {
             /**
              * @member
@@ -53,14 +60,14 @@ export class AppConfig {
      * @returns {AppConfig}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType1;
-        const $$createField3_0 = $$createType3;
+        const $$createField3_0 = $$createType1;
+        const $$createField4_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("LLMConfigs" in $$parsedSource) {
-            $$parsedSource["LLMConfigs"] = $$createField2_0($$parsedSource["LLMConfigs"]);
+            $$parsedSource["LLMConfigs"] = $$createField3_0($$parsedSource["LLMConfigs"]);
         }
         if ("EmailAccounts" in $$parsedSource) {
-            $$parsedSource["EmailAccounts"] = $$createField3_0($$parsedSource["EmailAccounts"]);
+            $$parsedSource["EmailAccounts"] = $$createField4_0($$parsedSource["EmailAccounts"]);
         }
         return new AppConfig(/** @type {Partial<AppConfig>} */($$parsedSource));
     }

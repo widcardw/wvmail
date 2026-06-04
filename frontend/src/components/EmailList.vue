@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NList, NListItem, NEmpty, NSpin, NScrollbar, NThing } from 'naive-ui'
+import { NList, NListItem, NEmpty, NSpin, NThing, NScrollbar } from 'naive-ui'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { computed } from 'vue'
@@ -9,6 +9,7 @@ const accountsStore = useAccountsStore()
 
 const loading = computed(() => accountsStore.emailsByFolder === undefined)
 const emails = computed(() => accountsStore.currentEmails)
+const selectedUid = computed(() => accountsStore.selectedEmailUid)
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
@@ -25,6 +26,13 @@ function truncateSubject(subject: string, maxLen = 60): string {
   if (!subject) return '(No Subject)'
   return subject.length > maxLen ? subject.slice(0, maxLen) + '…' : subject
 }
+
+function handleClick(email: { uid: number }) {
+  const account = accountsStore.selectedAccount
+  if (account && accountsStore.selectedFolder) {
+    accountsStore.selectEmail(account, accountsStore.selectedFolder, email.uid)
+  }
+}
 </script>
 
 <template>
@@ -33,8 +41,8 @@ function truncateSubject(subject: string, maxLen = 60): string {
       <span class="folder-label">{{ accountsStore.selectedFolder }}</span>
     </div>
 
-    <NSpin :show="loading">
-      <NScrollbar style="max-height: calc(100vh - 100px)">
+    <NScrollbar style="height: 100%;">
+      <NSpin :show="loading">
         <NEmpty
           v-if="!loading && emails.length === 0"
           :description="t['mail.noEmails']"
@@ -46,7 +54,8 @@ function truncateSubject(subject: string, maxLen = 60): string {
             v-for="email in emails"
             :key="email.uid"
             class="email-item"
-            :class="{ unread: !email.is_read }"
+            :class="{ unread: !email.is_read, selected: selectedUid === email.uid }"
+            @click="handleClick(email)"
           >
             <NThing>
               <template #avatar>
@@ -68,8 +77,8 @@ function truncateSubject(subject: string, maxLen = 60): string {
             </NThing>
           </NListItem>
         </NList>
-      </NScrollbar>
-    </NSpin>
+      </NSpin>
+    </NScrollbar>
   </div>
 </template>
 
@@ -78,13 +87,15 @@ function truncateSubject(subject: string, maxLen = 60): string {
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .list-header {
-  /*padding: 8px 16px;*/
+  flex-shrink: 0;
   font-size: 13px;
   font-weight: 600;
   opacity: 0.7;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--n-border-color);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -93,10 +104,15 @@ function truncateSubject(subject: string, maxLen = 60): string {
 .email-item {
   cursor: pointer;
   transition: background-color 0.15s;
+  padding-left: 12px;
 }
 
 .email-item:hover {
   background-color: var(--n-action-color);
+}
+
+.email-item.selected {
+  background-color: var(--n-primary-color-hover);
 }
 
 .email-item.unread .email-from {

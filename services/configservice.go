@@ -21,6 +21,7 @@ import (
 type AppConfig struct {
 	Language      string          `yaml:"language"`
 	Theme         string          `yaml:"theme"`
+	DatabasePath  string          `yaml:"database_path,omitempty"`
 	LLMConfigs    []LLMConfig     `yaml:"llm_configs,omitempty"`
 	EmailAccounts []EmailAccount  `yaml:"email_accounts,omitempty"`
 }
@@ -161,6 +162,7 @@ func defaultConfig() AppConfig {
 	return AppConfig{
 		Language:      "en-US",
 		Theme:         "System",
+		DatabasePath:  "",
 		LLMConfigs:    []LLMConfig{},
 		EmailAccounts: []EmailAccount{},
 	}

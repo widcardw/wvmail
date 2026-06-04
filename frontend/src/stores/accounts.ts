@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { EmailAccount, FolderInfo, EmailSummary } from '../types/email'
+import type { EmailAccount, FolderInfo, EmailSummary, EmailDetail } from '../types/email'
 import { ConfigService, EmailService } from '../../bindings/wvmail/services'
 
 export const useAccountsStore = defineStore('accounts', () => {
@@ -11,6 +11,11 @@ export const useAccountsStore = defineStore('accounts', () => {
   const emailsByFolder = ref<Record<string, EmailSummary[]>>({})
   const selectedAccountId = ref<string | null>(null)
   const selectedFolder = ref<string | null>(null)
+
+  // Email detail state
+  const selectedEmailUid = ref<number | null>(null)
+  const selectedEmailDetail = ref<EmailDetail | null>(null)
+  const loadingDetail = ref(false)
 
   const selectedAccount = computed(() => {
     if (!selectedAccountId.value) return null
@@ -52,6 +57,8 @@ export const useAccountsStore = defineStore('accounts', () => {
       if (selectedAccountId.value === id) {
         selectedAccountId.value = null
         selectedFolder.value = null
+        selectedEmailUid.value = null
+        selectedEmailDetail.value = null
       }
       delete foldersByAccount.value[id]
       await loadAccounts()
@@ -104,9 +111,25 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  async function selectEmail(account: EmailAccount, folder: string, uid: number) {
+    selectedEmailUid.value = uid
+    selectedEmailDetail.value = null
+    loadingDetail.value = true
+    try {
+      const detail = await EmailService.FetchEmail(account, folder, uid)
+      selectedEmailDetail.value = detail
+    } catch (e) {
+      console.error('Failed to fetch email detail', e)
+    } finally {
+      loadingDetail.value = false
+    }
+  }
+
   function selectAccount(id: string) {
     selectedAccountId.value = id
     selectedFolder.value = null
+    selectedEmailUid.value = null
+    selectedEmailDetail.value = null
     const account = accounts.value.find(a => a.ID === id)
     if (account && !foldersByAccount.value[id]) {
       loadFolders(account)
@@ -116,6 +139,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   function selectFolder(accountId: string, folderName: string) {
     selectedAccountId.value = accountId
     selectedFolder.value = folderName
+    selectedEmailUid.value = null
+    selectedEmailDetail.value = null
     const account = accounts.value.find(a => a.ID === accountId)
     if (account) {
       loadEmails(account, folderName)
@@ -130,6 +155,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     emailsByFolder,
     selectedAccountId,
     selectedFolder,
+    selectedEmailUid,
+    selectedEmailDetail,
+    loadingDetail,
     selectedAccount,
     currentFolders,
     currentEmails,
@@ -140,6 +168,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     testConnection,
     loadFolders,
     loadEmails,
+    selectEmail,
     selectAccount,
     selectFolder,
   }

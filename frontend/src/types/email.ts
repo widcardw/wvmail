@@ -118,36 +118,114 @@ export function detectProvider(email: string): EmailProvider {
 }
 
 /**
- * Standard IMAP folder name mapping to emoji icon + user-friendly name.
- * Matches common English names and Gmail's bracketed names.
+ * Canonical folder categories with sort order.
+ * Lower rank = appears first in the sidebar.
  */
-const FOLDER_ICON_MAP: Array<{ patterns: string[]; icon: string; labelKey?: string }> = [
-  { patterns: ['inbox'], icon: '📥' },
-  { patterns: ['sent', 'sent mail', 'sent messages', '已发送', '[gmail]/sent mail'], icon: '📤' },
-  { patterns: ['drafts', '草稿', '[gmail]/drafts'], icon: '📝' },
-  { patterns: ['trash', 'deleted', 'deleted messages', 'bin', '垃圾箱', '已删除', '[gmail]/trash', '[gmail]/bin'], icon: '🗑' },
-  { patterns: ['spam', 'junk', '垃圾邮件', '[gmail]/spam'], icon: '⚠️' },
-  { patterns: ['archive', 'all mail', '归档', '全部邮件', '[gmail]/all mail', '[gmail]/archive'], icon: '📦' },
-  { patterns: ['starred', 'flagged', '已加星标', '[gmail]/starred'], icon: '⭐' },
-  { patterns: ['important', '重要', '[gmail]/important'], icon: '🔔' },
+export interface FolderCategory {
+  icon: string
+  /** Canonical display name in Chinese (used when locale is zh-CN) */
+  labelCn: string
+  /** Canonical display name in English */
+  labelEn: string
+  /** Sort rank: 0=Inbox, 1=Sent, 2=Drafts, 3=Trash, 4=Spam, 99=other */
+  rank: number
+}
+
+const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }> = [
+  {
+    patterns: ['inbox'],
+    category: { icon: 'ri:inbox-2-fill', labelCn: '收件箱', labelEn: 'Inbox', rank: 0 },
+  },
+  {
+    patterns: [
+      'sent', 'sent mail', 'sent messages', 'sent items',
+      '已发送', '已发送邮件',
+      '[gmail]/sent mail',
+    ],
+    category: { icon: 'ri:send-plane-fill', labelCn: '发件箱', labelEn: 'Sent', rank: 1 },
+  },
+  {
+    patterns: [
+      'drafts', '草稿', '草稿箱',
+      '[gmail]/drafts',
+    ],
+    category: { icon: 'ri:draft-fill', labelCn: '草稿', labelEn: 'Drafts', rank: 2 },
+  },
+  {
+    patterns: [
+      'trash', 'bin', 'deleted', 'deleted items', 'deleted messages',
+      '已删除', '垃圾箱',
+      '[gmail]/trash', '[gmail]/bin',
+    ],
+    category: { icon: 'ri:delete-bin-5-fill', labelCn: '已删除', labelEn: 'Trash', rank: 3 },
+  },
+  {
+    patterns: [
+      'spam', 'junk', 'spam folder', 'junk mail', 'junk folder',
+      '垃圾邮件',
+      '[gmail]/spam',
+    ],
+    category: { icon: 'ri:spam-2-fill', labelCn: '垃圾邮件', labelEn: 'Spam', rank: 4 },
+  },
+  {
+    patterns: [
+      'archive', 'all mail', 'allmail',
+      '归档', '全部邮件',
+      '[gmail]/all mail', '[gmail]/archive',
+    ],
+    category: { icon: 'ri:archive-2-fill', labelCn: '归档', labelEn: 'Archive', rank: 5 },
+  },
+  {
+    patterns: [
+      'starred', 'flagged', 'star',
+      '已加星标', '星标邮件',
+      '[gmail]/starred',
+    ],
+    category: { icon: 'ri:star-fill', labelCn: '星标邮件', labelEn: 'Starred', rank: 6 },
+  },
+  {
+    patterns: [
+      'important',
+      '重要', '重要邮件',
+      '[gmail]/important',
+    ],
+    category: { icon: 'ri:notification-3-fill', labelCn: '重要邮件', labelEn: 'Important', rank: 7 },
+  },
 ]
 
 /**
- * Returns emoji icon + user-friendly name for an IMAP folder.
- * Falls back to a generic folder icon and the original name.
+ * Returns sorted display info for an IMAP folder.
+ * - `icon`: emoji icon
+ * - `label`: user-friendly name (strips Gmail-style "[Gmail]/" prefix)
+ * - `rank`: sort priority (lower = earlier)
  */
-export function getFolderDisplay(folderName: string): { icon: string; label: string } {
+export function getFolderDisplay(folderName: string, locale: 'zh-CN' | 'en-US' = 'en-US'): {
+  icon: string
+  label: string
+  rank: number
+} {
   const lower = folderName.toLowerCase().trim()
-  for (const entry of FOLDER_ICON_MAP) {
+  for (const entry of FOLDER_CATEGORIES) {
     for (const pattern of entry.patterns) {
       if (lower === pattern || lower.endsWith('/' + pattern)) {
-        // Strip Gmail-style prefix for display: "[Gmail]/Sent Mail" → "Sent Mail"
         const displayName = folderName.replace(/^\[.*?\]\//, '')
-        return { icon: entry.icon, label: displayName }
+        const label = locale === 'zh-CN' ? entry.category.labelCn : entry.category.labelEn
+        return { icon: entry.category.icon, label, rank: entry.category.rank }
       }
     }
   }
-  // No match — use generic icon
+  // No match — generic folder, highest rank so it sorts last
   const displayName = folderName.replace(/^\[.*?\]\//, '')
-  return { icon: '📁', label: displayName }
+  return { icon: 'ri:folder-2-fill', label: displayName, rank: 99 }
+}
+
+/**
+ * Sort comparator for FolderInfo: standard folders first (by rank), then
+ * the rest alphabetically.
+ */
+export function compareFolders(a: FolderInfo, b: FolderInfo, locale: 'zh-CN' | 'en-US' = 'en-US'): number {
+  const da = getFolderDisplay(a.name, locale)
+  const db = getFolderDisplay(b.name, locale)
+  if (da.rank !== db.rank) return da.rank - db.rank
+  return da.label.localeCompare(db.label)
 }

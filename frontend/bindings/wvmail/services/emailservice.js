@@ -18,6 +18,7 @@ import * as $models from "./models.js";
 
 /**
  * FetchEmail retrieves the full content of a single email by its UID.
+ * Returns cached data if available.
  * @param {$models.EmailAccount} account
  * @param {string} folder
  * @param {number} uid
@@ -31,6 +32,7 @@ export function FetchEmail(account, folder, uid) {
 
 /**
  * ListEmails retrieves a page of email summaries from the specified folder.
+ * Returns cached data if available.
  * @param {$models.EmailAccount} account
  * @param {string} folder
  * @param {number} page
@@ -45,11 +47,52 @@ export function ListEmails(account, folder, page, pageSize) {
 
 /**
  * ListFolders retrieves all available IMAP mailboxes/folders.
+ * Returns cached data if available and no force refresh requested.
  * @param {$models.EmailAccount} account
  * @returns {$CancellablePromise<$models.FolderInfo[]>}
  */
 export function ListFolders(account) {
     return $Call.ByID(3573339490, account).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
+ * RefreshEmailBody fetches the full email content from the IMAP server and
+ * updates the cache.
+ * @param {$models.EmailAccount} account
+ * @param {string} folder
+ * @param {number} uid
+ * @returns {$CancellablePromise<$models.EmailDetail | null>}
+ */
+export function RefreshEmailBody(account, folder, uid) {
+    return $Call.ByID(3272503844, account, folder, uid).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
+ * RefreshEmails fetches email summaries from the IMAP server and updates the
+ * cache.
+ * @param {$models.EmailAccount} account
+ * @param {string} folder
+ * @param {number} page
+ * @param {number} pageSize
+ * @returns {$CancellablePromise<$models.EmailSummary[]>}
+ */
+export function RefreshEmails(account, folder, page, pageSize) {
+    return $Call.ByID(2490557265, account, folder, page, pageSize).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType3($result);
+    }));
+}
+
+/**
+ * RefreshFolders fetches folders from the IMAP server and updates the cache.
+ * @param {$models.EmailAccount} account
+ * @returns {$CancellablePromise<$models.FolderInfo[]>}
+ */
+export function RefreshFolders(account) {
+    return $Call.ByID(2338942021, account).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }

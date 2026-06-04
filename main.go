@@ -43,7 +43,7 @@ func main() {
 			application.NewService(&services.OsService{}),
 			application.NewService(&services.GreetService{}),
 			application.NewService(&services.ConfigService{}),
-			application.NewService(&services.EmailService{}),
+			application.NewService(services.NewEmailService()),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
