@@ -39,7 +39,7 @@ onMounted(async () => {
             <TitleBar v-model:collapsed="collapsed" />
           </NLayoutHeader>
           <NLayout has-sider class="n-full">
-            <NLayoutSider bordered :collapsed="collapsed" collapse-mode="width">
+            <NLayoutSider bordered :collapsed="collapsed" collapse-mode="width" width="180">
               <SideBar />
             </NLayoutSider>
             <NLayoutContent>

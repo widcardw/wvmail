@@ -498,6 +498,65 @@ export class LLMConfig {
     }
 }
 
+/**
+ * Note represents a single rich-text note exposed to the frontend.
+ */
+export class Note {
+    /**
+     * Creates a new Note instance.
+     * @param {Partial<Note>} [$$source = {}] - The source object to create the Note.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("title" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["title"] = "";
+        }
+        if (!("content" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["content"] = "";
+        }
+        if (!("created_at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["created_at"] = 0;
+        }
+        if (!("updated_at" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["updated_at"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Note instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {Note}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Note(/** @type {Partial<Note>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
 const $$createType0 = LLMConfig.createFrom;
 const $$createType1 = $Create.Array($$createType0);

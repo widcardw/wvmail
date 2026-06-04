@@ -62,3 +62,11 @@ func (o *OsService) PathStat(path string) string {
 		return err.Error()
 	}
 }
+
+func (o *OsService) OpenURL(url string) error {
+	if url == "" {
+		return fmt.Errorf("url is empty")
+	}
+	app := application.Get()
+	return app.Browser.OpenURL(url)
+}

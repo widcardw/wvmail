@@ -53,6 +53,15 @@ type CachedEmailBody struct {
 	Flags     string `gorm:"size:512"` // JSON serialized []string
 }
 
+// CachedNote represents a persisted note with rich text content.
+type CachedNote struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Title     string `gorm:"size:255"`
+	Content   string `gorm:"type:text"`
+	CreatedAt int64  `gorm:"autoCreateTime"`
+	UpdatedAt int64  `gorm:"autoUpdateTime"`
+}
+
 // DBManager provides a lazily-initialized GORM database connection for
 // caching IMAP data locally.
 type DBManager struct {
@@ -99,7 +108,7 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}); err != nil {
+	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
@@ -306,4 +315,48 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 		BodyHTML: cached.BodyHTML,
 		Flags:    flags,
 	}, nil
+}
+
+// SaveNote creates or updates a note.
+func (m *DBManager) SaveNote(note *CachedNote) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Save(note).Error
+}
+
+// LoadNotes retrieves all notes ordered by updated_at descending.
+func (m *DBManager) LoadNotes() ([]CachedNote, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+	var notes []CachedNote
+	if err := db.Order("updated_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+// LoadNote retrieves a single note by ID.
+func (m *DBManager) LoadNote(id string) (*CachedNote, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+	var note CachedNote
+	if err := db.Where("id = ?", id).First(&note).Error; err != nil {
+		return nil, err
+	}
+	return &note, nil
+}
+
+// DeleteNote removes a note by ID.
+func (m *DBManager) DeleteNote(id string) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Where("id = ?", id).Delete(&CachedNote{}).Error
 }

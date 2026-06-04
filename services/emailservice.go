@@ -151,7 +151,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
 	mbox, err := selectCmd.Wait()
 	if err != nil {
-		return nil, fmt.Errorf("select failed: %w", err)
+		return nil, wrapIMAPError("select folder failed", err)
 	}
 
 	if mbox.NumMessages == 0 {
@@ -273,7 +273,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
 	_, err = selectCmd.Wait()
 	if err != nil {
-		return nil, fmt.Errorf("select failed: %w", err)
+		return nil, wrapIMAPError("select folder failed", err)
 	}
 
 	// Build the UID set
@@ -546,11 +546,32 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 	case res := <-done:
 		if res.err != nil {
 			client.Close()
-			return nil, fmt.Errorf("login failed: %w", res.err)
+			return nil, wrapIMAPError("login failed", res.err)
+		}
+		// Send CAPABILITY after login — some servers (e.g., 163) require this
+		// handshake before they'll allow SELECT/EXAMINE.
+		if capCmd := client.Capability(); capCmd != nil {
+			_, capErr := capCmd.Wait()
+			if capErr != nil {
+				client.Close()
+				return nil, fmt.Errorf("capability failed: %w", capErr)
+			}
 		}
 		return client, nil
 	case <-time.After(timeout):
 		client.Close()
 		return nil, fmt.Errorf("login timed out after %v", timeout)
 	}
+}
+
+// wrapIMAPError wraps common IMAP errors with user-friendly context.
+func wrapIMAPError(context string, err error) error {
+	msg := err.Error()
+	if strings.Contains(msg, "Unsafe Login") {
+		return fmt.Errorf("%s: %w\n\nThis server rejected the connection as unsafe. This may happen with 163/126 mail even when using the correct authorization code. Try: (1) ensure IMAP/SMTP service is enabled in webmail settings, (2) generate a fresh authorization code, (3) contacting customer service (kefu@188.com).", context, err)
+	}
+	if strings.Contains(msg, "authentication failed") || strings.Contains(msg, "login failed") || strings.Contains(msg, "LOGIN failed") || strings.Contains(msg, "Authentication failed") {
+		return fmt.Errorf("%s: %w\n\nHint: Check your username/password. Some providers (163, QQ) require an authorization code (授权码) instead of your login password.", context, err)
+	}
+	return fmt.Errorf("%s: %w", context, err)
 }

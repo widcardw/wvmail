@@ -27,6 +27,13 @@ function truncateSubject(subject: string, maxLen = 60): string {
   return subject.length > maxLen ? subject.slice(0, maxLen) + '…' : subject
 }
 
+function displaySender(email: { from_name?: string; from_addr?: string; from?: string }): string {
+  if (email.from_name) return email.from_name
+  if (email.from_addr) return email.from_addr.split('@')[0]
+  if (email.from) return email.from
+  return 'Unknown'
+}
+
 function handleClick(email: { uid: number }) {
   const account = accountsStore.selectedAccount
   if (account && accountsStore.selectedFolder) {
@@ -58,12 +65,10 @@ function handleClick(email: { uid: number }) {
             @click="handleClick(email)"
           >
             <div class="email-row">
-              <div class="email-avatar">
-                {{ (email.from_name || email.from_addr || email.from || '?').charAt(0).toUpperCase() }}
-              </div>
+              <div class="unread-marker" :class="{ visible: !email.is_read }"></div>
               <div class="email-body">
                 <div class="email-header">
-                  <span class="email-from">{{ email.from_name || email.from_addr || email.from || 'Unknown' }}</span>
+                  <span class="email-from">{{ displaySender(email) }}</span>
                   <span class="email-date">{{ formatDate(email.date) }}</span>
                 </div>
                 <div class="email-subject">{{ truncateSubject(email.subject) }}</div>
@@ -107,15 +112,30 @@ function handleClick(email: { uid: number }) {
 }
 
 .email-item.selected {
-  background-color: var(--n-primary-color-hover);
+  background-color: var(--primary-color-hover);
 }
 
 .email-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 5px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  padding-right: 8px;
   overflow: hidden;
+}
+
+.unread-marker {
+  width: 3px;
+  height: 24px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: transparent;
+  transition: background-color 0.15s;
+}
+
+.unread-marker.visible {
+  background: var(--primary-color);
 }
 
 .email-body {
@@ -166,17 +186,7 @@ function handleClick(email: { uid: number }) {
   font-weight: 600;
 }
 
-.email-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 13px;
-  color: #fff;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  flex-shrink: 0;
+.email-item:not(.unread) .email-from {
+  opacity: 0.85;
 }
 </style>

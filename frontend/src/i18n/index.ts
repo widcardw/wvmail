@@ -11,6 +11,16 @@ export interface TranslationSchema {
   'mail.selectFolder': string
   'mail.loading': string
   'mail.noEmails': string
+  'mail.link.title': string
+  'mail.link.body': string
+  'mail.link.open': string
+  'notes.title': string
+  'notes.empty': string
+  'notes.placeholder': string
+  'notes.search': string
+  'notes.new': string
+  'notes.delete': string
+  'notes.untitled': string
   'reminders.title': string
   'reminders.empty': string
   'settings.common': string
@@ -39,11 +49,13 @@ export interface TranslationSchema {
   'settings.accounts.test_success': string
   'settings.accounts.test_fail': string
   'settings.accounts.delete': string
+  'settings.accounts.deleted': string
   'settings.accounts.delete_confirm': string
   'settings.accounts.empty': string
   'settings.accounts.save': string
   'settings.accounts.cancel': string
   'settings.accounts.provider_detected': string
+  'settings.accounts.auth_code_hint': string
   'settings.about': string
   'settings.llm': string
   'settings.llm.title': string
@@ -68,6 +80,7 @@ export interface TranslationSchema {
   'demo.greet': string
   'demo.learnMore': string
   'demo.listening': string
+  'cancel': string
 }
 
 export function useI18n() {

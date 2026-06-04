@@ -44,6 +44,7 @@ func main() {
 			application.NewService(&services.GreetService{}),
 			application.NewService(&services.ConfigService{}),
 			application.NewService(services.NewEmailService()),
+			application.NewService(services.NewNotesService()),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -30,6 +30,14 @@ export function OpenFolder(path) {
 }
 
 /**
+ * @param {string} url
+ * @returns {$CancellablePromise<void>}
+ */
+export function OpenURL(url) {
+    return $Call.ByID(2796416888, url);
+}
+
+/**
  * @param {string} path
  * @returns {$CancellablePromise<string>}
  */

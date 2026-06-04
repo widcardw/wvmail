@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { NSpin, NEmpty, NScrollbar, NAlert, NButton, NIcon } from 'naive-ui'
+import { NSpin, NEmpty, NScrollbar, NAlert, NButton, NIcon, useDialog } from 'naive-ui'
 import { Icon } from '@iconify/vue'
+import { OsService } from '../../bindings/wvmail/services'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
-import { computed } from 'vue'
+import { useThemeStore } from '../stores/theme'
+import { computed, h } from 'vue'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
+const themeStore = useThemeStore()
+const dialog = useDialog()
+
+const isDarkMode = computed(() => themeStore.naiveTheme !== null)
 
 const detail = computed(() => accountsStore.selectedEmailDetail)
 const loading = computed(() => accountsStore.loadingDetail)
@@ -70,6 +76,46 @@ function sanitizeHtml(html: string): string {
   clean = clean.replace(/(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi, '')
   clean = clean.replace(/(?:href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi, '')
   return clean
+}
+
+function handleLinkClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  // Walk up to find the anchor element
+  let el: HTMLElement | null = target
+  while (el && el.tagName !== 'A') {
+    el = el.parentElement
+  }
+  if (!el || !(el instanceof HTMLAnchorElement)) return
+
+  const href = el.getAttribute('href')
+  if (!href) return
+
+  // Ignore mailto: links (handled by system)
+  if (href.startsWith('mailto:')) return
+
+  // Ignore anchor-only links
+  if (href.startsWith('#') && !href.startsWith('http')) return
+
+  event.preventDefault()
+
+  const url = href.startsWith('http') ? href : el.href
+
+  dialog.warning({
+    title: t.value['mail.link.title'],
+    content: () => h('div', [
+      h('p', { style: 'margin-bottom: 8px; opacity: 0.8' }, t.value['mail.link.body']),
+      h('p', { style: 'word-break: break-all; font-size: 13px; background: var(--n-action-color); padding: 8px; border-radius: 4px;' }, url),
+    ]),
+    positiveText: t.value['mail.link.open'],
+    negativeText: t.value['cancel'],
+    onPositiveClick: async () => {
+      try {
+        await OsService.OpenURL(url)
+      } catch (e) {
+        console.error('Failed to open URL', e)
+      }
+    },
+  })
 }
 </script>
 
@@ -136,7 +182,7 @@ function sanitizeHtml(html: string): string {
           </div>
 
           <div class="detail-body">
-            <div v-if="detail.body_html" class="body-html" v-html="sanitizeHtml(detail.body_html)" />
+            <div v-if="detail.body_html" class="body-html" :class="{ 'body-html-dark': isDarkMode }" v-html="sanitizeHtml(detail.body_html)" @click="handleLinkClick" />
             <div v-else-if="detail.body_text" class="body-text">{{ detail.body_text }}</div>
             <div v-else class="body-empty" style="opacity: 0.4; text-align: center; padding: 2rem">
               (No content)
@@ -232,12 +278,12 @@ function sanitizeHtml(html: string): string {
   padding: 20px 24px;
   line-height: 1.6;
   font-size: 14px;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
 .body-text {
   font-family: inherit;
+  white-space: pre-wrap;
 }
 </style>
 
@@ -245,7 +291,59 @@ function sanitizeHtml(html: string): string {
 /* Global styles for v-html rendered email body */
 .body-html {
   line-height: 1.6;
+  font-size: 14px;
   word-break: break-word;
+  color-scheme: light dark;
+}
+
+/* Force backgrounds transparent — !important needed because most email HTML
+   has hardcoded white backgrounds that would ruin dark mode. Only in dark mode. */
+.body-html-dark * {
+  background-color: transparent !important;
+  border-color: rgba(128, 128, 128, 0.25) !important;
+}
+
+/* Let common text elements inherit the app's text color, so in dark mode
+   they're not black-on-dark. Elements with inline style="color: ..." keep
+   their original color (inline > class). */
+.body-html-dark :where(p, div, span, li, td, th,
+                  h1, h2, h3, h4, h5, h6,
+                  blockquote, pre, section, article,
+                  ul, ol, dl) {
+  color: inherit !important;
+}
+
+/* Links: plain <a> tags without inline color get bright blue in dark mode.
+   But <a class="btn" style="color:white"> keep their inline style. */
+.body-html-dark a:not([style*="color"]) {
+  color: #66b0ff;
+  text-decoration: underline;
+}
+
+/* Restore spacing */
+.body-html p,
+.body-html div,
+.body-html h1,
+.body-html h2,
+.body-html h3,
+.body-html h4,
+.body-html h5,
+.body-html h6 {
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+.body-html h1 { font-size: 22px; }
+.body-html h2 { font-size: 18px; }
+
+.body-html ul,
+.body-html ol {
+  margin: 4px 0;
+  padding-left: 24px;
+}
+
+.body-html li {
+  margin-bottom: 2px;
 }
 
 .body-html img {
@@ -253,15 +351,11 @@ function sanitizeHtml(html: string): string {
   height: auto;
 }
 
-.body-html a {
-  color: var(--n-primary-color);
-}
-
 .body-html blockquote {
   margin: 8px 0;
   padding: 0 0 0 12px;
   border-left: 3px solid var(--n-border-color);
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .body-html pre {
@@ -269,11 +363,13 @@ function sanitizeHtml(html: string): string {
   background: var(--n-action-color);
   padding: 12px;
   border-radius: 4px;
+  margin: 8px 0;
 }
 
 .body-html table {
   max-width: 100%;
   overflow-x: auto;
   display: block;
+  margin: 8px 0;
 }
 </style>

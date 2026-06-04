@@ -5,11 +5,13 @@
 import * as ConfigService from "./configservice.js";
 import * as EmailService from "./emailservice.js";
 import * as GreetService from "./greetservice.js";
+import * as NotesService from "./notesservice.js";
 import * as OsService from "./osservice.js";
 export {
     ConfigService,
     EmailService,
     GreetService,
+    NotesService,
     OsService
 };
 
@@ -19,5 +21,6 @@ export {
     EmailDetail,
     EmailSummary,
     FolderInfo,
-    LLMConfig
+    LLMConfig,
+    Note
 } from "./models.js";

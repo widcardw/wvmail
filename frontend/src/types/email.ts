@@ -104,7 +104,7 @@ export const EMAIL_PROVIDER_DEFAULTS: Record<EmailProvider, ProviderDefaults> = 
 export const EMAIL_PROVIDER_LABELS: Record<EmailProvider, string> = {
   gmail: 'Gmail',
   outlook: 'Outlook / Hotmail',
-  '163': '163 邮箱',
+  '163': '⚠️ 163 邮箱 (可能不兼容)',
   qq: 'QQ 邮箱',
   custom: '自定义',
 }
