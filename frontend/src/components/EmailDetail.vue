@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { NSpin, NEmpty, NScrollbar, NAlert } from 'naive-ui'
+import { NSpin, NEmpty, NScrollbar, NAlert, NButton, NIcon } from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { computed } from 'vue'
@@ -49,6 +50,27 @@ function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: 
   }
   return { name: null, addr: null, fallback: 'Unknown' }
 }
+
+async function handleRefresh() {
+  const account = accountsStore.selectedAccount
+  if (account && accountsStore.selectedFolder && accountsStore.selectedEmailUid) {
+    await accountsStore.refreshEmailBody(account, accountsStore.selectedFolder, accountsStore.selectedEmailUid)
+  }
+}
+
+/** Basic HTML sanitizer for email body rendering.
+ *  Strips dangerous tags and event handler attributes. */
+function sanitizeHtml(html: string): string {
+  // Remove dangerous tags
+  const dangerous = /<\s*\b(script|iframe|object|embed|frame|form|input|style)\b[^>]*>.*?<\/\s*\1\s*>|<(script|iframe|object|embed|frame|form|input|style)\b[^>]*\/?\s*>/gis
+  let clean = html.replace(dangerous, '')
+  // Remove on* event handlers
+  clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+  // Remove javascript: and data: URIs in href/src
+  clean = clean.replace(/(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi, '')
+  clean = clean.replace(/(?:href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi, '')
+  return clean
+}
 </script>
 
 <template>
@@ -74,16 +96,29 @@ function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: 
 
         <template v-if="detail">
           <div class="detail-header">
-            <div class="detail-avatar-row">
-              <div class="detail-avatar">{{ getInitials(detail.from_name, detail.from_addr) }}</div>
-              <div class="detail-sender-info">
-                <span class="detail-from" v-if="senderDisplay(detail).name">
-                  <strong>{{ senderDisplay(detail).name }}</strong>
-                  <span class="detail-email">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
-                </span>
-                <span class="detail-from" v-else>{{ senderDisplay(detail).fallback }}</span>
-                <span class="detail-date">{{ formatDate(detail.date) }}</span>
+            <div style="display: flex; align-items: flex-start;">
+              <div class="detail-avatar-row">
+                <div class="detail-avatar">{{ getInitials(detail.from_name, detail.from_addr) }}</div>
+                <div class="detail-sender-info">
+                  <span class="detail-from" v-if="senderDisplay(detail).name">
+                    <strong>{{ senderDisplay(detail).name }}</strong>
+                    <span class="detail-email">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
+                  </span>
+                  <span class="detail-from" v-else>{{ senderDisplay(detail).fallback }}</span>
+                  <span class="detail-date">{{ formatDate(detail.date) }}</span>
+                </div>
               </div>
+              <NButton
+                size="tiny"
+                quaternary
+                :loading="loading"
+                style="margin-left: auto; flex-shrink: 0;"
+                @click="handleRefresh"
+              >
+                <template #icon>
+                  <NIcon><Icon icon="ri:refresh-line" /></NIcon>
+                </template>
+              </NButton>
             </div>
 
             <h2 class="detail-subject">{{ detail.subject || '(No Subject)' }}</h2>
@@ -101,8 +136,8 @@ function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: 
           </div>
 
           <div class="detail-body">
-            <div v-if="detail.body_text" class="body-text">{{ detail.body_text }}</div>
-            <div v-else-if="detail.body_html" class="body-html" v-html="detail.body_html" />
+            <div v-if="detail.body_html" class="body-html" v-html="sanitizeHtml(detail.body_html)" />
+            <div v-else-if="detail.body_text" class="body-text">{{ detail.body_text }}</div>
             <div v-else class="body-empty" style="opacity: 0.4; text-align: center; padding: 2rem">
               (No content)
             </div>
@@ -203,5 +238,42 @@ function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: 
 
 .body-text {
   font-family: inherit;
+}
+</style>
+
+<style>
+/* Global styles for v-html rendered email body */
+.body-html {
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.body-html img {
+  max-width: 100%;
+  height: auto;
+}
+
+.body-html a {
+  color: var(--n-primary-color);
+}
+
+.body-html blockquote {
+  margin: 8px 0;
+  padding: 0 0 0 12px;
+  border-left: 3px solid var(--n-border-color);
+  opacity: 0.8;
+}
+
+.body-html pre {
+  overflow-x: auto;
+  background: var(--n-action-color);
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.body-html table {
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
 }
 </style>

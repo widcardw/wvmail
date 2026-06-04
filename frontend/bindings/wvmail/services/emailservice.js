@@ -59,7 +59,8 @@ export function ListFolders(account) {
 
 /**
  * RefreshEmailBody fetches the full email content from the IMAP server and
- * updates the cache.
+ * updates the cache. It first fetches the body structure (MIME tree) to
+ * discover text/plain and text/html part paths, then fetches those sections.
  * @param {$models.EmailAccount} account
  * @param {string} folder
  * @param {number} uid

@@ -2,12 +2,17 @@ package services
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
+	"io"
+	"mime/quotedprintable"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+	"github.com/emersion/go-message/charset"
 )
 
 // EmailService provides methods for connecting to IMAP/SMTP email servers
@@ -255,7 +260,8 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 }
 
 // RefreshEmailBody fetches the full email content from the IMAP server and
-// updates the cache.
+// updates the cache. It first fetches the body structure (MIME tree) to
+// discover text/plain and text/html part paths, then fetches those sections.
 func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid uint32) (*EmailDetail, error) {
 	client, err := dialIMAP(account, 60*time.Second)
 	if err != nil {
@@ -274,39 +280,30 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	var uidSet imap.UIDSet
 	uidSet.AddNum(imap.UID(uid))
 
-	// Fetch envelope and body section (text and HTML)
-	fetchCmd := client.Fetch(uidSet, &imap.FetchOptions{
-		Envelope: true,
-		Flags:    true,
-		UID:      true,
-		BodySection: []*imap.FetchItemBodySection{
-			{Peek: true},                              // full body
-			{Specifier: imap.PartSpecifierText, Peek: true}, // text part
-		},
+	// --- Pass 1: Fetch BodyStructure + metadata ---
+	fetchCmd1 := client.Fetch(uidSet, &imap.FetchOptions{
+		BodyStructure: &imap.FetchItemBodyStructure{},
+		Envelope:      true,
+		Flags:         true,
+		UID:           true,
 	})
-	defer fetchCmd.Close()
+	defer fetchCmd1.Close()
 
-	buffers, err := fetchCmd.Collect()
+	bufs1, err := fetchCmd1.Collect()
 	if err != nil {
-		return nil, fmt.Errorf("fetch failed: %w", err)
+		return nil, fmt.Errorf("fetch structure failed: %w", err)
 	}
-
-	if len(buffers) == 0 {
+	if len(bufs1) == 0 {
 		return nil, fmt.Errorf("email not found: uid=%d", uid)
 	}
 
-	buf := buffers[0]
+	buf := bufs1[0]
+
 	detail := &EmailDetail{
 		UID:     uint32(buf.UID),
 		Subject: buf.Envelope.Subject,
 		Date:    buf.Envelope.Date.Format(time.RFC3339),
 		Flags:   make([]string, len(buf.Flags)),
-	}
-
-	// Decode body sections
-	bodyBytes := buf.FindBodySection(&imap.FetchItemBodySection{Peek: true})
-	if bodyBytes != nil {
-		detail.BodyText = string(bodyBytes)
 	}
 
 	// Build sender name + address from envelope
@@ -338,12 +335,148 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		}
 	}
 
+	// --- Walk body structure to find text/plain and text/html parts ---
+	var parts []bodyPartInfo
+	if buf.BodyStructure != nil {
+		buf.BodyStructure.Walk(func(path []int, part imap.BodyStructure) bool {
+			mt := part.MediaType()
+			isTarget := mt == "text/plain" || mt == "text/html"
+			if sp, ok := part.(*imap.BodyStructureSinglePart); ok && isTarget {
+				parts = append(parts, bodyPartInfo{
+					path:     path,
+					isHTML:   mt == "text/html",
+					encoding: sp.Encoding,
+					charset:  sp.Params["charset"],
+				})
+			}
+			if _, ok := part.(*imap.BodyStructureMultiPart); ok {
+				return true
+			}
+			return false
+		})
+	}
+
+	// --- Pass 2: Fetch the discovered body sections ---
+	var sections []*imap.FetchItemBodySection
+	if len(parts) == 0 {
+		sections = append(sections, &imap.FetchItemBodySection{Peek: true})
+	}
+	for _, p := range parts {
+		sections = append(sections, &imap.FetchItemBodySection{Part: p.path, Peek: true})
+	}
+
+	if len(sections) > 0 {
+		fetchCmd2 := client.Fetch(uidSet, &imap.FetchOptions{
+			BodySection: sections,
+		})
+		defer fetchCmd2.Close()
+
+		bufs2, err := fetchCmd2.Collect()
+		if err != nil {
+			return nil, fmt.Errorf("fetch body failed: %w", err)
+		}
+		if len(bufs2) > 0 {
+			buf2 := bufs2[0]
+			for _, sec := range sections {
+				raw := buf2.FindBodySection(sec)
+				if raw == nil {
+					continue
+				}
+				// Find matching part info for decoding
+				var info *bodyPartInfo
+				for i, p := range parts {
+					if sectionPathEqual(sec.Part, p.path) {
+						info = &parts[i]
+						break
+					}
+				}
+				if info != nil {
+					decoded := decodeBodyPart(raw, info.encoding, info.charset)
+					if info.isHTML {
+						detail.BodyHTML = decoded
+					} else {
+						detail.BodyText = decoded
+					}
+				} else {
+					// Fallback section (no part info) — try as plain text
+					detail.BodyText = string(raw)
+				}
+			}
+		}
+	}
+
 	// Update cache (best-effort)
 	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
 		fmt.Printf("failed to cache email body: %v\n", err)
 	}
 
 	return detail, nil
+}
+
+// bodyPartInfo captures metadata for a specific MIME part discovered during
+// body structure walk.
+type bodyPartInfo struct {
+	path     []int
+	isHTML   bool
+	encoding string
+	charset  string
+}
+
+// decodeBodyPart decodes raw IMAP body section bytes based on
+// Content-Transfer-Encoding and charset.
+func decodeBodyPart(raw []byte, enc, cs string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	// Step 1: decode Content-Transfer-Encoding
+	var decoded []byte
+	var err error
+	switch strings.ToLower(enc) {
+	case "base64":
+		decoded, err = base64.StdEncoding.DecodeString(string(raw))
+		if err != nil {
+			// Try with padded input
+			s := strings.TrimRight(string(raw), "\n\r\t ")
+			decoded, err = base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				decoded = raw
+			}
+		}
+	case "quoted-printable":
+		decoded, err = io.ReadAll(quotedprintable.NewReader(strings.NewReader(string(raw))))
+		if err != nil {
+			decoded = raw
+		}
+	default:
+		// 7bit, 8bit, binary — no decoding needed
+		decoded = raw
+	}
+
+	// Step 2: decode charset to UTF-8
+	if cs != "" && !strings.EqualFold(cs, "utf-8") && !strings.EqualFold(cs, "us-ascii") {
+		reader, err := charset.Reader(cs, strings.NewReader(string(decoded)))
+		if err == nil {
+			utf8bytes, err := io.ReadAll(reader)
+			if err == nil {
+				return string(utf8bytes)
+			}
+		}
+	}
+
+	return string(decoded)
+}
+
+// sectionPathEqual compares two IMAP part paths for equality.
+func sectionPathEqual(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // paginate returns a slice of email summaries for the given page.

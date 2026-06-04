@@ -128,6 +128,20 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  async function refreshEmailBody(account: EmailAccount, folder: string, uid: number) {
+    loadingDetail.value = true
+    detailError.value = null
+    try {
+      const detail = await EmailService.RefreshEmailBody(account, folder, uid)
+      selectedEmailDetail.value = detail
+    } catch (e) {
+      detailError.value = String(e)
+      console.error('Failed to refresh email body', e)
+    } finally {
+      loadingDetail.value = false
+    }
+  }
+
   function selectAccount(id: string) {
     selectedAccountId.value = id
     selectedFolder.value = null
@@ -173,6 +187,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     loadFolders,
     loadEmails,
     selectEmail,
+    refreshEmailBody,
     selectAccount,
     selectFolder,
   }
