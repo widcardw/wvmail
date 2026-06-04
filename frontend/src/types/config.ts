@@ -23,7 +23,7 @@ export type LLMProvider =
   | 'minimax'
   | 'kimi'
   | 'ollama'
-  | 'bytedance'
+  | 'volcengine'
   | 'custom'
 
 export const LLM_PROVIDER_DEFAULTS: Record<LLMProvider, string> = {
@@ -34,7 +34,7 @@ export const LLM_PROVIDER_DEFAULTS: Record<LLMProvider, string> = {
   minimax: 'https://api.minimax.chat',
   kimi: 'https://api.moonshot.cn',
   ollama: 'http://localhost:11434',
-  bytedance: 'https://ark.cn-beijing.volces.com/api/v3',
+  volcengine: 'https://ark.cn-beijing.volces.com/api/v3',
   custom: '',
 }
 
@@ -46,6 +46,6 @@ export const LLM_PROVIDER_LABELS: Record<LLMProvider, string> = {
   minimax: 'MiniMax',
   kimi: 'Kimi',
   ollama: 'Ollama',
-  bytedance: 'ByteDance',
+  volcengine: 'Volcengine',
   custom: 'Custom',
 }

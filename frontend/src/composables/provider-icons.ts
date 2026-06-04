@@ -7,8 +7,10 @@ import geminiIcon from '@lobehub/icons-static-avatar/avatars/gemini.webp'
 import minimaxIcon from '@lobehub/icons-static-avatar/avatars/minimax.webp'
 import kimiIcon from '@lobehub/icons-static-avatar/avatars/kimi.webp'
 import ollamaIcon from '@lobehub/icons-static-avatar/avatars/ollama.webp'
-import bytedanceIcon from '@lobehub/icons-static-avatar/avatars/bytedance.webp'
+import volcIcon from '@lobehub/icons-static-avatar/avatars/volcengine.webp'
 import { h } from 'vue'
+import { NIcon } from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import type { VNode } from 'vue'
 
 const ICON_MAP: Record<string, string> = {
@@ -19,7 +21,12 @@ const ICON_MAP: Record<string, string> = {
   minimax: minimaxIcon,
   kimi: kimiIcon,
   ollama: ollamaIcon,
-  bytedance: bytedanceIcon,
+  volcengine: volcIcon,
+}
+
+/** Iconify icons for providers without a lobehub avatar */
+const FALLBACK_ICON_MAP: Record<string, string> = {
+  custom: 'streamline-color:brain',
 }
 
 /**
@@ -30,22 +37,45 @@ export function getProviderIconUrl(provider: string): string | undefined {
 }
 
 /**
+ * Returns the icon configuration (source type + icon identifier) for a given
+ * provider, or null if no icon exists. Handles both lobehub avatars and
+ * iconify fallbacks (e.g. `custom`).
+ */
+export function getProviderIconConfig(
+  provider: string,
+): { source: 'lobehub' | 'iconify'; icon: string } | null {
+  if (ICON_MAP[provider]) {
+    return { source: 'lobehub', icon: provider }
+  }
+  if (FALLBACK_ICON_MAP[provider]) {
+    return { source: 'iconify', icon: FALLBACK_ICON_MAP[provider] }
+  }
+  return null
+}
+
+/**
  * Renders a provider avatar as a VNode (useful for NSelect render-label,
  * NTag slots, etc.).
  */
 export function renderProviderIcon(provider: string, size = 16): VNode | null {
   const src = ICON_MAP[provider]
-  if (!src) return null
-  return h('img', {
-    src,
-    width: size,
-    height: size,
-    style: {
-      verticalAlign: 'middle',
-      display: 'inline-block',
-      borderRadius: '4px',
-    },
-  })
+  if (src) {
+    return h('img', {
+      src,
+      width: size,
+      height: size,
+      style: {
+        verticalAlign: 'middle',
+        display: 'inline-block',
+        borderRadius: '4px',
+      },
+    })
+  }
+  const fallbackIcon = FALLBACK_ICON_MAP[provider]
+  if (fallbackIcon) {
+    return h(NIcon, { size }, { default: () => h(Icon, { icon: fallbackIcon }) })
+  }
+  return null
 }
 
 /**
@@ -54,13 +84,19 @@ export function renderProviderIcon(provider: string, size = 16): VNode | null {
  */
 export function renderProviderOption(provider: string, label: string, size = 16): VNode {
   const icon = renderProviderIcon(provider, size)
-  return h('span', null, [
+  return h('span', {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.25rem',
+    }
+  }, [
     icon,
     h('span', {
       style: {
         marginLeft: icon ? '6px' : '0',
         verticalAlign: 'middle',
-        borderRadius: '4px',
+        borderRadius: '0.25rem',
       },
     }, label),
   ])

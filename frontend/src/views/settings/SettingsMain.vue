@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
-import { NIcon, NLayout, NLayoutContent, NLayoutSider, NMenu, type MenuOption } from 'naive-ui'
-import { computed, h } from 'vue'
+import { NLayout, NLayoutContent, NLayoutSider, NMenu, type MenuOption } from 'naive-ui'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '../../i18n'
+import { useIconRenderer } from '../../composables/use-icon'
 const router = useRouter()
 const { t } = useI18n()
-function renderIcon(icon: string) {
-  return () => h(NIcon, null, { default: () => h(Icon, { icon }) })
-}
+const { renderIcon } = useIconRenderer()
 const settingsMenuOptions = computed(() => [
   {
     label: t.value['settings.common'],

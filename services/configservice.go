@@ -145,6 +145,12 @@ func defaultConfig() AppConfig {
 	}
 }
 
+// GetConfigDir returns the path to the application config directory.
+// This is used by the frontend to open the config folder in the file manager.
+func (s *ConfigService) GetConfigDir() (string, error) {
+	return configDir()
+}
+
 // GetConfig reads the application config from disk. If the file does not exist,
 // a default config is returned without error.
 func (s *ConfigService) GetConfig() (AppConfig, error) {

@@ -44,7 +44,7 @@ Use Naive UI components instead of raw HTML elements for all UI:
 | Menu/Sidebar | `<NMenu>` |
 | Notifications | useMessage() from `naive-ui` |
 | Dialog/Modal | useDialog() or `<NModal>` |
-| Icons | `<NIcon>` with `@vicons/*` or raw SVG |
+| Icons | `<NIcon>` with `@iconify/vue` — use `<AppIcon>` wrapper for unified icon sources |
 
 ## Component Size Variants
 
@@ -79,6 +79,43 @@ All Naive UI components ship TypeScript types. Use `GlobalTheme` type for theme 
 ```ts
 import type { GlobalTheme } from 'naive-ui'
 ```
+
+## Icons in Naive UI
+
+This project uses **`<AppIcon>`** (not raw `@iconify/vue` `<Icon>`) for all icons. The component automatically wraps iconify icons in `<NIcon>` and handles lobehub/ben sources as `<img>`.
+
+```vue
+<!-- ✅ Correct — use AppIcon everywhere -->
+<AppIcon icon="ri:home-3-line" />
+
+<!-- Inside Naive UI icon slots -->
+<NButton>
+  <template #icon>
+    <AppIcon icon="ri:settings-2-line" />
+  </template>
+</NButton>
+```
+
+For render functions (NMenu options, etc.), use the `useIconRenderer()` composable:
+
+```ts
+import { useIconRenderer } from '@/composables/use-icon'
+
+const { renderIcon } = useIconRenderer()
+const menuOption = {
+  label: 'Home',
+  key: 'home',
+  icon: renderIcon('ri:home-3-line'),
+}
+```
+
+For icons whose source is unknown at compile time (e.g. LLM provider tags), use `v-bind`:
+
+```vue
+<AppIcon v-if="providerIconProps(item)" v-bind="providerIconProps(item)!" />
+```
+
+See `vue-patterns.md` for the full AppIcon API reference.
 
 ## Documentation
 

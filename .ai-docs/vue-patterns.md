@@ -78,3 +78,94 @@ Run from the `frontend/` directory:
 |---|---|
 | `pnpm run lint` | Check for lint errors (oxlint) |
 | `pnpm run fmt` | Auto-format code (oxfmt) |
+
+---
+
+## Unified Icon System (`AppIcon`)
+
+All icons in the project go through a single `<AppIcon>` component that abstracts away the underlying icon source.
+
+### Imports
+
+```ts
+// Direct component import (template usage)
+import AppIcon from '@/components/AppIcon.vue'
+
+// Or via composable (render function usage)
+import { useIconRenderer } from '@/composables/use-icon'
+```
+
+### Template Usage
+
+```vue
+<!-- Iconify (default source) -->
+<AppIcon icon="ri:home-3-line" />
+
+<!-- LobeHub provider avatar -->
+<AppIcon icon="openai" source="lobehub" />
+
+<!-- Local image (本地图片) -->
+<AppIcon icon="/src/assets/icon.png" source="ben" />
+
+<!-- With custom size, radius, color, background -->
+<AppIcon icon="ri:mail-line" :size="20" :color="#333" />
+<AppIcon icon="ri:mail-line" background="#FF3333" />
+<AppIcon icon="openai" source="lobehub" :size="24" :radius="6" />
+```
+
+### Render Function Usage (Naive UI slots)
+
+For Naive UI components that accept an `icon` render prop (NMenu, NButton, etc.):
+
+```ts
+import { useIconRenderer } from '@/composables/use-icon'
+
+const { renderIcon } = useIconRenderer()
+
+const menuOptions = [
+  { label: 'Home', key: 'home', icon: renderIcon('ri:home-3-line') },
+  { label: 'OpenAI', key: 'openai', icon: renderIcon('openai', 'lobehub', 20) },
+]
+```
+
+### v-bind with dynamic props
+
+When the source type is not known at compile time (e.g., LLM provider tags), use `v-bind` with a props object:
+
+```ts
+import { getProviderIconConfig } from '@/composables/provider-icons'
+
+function providerIconProps(provider: string, size = 14, radius = 3) {
+  const cfg = getProviderIconConfig(provider)
+  if (!cfg) return null
+  return { ...cfg, size, radius }
+}
+```
+
+```vue
+<AppIcon v-if="providerIconProps(item)" v-bind="providerIconProps(item)!" />
+```
+
+### Available Sources
+
+| `source` | Backend | Identifier format |
+|---|---|---|
+| `'iconify'` (default) | `@iconify/vue` | Iconify icon name (e.g. `'ri:home-3-line'`) |
+| `'lobehub'` | `@lobehub/icons-static-avatar` | Provider key (e.g. `'openai'`, `'deepseek'`) |
+| `'ben'` | Direct `<img>` src | File path or URL |
+
+### Adding New Provider Icons
+
+To add an icon for a new LLM provider:
+
+1. Add a `@lobehub/icons-static-avatar` import and entry in `composables/provider-icons.ts` `ICON_MAP` for a static WebP avatar
+2. Or add an iconify fallback in `FALLBACK_ICON_MAP` if no lobehub avatar exists
+
+```ts
+// In provider-icons.ts
+const FALLBACK_ICON_MAP: Record<string, string> = {
+  custom: 'streamline-color:brain',
+  // Add new providers here:
+  // 'my-provider': 'iconify-icon-name',
+}
+```

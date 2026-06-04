@@ -28,6 +28,15 @@ export function GetConfig() {
 }
 
 /**
+ * GetConfigDir returns the path to the application config directory.
+ * This is used by the frontend to open the config folder in the file manager.
+ * @returns {$CancellablePromise<string>}
+ */
+export function GetConfigDir() {
+    return $Call.ByID(4175515118);
+}
+
+/**
  * SaveConfig writes the application config to disk, encrypting all API keys
  * before persisting.
  * @param {$models.AppConfig} cfg

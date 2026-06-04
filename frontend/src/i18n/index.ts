@@ -16,6 +16,7 @@ export interface TranslationSchema {
   'settings.common.theme.light': string
   'settings.common.theme.dark': string
   'settings.common.theme.system': string
+  'settings.common.openConfig': string
   'settings.accounts': string
   'settings.about': string
   'settings.llm': string
@@ -35,6 +36,8 @@ export interface TranslationSchema {
   'settings.llm.edit': string
   'settings.llm.empty': string
   'settings.llm.testing': string
+  'settings.llm.test_connection': string
+  'settings.llm.test_chat': string
   'demo.prompt': string
   'demo.greet': string
   'demo.learnMore': string

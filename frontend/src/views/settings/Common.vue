@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { NCard, NSelect } from 'naive-ui'
+import { NCard, NSelect, NButton } from 'naive-ui'
 import { NForm, NFormItem, SelectOption } from 'naive-ui'
 import { useI18n } from '../../i18n'
 import { useThemeStore } from '../../stores/theme'
 import { computed, Ref } from 'vue'
+import { ConfigService, OsService } from '../../../bindings/wvmail/services'
 
 const { t, locale, setLocale } = useI18n()
 const theme = useThemeStore()
@@ -22,6 +23,15 @@ const localeOptions: SelectOption[] = [
 function handleLocaleChange(value: string) {
   if (value === 'zh-CN' || value === 'en-US') {
     setLocale(value)
+  }
+}
+
+async function openConfigFolder() {
+  try {
+    const dir = await ConfigService.GetConfigDir()
+    await OsService.OpenFolder(dir)
+  } catch (e) {
+    console.error('Failed to open config folder', e)
   }
 }
 </script>
@@ -47,6 +57,9 @@ function handleLocaleChange(value: string) {
           />
         </NFormItem>
       </NForm>
+      <NButton @click="openConfigFolder">
+        {{ t['settings.common.openConfig'] }}
+      </NButton>
     </NCard>
   </div>
 </template>

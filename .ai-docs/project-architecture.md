@@ -27,8 +27,10 @@ wvmail is a cross-platform desktop email client built with **Wails3 (Go)** + **V
 ### Services
 
 - `services/greetservice.go` — `GreetService` with single `Greet(name string) string` method
+- `services/configservice.go` — `ConfigService` for reading/writing YAML config with AES-256-GCM encrypted API keys
+- `services/osservice.go` — `OsService` for OS-level operations (open files, folders, detect OS)
 - All Go services live under `services/` as package `services`
-- Services are registered via `application.NewService(&services.GreetService{})` and auto-exposed to the frontend
+- Services are registered via `application.NewService(&services.XxxService{})` in `main.go` and auto-exposed to the frontend
 
 ### Build Configuration
 
@@ -43,6 +45,62 @@ wvmail is a cross-platform desktop email client built with **Wails3 (Go)** + **V
 | `wails3 dev` | Development mode with hot-reload (uses Vite on port 9245) |
 | `wails3 task build` | Production build for current OS |
 | `wails3 task run` | Run the production build |
+| `wails3 generate bindings -clean=true` | Regenerate JS/TS bindings after adding Go service methods |
+
+---
+
+## Go Service Development
+
+### Adding a New Service Method
+
+1. Add the method to the appropriate Go `*Service` type in `services/`
+2. Run `wails3 generate bindings -clean=true` from the project root to regenerate frontend bindings
+3. The new method is immediately available in the frontend via `import { XxxService } from '../../bindings/wvmail/services'`
+
+### ConfigService
+
+Location: `services/configservice.go`
+
+The config file is stored at `<os.UserConfigDir>/wvmail/config.yaml` as YAML.
+API keys are encrypted with AES-256-GCM (master key in `<configDir>/.master.key`).
+
+**Exported methods (available to frontend):**
+
+| Method | Returns | Description |
+|---|---|---|
+| `GetConfig()` | `AppConfig` | Read config from disk (decrypts API keys) |
+| `GetConfigDir()` | `string` | Path to the config directory |
+| `SaveConfig(cfg)` | — | Write config to disk (encrypts API keys) |
+| `SaveConfigField(field, value)` | — | Update a single field (`"language"` or `"theme"`) |
+| `SaveLLMConfigs(configs)` | — | Replace the entire LLM config list |
+| `TestLLMConnection(cfg)` | `[bool, string]` | Test LLM provider connectivity |
+
+**Opening config folder in file manager (frontend):**
+
+```ts
+import { ConfigService, OsService } from '../../bindings/wvmail/services'
+
+const dir = await ConfigService.GetConfigDir()
+await OsService.OpenFolder(dir)
+```
+
+### OsService
+
+Location: `services/osservice.go`
+
+**Exported methods:**
+
+| Method | Parameters | Description |
+|---|---|---|
+| `GetOs()` | — | Returns `"darwin"`, `"windows"`, or `"linux"` |
+| `OpenFile(path)` | `string` | Open file with default OS application |
+| `OpenFolder(path)` | `string` | Reveal folder in file manager (Finder, Explorer, etc.) |
+| `PathStat(path)` | `string` | Returns `"file"`, `"dir"`, `"non-exist"`, or `"empty"` |
+
+Config directory resolves to:
+- **macOS**: `~/Library/Application Support/wvmail/`
+- **Linux**: `~/.config/wvmail/`
+- **Windows**: `%AppData%/wvmail/`
 
 ---
 

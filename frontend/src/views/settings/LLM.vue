@@ -24,7 +24,8 @@ import { useI18n } from '../../i18n'
 import { ConfigService } from '../../../bindings/wvmail/services'
 import type { LLMConfig, LLMProvider } from '../../types/config'
 import { LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '../../types/config'
-import { renderProviderOption, getProviderIconUrl } from '../../composables/provider-icons'
+import { renderProviderOption, getProviderIconConfig } from '../../composables/provider-icons'
+import AppIcon from '../../components/AppIcon.vue'
 
 const { t } = useI18n()
 
@@ -89,6 +90,13 @@ function renderProviderLabel(option: SelectOption) {
   const value = option.value as string
   const label = providerLabelMap[value] ?? (option.label as string)
   return renderProviderOption(value, label)
+}
+
+/** Returns AppIcon props for a provider, handling lobehub + iconify fallbacks */
+function providerIconProps(provider: string, size = 14, radius = 3) {
+  const cfg = getProviderIconConfig(provider)
+  if (!cfg) return null
+  return { ...cfg, size, radius }
 }
 
 async function loadConfigs() {
@@ -242,7 +250,7 @@ const providerTagType: Record<string, string> = {
   minimax: 'info',
   kimi: 'warning',
   ollama: 'default',
-  bytedance: 'info',
+  volcengine: 'info',
   custom: 'default',
 }
 </script>
@@ -274,12 +282,9 @@ const providerTagType: Record<string, string> = {
                     style="margin-left: 8px"
                   >
                     <span style="display: inline-flex; align-items: center; gap: 4px">
-                      <img
-                        v-if="getProviderIconUrl(item.Provider)"
-                        :src="getProviderIconUrl(item.Provider)!"
-                        width="14"
-                        height="14"
-                        style="display: inline-block; border-radius: 3px;"
+                      <AppIcon
+                        v-if="providerIconProps(item.Provider)"
+                        v-bind="providerIconProps(item.Provider)!"
                       />
                       {{ LLM_PROVIDER_LABELS[item.Provider] ?? item.Provider }}
                     </span>
@@ -373,7 +378,7 @@ const providerTagType: Record<string, string> = {
               <template #icon>
                 <NIcon><Icon icon="carbon:network-2" /></NIcon>
               </template>
-              {{ testing ? t['settings.llm.testing'] : 'Test Connection' }}
+              {{ testing ? t['settings.llm.testing'] : t['settings.llm.test_connection'] }}
             </NButton>
             <NButton
               :loading="testingChat"
@@ -383,7 +388,7 @@ const providerTagType: Record<string, string> = {
               <template #icon>
                 <NIcon><Icon icon="carbon:chat" /></NIcon>
               </template>
-              {{ testingChat ? t['settings.llm.testing'] : 'Test Chat' }}
+              {{ testingChat ? t['settings.llm.testing'] : t['settings.llm.test_chat'] }}
             </NButton>
           </NSpace>
           <NAlert
