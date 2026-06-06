@@ -21,11 +21,7 @@ export function useIconRenderer() {
    * ]
    * ```
    */
-  function renderIcon(
-    icon: string,
-    source?: AppIconSource,
-    size?: number,
-  ): () => VNode {
+  function renderIcon(icon: string, source?: AppIconSource, size?: number): () => VNode {
     return () => h(AppIcon, { icon, source, size })
   }
 

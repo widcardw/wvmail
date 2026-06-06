@@ -52,7 +52,8 @@ const enUS: TranslationSchema = {
   'settings.accounts.save': 'Save',
   'settings.accounts.cancel': 'Cancel',
   'settings.accounts.provider_detected': 'Provider auto-detected from email',
-  'settings.accounts.auth_code_hint': 'QQ mail requires an "authorization code" instead of your login password. Enable IMAP/SMTP in your webmail settings and generate one.',
+  'settings.accounts.auth_code_hint':
+    'QQ mail requires an "authorization code" instead of your login password. Enable IMAP/SMTP in your webmail settings and generate one.',
   'settings.about': 'About',
   'settings.llm': 'LLM',
   'settings.llm.title': 'LLM Configuration',
@@ -77,7 +78,7 @@ const enUS: TranslationSchema = {
   'demo.greet': 'Greet',
   'demo.learnMore': 'Click on the Wails logo to learn more',
   'demo.listening': 'Listening for Time event...',
-  'cancel': 'Cancel'
+  cancel: 'Cancel',
 }
 
 export default enUS

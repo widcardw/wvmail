@@ -18,7 +18,7 @@ export const useNotesStore = defineStore('notes', () => {
 
   const selectedNote = computed(() => {
     if (!selectedId.value) return null
-    return notes.value.find(n => n.id === selectedId.value) ?? null
+    return notes.value.find((n) => n.id === selectedId.value) ?? null
   })
 
   const sortedNotes = computed(() => {
@@ -39,14 +39,20 @@ export const useNotesStore = defineStore('notes', () => {
 
   async function selectNote(id: string) {
     selectedId.value = id
-    const note = notes.value.find(n => n.id === id)
+    const note = notes.value.find((n) => n.id === id)
     currentContent.value = note?.content ?? ''
   }
 
   async function createNote(): Promise<string | null> {
     const id = crypto.randomUUID()
     try {
-      await NotesService.SaveNote({ id, title: '', content: '', created_at: 0, updated_at: Math.floor(Date.now() / 1000) })
+      await NotesService.SaveNote({
+        id,
+        title: '',
+        content: '',
+        created_at: 0,
+        updated_at: Math.floor(Date.now() / 1000),
+      })
       await loadNotes()
       selectedId.value = id
       currentContent.value = ''
@@ -69,7 +75,7 @@ export const useNotesStore = defineStore('notes', () => {
         updated_at: now,
       })
       // Update local state
-      const idx = notes.value.findIndex(n => n.id === selectedId.value)
+      const idx = notes.value.findIndex((n) => n.id === selectedId.value)
       if (idx !== -1) {
         notes.value[idx] = { ...notes.value[idx], title, content, updated_at: now }
       }

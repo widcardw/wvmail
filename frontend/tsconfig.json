@@ -19,7 +19,8 @@
      */
     "checkJs": false,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true
   },
   "include": [
     "src/**/*.d.ts",

@@ -28,7 +28,7 @@ function renderIconifyIcon(iconName: string) {
 function onExpandedKeysChange(keys: string[]) {
   for (const key of keys) {
     if (!expandedKeys.value.includes(key)) {
-      const account = accountsStore.accounts.find(a => a.ID === key)
+      const account = accountsStore.accounts.find((a) => a.ID === key)
       if (account && !accountsStore.foldersByAccount[key]) {
         accountsStore.loadFolders(account)
       }
@@ -57,20 +57,19 @@ const menuOptions = computed<MenuOption[]>(() => {
         },
       ]
     } else if (folders && folders.length > 0) {
-      const filtered = folders
-        .filter(f => !f.attrs.some(a => a.includes('NoSelect') || a.includes('NonExistent')))
+      const filtered = folders.filter(
+        (f) => !f.attrs.some((a) => a.includes('NoSelect') || a.includes('NonExistent')),
+      )
 
       if (filtered.length === 0) {
-        children = folders.map(f => ({
+        children = folders.map((f) => ({
           label: f.name,
           key: `${account.ID}:${f.name}`,
           icon: renderIconifyIcon('ri:folder-2-fill'),
         }))
       } else {
-        const sorted = [...filtered].sort((a, b) =>
-          compareFolders(a, b, locale.value),
-        )
-        children = sorted.map(f => {
+        const sorted = [...filtered].sort((a, b) => compareFolders(a, b, locale.value))
+        children = sorted.map((f) => {
           const display = getFolderDisplay(f.name, locale.value)
           return {
             label: display.label,
@@ -84,9 +83,7 @@ const menuOptions = computed<MenuOption[]>(() => {
     options.push({
       label: account.Name || account.Email,
       key: account.ID,
-      icon: iconSource
-        ? () => iconSource.create()
-        : () => account.Email.charAt(0).toUpperCase(),
+      icon: iconSource ? () => iconSource.create() : () => account.Email.charAt(0).toUpperCase(),
       children,
     })
   }

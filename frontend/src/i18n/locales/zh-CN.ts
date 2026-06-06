@@ -52,7 +52,8 @@ const zhCN: TranslationSchema = {
   'settings.accounts.save': '保存',
   'settings.accounts.cancel': '取消',
   'settings.accounts.provider_detected': '已根据邮箱自动检测提供商',
-  'settings.accounts.auth_code_hint': 'QQ 邮箱需要使用"授权码"而非登录密码。请在网页端的 设置 → 账户 → POP3/IMAP/SMTP 服务中开启并生成授权码。',
+  'settings.accounts.auth_code_hint':
+    'QQ 邮箱需要使用"授权码"而非登录密码。请在网页端的 设置 → 账户 → POP3/IMAP/SMTP 服务中开启并生成授权码。',
   'settings.about': '关于',
   'settings.llm': 'LLM',
   'settings.llm.title': 'LLM 配置',
@@ -77,7 +78,7 @@ const zhCN: TranslationSchema = {
   'demo.greet': '问候',
   'demo.learnMore': '点击 Wails 图标了解更多',
   'demo.listening': '正在监听 Time 事件...',
-  'cancel': '取消'
+  cancel: '取消',
 }
 
 export default zhCN

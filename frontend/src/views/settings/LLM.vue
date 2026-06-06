@@ -112,7 +112,13 @@ onMounted(loadConfigs)
 
 function openAdd() {
   editingIndex.value = null
-  form.value = { Name: '', Provider: 'openai', Model: '', BaseURL: LLM_PROVIDER_DEFAULTS.openai, APIKey: '' }
+  form.value = {
+    Name: '',
+    Provider: 'openai',
+    Model: '',
+    BaseURL: LLM_PROVIDER_DEFAULTS.openai,
+    APIKey: '',
+  }
   testResult.value = null
   showModal.value = true
 }
@@ -264,10 +270,7 @@ const providerTagType: Record<string, string> = {
         </NButton>
       </template>
 
-      <NEmpty
-        v-if="configs.length === 0"
-        :description="t['settings.llm.empty']"
-      />
+      <NEmpty v-if="configs.length === 0" :description="t['settings.llm.empty']" />
 
       <NList v-else bordered>
         <NListItem v-for="(item, index) in configs" :key="index">
@@ -290,10 +293,14 @@ const providerTagType: Record<string, string> = {
                     </span>
                   </NTag>
                   <div style="font-size: 12px; opacity: 0.6; margin-top: 4px">
-                    <template v-if="item.Model"><strong>Model:</strong> {{ item.Model }} &middot; </template>
+                    <template v-if="item.Model"
+                      ><strong>Model:</strong> {{ item.Model }} &middot;
+                    </template>
                     {{ item.BaseURL }}
                     <template v-if="item.APIKey"> | {{ maskKey(item.APIKey) }}</template>
-                    <template v-else-if="item.Provider === 'ollama'"> | No API key required</template>
+                    <template v-else-if="item.Provider === 'ollama'">
+                      | No API key required</template
+                    >
                   </div>
                 </div>
               </div>
@@ -302,7 +309,9 @@ const providerTagType: Record<string, string> = {
                   size="small"
                   :loading="testingIndex === index"
                   :disabled="testingIndex === index"
-                  :type="testResultIndex === index ? (testSuccess ? 'success' : 'error') : 'default'"
+                  :type="
+                    testResultIndex === index ? (testSuccess ? 'success' : 'error') : 'default'
+                  "
                   @click="handleTestItem(index)"
                 >
                   <template v-if="testResultIndex === index && testSuccess" #icon>
@@ -356,7 +365,9 @@ const providerTagType: Record<string, string> = {
             <NInput v-model:value="form.BaseURL" placeholder="https://api.example.com/v1" />
           </NFormItem>
           <NFormItem
-            :label="apiKeyRequired ? t['settings.llm.apiKey'] : (t['settings.llm.apiKey'] + ' (optional)')"
+            :label="
+              apiKeyRequired ? t['settings.llm.apiKey'] : t['settings.llm.apiKey'] + ' (optional)'
+            "
             path="apiKey"
           >
             <NInput

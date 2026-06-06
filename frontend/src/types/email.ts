@@ -48,12 +48,7 @@ export interface FolderInfo {
   attrs: string[]
 }
 
-export type EmailProvider =
-  | 'gmail'
-  | 'outlook'
-  | '163'
-  | 'qq'
-  | 'custom'
+export type EmailProvider = 'gmail' | 'outlook' | '163' | 'qq' | 'custom'
 
 export interface ProviderDefaults {
   imap_host: string
@@ -115,7 +110,12 @@ export const EMAIL_PROVIDER_LABELS: Record<EmailProvider, string> = {
 export function detectProvider(email: string): EmailProvider {
   const domain = email.split('@')[1]?.toLowerCase() ?? ''
   if (domain.includes('gmail.com')) return 'gmail'
-  if (domain.includes('outlook.com') || domain.includes('hotmail.com') || domain.includes('live.com')) return 'outlook'
+  if (
+    domain.includes('outlook.com') ||
+    domain.includes('hotmail.com') ||
+    domain.includes('live.com')
+  )
+    return 'outlook'
   if (domain.includes('163.com') || domain.includes('126.com')) return '163'
   if (domain.includes('qq.com') || domain.includes('foxmail.com')) return 'qq'
   return 'custom'
@@ -142,30 +142,41 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
   },
   {
     patterns: [
-      'sent', 'sent mail', 'sent messages', 'sent items',
-      '已发送', '已发送邮件',
+      'sent',
+      'sent mail',
+      'sent messages',
+      'sent items',
+      '已发送',
+      '已发送邮件',
       '[gmail]/sent mail',
     ],
     category: { icon: 'ri:send-plane-fill', labelCn: '发件箱', labelEn: 'Sent', rank: 1 },
   },
   {
-    patterns: [
-      'drafts', '草稿', '草稿箱',
-      '[gmail]/drafts',
-    ],
+    patterns: ['drafts', '草稿', '草稿箱', '[gmail]/drafts'],
     category: { icon: 'ri:draft-fill', labelCn: '草稿', labelEn: 'Drafts', rank: 2 },
   },
   {
     patterns: [
-      'trash', 'bin', 'deleted', 'deleted items', 'deleted messages',
-      '已删除', '垃圾箱',
-      '[gmail]/trash', '[gmail]/bin',
+      'trash',
+      'bin',
+      'deleted',
+      'deleted items',
+      'deleted messages',
+      '已删除',
+      '垃圾箱',
+      '[gmail]/trash',
+      '[gmail]/bin',
     ],
     category: { icon: 'ri:delete-bin-5-fill', labelCn: '已删除', labelEn: 'Trash', rank: 3 },
   },
   {
     patterns: [
-      'spam', 'junk', 'spam folder', 'junk mail', 'junk folder',
+      'spam',
+      'junk',
+      'spam folder',
+      'junk mail',
+      'junk folder',
       '垃圾邮件',
       '[gmail]/spam',
     ],
@@ -173,27 +184,28 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
   },
   {
     patterns: [
-      'archive', 'all mail', 'allmail',
-      '归档', '全部邮件',
-      '[gmail]/all mail', '[gmail]/archive',
+      'archive',
+      'all mail',
+      'allmail',
+      '归档',
+      '全部邮件',
+      '[gmail]/all mail',
+      '[gmail]/archive',
     ],
     category: { icon: 'ri:archive-2-fill', labelCn: '归档', labelEn: 'Archive', rank: 5 },
   },
   {
-    patterns: [
-      'starred', 'flagged', 'star',
-      '已加星标', '星标邮件',
-      '[gmail]/starred',
-    ],
+    patterns: ['starred', 'flagged', 'star', '已加星标', '星标邮件', '[gmail]/starred'],
     category: { icon: 'ri:star-fill', labelCn: '星标邮件', labelEn: 'Starred', rank: 6 },
   },
   {
-    patterns: [
-      'important',
-      '重要', '重要邮件',
-      '[gmail]/important',
-    ],
-    category: { icon: 'ri:notification-3-fill', labelCn: '重要邮件', labelEn: 'Important', rank: 7 },
+    patterns: ['important', '重要', '重要邮件', '[gmail]/important'],
+    category: {
+      icon: 'ri:notification-3-fill',
+      labelCn: '重要邮件',
+      labelEn: 'Important',
+      rank: 7,
+    },
   },
 ]
 
@@ -203,7 +215,10 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
  * - `label`: user-friendly name (strips Gmail-style "[Gmail]/" prefix)
  * - `rank`: sort priority (lower = earlier)
  */
-export function getFolderDisplay(folderName: string, locale: 'zh-CN' | 'en-US' = 'en-US'): {
+export function getFolderDisplay(
+  folderName: string,
+  locale: 'zh-CN' | 'en-US' = 'en-US',
+): {
   icon: string
   label: string
   rank: number
@@ -227,7 +242,11 @@ export function getFolderDisplay(folderName: string, locale: 'zh-CN' | 'en-US' =
  * Sort comparator for FolderInfo: standard folders first (by rank), then
  * the rest alphabetically.
  */
-export function compareFolders(a: FolderInfo, b: FolderInfo, locale: 'zh-CN' | 'en-US' = 'en-US'): number {
+export function compareFolders(
+  a: FolderInfo,
+  b: FolderInfo,
+  locale: 'zh-CN' | 'en-US' = 'en-US',
+): number {
   const da = getFolderDisplay(a.name, locale)
   const db = getFolderDisplay(b.name, locale)
   if (da.rank !== db.rank) return da.rank - db.rank

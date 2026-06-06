@@ -52,7 +52,7 @@ function handleClick(email: { uid: number }) {
       <span class="folder-label">{{ accountsStore.selectedFolder }}</span>
     </div>
 
-    <NScrollbar style="height: 100%;">
+    <NScrollbar style="height: 100%">
       <NSpin :show="loading">
         <NEmpty
           v-if="!loading && emails.length === 0"
@@ -69,7 +69,7 @@ function handleClick(email: { uid: number }) {
             @click="handleClick(email)"
           >
             <div class="email-row">
-                <div class="sel-marker"></div>
+              <div class="sel-marker"></div>
               <div class="unread-marker" :class="{ visible: !email.is_read }"></div>
               <div class="email-body">
                 <div class="email-header">
@@ -118,7 +118,7 @@ function handleClick(email: { uid: number }) {
 }
 
 .email-item.selected {
-    border-left-color: v-bind(primaryColor);
+  border-left-color: v-bind(primaryColor);
 }
 
 .email-row {

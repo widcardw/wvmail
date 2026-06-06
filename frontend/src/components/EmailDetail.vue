@@ -60,7 +60,11 @@ function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: 
 async function handleRefresh() {
   const account = accountsStore.selectedAccount
   if (account && accountsStore.selectedFolder && accountsStore.selectedEmailUid) {
-    await accountsStore.refreshEmailBody(account, accountsStore.selectedFolder, accountsStore.selectedEmailUid)
+    await accountsStore.refreshEmailBody(
+      account,
+      accountsStore.selectedFolder,
+      accountsStore.selectedEmailUid,
+    )
   }
 }
 
@@ -68,13 +72,20 @@ async function handleRefresh() {
  *  Strips dangerous tags and event handler attributes. */
 function sanitizeHtml(html: string): string {
   // Remove dangerous tags
-  const dangerous = /<\s*\b(script|iframe|object|embed|frame|form|input|style)\b[^>]*>.*?<\/\s*\1\s*>|<(script|iframe|object|embed|frame|form|input|style)\b[^>]*\/?\s*>/gis
+  const dangerous =
+    /<\s*\b(script|iframe|object|embed|frame|form|input|style)\b[^>]*>.*?<\/\s*\1\s*>|<(script|iframe|object|embed|frame|form|input|style)\b[^>]*\/?\s*>/gis
   let clean = html.replace(dangerous, '')
   // Remove on* event handlers
   clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
   // Remove javascript: and data: URIs in href/src
-  clean = clean.replace(/(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi, '')
-  clean = clean.replace(/(?:href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi, '')
+  clean = clean.replace(
+    /(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
+    '',
+  )
+  clean = clean.replace(
+    /(?:href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi,
+    '',
+  )
   return clean
 }
 
@@ -102,10 +113,18 @@ function handleLinkClick(event: MouseEvent) {
 
   dialog.warning({
     title: t.value['mail.link.title'],
-    content: () => h('div', [
-      h('p', { style: 'margin-bottom: 8px; opacity: 0.8' }, t.value['mail.link.body']),
-      h('p', { style: 'word-break: break-all; font-size: 13px; background: var(--n-action-color); padding: 8px; border-radius: 4px;' }, url),
-    ]),
+    content: () =>
+      h('div', [
+        h('p', { style: 'margin-bottom: 8px; opacity: 0.8' }, t.value['mail.link.body']),
+        h(
+          'p',
+          {
+            style:
+              'word-break: break-all; font-size: 13px; background: var(--n-action-color); padding: 8px; border-radius: 4px;',
+          },
+          url,
+        ),
+      ]),
     positiveText: t.value['mail.link.open'],
     negativeText: t.value['cancel'],
     onPositiveClick: async () => {
@@ -121,7 +140,7 @@ function handleLinkClick(event: MouseEvent) {
 
 <template>
   <div class="email-detail">
-    <NScrollbar style="height: 100%;">
+    <NScrollbar style="height: 100%">
       <NSpin :show="loading">
         <NAlert
           v-if="accountsStore.detailError"
@@ -134,17 +153,16 @@ function handleLinkClick(event: MouseEvent) {
         </NAlert>
 
         <template v-if="!detail && !loading">
-          <NEmpty
-            :description="t['mail.selectFolder']"
-            style="padding: 4rem 0"
-          />
+          <NEmpty :description="t['mail.selectFolder']" style="padding: 4rem 0" />
         </template>
 
         <template v-if="detail">
           <div class="detail-header">
-            <div style="display: flex; align-items: flex-start;">
+            <div style="display: flex; align-items: flex-start">
               <div class="detail-avatar-row">
-                <div class="detail-avatar">{{ getInitials(detail.from_name, detail.from_addr) }}</div>
+                <div class="detail-avatar">
+                  {{ getInitials(detail.from_name, detail.from_addr) }}
+                </div>
                 <div class="detail-sender-info">
                   <span class="detail-from" v-if="senderDisplay(detail).name">
                     <strong>{{ senderDisplay(detail).name }}</strong>
@@ -158,7 +176,7 @@ function handleLinkClick(event: MouseEvent) {
                 size="tiny"
                 quaternary
                 :loading="loading"
-                style="margin-left: auto; flex-shrink: 0;"
+                style="margin-left: auto; flex-shrink: 0"
                 @click="handleRefresh"
               >
                 <template #icon>
@@ -182,7 +200,13 @@ function handleLinkClick(event: MouseEvent) {
           </div>
 
           <div class="detail-body">
-            <div v-if="detail.body_html" class="body-html" :class="{ 'body-html-dark': isDarkMode }" v-html="sanitizeHtml(detail.body_html)" @click="handleLinkClick" />
+            <div
+              v-if="detail.body_html"
+              class="body-html"
+              :class="{ 'body-html-dark': isDarkMode }"
+              v-html="sanitizeHtml(detail.body_html)"
+              @click="handleLinkClick"
+            />
             <div v-else-if="detail.body_text" class="body-text">{{ detail.body_text }}</div>
             <div v-else class="body-empty" style="opacity: 0.4; text-align: center; padding: 2rem">
               (No content)
@@ -306,16 +330,34 @@ function handleLinkClick(event: MouseEvent) {
 /* Let common text elements inherit the app's text color, so in dark mode
    they're not black-on-dark. Elements with inline style="color: ..." keep
    their original color (inline > class). */
-.body-html-dark :where(p, div, span, li, td, th,
-                  h1, h2, h3, h4, h5, h6,
-                  blockquote, pre, section, article,
-                  ul, ol, dl) {
+.body-html-dark
+  :where(
+    p,
+    div,
+    span,
+    li,
+    td,
+    th,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    blockquote,
+    pre,
+    section,
+    article,
+    ul,
+    ol,
+    dl
+  ) {
   color: inherit !important;
 }
 
 /* Links: plain <a> tags without inline color get bright blue in dark mode.
    But <a class="btn" style="color:white"> keep their inline style. */
-.body-html-dark a:not([style*="color"]) {
+.body-html-dark a:not([style*='color']) {
   color: #66b0ff;
   text-decoration: underline;
 }
@@ -333,8 +375,12 @@ function handleLinkClick(event: MouseEvent) {
   line-height: 1.6;
 }
 
-.body-html h1 { font-size: 22px; }
-.body-html h2 { font-size: 18px; }
+.body-html h1 {
+  font-size: 22px;
+}
+.body-html h2 {
+  font-size: 18px;
+}
 
 .body-html ul,
 .body-html ol {

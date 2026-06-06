@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { NConfigProvider, NDialogProvider, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider, NMessageProvider } from 'naive-ui'
+import {
+  NConfigProvider,
+  NDialogProvider,
+  NLayout,
+  NLayoutContent,
+  NLayoutHeader,
+  NLayoutSider,
+  NMessageProvider,
+} from 'naive-ui'
 import { RouterView } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'

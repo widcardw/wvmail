@@ -64,7 +64,7 @@ const emptyForm = (): EmailAccount => ({
 const formData = ref<EmailAccount>(emptyForm())
 
 const providerOptions = computed<SelectOption[]>(() =>
-  (Object.keys(EMAIL_PROVIDER_LABELS) as EmailProvider[]).map(key => ({
+  (Object.keys(EMAIL_PROVIDER_LABELS) as EmailProvider[]).map((key) => ({
     label: EMAIL_PROVIDER_LABELS[key],
     value: key,
   })),
@@ -75,48 +75,58 @@ const formTitle = computed(() =>
   isEditing.value ? t.value['settings.accounts.edit'] : t.value['settings.accounts.add'],
 )
 
-const needsAuthCode = computed(() =>
-  formData.value.Provider === '163' || formData.value.Provider === 'qq',
+const needsAuthCode = computed(
+  () => formData.value.Provider === '163' || formData.value.Provider === 'qq',
 )
 
 const is163Provider = computed(() => formData.value.Provider === '163')
 
-watch(() => formData.value.Email, (email) => {
-  if (email && !isEditing.value) {
-    const provider = detectProvider(email)
-    formData.value.Provider = provider
-    const defaults = EMAIL_PROVIDER_DEFAULTS[provider]
-    if (provider !== 'custom') {
+watch(
+  () => formData.value.Email,
+  (email) => {
+    if (email && !isEditing.value) {
+      const provider = detectProvider(email)
+      formData.value.Provider = provider
+      const defaults = EMAIL_PROVIDER_DEFAULTS[provider]
+      if (provider !== 'custom') {
+        formData.value.IMAPHost = defaults.imap_host
+        formData.value.IMAPPort = defaults.imap_port
+        formData.value.UseTLS = defaults.imap_use_tls
+        formData.value.SMTPHost = defaults.smtp_host
+        formData.value.SMTPPort = defaults.smtp_port
+      }
+      formData.value.IMAPUser = email
+      formData.value.SMTPUser = email
+    }
+  },
+)
+
+watch(
+  () => formData.value.Provider,
+  (provider) => {
+    if (provider !== 'custom' && !isEditing.value) {
+      const defaults = EMAIL_PROVIDER_DEFAULTS[provider as EmailProvider]
       formData.value.IMAPHost = defaults.imap_host
       formData.value.IMAPPort = defaults.imap_port
       formData.value.UseTLS = defaults.imap_use_tls
       formData.value.SMTPHost = defaults.smtp_host
       formData.value.SMTPPort = defaults.smtp_port
     }
-    formData.value.IMAPUser = email
-    formData.value.SMTPUser = email
-  }
-})
-
-watch(() => formData.value.Provider, (provider) => {
-  if (provider !== 'custom' && !isEditing.value) {
-    const defaults = EMAIL_PROVIDER_DEFAULTS[provider as EmailProvider]
-    formData.value.IMAPHost = defaults.imap_host
-    formData.value.IMAPPort = defaults.imap_port
-    formData.value.UseTLS = defaults.imap_use_tls
-    formData.value.SMTPHost = defaults.smtp_host
-    formData.value.SMTPPort = defaults.smtp_port
-  }
-})
+  },
+)
 
 const formRules: FormRules = {
   Name: [{ required: true, message: 'Please enter account name', trigger: 'blur' }],
   Email: [{ required: true, message: 'Please enter email address', trigger: 'blur' }],
   IMAPHost: [{ required: true, message: 'Please enter IMAP server', trigger: 'blur' }],
-  IMAPPort: [{ type: 'number', required: true, message: 'Please enter IMAP port', trigger: 'blur' }],
+  IMAPPort: [
+    { type: 'number', required: true, message: 'Please enter IMAP port', trigger: 'blur' },
+  ],
   IMAPPass: [{ required: true, message: 'Please enter IMAP password', trigger: 'blur' }],
   SMTPHost: [{ required: true, message: 'Please enter SMTP server', trigger: 'blur' }],
-  SMTPPort: [{ type: 'number', required: true, message: 'Please enter SMTP port', trigger: 'blur' }],
+  SMTPPort: [
+    { type: 'number', required: true, message: 'Please enter SMTP port', trigger: 'blur' },
+  ],
 }
 
 function openAddForm() {
@@ -152,7 +162,8 @@ async function handleSave() {
       await accountsStore.updateAccount(editingId.value, formData.value)
       message.success('Account updated')
     } else {
-      const id = crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
+      const id =
+        crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
       await accountsStore.addAccount({ ...formData.value, ID: id })
       message.success('Account added')
     }
@@ -222,11 +233,16 @@ async function handleTestItem(account: EmailAccount) {
 
 function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success' | 'primary' } {
   switch (provider) {
-    case 'gmail': return { type: 'success' }
-    case 'outlook': return { type: 'primary' }
-    case 'qq': return { type: 'warning' }
-    case '163': return { type: 'info' }
-    default: return { type: 'warning' }
+    case 'gmail':
+      return { type: 'success' }
+    case 'outlook':
+      return { type: 'primary' }
+    case 'qq':
+      return { type: 'warning' }
+    case '163':
+      return { type: 'info' }
+    default:
+      return { type: 'warning' }
   }
 }
 </script>
@@ -258,7 +274,12 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
           <NInput v-model:value="formData.IMAPHost" placeholder="imap.example.com" />
         </NFormItem>
         <NFormItem :label="t['settings.accounts.imap_port']" path="IMAPPort">
-          <NInputNumber v-model:value="formData.IMAPPort" :min="1" :max="65535" style="width: 120px" />
+          <NInputNumber
+            v-model:value="formData.IMAPPort"
+            :min="1"
+            :max="65535"
+            style="width: 120px"
+          />
         </NFormItem>
         <NFormItem :label="t['settings.accounts.imap_user']" path="IMAPUser">
           <NInput v-model:value="formData.IMAPUser" placeholder="user@example.com" />
@@ -267,21 +288,11 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
           <NInput v-model:value="formData.IMAPPass" type="password" show-password-on="click" />
         </NFormItem>
 
-        <NAlert
-          v-if="is163Provider"
-          type="error"
-          closable
-          style="margin-bottom: 8px"
-        >
+        <NAlert v-if="is163Provider" type="error" closable style="margin-bottom: 8px">
           163 邮箱对第三方客户端有严格限制，即使使用授权码也可能连接失败。
           如果无法使用，建议改用官方客户端或 Foxmail。
         </NAlert>
-        <NAlert
-          v-else-if="needsAuthCode"
-          type="warning"
-          closable
-          style="margin-bottom: 8px"
-        >
+        <NAlert v-else-if="needsAuthCode" type="warning" closable style="margin-bottom: 8px">
           {{ t['settings.accounts.auth_code_hint'] }}
         </NAlert>
 
@@ -291,7 +302,12 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
           <NInput v-model:value="formData.SMTPHost" placeholder="smtp.example.com" />
         </NFormItem>
         <NFormItem :label="t['settings.accounts.smtp_port']" path="SMTPPort">
-          <NInputNumber v-model:value="formData.SMTPPort" :min="1" :max="65535" style="width: 120px" />
+          <NInputNumber
+            v-model:value="formData.SMTPPort"
+            :min="1"
+            :max="65535"
+            style="width: 120px"
+          />
         </NFormItem>
         <NFormItem :label="t['settings.accounts.smtp_user']" path="SMTPUser">
           <NInput v-model:value="formData.SMTPUser" placeholder="user@example.com" />
@@ -303,7 +319,12 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
           <NSwitch v-model:value="formData.UseTLS" />
         </NFormItem>
 
-        <NAlert v-if="testResult" :type="testResult.success ? 'success' : 'error'" closable style="margin-top: 12px">
+        <NAlert
+          v-if="testResult"
+          :type="testResult.success ? 'success' : 'error'"
+          closable
+          style="margin-top: 12px"
+        >
           {{ testResult.message }}
         </NAlert>
 
@@ -326,7 +347,10 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
         </NButton>
       </template>
 
-      <NEmpty v-if="accountsStore.accounts.length === 0" :description="t['settings.accounts.empty']" />
+      <NEmpty
+        v-if="accountsStore.accounts.length === 0"
+        :description="t['settings.accounts.empty']"
+      />
 
       <NList v-else bordered>
         <NListItem v-for="account in accountsStore.accounts" :key="account.ID">
@@ -343,7 +367,9 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
                     size="small"
                     style="margin-left: 8px"
                   >
-                    {{ EMAIL_PROVIDER_LABELS[account.Provider as EmailProvider] || account.Provider }}
+                    {{
+                      EMAIL_PROVIDER_LABELS[account.Provider as EmailProvider] || account.Provider
+                    }}
                   </NTag>
                   <div style="font-size: 12px; opacity: 0.6; margin-top: 4px">
                     {{ account.Email }} &middot; IMAP: {{ account.IMAPHost }}:{{ account.IMAPPort }}
@@ -355,7 +381,13 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
                   size="small"
                   :loading="testingIndex === account.ID"
                   :disabled="testingIndex === account.ID"
-                  :type="testSuccessIndex === account.ID ? 'success' : (testFailIndex === account.ID ? 'error' : 'default')"
+                  :type="
+                    testSuccessIndex === account.ID
+                      ? 'success'
+                      : testFailIndex === account.ID
+                        ? 'error'
+                        : 'default'
+                  "
                   @click="handleTestItem(account)"
                 >
                   {{ t['settings.accounts.test'] }}

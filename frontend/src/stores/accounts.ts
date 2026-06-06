@@ -20,7 +20,7 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   const selectedAccount = computed(() => {
     if (!selectedAccountId.value) return null
-    return accounts.value.find(a => a.ID === selectedAccountId.value) ?? null
+    return accounts.value.find((a) => a.ID === selectedAccountId.value) ?? null
   })
 
   const currentFolders = computed(() => {
@@ -79,7 +79,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
-  async function testConnection(account: EmailAccount): Promise<{ success: boolean; message: string }> {
+  async function testConnection(
+    account: EmailAccount,
+  ): Promise<{ success: boolean; message: string }> {
     testingId.value = account.ID
     try {
       const [success, message] = await EmailService.TestConnection(account)
@@ -147,7 +149,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedFolder.value = null
     selectedEmailUid.value = null
     selectedEmailDetail.value = null
-    const account = accounts.value.find(a => a.ID === id)
+    const account = accounts.value.find((a) => a.ID === id)
     if (account && !foldersByAccount.value[id]) {
       loadFolders(account)
     }
@@ -158,7 +160,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedFolder.value = folderName
     selectedEmailUid.value = null
     selectedEmailDetail.value = null
-    const account = accounts.value.find(a => a.ID === accountId)
+    const account = accounts.value.find((a) => a.ID === accountId)
     if (account) {
       loadEmails(account, folderName)
     }

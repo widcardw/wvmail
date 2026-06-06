@@ -2,8 +2,8 @@
 // The Go field names are PascalCase and map directly to JS property names.
 
 export interface AppConfig {
-  Language: string   // "en-US" | "zh-CN"
-  Theme: string      // "System" | "Light" | "Dark"
+  Language: string // "en-US" | "zh-CN"
+  Theme: string // "System" | "Light" | "Dark"
   LLMConfigs: LLMConfig[]
 }
 

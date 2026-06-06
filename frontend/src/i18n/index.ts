@@ -80,7 +80,7 @@ export interface TranslationSchema {
   'demo.greet': string
   'demo.learnMore': string
   'demo.listening': string
-  'cancel': string
+  cancel: string
 }
 
 export function useI18n() {

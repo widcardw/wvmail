@@ -84,20 +84,28 @@ export function renderProviderIcon(provider: string, size = 16): VNode | null {
  */
 export function renderProviderOption(provider: string, label: string, size = 16): VNode {
   const icon = renderProviderIcon(provider, size)
-  return h('span', {
-    style: {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '0.25rem',
-    }
-  }, [
-    icon,
-    h('span', {
+  return h(
+    'span',
+    {
       style: {
-        marginLeft: icon ? '6px' : '0',
-        verticalAlign: 'middle',
-        borderRadius: '0.25rem',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem',
       },
-    }, label),
-  ])
+    },
+    [
+      icon,
+      h(
+        'span',
+        {
+          style: {
+            marginLeft: icon ? '6px' : '0',
+            verticalAlign: 'middle',
+            borderRadius: '0.25rem',
+          },
+        },
+        label,
+      ),
+    ],
+  )
 }

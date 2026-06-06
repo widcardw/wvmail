@@ -2,15 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from '../i18n'
 import { useNotesStore } from '../stores/notes'
-import {
-  NButton,
-  NIcon,
-  NEmpty,
-  NScrollbar,
-  NList,
-  NListItem,
-  NPopconfirm,
-} from 'naive-ui'
+import { NButton, NIcon, NEmpty, NScrollbar, NList, NListItem, NPopconfirm } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -26,7 +18,7 @@ const saving = ref(false)
 const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const title = ref('')
 const dirty = ref(false)
-const loadingContent = ref(false)  // prevents dirty flag during setContent
+const loadingContent = ref(false) // prevents dirty flag during setContent
 
 // Extract title from first line of HTML content
 function extractTitle(html: string): string {
@@ -75,23 +67,26 @@ const editor = useEditor({
   },
 })
 
-watch(() => notesStore.selectedId, (newId) => {
-  if (!newId) {
-    title.value = ''
-    editor.value?.commands.setContent('')
-    return
-  }
-  const note = notesStore.notes.find(n => n.id === newId)
-  if (note) {
-    title.value = extractTitle(note.content || '')
-    setTimeout(() => {
-      loadingContent.value = true
-      editor.value?.commands.setContent(note.content || '')
-      loadingContent.value = false
-      dirty.value = false
-    }, 0)
-  }
-})
+watch(
+  () => notesStore.selectedId,
+  (newId) => {
+    if (!newId) {
+      title.value = ''
+      editor.value?.commands.setContent('')
+      return
+    }
+    const note = notesStore.notes.find((n) => n.id === newId)
+    if (note) {
+      title.value = extractTitle(note.content || '')
+      setTimeout(() => {
+        loadingContent.value = true
+        editor.value?.commands.setContent(note.content || '')
+        loadingContent.value = false
+        dirty.value = false
+      }, 0)
+    }
+  },
+)
 
 function scheduleSave() {
   if (!notesStore.selectedId) return
@@ -118,21 +113,24 @@ function loadContentIntoEditor(html: string) {
   loadingContent.value = false
 }
 
-watch(() => notesStore.selectedId, (newId) => {
-  if (!newId) {
-    title.value = ''
-    editor.value?.commands.setContent('')
-    return
-  }
-  const note = notesStore.notes.find(n => n.id === newId)
-  if (note) {
-    title.value = extractTitle(note.content || '')
-    setTimeout(() => {
-      loadContentIntoEditor(note.content || '')
-      dirty.value = false
-    }, 0)
-  }
-})
+watch(
+  () => notesStore.selectedId,
+  (newId) => {
+    if (!newId) {
+      title.value = ''
+      editor.value?.commands.setContent('')
+      return
+    }
+    const note = notesStore.notes.find((n) => n.id === newId)
+    if (note) {
+      title.value = extractTitle(note.content || '')
+      setTimeout(() => {
+        loadContentIntoEditor(note.content || '')
+        dirty.value = false
+      }, 0)
+    }
+  },
+)
 
 async function handleNewNote() {
   const id = await notesStore.createNote()
@@ -168,8 +166,6 @@ onUnmounted(() => {
   if (saveTimer.value) clearTimeout(saveTimer.value)
   editor.value?.destroy()
 })
-
-
 </script>
 
 <template>
@@ -186,7 +182,7 @@ onUnmounted(() => {
         </NButton>
       </div>
 
-      <NScrollbar style="height: 100%;">
+      <NScrollbar style="height: 100%">
         <NEmpty
           v-if="notesStore.sortedNotes.length === 0"
           :description="t['notes.empty']"
@@ -259,19 +255,22 @@ onUnmounted(() => {
           quaternary
           :class="{ active: editor?.isActive('heading', { level: 1 }) }"
           @click="editor?.chain().focus().toggleHeading({ level: 1 }).run()"
-        >H1</NButton>
+          >H1</NButton
+        >
         <NButton
           size="tiny"
           quaternary
           :class="{ active: editor?.isActive('heading', { level: 2 }) }"
           @click="editor?.chain().focus().toggleHeading({ level: 2 }).run()"
-        >H2</NButton>
+          >H2</NButton
+        >
         <NButton
           size="tiny"
           quaternary
           :class="{ active: editor?.isActive('heading', { level: 3 }) }"
           @click="editor?.chain().focus().toggleHeading({ level: 3 }).run()"
-        >H3</NButton>
+          >H3</NButton
+        >
         <span class="toolbar-sep" />
         <NButton
           size="tiny"
@@ -306,18 +305,10 @@ onUnmounted(() => {
           <NIcon><Icon icon="ri:code-box-line" /></NIcon>
         </NButton>
         <span class="toolbar-sep" />
-        <NButton
-          size="tiny"
-          quaternary
-          @click="editor?.chain().focus().undo().run()"
-        >
+        <NButton size="tiny" quaternary @click="editor?.chain().focus().undo().run()">
           <NIcon><Icon icon="ri:arrow-go-back-line" /></NIcon>
         </NButton>
-        <NButton
-          size="tiny"
-          quaternary
-          @click="editor?.chain().focus().redo().run()"
-        >
+        <NButton size="tiny" quaternary @click="editor?.chain().focus().redo().run()">
           <NIcon><Icon icon="ri:arrow-go-forward-line" /></NIcon>
         </NButton>
       </div>

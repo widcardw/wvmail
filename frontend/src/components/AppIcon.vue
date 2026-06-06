@@ -6,26 +6,29 @@ import { getProviderIconUrl } from '../composables/provider-icons'
 
 export type AppIconSource = 'iconify' | 'lobehub' | 'ben'
 
-const props = withDefaults(defineProps<{
-  /** Icon identifier: iconify name (e.g. 'ri:home-3-line'),
-   *  provider key (e.g. 'openai'), or local image path */
-  icon: string
-  /** Icon source — 'iconify' (default), 'lobehub' (LLM provider avatars),
-   *  or 'ben' (本地图片, local image path) */
-  source?: AppIconSource
-  /** Icon width/height in pixels */
-  size?: number
-  /** Border radius for the icon container */
-  radius?: number
-  /** Icon color (iconify only) */
-  color?: string
-  /** Background color behind the icon (e.g. '#FF3333', 'rgba(0,0,0,0.1)') */
-  background?: string
-}>(), {
-  source: 'iconify',
-  size: 16,
-  radius: 4,
-})
+const props = withDefaults(
+  defineProps<{
+    /** Icon identifier: iconify name (e.g. 'ri:home-3-line'),
+     *  provider key (e.g. 'openai'), or local image path */
+    icon: string
+    /** Icon source — 'iconify' (default), 'lobehub' (LLM provider avatars),
+     *  or 'ben' (本地图片, local image path) */
+    source?: AppIconSource
+    /** Icon width/height in pixels */
+    size?: number
+    /** Border radius for the icon container */
+    radius?: number
+    /** Icon color (iconify only) */
+    color?: string
+    /** Background color behind the icon (e.g. '#FF3333', 'rgba(0,0,0,0.1)') */
+    background?: string
+  }>(),
+  {
+    source: 'iconify',
+    size: 16,
+    radius: 4,
+  },
+)
 
 const imageUrl = computed(() => {
   if (props.source === 'lobehub') {
@@ -50,11 +53,7 @@ const containerStyle = computed(() => ({
 <template>
   <span class="app-icon" :style="containerStyle">
     <!-- Iconify: NIcon + Icon -->
-    <NIcon
-      v-if="source === 'iconify'"
-      :size="size"
-      :color="color"
-    >
+    <NIcon v-if="source === 'iconify'" :size="size" :color="color">
       <Icon :icon="icon" />
     </NIcon>
 
