@@ -14,6 +14,8 @@ export interface TranslationSchema {
   'mail.link.title': string
   'mail.link.body': string
   'mail.link.open': string
+  'mail.attachment': string
+  'mail.attachments': string
   'notes.title': string
   'notes.empty': string
   'notes.placeholder': string

@@ -6,6 +6,7 @@ import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { useThemeStore } from '../stores/theme'
 import { computed, h } from 'vue'
+import { AttachmentInfo } from '../types/email'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -151,7 +152,7 @@ function getAttachmentIcon(mimeType: string, fileName: string): string {
   return 'vscode-icons:default-file'
 }
 
-async function handleDownloadAttachment(attachment: { filename: string; part_path: number[] }) {
+async function handleDownloadAttachment(attachment: AttachmentInfo) {
   const path = await accountsStore.downloadAttachment(attachment)
   if (path) {
     dialog.success({
