@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { EmailAccount, FolderInfo, EmailSummary, EmailDetail } from '../types/email'
-import { ConfigService, EmailService } from '../../bindings/wvmail/services'
+import type { EmailAccount, FolderInfo, EmailSummary, EmailDetail, AttachmentInfo } from '../types/email'
+import { ConfigService, EmailService, OsService } from '../../bindings/wvmail/services'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const accounts = ref<EmailAccount[]>([])
@@ -144,6 +144,36 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  async function downloadAttachment(
+    attachment: AttachmentInfo,
+  ): Promise<string | null> {
+    const account = selectedAccount.value
+    const folder = selectedFolder.value
+    const uid = selectedEmailUid.value
+    if (!account || !folder || !uid) {
+      detailError.value = 'No email selected'
+      return null
+    }
+
+    try {
+      // Show save dialog
+      const savePath = await OsService.SaveFileDialog(attachment.filename)
+      // Download attachment to chosen path
+      await EmailService.DownloadAttachment(
+        account,
+        folder,
+        uid,
+        attachment.part_path,
+        savePath,
+      )
+      return savePath
+    } catch (e) {
+      detailError.value = String(e)
+      console.error('Failed to download attachment', e)
+      return null
+    }
+  }
+
   function selectAccount(id: string) {
     selectedAccountId.value = id
     selectedFolder.value = null
@@ -190,6 +220,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     loadEmails,
     selectEmail,
     refreshEmailBody,
+    downloadAttachment,
     selectAccount,
     selectFolder,
   }

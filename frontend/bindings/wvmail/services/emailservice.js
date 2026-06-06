@@ -17,6 +17,20 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * DownloadAttachment fetches a specific MIME part from the IMAP server by its
+ * part path and writes the decoded body bytes to the given file path.
+ * @param {$models.EmailAccount} account
+ * @param {string} folder
+ * @param {number} uid
+ * @param {number[]} partPath
+ * @param {string} savePath
+ * @returns {$CancellablePromise<void>}
+ */
+export function DownloadAttachment(account, folder, uid, partPath, savePath) {
+    return $Call.ByID(1545369664, account, folder, uid, partPath, savePath);
+}
+
+/**
  * FetchEmail retrieves the full content of a single email by its UID.
  * Returns cached data if available.
  * @param {$models.EmailAccount} account

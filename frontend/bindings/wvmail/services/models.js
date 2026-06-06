@@ -74,6 +74,63 @@ export class AppConfig {
 }
 
 /**
+ * AttachmentInfo describes a single email attachment discovered in the MIME
+ * body structure.
+ */
+export class AttachmentInfo {
+    /**
+     * Creates a new AttachmentInfo instance.
+     * @param {Partial<AttachmentInfo>} [$$source = {}] - The source object to create the AttachmentInfo.
+     */
+    constructor($$source = {}) {
+        if (!("filename" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["filename"] = "";
+        }
+        if (!("mime_type" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["mime_type"] = "";
+        }
+        if (!("size" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["size"] = 0;
+        }
+        if (!("part_path" in $$source)) {
+            /**
+             * @member
+             * @type {number[]}
+             */
+            this["part_path"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AttachmentInfo instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AttachmentInfo}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("part_path" in $$parsedSource) {
+            $$parsedSource["part_path"] = $$createField3_0($$parsedSource["part_path"]);
+        }
+        return new AttachmentInfo(/** @type {Partial<AttachmentInfo>} */($$parsedSource));
+    }
+}
+
+/**
  * EmailAccount represents an email account configuration.
  */
 export class EmailAccount {
@@ -279,6 +336,13 @@ export class EmailDetail {
              */
             this["flags"] = [];
         }
+        if (!("attachments" in $$source)) {
+            /**
+             * @member
+             * @type {AttachmentInfo[]}
+             */
+            this["attachments"] = [];
+        }
 
         Object.assign(this, $$source);
     }
@@ -289,9 +353,10 @@ export class EmailDetail {
      * @returns {EmailDetail}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType4;
-        const $$createField6_0 = $$createType4;
-        const $$createField10_0 = $$createType4;
+        const $$createField5_0 = $$createType5;
+        const $$createField6_0 = $$createType5;
+        const $$createField10_0 = $$createType5;
+        const $$createField11_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("to" in $$parsedSource) {
             $$parsedSource["to"] = $$createField5_0($$parsedSource["to"]);
@@ -301,6 +366,9 @@ export class EmailDetail {
         }
         if ("flags" in $$parsedSource) {
             $$parsedSource["flags"] = $$createField10_0($$parsedSource["flags"]);
+        }
+        if ("attachments" in $$parsedSource) {
+            $$parsedSource["attachments"] = $$createField11_0($$parsedSource["attachments"]);
         }
         return new EmailDetail(/** @type {Partial<EmailDetail>} */($$parsedSource));
     }
@@ -381,7 +449,7 @@ export class EmailSummary {
      * @returns {EmailSummary}
      */
     static createFrom($$source = {}) {
-        const $$createField6_0 = $$createType4;
+        const $$createField6_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("flags" in $$parsedSource) {
             $$parsedSource["flags"] = $$createField6_0($$parsedSource["flags"]);
@@ -430,7 +498,7 @@ export class FolderInfo {
      * @returns {FolderInfo}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType4;
+        const $$createField2_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("attrs" in $$parsedSource) {
             $$parsedSource["attrs"] = $$createField2_0($$parsedSource["attrs"]);
@@ -563,3 +631,6 @@ const $$createType1 = $Create.Array($$createType0);
 const $$createType2 = EmailAccount.createFrom;
 const $$createType3 = $Create.Array($$createType2);
 const $$createType4 = $Create.Array($Create.Any);
+const $$createType5 = $Create.Array($Create.Any);
+const $$createType6 = AttachmentInfo.createFrom;
+const $$createType7 = $Create.Array($$createType6);

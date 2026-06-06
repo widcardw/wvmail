@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NSpin, NEmpty, NScrollbar, NAlert, NButton, NIcon, useDialog } from 'naive-ui'
+import { NSpin, NEmpty, NScrollbar, NAlert, NButton, NIcon, NCollapse, NCollapseItem, NList, NListItem, useDialog } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { OsService } from '../../bindings/wvmail/services'
 import { useI18n } from '../i18n'
@@ -65,6 +65,100 @@ async function handleRefresh() {
       accountsStore.selectedFolder,
       accountsStore.selectedEmailUid,
     )
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+function getAttachmentIcon(mimeType: string, fileName: string): string {
+  const nameSlices = fileName?.split('.')
+  const ext = nameSlices?.[nameSlices.length - 1]?.toLowerCase() ?? ''
+
+  // Extension-based lookup
+  const extMap: Record<string, string> = {
+    // Images
+    jpg: 'vscode-icons:file-type-image',
+    jpeg: 'vscode-icons:file-type-image',
+    png: 'vscode-icons:file-type-image',
+    gif: 'vscode-icons:file-type-image',
+    webp: 'vscode-icons:file-type-image',
+    svg: 'vscode-icons:file-type-image',
+    bmp: 'vscode-icons:file-type-image',
+    ico: 'vscode-icons:file-type-image',
+    // Videos
+    mp4: 'vscode-icons:file-type-video',
+    avi: 'vscode-icons:file-type-video',
+    mov: 'vscode-icons:file-type-video',
+    mkv: 'vscode-icons:file-type-video',
+    webm: 'vscode-icons:file-type-video',
+    // Audio
+    mp3: 'vscode-icons:file-type-audio',
+    wav: 'vscode-icons:file-type-audio',
+    flac: 'vscode-icons:file-type-audio',
+    aac: 'vscode-icons:file-type-audio',
+    ogg: 'vscode-icons:file-type-audio',
+    // PDF
+    pdf: 'vscode-icons:file-type-pdf2',
+    // Archives
+    zip: 'vscode-icons:file-type-zip',
+    rar: 'vscode-icons:file-type-zip',
+    '7z': 'vscode-icons:file-type-zip',
+    tar: 'vscode-icons:file-type-zip',
+    gz: 'vscode-icons:file-type-zip',
+    bz2: 'vscode-icons:file-type-zip',
+    // Office — Word
+    doc: 'vscode-icons:file-type-word',
+    docx: 'vscode-icons:file-type-word',
+    // Office — Excel
+    xls: 'vscode-icons:file-type-excel',
+    xlsx: 'vscode-icons:file-type-excel',
+    csv: 'vscode-icons:file-type-excel',
+    // Office — PowerPoint
+    ppt: 'vscode-icons:file-type-powerpoint',
+    pptx: 'vscode-icons:file-type-powerpoint',
+    // Code / text
+    txt: 'vscode-icons:file-type-text',
+    json: 'vscode-icons:file-type-text',
+    xml: 'vscode-icons:file-type-text',
+    md: 'vscode-icons:file-type-text',
+    yaml: 'vscode-icons:file-type-text',
+    yml: 'vscode-icons:file-type-text',
+  }
+
+  if (ext && ext in extMap) return extMap[ext]
+
+  // Fallback to MIME type
+  if (mimeType.startsWith('image/')) return 'vscode-icons:file-type-image'
+  if (mimeType.startsWith('video/')) return 'vscode-icons:file-type-video'
+  if (mimeType.startsWith('audio/')) return 'vscode-icons:file-type-audio'
+  if (mimeType.includes('pdf')) return 'vscode-icons:file-type-pdf2'
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar') || mimeType.includes('7z'))
+    return 'vscode-icons:file-type-zip'
+  if (mimeType.includes('word') || mimeType.includes('document'))
+    return 'vscode-icons:file-type-word'
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet'))
+    return 'vscode-icons:file-type-excel'
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation'))
+    return 'vscode-icons:file-type-powerpoint'
+  if (mimeType.includes('text/'))
+    return 'vscode-icons:file-type-text'
+  return 'vscode-icons:default-file'
+}
+
+async function handleDownloadAttachment(attachment: { filename: string; part_path: number[] }) {
+  const path = await accountsStore.downloadAttachment(attachment)
+  if (path) {
+    dialog.success({
+      title: 'Downloaded',
+      content: `Saved to ${path}`,
+      positiveText: 'OK',
+    })
   }
 }
 
@@ -199,6 +293,42 @@ function handleLinkClick(event: MouseEvent) {
             </div>
           </div>
 
+          <!-- Attachments -->
+          <NCollapse v-if="detail.attachments && detail.attachments.length > 0" class="detail-attachments">
+            <NCollapseItem
+              :title="`${detail.attachments.length} ${detail.attachments.length === 1 ? t['mail.attachment'] : t['mail.attachments']}`"
+              name="attachments"
+            >
+              <NList :bordered="false" :hoverable="false" class="attachment-list">
+                <NListItem
+                  v-for="att in detail.attachments"
+                  :key="att.filename + '-' + att.size"
+                >
+                  <template #prefix>
+                    <NIcon size="20" style="flex-shrink: 0">
+                      <Icon :icon="getAttachmentIcon(att.mime_type, att.filename)" />
+                    </NIcon>
+                  </template>
+                  <div class="attachment-details">
+                    <span class="attachment-filename">{{ att.filename }}</span>
+                    <span class="attachment-size">{{ formatFileSize(att.size) }}</span>
+                  </div>
+                  <template #suffix>
+                    <NButton
+                      size="tiny"
+                      quaternary
+                      @click="handleDownloadAttachment(att)"
+                    >
+                      <template #icon>
+                        <NIcon size="16"><Icon icon="ri:download-2-line" /></NIcon>
+                      </template>
+                    </NButton>
+                  </template>
+                </NListItem>
+              </NList>
+            </NCollapseItem>
+          </NCollapse>
+
           <div class="detail-body">
             <div
               v-if="detail.body_html"
@@ -308,6 +438,47 @@ function handleLinkClick(event: MouseEvent) {
 .body-text {
   font-family: inherit;
   white-space: pre-wrap;
+}
+
+/* --- Attachments section --- */
+.detail-attachments {
+  border-bottom: 1px solid var(--n-border-color);
+  background: var(--n-action-color);
+}
+
+.detail-attachments :deep(.n-collapse-item__content-wrapper) {
+  padding-bottom: 4px;
+}
+
+.attachment-list {
+  background: transparent !important;
+}
+
+.attachment-list :deep(.n-list-item__prefix) {
+  padding-left: 1rem;
+}
+
+.attachment-list :deep(.n-list-item__suffix) {
+  padding-right: 1rem;
+}
+
+.attachment-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attachment-filename {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: 11px;
+  opacity: 0.5;
 }
 </style>
 

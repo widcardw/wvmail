@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/quotedprintable"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -52,19 +53,29 @@ type EmailSummary struct {
 	IsRead    bool     `json:"is_read"`
 }
 
+// AttachmentInfo describes a single email attachment discovered in the MIME
+// body structure.
+type AttachmentInfo struct {
+	Filename string `json:"filename"`
+	MimeType string `json:"mime_type"`
+	Size     uint32 `json:"size"`
+	PartPath []int  `json:"part_path"`
+}
+
 // EmailDetail is the full representation of an email including body content.
 type EmailDetail struct {
-	UID       uint32   `json:"uid"`
-	Subject   string   `json:"subject"`
-	From      string   `json:"from"`
-	FromName  string   `json:"from_name"`
-	FromAddr  string   `json:"from_addr"`
-	To        []string `json:"to"`
-	Cc        []string `json:"cc"`
-	Date      string   `json:"date"`
-	BodyText  string   `json:"body_text"`
-	BodyHTML  string   `json:"body_html"`
-	Flags     []string `json:"flags"`
+	UID         uint32           `json:"uid"`
+	Subject     string           `json:"subject"`
+	From        string           `json:"from"`
+	FromName    string           `json:"from_name"`
+	FromAddr    string           `json:"from_addr"`
+	To          []string         `json:"to"`
+	Cc          []string         `json:"cc"`
+	Date        string           `json:"date"`
+	BodyText    string           `json:"body_text"`
+	BodyHTML    string           `json:"body_html"`
+	Flags       []string         `json:"flags"`
+	Attachments []AttachmentInfo `json:"attachments"`
 }
 
 // FolderInfo represents a mail folder with its metadata.
@@ -348,34 +359,82 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		}
 	}
 
-	// --- Walk body structure to find text/plain and text/html parts ---
+	// --- Walk body structure to find text/plain, text/html, and attachments ---
 	var parts []bodyPartInfo
+	var attachments []AttachmentInfo
 	if buf.BodyStructure != nil {
 		buf.BodyStructure.Walk(func(path []int, part imap.BodyStructure) bool {
 			mt := part.MediaType()
-			isTarget := mt == "text/plain" || mt == "text/html"
-			if sp, ok := part.(*imap.BodyStructureSinglePart); ok && isTarget {
-				parts = append(parts, bodyPartInfo{
-					path:     path,
-					isHTML:   mt == "text/html",
-					encoding: sp.Encoding,
-					charset:  sp.Params["charset"],
-				})
-			}
-			if _, ok := part.(*imap.BodyStructureMultiPart); ok {
-				return true
+			switch p := part.(type) {
+			case *imap.BodyStructureSinglePart:
+				if mt == "text/plain" || mt == "text/html" {
+					// Body text part
+					parts = append(parts, bodyPartInfo{
+						path:     path,
+						isHTML:   mt == "text/html",
+						encoding: p.Encoding,
+						charset:  p.Params["charset"],
+					})
+				} else if p.Disposition() != nil && p.Disposition().Value == "attachment" {
+					// Explicit attachment (Content-Disposition: attachment)
+					filename := p.Filename()
+					if filename == "" {
+						if name, ok := p.Params["name"]; ok {
+							filename = name
+						} else {
+							filename = fmt.Sprintf("attachment-%d", len(attachments)+1)
+						}
+					}
+					attachments = append(attachments, AttachmentInfo{
+						Filename: filename,
+						MimeType: mt,
+						Size:     p.Size,
+						PartPath: path,
+					})
+				} else if fn := p.Filename(); fn != "" && !strings.HasPrefix(mt, "text/") {
+					// Has a filename in Content-Type params and is not text — treat as attachment
+					attachments = append(attachments, AttachmentInfo{
+						Filename: fn,
+						MimeType: mt,
+						Size:     p.Size,
+						PartPath: path,
+					})
+				} else if p.Disposition() != nil && p.Disposition().Value == "inline" && !strings.HasPrefix(mt, "text/") {
+					// Inline non-text (e.g. embedded image) — show as downloadable
+					filename := p.Filename()
+					if filename == "" {
+						if name, ok := p.Params["name"]; ok {
+							filename = name
+						} else {
+							filename = fmt.Sprintf("inline-%d", len(attachments)+1)
+						}
+					}
+					attachments = append(attachments, AttachmentInfo{
+						Filename: filename,
+						MimeType: mt,
+						Size:     p.Size,
+						PartPath: path,
+					})
+				}
+			case *imap.BodyStructureMultiPart:
+				return true // continue recursing into children
 			}
 			return false
 		})
 	}
 
+	detail.Attachments = attachments
+
 	// --- Pass 2: Fetch the discovered body sections ---
 	var sections []*imap.FetchItemBodySection
-	if len(parts) == 0 {
+	if len(parts) == 0 && len(attachments) == 0 {
 		sections = append(sections, &imap.FetchItemBodySection{Peek: true})
 	}
 	for _, p := range parts {
 		sections = append(sections, &imap.FetchItemBodySection{Part: p.path, Peek: true})
+	}
+	for _, a := range attachments {
+		sections = append(sections, &imap.FetchItemBodySection{Part: a.PartPath, Peek: true})
 	}
 
 	if len(sections) > 0 {
@@ -410,8 +469,8 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 					} else {
 						detail.BodyText = decoded
 					}
-				} else {
-					// Fallback section (no part info) — try as plain text
+				} else if !isAttachmentSection(sec.Part, attachments) {
+					// Fallback section (not an attachment) — try as plain text
 					detail.BodyText = string(raw)
 				}
 			}
@@ -433,6 +492,17 @@ type bodyPartInfo struct {
 	isHTML   bool
 	encoding string
 	charset  string
+}
+
+// isAttachmentSection checks whether the given part path matches any of the
+// discovered attachment paths.
+func isAttachmentSection(path []int, attachments []AttachmentInfo) bool {
+	for _, a := range attachments {
+		if sectionPathEqual(path, a.PartPath) {
+			return true
+		}
+	}
+	return false
 }
 
 // decodeBodyPart decodes raw IMAP body section bytes based on
@@ -509,6 +579,54 @@ func (s *EmailService) paginate(summaries []EmailSummary, page, pageSize int) []
 		end = len(summaries)
 	}
 	return summaries[start:end]
+}
+
+// DownloadAttachment fetches a specific MIME part from the IMAP server by its
+// part path and writes the decoded body bytes to the given file path.
+func (s *EmailService) DownloadAttachment(account EmailAccount, folder string, uid uint32, partPath []int, savePath string) error {
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	// Select the mailbox (read-only)
+	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
+	_, err = selectCmd.Wait()
+	if err != nil {
+		return wrapIMAPError("select folder failed", err)
+	}
+
+	// Build the UID set
+	var uidSet imap.UIDSet
+	uidSet.AddNum(imap.UID(uid))
+
+	// Fetch only the attachment body section
+	section := &imap.FetchItemBodySection{Part: partPath, Peek: true}
+	fetchCmd := client.Fetch(uidSet, &imap.FetchOptions{
+		BodySection: []*imap.FetchItemBodySection{section},
+	})
+	defer fetchCmd.Close()
+
+	bufs, err := fetchCmd.Collect()
+	if err != nil {
+		return fmt.Errorf("fetch attachment failed: %w", err)
+	}
+	if len(bufs) == 0 {
+		return fmt.Errorf("email not found: uid=%d", uid)
+	}
+
+	raw := bufs[0].FindBodySection(section)
+	if raw == nil {
+		return fmt.Errorf("attachment section not found")
+	}
+
+	// Write raw bytes to the destination file
+	if err := os.WriteFile(savePath, raw, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
 // dialIMAP connects to the IMAP server with the given timeout for the entire

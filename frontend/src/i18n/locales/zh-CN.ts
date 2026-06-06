@@ -11,6 +11,8 @@ const zhCN: TranslationSchema = {
   'mail.link.title': '外部链接',
   'mail.link.body': '即将在默认浏览器中打开以下链接：',
   'mail.link.open': '打开链接',
+  'mail.attachment': '个附件',
+  'mail.attachments': '个附件',
   'reminders.title': '提醒事项',
   'reminders.empty': '暂无提醒',
   'notes.title': '笔记',

@@ -11,6 +11,8 @@ const enUS: TranslationSchema = {
   'mail.link.title': 'External Link',
   'mail.link.body': 'This link will open in your default browser:',
   'mail.link.open': 'Open Link',
+  'mail.attachment': 'attachment',
+  'mail.attachments': 'attachments',
   'reminders.title': 'Reminders',
   'reminders.empty': 'No reminders yet',
   'notes.title': 'Notes',

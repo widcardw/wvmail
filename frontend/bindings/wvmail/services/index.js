@@ -17,6 +17,7 @@ export {
 
 export {
     AppConfig,
+    AttachmentInfo,
     EmailAccount,
     EmailDetail,
     EmailSummary,

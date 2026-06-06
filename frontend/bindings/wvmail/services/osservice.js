@@ -44,3 +44,14 @@ export function OpenURL(url) {
 export function PathStat(path) {
     return $Call.ByID(2282796534, path);
 }
+
+/**
+ * SaveFileDialog shows a native save-file dialog with the given suggested
+ * filename and returns the absolute path chosen by the user, or an error if
+ * the user cancelled.
+ * @param {string} suggestedFilename
+ * @returns {$CancellablePromise<string>}
+ */
+export function SaveFileDialog(suggestedFilename) {
+    return $Call.ByID(3997931720, suggestedFilename);
+}

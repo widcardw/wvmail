@@ -70,3 +70,21 @@ func (o *OsService) OpenURL(url string) error {
 	app := application.Get()
 	return app.Browser.OpenURL(url)
 }
+
+// SaveFileDialog shows a native save-file dialog with the given suggested
+// filename and returns the absolute path chosen by the user, or an error if
+// the user cancelled.
+func (o *OsService) SaveFileDialog(suggestedFilename string) (string, error) {
+	app := application.Get()
+	path, err := app.Dialog.SaveFile().
+		SetFilename(suggestedFilename).
+		AttachToWindow(app.Window.Current()).
+		PromptForSingleSelection()
+	if err != nil {
+		return "", fmt.Errorf("save dialog failed: %w", err)
+	}
+	if path == "" {
+		return "", fmt.Errorf("user cancelled")
+	}
+	return path, nil
+}

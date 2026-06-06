@@ -40,6 +40,14 @@ export interface EmailDetail {
   body_text: string
   body_html: string
   flags: string[]
+  attachments: AttachmentInfo[]
+}
+
+export interface AttachmentInfo {
+  filename: string
+  mime_type: string
+  size: number
+  part_path: number[]
 }
 
 export interface FolderInfo {

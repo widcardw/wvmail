@@ -51,6 +51,7 @@ type CachedEmailBody struct {
 	BodyText  string `gorm:"type:text"`
 	BodyHTML  string `gorm:"type:text"`
 	Flags     string `gorm:"size:512"` // JSON serialized []string
+	Attachments string `gorm:"type:text"` // JSON serialized []AttachmentInfo
 }
 
 // CachedNote represents a persisted note with rich text content.
@@ -259,21 +260,23 @@ func (m *DBManager) SaveEmailBody(accountID, folderName string, detail *EmailDet
 	toJSON, _ := json.Marshal(detail.To)
 	ccJSON, _ := json.Marshal(detail.Cc)
 	flagsJSON, _ := json.Marshal(detail.Flags)
+	attachmentsJSON, _ := json.Marshal(detail.Attachments)
 
 	body := CachedEmailBody{
-		AccountID:  accountID,
-		FolderName: folderName,
-		UID:        detail.UID,
-		Subject:    detail.Subject,
-		From:       detail.From,
-		FromName:   detail.FromName,
-		FromAddr:   detail.FromAddr,
-		To:         string(toJSON),
-		Cc:         string(ccJSON),
-		Date:       detail.Date,
-		BodyText:   detail.BodyText,
-		BodyHTML:   detail.BodyHTML,
-		Flags:      string(flagsJSON),
+		AccountID:   accountID,
+		FolderName:  folderName,
+		UID:         detail.UID,
+		Subject:     detail.Subject,
+		From:        detail.From,
+		FromName:    detail.FromName,
+		FromAddr:    detail.FromAddr,
+		To:          string(toJSON),
+		Cc:          string(ccJSON),
+		Date:        detail.Date,
+		BodyText:    detail.BodyText,
+		BodyHTML:    detail.BodyHTML,
+		Flags:       string(flagsJSON),
+		Attachments: string(attachmentsJSON),
 	}
 
 	if err := db.Where("account_id = ? AND folder_name = ? AND uid = ?",
@@ -302,18 +305,27 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 	json.Unmarshal([]byte(cached.Cc), &cc)
 	json.Unmarshal([]byte(cached.Flags), &flags)
 
+	var attachments []AttachmentInfo
+	if cached.Attachments != "" {
+		json.Unmarshal([]byte(cached.Attachments), &attachments)
+	}
+	if attachments == nil {
+		attachments = []AttachmentInfo{}
+	}
+
 	return &EmailDetail{
-		UID:      cached.UID,
-		Subject:  cached.Subject,
-		From:     cached.From,
-		FromName: cached.FromName,
-		FromAddr: cached.FromAddr,
-		To:       to,
-		Cc:       cc,
-		Date:     cached.Date,
-		BodyText: cached.BodyText,
-		BodyHTML: cached.BodyHTML,
-		Flags:    flags,
+		UID:         cached.UID,
+		Subject:     cached.Subject,
+		From:        cached.From,
+		FromName:    cached.FromName,
+		FromAddr:    cached.FromAddr,
+		To:          to,
+		Cc:          cc,
+		Date:        cached.Date,
+		BodyText:    cached.BodyText,
+		BodyHTML:    cached.BodyHTML,
+		Flags:       flags,
+		Attachments: attachments,
 	}, nil
 }
 

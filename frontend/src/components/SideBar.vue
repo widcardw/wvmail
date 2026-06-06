@@ -115,7 +115,6 @@ function handleUpdateValue(key: string, _item: MenuOption) {
       :indent="16"
       :icon-size="20"
       :collapsed-icon-size="24"
-      accordion
       :expanded-keys="expandedKeys"
       :options="menuOptions"
       @update:value="handleUpdateValue"
