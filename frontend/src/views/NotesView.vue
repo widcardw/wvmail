@@ -138,8 +138,20 @@ async function switchNote(id: string) {
   notesStore.selectNote(id)
 }
 
-onMounted(() => {
-  notesStore.loadNotes()
+onMounted(async () => {
+  await notesStore.loadNotes()
+  // If selectedId is already set (survived route change via Pinia),
+  // load the content into the editor now that notes are fetched.
+  if (notesStore.selectedId) {
+    const note = notesStore.notes.find((n) => n.id === notesStore.selectedId)
+    if (note) {
+      title.value = extractTitle(note.content || '')
+      setTimeout(() => {
+        loadContentIntoEditor(note.content || '')
+        dirty.value = false
+      }, 0)
+    }
+  }
 })
 
 onUnmounted(() => {

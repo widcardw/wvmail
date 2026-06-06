@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { NInput, NText, NFlex, NButton, NButtonGroup, MenuOption, NMenu } from 'naive-ui'
 import { OsService } from '../../bindings/wvmail/services'
-import { h, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, h, onMounted, ref } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from '../i18n'
 import AppIcon from './AppIcon.vue'
 
@@ -17,6 +17,16 @@ onMounted(() => {
 })
 
 const collapseMode = defineModel('collapsed', { type: Boolean, default: false })
+
+const route = useRoute()
+
+const activeKey = computed(() => {
+  const path = route.path
+  if (path.startsWith('/notes')) return 'notes'
+  if (path.startsWith('/reminder')) return 'reminder'
+  if (path.startsWith('/settings')) return 'settings'
+  return null
+})
 
 const titleMenu: MenuOption[] = [
   {
@@ -48,7 +58,7 @@ const titleMenu: MenuOption[] = [
     <div>
       <NInput size="small" style="width: 400px" :placeholder="t['search.placeholder']" clearable />
     </div>
-    <NMenu :options="titleMenu" mode="horizontal" :icon-size="20" />
+    <NMenu :options="titleMenu" mode="horizontal" :icon-size="20" :value="activeKey" />
   </NFlex>
 </template>
 
