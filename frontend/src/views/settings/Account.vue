@@ -288,7 +288,7 @@ function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success
           <NInput v-model:value="formData.IMAPPass" type="password" show-password-on="click" />
         </NFormItem>
 
-        <NAlert v-if="is163Provider" type="error" closable style="margin-bottom: 8px">
+        <NAlert v-if="is163Provider" type="warning" closable style="margin-bottom: 8px">
           163 邮箱对第三方客户端有严格限制，即使使用授权码也可能连接失败。
           如果无法使用，建议改用官方客户端或 Foxmail。
         </NAlert>

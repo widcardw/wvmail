@@ -15,6 +15,19 @@ import (
 	"github.com/emersion/go-message/charset"
 )
 
+// providerNeedsIDCommand checks whether the given email provider requires an
+// RFC 2971 ID command before LOGIN. Coremail-based Chinese mail servers
+// (163.com, 126.com, qq.com, etc.) reject connections with "Unsafe Login" if
+// this command is not sent before authentication.
+func providerNeedsIDCommand(provider string) bool {
+	switch provider {
+	case "163", "qq":
+		return true
+	default:
+		return false
+	}
+}
+
 // EmailService provides methods for connecting to IMAP/SMTP email servers
 // and managing email operations.
 type EmailService struct {
@@ -528,6 +541,27 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 	}
 	if dialErr != nil {
 		return nil, fmt.Errorf("dial failed: %w", dialErr)
+	}
+
+	// Some Coremail-based providers (163.com, qq.com) require an RFC 2971 ID
+	// command before LOGIN. Without it they reject with "Unsafe Login".
+	if providerNeedsIDCommand(account.Provider) {
+		// Wait for the server greeting first (consumes the greeting from the
+		// connection so the client is ready for the next command).
+		if err := client.WaitGreeting(); err != nil {
+			client.Close()
+			return nil, fmt.Errorf("greeting failed: %w", err)
+		}
+		// Send the ID command with client identification.
+		idCmd := client.ID(&imap.IDData{
+			Name:    "wvmail",
+			Version: "1.0",
+			Vendor:  "wvmail",
+		})
+		if _, err := idCmd.Wait(); err != nil {
+			client.Close()
+			return nil, fmt.Errorf("id command failed: %w", err)
+		}
 	}
 
 	// Login with timeout — use a goroutine + select so login itself can't hang

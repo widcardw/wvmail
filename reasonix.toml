@@ -106,7 +106,7 @@ auto_install = true   # fetch the runtime when CodeGraph is enabled but missing
 # Rules are "ToolName" or "ToolName(glob)"; '*' matches any run, '?' one char.
 mode  = "ask"
 # deny = ["bash(rm -rf*)", "bash(git push*)"]   # hard-blocked in every mode
-allow = ["edit_file=frontend/src/components/TitleBar.vue"]
+allow = ["edit_file=frontend/src/components/TitleBar.vue", "bash=cd /Users/leeocoy/Documents/go-projects/wvmail && go doc github.com/emersion/go-imap/v2/imapclient Client.WaitGreeting 2>&1", "edit_file=/Users/leeocoy/Documents/go-projects/wvmail/services/emailservice.go", "edit_file", "bash=cd /Users/leeocoy/Documents/go-projects/wvmail && go vet ./services/... 2>&1", "bash=cd /Users/leeocoy/Documents/go-projects/wvmail && go build ./... 2>&1", "bash=cd /Users/leeocoy/Documents/go-projects/wvmail/frontend && npm run build 2>&1 | tail -10"]
 # ask = ["write_file"]   # force a prompt even if otherwise allowed
 
 [sandbox]
