@@ -263,9 +263,9 @@ const providerTagType: Record<string, string> = {
 
 <template>
   <div style="padding: 16px; max-width: 720px">
-    <NCard :title="t['settings.llm.title']">
+    <NCard :title="t['settings.llm.title']" size="small">
       <template #header-extra>
-        <NButton type="primary" @click="openAdd">
+        <NButton type="primary" @click="openAdd" size="small">
           {{ t['settings.llm.add'] }}
         </NButton>
       </template>

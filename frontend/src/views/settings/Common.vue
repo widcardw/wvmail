@@ -38,7 +38,7 @@ async function openConfigFolder() {
 
 <template>
   <div style="padding: 16px; max-width: 720px">
-    <NCard :title="t['settings.common']">
+    <NCard :title="t['settings.common']" size="small">
       <NForm label-placement="left" label-width="auto">
         <NFormItem label="Language / 语言">
           <NSelect

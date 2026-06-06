@@ -7,7 +7,7 @@ const { t } = useI18n()
 
 <template>
   <div style="padding: 16px; max-width: 720px">
-    <NCard :title="t['settings.about']">
+    <NCard :title="t['settings.about']" size="small">
       <p style="opacity: 0.6">
         wvmail — Cross-platform desktop email client built with Wails3 + Vue 3
       </p>

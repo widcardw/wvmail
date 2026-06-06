@@ -9,7 +9,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useThemeVars } from 'naive-ui'
 
 const themeVars = useThemeVars()
-const { primaryColor, primaryColorHover, borderColor } = themeVars.value
+const { primaryColor, codeColor, borderColor, actionColor } = themeVars.value
 
 const { t } = useI18n()
 const notesStore = useNotesStore()
@@ -22,8 +22,9 @@ const loadingContent = ref(false) // prevents dirty flag during setContent
 
 // Extract title from first line of HTML content
 function extractTitle(html: string): string {
-  const text = html.replace(/<[^>]+>/g, '').trim()
-  const firstLine = text.split('\n')[0] || ''
+  const text = html.slice(0, 400).replace(/<[^>]+>/g, '\n').trim()
+  const lines = text.split('\n').filter(Boolean)
+  const firstLine = lines[0]
   return firstLine.slice(0, 15) || t.value['notes.untitled']
 }
 
@@ -67,27 +68,6 @@ const editor = useEditor({
   },
 })
 
-watch(
-  () => notesStore.selectedId,
-  (newId) => {
-    if (!newId) {
-      title.value = ''
-      editor.value?.commands.setContent('')
-      return
-    }
-    const note = notesStore.notes.find((n) => n.id === newId)
-    if (note) {
-      title.value = extractTitle(note.content || '')
-      setTimeout(() => {
-        loadingContent.value = true
-        editor.value?.commands.setContent(note.content || '')
-        loadingContent.value = false
-        dirty.value = false
-      }, 0)
-    }
-  },
-)
-
 function scheduleSave() {
   if (!notesStore.selectedId) return
   if (saveTimer.value) clearTimeout(saveTimer.value)
@@ -109,7 +89,7 @@ function loadContentIntoEditor(html: string) {
   loadingContent.value = true
   // setContent replaces the whole doc in one transaction. Undo from here
   // goes back to empty document, NOT to the previous note's content.
-  editor.value?.commands.setContent(html || '', false, { preserveWhitespace: 'full' })
+  editor.value?.commands.setContent(html || '')
   loadingContent.value = false
 }
 
@@ -356,6 +336,11 @@ onUnmounted(() => {
 .note-item {
   cursor: pointer;
   border-left: 3px solid transparent;
+  background-color: v-bind(actionColor);
+}
+
+.note-item:hover {
+  background-color: v-bind(codeColor);
 }
 
 .note-item.selected {
@@ -410,7 +395,7 @@ onUnmounted(() => {
 
 .editor-toolbar .active {
   color: v-bind(primaryColor);
-  /*background-color: v-bind(primaryColorHover);*/
+  background-color: v-bind(codeColor);
 }
 
 .toolbar-sep {
@@ -475,7 +460,7 @@ onUnmounted(() => {
 }
 
 .editor-content :deep(.ProseMirror pre) {
-  background: v-bind(borderColor);
+  background: v-bind(codeColor);
   padding: 12px;
   border-radius: 4px;
   overflow-x: auto;
