@@ -231,16 +231,16 @@ async function handleTestItem(account: EmailAccount) {
   }
 }
 
-function getProviderTag(provider: string): { type: 'info' | 'warning' | 'success' | 'primary' } {
+function getProviderTag(provider: string): { type: "default" | "info" | "warning" | "error" | "success" | "primary" } {
   switch (provider) {
     case 'gmail':
       return { type: 'success' }
     case 'outlook':
-      return { type: 'primary' }
+      return { type: 'info' }
     case 'qq':
       return { type: 'warning' }
     case '163':
-      return { type: 'info' }
+      return { type: 'error' }
     default:
       return { type: 'warning' }
   }

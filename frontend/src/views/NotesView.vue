@@ -348,11 +348,11 @@ onUnmounted(() => {
 .note-item {
   cursor: pointer;
   border-left: 3px solid transparent;
-  background-color: v-bind(actionColor);
+  /* background-color: v-bind(actionColor); */
 }
 
 .note-item:hover {
-  background-color: v-bind(codeColor);
+  background-color: v-bind(actionColor);
 }
 
 .note-item.selected {

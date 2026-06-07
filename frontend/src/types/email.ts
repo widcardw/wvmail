@@ -107,7 +107,7 @@ export const EMAIL_PROVIDER_DEFAULTS: Record<EmailProvider, ProviderDefaults> = 
 export const EMAIL_PROVIDER_LABELS: Record<EmailProvider, string> = {
   gmail: 'Gmail',
   outlook: 'Outlook / Hotmail',
-  '163': '⚠️ 163 邮箱 (可能不兼容)',
+  '163': '163',
   qq: 'QQ 邮箱',
   custom: '自定义',
 }
@@ -235,7 +235,7 @@ export function getFolderDisplay(
   for (const entry of FOLDER_CATEGORIES) {
     for (const pattern of entry.patterns) {
       if (lower === pattern || lower.endsWith('/' + pattern)) {
-        const displayName = folderName.replace(/^\[.*?\]\//, '')
+        // const displayName = folderName.replace(/^\[.*?\]\//, '')
         const label = locale === 'zh-CN' ? entry.category.labelCn : entry.category.labelEn
         return { icon: entry.category.icon, label, rank: entry.category.rank }
       }
