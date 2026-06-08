@@ -231,7 +231,9 @@ async function handleTestItem(account: EmailAccount) {
   }
 }
 
-function getProviderTag(provider: string): { type: "default" | "info" | "warning" | "error" | "success" | "primary" } {
+function getProviderTag(provider: string): {
+  type: 'default' | 'info' | 'warning' | 'error' | 'success' | 'primary'
+} {
   switch (provider) {
     case 'gmail':
       return { type: 'success' }

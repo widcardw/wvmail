@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { EmailAccount, FolderInfo, EmailSummary, EmailDetail, AttachmentInfo } from '../types/email'
+import type {
+  EmailAccount,
+  FolderInfo,
+  EmailSummary,
+  EmailDetail,
+  AttachmentInfo,
+} from '../types/email'
 import { ConfigService, EmailService, OsService } from '../../bindings/wvmail/services'
 
 export const useAccountsStore = defineStore('accounts', () => {
@@ -144,9 +150,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
-  async function downloadAttachment(
-    attachment: AttachmentInfo,
-  ): Promise<string | null> {
+  async function downloadAttachment(attachment: AttachmentInfo): Promise<string | null> {
     const account = selectedAccount.value
     const folder = selectedFolder.value
     const uid = selectedEmailUid.value
@@ -159,13 +163,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       // Show save dialog
       const savePath = await OsService.SaveFileDialog(attachment.filename)
       // Download attachment to chosen path
-      await EmailService.DownloadAttachment(
-        account,
-        folder,
-        uid,
-        attachment.part_path,
-        savePath,
-      )
+      await EmailService.DownloadAttachment(account, folder, uid, attachment.part_path, savePath)
       return savePath
     } catch (e) {
       detailError.value = String(e)

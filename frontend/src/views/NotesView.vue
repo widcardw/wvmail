@@ -22,7 +22,10 @@ const loadingContent = ref(false) // prevents dirty flag during setContent
 
 // Extract title from first line of HTML content
 function extractTitle(html: string): string {
-  const text = html.slice(0, 400).replace(/<[^>]+>/g, '\n').trim()
+  const text = html
+    .slice(0, 400)
+    .replace(/<[^>]+>/g, '\n')
+    .trim()
   const lines = text.split('\n').filter(Boolean)
   const firstLine = lines[0]
   return firstLine.slice(0, 15) || t.value['notes.untitled']
@@ -247,22 +250,25 @@ onUnmounted(() => {
           quaternary
           :class="{ active: editor?.isActive('heading', { level: 1 }) }"
           @click="editor?.chain().focus().toggleHeading({ level: 1 }).run()"
-          >H1</NButton
         >
+          <NIcon><Icon icon="ci:heading-h1" /></NIcon>
+        </NButton>
         <NButton
           size="tiny"
           quaternary
           :class="{ active: editor?.isActive('heading', { level: 2 }) }"
           @click="editor?.chain().focus().toggleHeading({ level: 2 }).run()"
-          >H2</NButton
         >
+          <NIcon><Icon icon="ci:heading-h2" /></NIcon>
+        </NButton>
         <NButton
           size="tiny"
           quaternary
           :class="{ active: editor?.isActive('heading', { level: 3 }) }"
           @click="editor?.chain().focus().toggleHeading({ level: 3 }).run()"
-          >H3</NButton
         >
+          <NIcon><Icon icon="ci:heading-h3" /></NIcon>
+        </NButton>
         <span class="toolbar-sep" />
         <NButton
           size="tiny"

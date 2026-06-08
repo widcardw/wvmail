@@ -1,5 +1,17 @@
 <script setup lang="ts">
-import { NSpin, NEmpty, NScrollbar, NAlert, NButton, NIcon, NCollapse, NCollapseItem, NList, NListItem, useDialog } from 'naive-ui'
+import {
+  NSpin,
+  NEmpty,
+  NScrollbar,
+  NAlert,
+  NButton,
+  NIcon,
+  NCollapse,
+  NCollapseItem,
+  NList,
+  NListItem,
+  useDialog,
+} from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { OsService } from '../../bindings/wvmail/services'
 import { useI18n } from '../i18n'
@@ -139,7 +151,12 @@ function getAttachmentIcon(mimeType: string, fileName: string): string {
   if (mimeType.startsWith('video/')) return 'vscode-icons:file-type-video'
   if (mimeType.startsWith('audio/')) return 'vscode-icons:file-type-audio'
   if (mimeType.includes('pdf')) return 'vscode-icons:file-type-pdf2'
-  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar') || mimeType.includes('7z'))
+  if (
+    mimeType.includes('zip') ||
+    mimeType.includes('rar') ||
+    mimeType.includes('tar') ||
+    mimeType.includes('7z')
+  )
     return 'vscode-icons:file-type-zip'
   if (mimeType.includes('word') || mimeType.includes('document'))
     return 'vscode-icons:file-type-word'
@@ -147,8 +164,7 @@ function getAttachmentIcon(mimeType: string, fileName: string): string {
     return 'vscode-icons:file-type-excel'
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation'))
     return 'vscode-icons:file-type-powerpoint'
-  if (mimeType.includes('text/'))
-    return 'vscode-icons:file-type-text'
+  if (mimeType.includes('text/')) return 'vscode-icons:file-type-text'
   return 'vscode-icons:default-file'
 }
 
@@ -295,16 +311,16 @@ function handleLinkClick(event: MouseEvent) {
           </div>
 
           <!-- Attachments -->
-          <NCollapse v-if="detail.attachments && detail.attachments.length > 0" class="detail-attachments">
+          <NCollapse
+            v-if="detail.attachments && detail.attachments.length > 0"
+            class="detail-attachments"
+          >
             <NCollapseItem
               :title="`${detail.attachments.length} ${detail.attachments.length === 1 ? t['mail.attachment'] : t['mail.attachments']}`"
               name="attachments"
             >
               <NList :bordered="false" :hoverable="false" class="attachment-list">
-                <NListItem
-                  v-for="att in detail.attachments"
-                  :key="att.filename + '-' + att.size"
-                >
+                <NListItem v-for="att in detail.attachments" :key="att.filename + '-' + att.size">
                   <template #prefix>
                     <NIcon size="20" style="flex-shrink: 0">
                       <Icon :icon="getAttachmentIcon(att.mime_type, att.filename)" />
@@ -315,11 +331,7 @@ function handleLinkClick(event: MouseEvent) {
                     <span class="attachment-size">{{ formatFileSize(att.size) }}</span>
                   </div>
                   <template #suffix>
-                    <NButton
-                      size="tiny"
-                      quaternary
-                      @click="handleDownloadAttachment(att)"
-                    >
+                    <NButton size="tiny" quaternary @click="handleDownloadAttachment(att)">
                       <template #icon>
                         <NIcon size="16"><Icon icon="ri:download-2-line" /></NIcon>
                       </template>
