@@ -1,59 +1,166 @@
-# Welcome to Your New Wails3 Project!
+# WVMail
 
-Congratulations on generating your Wails3 application! This README will guide you through the next steps to get your project up and running.
+A cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeScript)** + **Naive UI**.
 
-## Getting Started
+![Tech Stack](https://img.shields.io/badge/Go-1.25-blue?logo=go)
+![Wails](https://img.shields.io/badge/Wails-3.0.0--alpha.84-purple)
+![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vue.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript)
 
-1. Navigate to your project directory in the terminal.
+---
 
-2. To run your application in development mode, use the following command:
+## Features
 
-   ```
-   wails3 dev
-   ```
+- **📧 Email via IMAP** — Manage multiple IMAP email accounts with local SQLite caching for folders and email summaries
+- **📝 Notes** — Built-in note-taking with rich text editing (TipTap)
+- **⏰ Reminders** — Quick reminder management
+- **⚙️ Full Settings** — Theme, language, accounts, LLM provider configuration
+- **🤖 LLM Integration** — Configure multiple LLM providers for AI-assisted features
+- **🌐 i18n** — Multi-language support via Naive UI's locale system
+- **🎨 Naive UI** — Polished component library with dark/light theme toggle
 
-   This will start your application and enable hot-reloading for both frontend and backend changes.
+## Architecture
 
-3. To build your application for production, use:
+```
+wvmail/
+├── main.go                 # Application entry point (Go + Wails3)
+├── services/               # Go backend services
+│   ├── configservice.go    # Config with AES-256-GCM encrypted API keys
+│   ├── emailservice.go     # IMAP email handling
+│   ├── notesservice.go     # Notes CRUD
+│   ├── osservice.go        # OS operations (open files/folders, detect OS)
+│   ├── greetservice.go     # Sample service
+│   └── database.go         # SQLite database setup (GORM)
+├── frontend/               # Vue 3 TypeScript frontend
+│   └── src/
+│       ├── App.vue         # Root: Naive UI layout with sidebar + title bar
+│       ├── router/         # Vue Router (mail, notes, reminder, settings)
+│       ├── stores/         # Pinia (theme, locale, accounts, notes)
+│       ├── views/          # Page components
+│       ├── components/     # Reusable components (SideBar, TitleBar, EmailList, etc.)
+│       ├── types/          # TypeScript interfaces
+│       ├── composables/    # Vue composables (icons)
+│       └── i18n/           # Locale definitions
+├── build/                  # OS-specific build configs (macOS, Windows, Linux)
+├── Taskfile.yml            # Build task definitions (Taskfile.dev)
+└── go.mod                  # Go module
+```
 
-   ```
-   wails3 build
-   ```
+### Go Backend Services
 
-   This will create a production-ready executable in the `build` directory.
+| Service | Description |
+|---|---|
+| `ConfigService` | Read/write YAML config with encrypted API keys (AES-256-GCM) |
+| `EmailService` | IMAP email operations (connect, list folders, fetch messages) |
+| `NotesService` | Persist and retrieve notes |
+| `OsService` | Open files/folders, detect OS, path stat |
+| `GreetService` | Demo service |
 
-## Exploring Wails3 Features
+### Frontend Pages
 
-Now that you have your project set up, it's time to explore the features that Wails3 offers:
+| Route | Page | Description |
+|---|---|---|
+| `/` | MailView | Main email client interface |
+| `/notes` | NotesView | Rich text notes |
+| `/reminder` | ReminderView | Quick reminders |
+| `/settings/common` | SettingsCommon | Theme, language preferences |
+| `/settings/accounts` | SettingsAccount | IMAP account management |
+| `/settings/llm` | SettingsLLM | LLM provider configuration |
+| `/settings/about` | SettingsAbout | App info |
 
-1. **Check out the examples**: The best way to learn is by example. Visit the `examples` directory in the `v3/examples` directory to see various sample applications.
+## Prerequisites
 
-2. **Run an example**: To run any of the examples, navigate to the example's directory and use:
+- **Go** 1.25+
+- **Node.js** & **pnpm**
+- **Wails3 CLI** (`go install github.com/wailsapp/wails/v3/cmd/wails3@latest`)
+- Platform prerequisites (see [Wails docs](https://v3.wails.io/)):
+  - **macOS**: Xcode Command Line Tools
+  - **Windows**: WebView2 runtime (built into Windows 10+)
+  - **Linux**: GTK3, WebKit2GTK
 
-   ```
-   go run .
-   ```
+## Development
 
-   Note: Some examples may be under development during the alpha phase.
+```bash
+# Start dev mode with hot-reload (Vite on port 9245)
+wails3 dev
 
-3. **Explore the documentation**: Visit the [Wails3 documentation](https://v3.wails.io/) for in-depth guides and API references.
+# Regenerate JS/TS bindings after adding Go service methods
+wails3 generate bindings -clean=true
+```
 
-4. **Join the community**: Have questions or want to share your progress? Join the [Wails Discord](https://discord.gg/JDdSxwjhGf) or visit the [Wails discussions on GitHub](https://github.com/wailsapp/wails/discussions).
+## Build & Run
 
-## Project Structure
+```bash
+# Production build for current OS
+wails3 task build
 
-Take a moment to familiarize yourself with your project structure:
+# Run the production build
+wails3 task run
 
-- `frontend/`: Contains your frontend code (HTML, CSS, JavaScript/TypeScript)
-- `main.go`: The entry point of your Go backend
-- `app.go`: Define your application structure and methods here
-- `wails.json`: Configuration file for your Wails project
+# Package into a distributable format
+wails3 task package
+```
 
-## Next Steps
+### Server Mode
 
-1. Modify the frontend in the `frontend/` directory to create your desired UI.
-2. Add backend functionality in `main.go`.
-3. Use `wails3 dev` to see your changes in real-time.
-4. When ready, build your application with `wails3 build`.
+The app can also run as a headless HTTP server:
 
-Happy coding with Wails3! If you encounter any issues or have questions, don't hesitate to consult the documentation or reach out to the Wails community.
+```bash
+wails3 task build:server
+wails3 task run:server
+```
+
+### Docker (Server Mode)
+
+```bash
+wails3 task build:docker
+wails3 task run:docker
+```
+
+## Frontend Tooling
+
+```bash
+cd frontend
+
+# Lint
+pnpm lint           # Check
+pnpm lint:fix       # Auto-fix
+
+# Format
+pnpm fmt            # Format with oxfmt (no semicolons, single quotes)
+
+# Build only the frontend
+pnpm build:dev      # Development build
+pnpm build          # Production build
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Desktop Framework** | [Wails3](https://v3.wails.io/) (v3.0.0-alpha.84) |
+| **Go Libraries** | go-imap, go-message, GORM + SQLite, go-yaml |
+| **UI Framework** | Vue 3 (Composition API, `<script setup>`) |
+| **Component Library** | [Naive UI](https://www.naiveui.com/) |
+| **State Management** | [Pinia](https://pinia.vuejs.org/) |
+| **Router** | [Vue Router](https://router.vuejs.org/) |
+| **Utilities** | [@vueuse/core](https://vueuse.org/) |
+| **Rich Text** | [TipTap](https://tiptap.dev/) (Notes) |
+| **Icons** | Iconify, LobeHub Icons |
+| **Linter** | oxlint |
+| **Formatter** | oxfmt |
+| **Package Manager** | pnpm |
+
+## Config
+
+Configuration is stored in the OS-specific config directory as YAML:
+
+- **macOS**: `~/Library/Application Support/wvmail/config.yaml`
+- **Linux**: `~/.config/wvmail/config.yaml`
+- **Windows**: `%AppData%/wvmail/config.yaml`
+
+API keys are encrypted at rest using AES-256-GCM.
+
+## License
+
+GNU Affero General Public License v3.0 (AGPL-3.0) — see [LICENSE](./LICENSE) for the full text.
