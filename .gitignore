@@ -6,3 +6,7 @@ build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 .DS_Store
 .references/
+reasonix.toml
+.codegraph/
+.claude/
+frontend/bindings/
