@@ -10,3 +10,5 @@ reasonix.toml
 .codegraph/
 .claude/
 frontend/bindings/
+.reasonix/
+.zed/
