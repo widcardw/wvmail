@@ -8,6 +8,7 @@ import SettingsCommon from '../views/settings/Common.vue'
 import SettingsAccount from '../views/settings/Account.vue'
 import SettingsAbout from '../views/settings/About.vue'
 import SettingsLLM from '../views/settings/LLM.vue'
+import SettingsTranslation from '../views/settings/Translation.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -50,6 +51,11 @@ const routes: RouteRecordRaw[] = [
         path: '/settings/llm',
         name: 'settings-llm',
         component: SettingsLLM,
+      },
+      {
+        path: '/settings/translation',
+        name: 'settings-translation',
+        component: SettingsTranslation,
       },
     ],
   },

@@ -56,6 +56,7 @@ func main() {
 			application.NewService(cfgSvc),
 			application.NewService(emailSvc),
 			application.NewService(services.NewNotesService()),
+			application.NewService(&services.TranslationService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

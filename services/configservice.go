@@ -19,12 +19,13 @@ import (
 
 // AppConfig represents the application configuration stored in YAML.
 type AppConfig struct {
-	Language      string          `yaml:"language"`
-	Theme         string          `yaml:"theme"`
-	DatabasePath  string          `yaml:"database_path,omitempty"`
-	LogConfig     LogConfig       `yaml:"log_config,omitempty"`
-	LLMConfigs    []LLMConfig     `yaml:"llm_configs,omitempty"`
-	EmailAccounts []EmailAccount  `yaml:"email_accounts,omitempty"`
+	Language          string             `yaml:"language"`
+	Theme             string             `yaml:"theme"`
+	DatabasePath      string             `yaml:"database_path,omitempty"`
+	LogConfig         LogConfig          `yaml:"log_config,omitempty"`
+	TranslationConfig TranslationConfig  `yaml:"translation_config,omitempty"`
+	LLMConfigs        []LLMConfig        `yaml:"llm_configs,omitempty"`
+	EmailAccounts     []EmailAccount     `yaml:"email_accounts,omitempty"`
 }
 
 // LogConfig controls the application's file logging behaviour.
@@ -32,6 +33,13 @@ type LogConfig struct {
 	Level          string `yaml:"level"`            // debug, info, warn, error
 	RetentionDays  int    `yaml:"retention_days"`   // days to keep old log files
 	MaxSizeMB      int    `yaml:"max_size_mb"`       // max size per log file before rotation
+}
+
+// TranslationConfig controls the email translation feature.
+type TranslationConfig struct {
+	DefaultTargetLang string `yaml:"default_target_lang"`
+	DefaultEngine     string `yaml:"default_engine"`  // "llm", "deepl"
+	DeepLAuthKey      string `yaml:"deepl_auth_key"`   // AES-256-GCM encrypted
 }
 
 // LLMConfig represents a single LLM provider configuration.
@@ -178,6 +186,10 @@ func defaultConfig() AppConfig {
 			RetentionDays: 30,
 			MaxSizeMB:     10,
 		},
+		TranslationConfig: TranslationConfig{
+			DefaultTargetLang: "zh-CN",
+			DefaultEngine:     "llm",
+		},
 		LLMConfigs:    []LLMConfig{},
 		EmailAccounts: []EmailAccount{},
 	}
@@ -231,6 +243,13 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 			// unencrypted key, or corrupted).
 		}
 	}
+	// Decrypt DeepL auth key
+	if cfg.TranslationConfig.DeepLAuthKey != "" {
+		decrypted, err := decrypt(cfg.TranslationConfig.DeepLAuthKey)
+		if err == nil {
+			cfg.TranslationConfig.DeepLAuthKey = decrypted
+		}
+	}
 	// Decrypt email account passwords
 	for i := range cfg.EmailAccounts {
 		if cfg.EmailAccounts[i].IMAPPass != "" {
@@ -261,6 +280,12 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 	if cfg.LogConfig.MaxSizeMB == 0 {
 		cfg.LogConfig.MaxSizeMB = 10
 	}
+	if cfg.TranslationConfig.DefaultTargetLang == "" {
+		cfg.TranslationConfig.DefaultTargetLang = "zh-CN"
+	}
+	if cfg.TranslationConfig.DefaultEngine == "" {
+		cfg.TranslationConfig.DefaultEngine = "llm"
+	}
 	if cfg.LLMConfigs == nil {
 		cfg.LLMConfigs = []LLMConfig{}
 	}
@@ -286,6 +311,14 @@ func (s *ConfigService) SaveConfig(cfg AppConfig) error {
 			}
 			cfg.LLMConfigs[i].APIKey = encrypted
 		}
+	}
+	// Encrypt DeepL auth key
+	if cfg.TranslationConfig.DeepLAuthKey != "" {
+		encrypted, err := encrypt(cfg.TranslationConfig.DeepLAuthKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt DeepL auth key: %w", err)
+		}
+		cfg.TranslationConfig.DeepLAuthKey = encrypted
 	}
 	// Encrypt email account passwords before writing
 	for i := range cfg.EmailAccounts {
@@ -342,6 +375,17 @@ func (s *ConfigService) SaveLogConfig(cfg LogConfig) error {
 	appCfg.LogConfig = cfg
 	return s.SaveConfig(appCfg)
 }
+
+// SaveTranslationConfig updates the translation settings in the config file.
+func (s *ConfigService) SaveTranslationConfig(cfg TranslationConfig) error {
+	appCfg, err := s.GetConfig()
+	if err != nil {
+		return err
+	}
+	appCfg.TranslationConfig = cfg
+	return s.SaveConfig(appCfg)
+}
+
 func (s *ConfigService) SaveLLMConfigs(configs []LLMConfig) error {
 	cfg, err := s.GetConfig()
 	if err != nil {

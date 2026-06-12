@@ -16,6 +16,9 @@ export interface TranslationSchema {
   'mail.link.open': string
   'mail.attachment': string
   'mail.attachments': string
+  'mail.translation.label': string
+  'mail.translation.translate': string
+  'mail.translation.close': string
   'notes.title': string
   'notes.empty': string
   'notes.placeholder': string
@@ -92,6 +95,15 @@ export interface TranslationSchema {
   'settings.llm.testing': string
   'settings.llm.test_connection': string
   'settings.llm.test_chat': string
+  'settings.translation': string
+  'settings.translation.title': string
+  'settings.translation.target_lang': string
+  'settings.translation.engine': string
+  'settings.translation.engine.llm': string
+  'settings.translation.engine.deepl': string
+  'settings.translation.deepl_key': string
+  'settings.translation.llm_config': string
+  'settings.translation.saved': string
   'demo.prompt': string
   'demo.greet': string
   'demo.learnMore': string

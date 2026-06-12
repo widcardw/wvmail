@@ -28,6 +28,11 @@ const settingsMenuOptions = computed(() => [
     key: 'llm',
     icon: renderIcon('ri:robot-2-line'),
   },
+  {
+    label: t.value['settings.translation'],
+    key: 'translation',
+    icon: renderIcon('ri:translate-2'),
+  },
 ])
 
 function handleClick(key: string, _item: MenuOption) {

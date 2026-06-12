@@ -10,14 +10,15 @@ import {
   NCollapseItem,
   NList,
   NListItem,
+  NTooltip,
   useDialog,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { OsService } from '../../bindings/wvmail/services'
+import { OsService, ConfigService, TranslationService } from '../../bindings/wvmail/services'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { useThemeStore } from '../stores/theme'
-import { computed, h } from 'vue'
+import { computed, ref, h, watch } from 'vue'
 import { AttachmentInfo } from '../types/email'
 
 const { t } = useI18n()
@@ -29,6 +30,17 @@ const isDarkMode = computed(() => themeStore.naiveTheme !== null)
 
 const detail = computed(() => accountsStore.selectedEmailDetail)
 const loading = computed(() => accountsStore.loadingDetail)
+
+// Translation state
+const translating = ref(false)
+const translatedText = ref<string | null>(null)
+const translationError = ref<string | null>(null)
+
+// Clear translation when switching to a different email
+watch(detail, () => {
+  translatedText.value = null
+  translationError.value = null
+})
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
@@ -79,6 +91,46 @@ async function handleRefresh() {
       accountsStore.selectedEmailUid,
     )
   }
+  translatedText.value = null
+  translationError.value = null
+}
+
+async function handleTranslate() {
+  if (!detail.value) return
+  translating.value = true
+  translationError.value = null
+  try {
+    const cfg = await ConfigService.GetConfig()
+    const tCfg = cfg.TranslationConfig || {}
+    const targetLang = tCfg.DefaultTargetLang || 'zh-CN'
+    const engine = tCfg.DefaultEngine || 'llm'
+
+    const textToTranslate = detail.value.body_text || detail.value.body_html || ''
+    if (!textToTranslate) {
+      translationError.value = 'No email content to translate'
+      return
+    }
+
+    let llmCfg = null
+    if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
+      llmCfg = cfg.LLMConfigs[0]
+    }
+
+    const result = await TranslationService.TranslateText(
+      textToTranslate, targetLang, engine, llmCfg, tCfg.DeepLAuthKey || '',
+    )
+    translatedText.value = result
+  } catch (e) {
+    translationError.value = String(e)
+    console.error('Translation failed', e)
+  } finally {
+    translating.value = false
+  }
+}
+
+function clearTranslation() {
+  translatedText.value = null
+  translationError.value = null
 }
 
 function formatFileSize(bytes: number): string {
@@ -294,6 +346,22 @@ function handleLinkClick(event: MouseEvent) {
                   <NIcon><Icon icon="ri:refresh-line" /></NIcon>
                 </template>
               </NButton>
+              <NTooltip trigger="hover">
+                <template #trigger>
+                  <NButton
+                    size="tiny"
+                    quaternary
+                    :loading="translating"
+                    style="flex-shrink: 0"
+                    @click="translatedText ? clearTranslation() : handleTranslate()"
+                  >
+                    <template #icon>
+                      <NIcon><Icon :icon="translatedText ? 'ri:close-line' : 'ri:translate-2'" /></NIcon>
+                    </template>
+                  </NButton>
+                </template>
+                {{ translatedText ? t['mail.translation.close'] : t['mail.translation.translate'] }}
+              </NTooltip>
             </div>
 
             <h2 class="detail-subject">{{ detail.subject || '(No Subject)' }}</h2>
@@ -355,6 +423,21 @@ function handleLinkClick(event: MouseEvent) {
               (No content)
             </div>
           </div>
+
+          <!-- Translation result -->
+          <div v-if="translatedText" class="detail-body translation-result">
+            <div class="translation-divider">{{ t['mail.translation.label'] }}</div>
+            <div class="body-text">{{ translatedText }}</div>
+          </div>
+          <NAlert
+            v-if="translationError"
+            type="error"
+            closable
+            style="margin: 12px"
+            @close="translationError = null"
+          >
+            {{ translationError }}
+          </NAlert>
         </template>
       </NSpin>
     </NScrollbar>
@@ -451,6 +534,20 @@ function handleLinkClick(event: MouseEvent) {
 .body-text {
   font-family: inherit;
   white-space: pre-wrap;
+}
+
+.translation-result {
+  border-top: 1px solid var(--n-border-color);
+  margin-top: 0;
+}
+
+.translation-divider {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.5;
+  margin-bottom: 8px;
 }
 
 /* --- Attachments section --- */
