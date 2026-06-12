@@ -353,7 +353,7 @@ onUnmounted(() => {
 
 .note-item {
   cursor: pointer;
-  border-left: 3px solid transparent;
+  border-left: 2px solid transparent;
   /* background-color: v-bind(actionColor); */
 }
 
@@ -431,7 +431,7 @@ onUnmounted(() => {
 
 .editor-content {
   padding: 20px 24px;
-  min-height: 100%;
+  /*min-height: 100%;*/
   outline: none;
 }
 

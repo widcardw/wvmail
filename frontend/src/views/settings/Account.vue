@@ -59,6 +59,7 @@ const emptyForm = (): EmailAccount => ({
   SMTPUser: '',
   SMTPPass: '',
   UseTLS: true,
+  SyncInterval: 0,
 })
 
 const formData = ref<EmailAccount>(emptyForm())
@@ -319,6 +320,27 @@ function getProviderTag(provider: string): {
         </NFormItem>
         <NFormItem :label="t['settings.accounts.use_tls']" path="UseTLS">
           <NSwitch v-model:value="formData.UseTLS" />
+        </NFormItem>
+
+        <NDivider>{{ t['settings.accounts.sync'] }}</NDivider>
+
+        <NFormItem :label="t['settings.accounts.auto_sync']" path="SyncInterval">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <NSwitch
+              :value="formData.SyncInterval > 0"
+              @update:value="(val: boolean) => { formData.SyncInterval = val ? 5 : 0 }"
+            />
+            <template v-if="formData.SyncInterval > 0">
+              <NInputNumber
+                v-model:value="formData.SyncInterval"
+                :min="1"
+                :max="1440"
+                style="width: 100px"
+              />
+              <span style="opacity: 0.6; font-size: 13px">{{ t['settings.accounts.sync_minutes'] }}</span>
+            </template>
+            <span v-else style="opacity: 0.4; font-size: 13px">{{ t['settings.accounts.sync_disabled'] }}</span>
+          </div>
         </NFormItem>
 
         <NAlert

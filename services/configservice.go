@@ -22,8 +22,16 @@ type AppConfig struct {
 	Language      string          `yaml:"language"`
 	Theme         string          `yaml:"theme"`
 	DatabasePath  string          `yaml:"database_path,omitempty"`
+	LogConfig     LogConfig       `yaml:"log_config,omitempty"`
 	LLMConfigs    []LLMConfig     `yaml:"llm_configs,omitempty"`
 	EmailAccounts []EmailAccount  `yaml:"email_accounts,omitempty"`
+}
+
+// LogConfig controls the application's file logging behaviour.
+type LogConfig struct {
+	Level          string `yaml:"level"`            // debug, info, warn, error
+	RetentionDays  int    `yaml:"retention_days"`   // days to keep old log files
+	MaxSizeMB      int    `yaml:"max_size_mb"`       // max size per log file before rotation
 }
 
 // LLMConfig represents a single LLM provider configuration.
@@ -52,6 +60,8 @@ type EmailAccount struct {
 	SMTPUser string `yaml:"smtp_user"`
 	SMTPPass string `yaml:"smtp_pass"` // AES-256-GCM encrypted on disk
 	UseTLS   bool   `yaml:"use_tls"`
+	// Sync settings
+	SyncInterval int `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
 }
 
 // ConfigService provides methods for reading, writing, and managing
@@ -163,6 +173,11 @@ func defaultConfig() AppConfig {
 		Language:      "en-US",
 		Theme:         "System",
 		DatabasePath:  "",
+		LogConfig: LogConfig{
+			Level:         "info",
+			RetentionDays: 30,
+			MaxSizeMB:     10,
+		},
 		LLMConfigs:    []LLMConfig{},
 		EmailAccounts: []EmailAccount{},
 	}
@@ -172,6 +187,19 @@ func defaultConfig() AppConfig {
 // This is used by the frontend to open the config folder in the file manager.
 func (s *ConfigService) GetConfigDir() (string, error) {
 	return configDir()
+}
+
+// GetLogDir returns the path to the application log directory.
+func (s *ConfigService) GetLogDir() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	logDir := filepath.Join(dir, "logs")
+	if err := os.MkdirAll(logDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create log dir: %w", err)
+	}
+	return logDir, nil
 }
 
 // GetConfig reads the application config from disk. If the file does not exist,
@@ -223,6 +251,15 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 	}
 	if cfg.Theme == "" {
 		cfg.Theme = "System"
+	}
+	if cfg.LogConfig.Level == "" {
+		cfg.LogConfig.Level = "info"
+	}
+	if cfg.LogConfig.RetentionDays == 0 {
+		cfg.LogConfig.RetentionDays = 30
+	}
+	if cfg.LogConfig.MaxSizeMB == 0 {
+		cfg.LogConfig.MaxSizeMB = 10
 	}
 	if cfg.LLMConfigs == nil {
 		cfg.LLMConfigs = []LLMConfig{}
@@ -296,7 +333,15 @@ func (s *ConfigService) SaveConfigField(field, value string) error {
 	return s.SaveConfig(cfg)
 }
 
-// SaveLLMConfigs replaces the entire LLM config list in the config file.
+// SaveLogConfig updates the log settings in the config file.
+func (s *ConfigService) SaveLogConfig(cfg LogConfig) error {
+	appCfg, err := s.GetConfig()
+	if err != nil {
+		return err
+	}
+	appCfg.LogConfig = cfg
+	return s.SaveConfig(appCfg)
+}
 func (s *ConfigService) SaveLLMConfigs(configs []LLMConfig) error {
 	cfg, err := s.GetConfig()
 	if err != nil {

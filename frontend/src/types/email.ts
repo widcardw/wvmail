@@ -15,6 +15,7 @@ export interface EmailAccount {
   SMTPUser: string
   SMTPPass: string
   UseTLS: boolean
+  SyncInterval: number
 }
 
 export interface EmailSummary {
@@ -54,6 +55,11 @@ export interface FolderInfo {
   name: string
   delim: string
   attrs: string[]
+}
+
+export interface EmailPageResponse {
+  emails: EmailSummary[]
+  total: number
 }
 
 export type EmailProvider = 'gmail' | 'outlook' | '163' | 'qq' | 'custom'

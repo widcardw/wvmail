@@ -24,6 +24,7 @@ func init() {
 	// This is not required, but the binding generator will pick up registered events
 	// and provide a strongly typed JS/TS API for them.
 	application.RegisterEvent[string]("time")
+	application.RegisterEvent[string]("emails-synced")
 }
 
 // main function serves as the application's entry point. It initializes the application, creates a window,
@@ -31,19 +32,29 @@ func init() {
 // logs any error that might occur.
 func main() {
 
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
+	// Create shared service instances. We keep references so the background
+	// sync service can use ConfigService and EmailService.
+	cfgSvc := &services.ConfigService{}
+
+	// Initialize file logging from config
+	appCfg, cfgErr := cfgSvc.GetConfig()
+	if cfgErr == nil {
+		if err := services.InitLogger(&appCfg.LogConfig); err != nil {
+			log.Printf("failed to init logger: %v", err)
+		}
+	}
+
+	emailSvc := services.NewEmailService()
+	syncSvc := services.NewEmailSyncService(cfgSvc, emailSvc)
+
 	app := application.New(application.Options{
 		Name:        "wvmail",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
 			application.NewService(&services.OsService{}),
 			application.NewService(&services.GreetService{}),
-			application.NewService(&services.ConfigService{}),
-			application.NewService(services.NewEmailService()),
+			application.NewService(cfgSvc),
+			application.NewService(emailSvc),
 			application.NewService(services.NewNotesService()),
 		},
 		Assets: application.AssetOptions{
@@ -70,6 +81,19 @@ func main() {
 		URL:              "/",
 		Width:            1280,
 		Height:           768,
+	})
+
+	// Start the background email sync service
+	syncSvc.Start()
+	defer syncSvc.Stop()
+
+	// Register keyboard shortcuts
+	// Cmd+, (macOS) / Ctrl+, (other) — navigate to settings
+	app.KeyBinding.Add("Cmd+,", func(window application.Window) {
+		window.EmitEvent("navigate:settings", nil)
+	})
+	app.KeyBinding.Add("Ctrl+,", func(window application.Window) {
+		window.EmitEvent("navigate:settings", nil)
 	})
 
 	// Create a goroutine that emits an event containing the current time every second.

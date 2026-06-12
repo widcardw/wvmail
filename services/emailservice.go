@@ -85,6 +85,13 @@ type FolderInfo struct {
 	Attrs  []string `json:"attrs"`
 }
 
+// EmailPageResponse is returned by ListEmails / RefreshEmails and contains
+// the page of email summaries along with the total message count in the folder.
+type EmailPageResponse struct {
+	Emails []EmailSummary `json:"emails"`
+	Total  int            `json:"total"` // total number of messages in the folder
+}
+
 // TestConnection attempts to connect and authenticate to the IMAP server.
 // Returns success status and a human-readable message. Times out after 15 seconds.
 func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
@@ -149,13 +156,22 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 
 // ListEmails retrieves a page of email summaries from the specified folder.
 // Returns cached data if available.
-func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pageSize int) ([]EmailSummary, error) {
+func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
 	// Try cache first — always return page 1 from cache; pagination over
-	// cached data is disabled for simplicity (we cache the full folder).
+	// cached data is disabled for simplicity.
 	if page <= 1 {
 		cached, err := s.db.LoadEmails(account.ID, folder)
 		if err == nil && len(cached) > 0 {
-			return s.paginate(cached, page, pageSize), nil
+			total, metaErr := s.db.LoadFolderMeta(account.ID, folder)
+			// If no meta is stored yet (e.g. old cache before this feature),
+			// force a refresh to get the real total from the server.
+			if metaErr != nil || total == 0 {
+				return s.RefreshEmails(account, folder, page, pageSize)
+			}
+			return &EmailPageResponse{
+				Emails: s.paginate(cached, page, pageSize),
+				Total:  total,
+			}, nil
 		}
 	}
 
@@ -164,7 +180,7 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 
 // RefreshEmails fetches email summaries from the IMAP server and updates the
 // cache.
-func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, pageSize int) ([]EmailSummary, error) {
+func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
 	client, err := dialIMAP(account, 60*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
@@ -179,7 +195,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	}
 
 	if mbox.NumMessages == 0 {
-		return []EmailSummary{}, nil
+		return &EmailPageResponse{Emails: []EmailSummary{}, Total: 0}, nil
 	}
 
 	// Calculate the range for pagination
@@ -196,7 +212,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		end = 1
 	}
 	if start < 1 {
-		return []EmailSummary{}, nil
+		return &EmailPageResponse{Emails: []EmailSummary{}, Total: total}, nil
 	}
 
 	var seqSet imap.SeqSet
@@ -263,12 +279,21 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		summaries[i], summaries[j] = summaries[j], summaries[i]
 	}
 
-	// Update cache with all fetched summaries (best-effort)
-	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
-		fmt.Printf("failed to cache emails: %v\n", err)
+	// Update cache (best-effort): save total separately, cache emails only for
+	// page 1 so page 2+ fetches don't overwrite the page 1 cache.
+	if err := s.db.SaveFolderMeta(account.ID, folder, total); err != nil {
+		fmt.Printf("failed to cache folder meta: %v\n", err)
+	}
+	if page <= 1 {
+		if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
+			fmt.Printf("failed to cache emails: %v\n", err)
+		}
 	}
 
-	return s.paginate(summaries, page, pageSize), nil
+	return &EmailPageResponse{
+		Emails: summaries,
+		Total:  total,
+	}, nil
 }
 
 // FetchEmail retrieves the full content of a single email by its UID.

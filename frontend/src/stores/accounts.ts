@@ -1,20 +1,26 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type {
   EmailAccount,
   FolderInfo,
   EmailSummary,
   EmailDetail,
   AttachmentInfo,
+  EmailPageResponse,
 } from '../types/email'
 import { ConfigService, EmailService, OsService } from '../../bindings/wvmail/services'
+import { Events } from '@wailsio/runtime'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const accounts = ref<EmailAccount[]>([])
   const loading = ref(false)
+  const refreshing = ref(false) // force-refresh loading state
   const testingId = ref<string | null>(null)
   const foldersByAccount = ref<Record<string, FolderInfo[]>>({})
   const emailsByFolder = ref<Record<string, EmailSummary[]>>({})
+  const emailTotalByFolder = ref<Record<string, number>>({})
+  const currentPageByFolder = ref<Record<string, number>>({})
+  const pageSize = 20
   const selectedAccountId = ref<string | null>(null)
   const selectedFolder = ref<string | null>(null)
 
@@ -37,6 +43,16 @@ export const useAccountsStore = defineStore('accounts', () => {
   const currentEmails = computed(() => {
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailsByFolder.value[key] ?? []
+  })
+
+  const currentTotal = computed(() => {
+    const key = `${selectedAccountId.value}:${selectedFolder.value}`
+    return emailTotalByFolder.value[key] ?? 0
+  })
+
+  const currentPage = computed(() => {
+    const key = `${selectedAccountId.value}:${selectedFolder.value}`
+    return currentPageByFolder.value[key] ?? 1
   })
 
   async function loadAccounts() {
@@ -109,16 +125,69 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
-  async function loadEmails(account: EmailAccount, folder: string, page = 1, pageSize = 20) {
+  async function loadEmails(account: EmailAccount, folder: string, page = 1, ps = pageSize) {
     const key = `${account.ID}:${folder}`
+    loading.value = true
     try {
-      const emails = await EmailService.ListEmails(account, folder, page, pageSize)
-      emailsByFolder.value[key] = emails
+      const resp: EmailPageResponse | null = await EmailService.ListEmails(account, folder, page, ps)
+      emailsByFolder.value[key] = resp?.emails ?? []
+      emailTotalByFolder.value[key] = resp?.total ?? 0
+      if (page === 1) {
+        currentPageByFolder.value[key] = 1
+      }
     } catch (e) {
       console.error('Failed to load emails', e)
       emailsByFolder.value[key] = []
+    } finally {
+      loading.value = false
     }
   }
+
+  /** Force-refresh the current folder from the IMAP server, bypassing cache. */
+  async function forceRefreshEmails() {
+    const account = selectedAccount.value
+    const folder = selectedFolder.value
+    if (!account || !folder) return
+
+    const key = `${account.ID}:${folder}`
+    refreshing.value = true
+    try {
+      const resp: EmailPageResponse | null = await EmailService.RefreshEmails(account, folder, 1, pageSize)
+      emailsByFolder.value[key] = resp?.emails ?? []
+      emailTotalByFolder.value[key] = resp?.total ?? 0
+      currentPageByFolder.value[key] = 1
+    } catch (e) {
+      console.error('Failed to refresh emails', e)
+    } finally {
+      refreshing.value = false
+    }
+  }
+
+  // Listen for background sync events to refresh the UI automatically
+  let unlisten: (() => void) | null = null
+  onMounted(() => {
+    unlisten = Events.On('emails-synced', (event) => {
+      const syncedAccountId = event.data as string
+      // If the synced account is currently selected, refresh the current folder
+      if (syncedAccountId === selectedAccountId.value && selectedFolder.value) {
+        const account = selectedAccount.value
+        const folder = selectedFolder.value
+        if (account && folder) {
+          const key = `${account.ID}:${folder}`
+          EmailService.ListEmails(account, folder, 1, pageSize)
+            .then((resp: EmailPageResponse | null) => {
+              emailsByFolder.value[key] = resp?.emails ?? []
+              emailTotalByFolder.value[key] = resp?.total ?? 0
+              currentPageByFolder.value[key] = 1
+            })
+            .catch(() => {})
+        }
+      }
+    })
+  })
+  onUnmounted(() => {
+    unlisten?.()
+  })
 
   async function selectEmail(account: EmailAccount, folder: string, uid: number) {
     selectedEmailUid.value = uid
@@ -190,13 +259,24 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailDetail.value = null
     const account = accounts.value.find((a) => a.ID === accountId)
     if (account) {
+      currentPageByFolder.value[`${accountId}:${folderName}`] = 1
       loadEmails(account, folderName)
     }
+  }
+
+  function goToPage(page: number) {
+    const account = selectedAccount.value
+    const folder = selectedFolder.value
+    if (!account || !folder) return
+    const key = `${account.ID}:${folder}`
+    currentPageByFolder.value[key] = page
+    loadEmails(account, folder, page)
   }
 
   return {
     accounts,
     loading,
+    refreshing,
     testingId,
     foldersByAccount,
     emailsByFolder,
@@ -209,6 +289,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedAccount,
     currentFolders,
     currentEmails,
+    currentTotal,
+    currentPage,
+    pageSize,
     loadAccounts,
     addAccount,
     removeAccount,
@@ -216,6 +299,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     testConnection,
     loadFolders,
     loadEmails,
+    forceRefreshEmails,
+    goToPage,
     selectEmail,
     refreshEmailBody,
     downloadAttachment,

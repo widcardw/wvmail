@@ -8,7 +8,7 @@ import {
   NLayoutSider,
   NMessageProvider,
 } from 'naive-ui'
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'
 import ThemeStyles from './components/ThemeStyles.vue'
@@ -16,10 +16,12 @@ import TitleBar from './components/TitleBar.vue'
 import SideBar from './components/SideBar.vue'
 import { onMounted, ref } from 'vue'
 import { ConfigService } from '../bindings/wvmail/services'
+import { Events } from '@wailsio/runtime'
 
 const theme = useThemeStore()
 const localeStore = useLocaleStore()
 const collapsed = ref(false)
+const router = useRouter()
 
 onMounted(async () => {
   try {
@@ -29,6 +31,11 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed to load config', e)
   }
+
+  // Listen for global keyboard shortcut to navigate to settings
+  Events.On('navigate:settings', () => {
+    router.push('/settings')
+  })
 })
 </script>
 

@@ -46,6 +46,10 @@ export interface TranslationSchema {
   'settings.accounts.smtp_user': string
   'settings.accounts.smtp_pass': string
   'settings.accounts.use_tls': string
+  'settings.accounts.sync': string
+  'settings.accounts.auto_sync': string
+  'settings.accounts.sync_minutes': string
+  'settings.accounts.sync_disabled': string
   'settings.accounts.test': string
   'settings.accounts.testing': string
   'settings.accounts.test_success': string
@@ -59,6 +63,16 @@ export interface TranslationSchema {
   'settings.accounts.provider_detected': string
   'settings.accounts.auth_code_hint': string
   'settings.about': string
+  'settings.about.log.title': string
+  'settings.about.log.level': string
+  'settings.about.log.level.debug': string
+  'settings.about.log.level.info': string
+  'settings.about.log.level.warn': string
+  'settings.about.log.level.error': string
+  'settings.about.log.retention': string
+  'settings.about.log.max_size': string
+  'settings.about.log.open_folder': string
+  'settings.about.log.saved': string
   'settings.llm': string
   'settings.llm.title': string
   'settings.llm.add': string

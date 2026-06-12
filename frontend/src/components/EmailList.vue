@@ -1,19 +1,32 @@
 <script setup lang="ts">
-import { NEmpty, NSpin, NScrollbar } from 'naive-ui'
+import { NEmpty, NSpin, NScrollbar, NButton, NIcon, NPagination, NTooltip } from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
+import { getFolderDisplay } from '../types/email'
 import { computed } from 'vue'
 import { useThemeVars } from 'naive-ui'
 
 const themeVars = useThemeVars()
 const { primaryColor, primaryColorHover, borderColor } = themeVars.value
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 
 const loading = computed(() => accountsStore.emailsByFolder === undefined)
 const emails = computed(() => accountsStore.currentEmails)
 const selectedUid = computed(() => accountsStore.selectedEmailUid)
+const pageCount = computed(() => {
+  const total = accountsStore.currentTotal
+  const ps = accountsStore.pageSize
+  return total > 0 ? Math.ceil(total / ps) : 1
+})
+
+const folderDisplay = computed(() =>
+  accountsStore.selectedFolder
+    ? getFolderDisplay(accountsStore.selectedFolder, locale.value)
+    : { label: '', icon: '', rank: 99 },
+)
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
@@ -49,11 +62,36 @@ function handleClick(email: { uid: number }) {
 <template>
   <div class="email-list">
     <div class="list-header" v-if="accountsStore.selectedFolder">
-      <span class="folder-label">{{ accountsStore.selectedFolder }}</span>
+      <NTooltip placement="bottom" trigger="hover">
+        <template #trigger>
+          <span class="folder-label">{{ folderDisplay.label }}</span>
+        </template>
+        {{ accountsStore.selectedFolder }}
+      </NTooltip>
+      <NButton
+        size="tiny"
+        quaternary
+        :loading="accountsStore.refreshing"
+        class="refresh-btn"
+        @click="accountsStore.forceRefreshEmails()"
+      >
+        <template #icon>
+          <NIcon><Icon icon="ri:refresh-line" /></NIcon>
+        </template>
+      </NButton>
+      <div class="list-header-spacer"></div>
+      <NPagination
+        v-if="pageCount > 1"
+        v-model:page="accountsStore.currentPage"
+        :page-count="pageCount"
+        :disabled="accountsStore.loading"
+        simple
+        @update:page="accountsStore.goToPage"
+      />
     </div>
 
     <NScrollbar style="height: 100%">
-      <NSpin :show="loading">
+      <NSpin :show="accountsStore.loading">
         <NEmpty
           v-if="!loading && emails.length === 0"
           :description="t['mail.noEmails']"
@@ -100,10 +138,25 @@ function handleClick(email: { uid: number }) {
   font-size: 13px;
   font-weight: 600;
   opacity: 0.7;
-  padding: 8px 16px;
+  padding: 6px 16px;
   border-bottom: 1px solid v-bind(borderColor);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.list-header-spacer {
+  flex: 1;
+}
+
+.folder-label {
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.refresh-btn {
+  flex-shrink: 0;
 }
 
 .email-item {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -63,6 +64,14 @@ type CachedNote struct {
 	UpdatedAt int64  `gorm:"autoUpdateTime"`
 }
 
+// CachedFolderMeta stores the total message count for a folder, kept separate
+// from the email cache so it survives page-by-page cache replacement.
+type CachedFolderMeta struct {
+	AccountID  string `gorm:"primaryKey;size:64"`
+	FolderName string `gorm:"primaryKey;size:255"`
+	Total      int    `gorm:"not null"`
+}
+
 // DBManager provides a lazily-initialized GORM database connection for
 // caching IMAP data locally.
 type DBManager struct {
@@ -109,7 +118,7 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}); err != nil {
+	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedFolderMeta{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
@@ -248,6 +257,36 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 		})
 	}
 	return emails, nil
+}
+
+// SaveFolderMeta stores the total message count for a folder.
+func (m *DBManager) SaveFolderMeta(accountID, folderName string, total int) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Where("account_id = ? AND folder_name = ?", accountID, folderName).
+		Delete(&CachedFolderMeta{}).
+		Session(&gorm.Session{SkipHooks: true}).
+		Create(&CachedFolderMeta{AccountID: accountID, FolderName: folderName, Total: total}).Error
+}
+
+// LoadFolderMeta retrieves the cached total message count for a folder.
+// Returns 0 if no meta is stored.
+func (m *DBManager) LoadFolderMeta(accountID, folderName string) (int, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return 0, err
+	}
+	var meta CachedFolderMeta
+	if err := db.Where("account_id = ? AND folder_name = ?", accountID, folderName).
+		First(&meta).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return int(meta.Total), nil
 }
 
 // SaveEmailBody caches the full content of a single email.
