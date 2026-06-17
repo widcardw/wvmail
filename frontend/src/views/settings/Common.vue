@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { NCard, NSelect, NButton } from 'naive-ui'
 import { NForm, NFormItem, SelectOption } from 'naive-ui'
-import { useI18n } from '../../i18n'
-import { useThemeStore } from '../../stores/theme'
+import { useI18n } from '~/i18n'
+import { useThemeStore } from '~/stores/theme'
 import { computed, Ref } from 'vue'
-import { ConfigService, OsService } from '../../../bindings/wvmail/services'
+import { ConfigService, OsService } from '#/wvmail/services'
 
 const { t, locale, setLocale } = useI18n()
 const theme = useThemeStore()

@@ -1,19 +1,21 @@
 // TypeScript types matching Go services.AppConfig and services.LLMConfig
 // The Go field names are PascalCase and map directly to JS property names.
 
-export interface AppConfig {
-  Language: string // "en-US" | "zh-CN"
-  Theme: string // "System" | "Light" | "Dark"
-  LLMConfigs: LLMConfig[]
-}
+// export interface AppConfig {
+//   Language: string // "en-US" | "zh-CN"
+//   Theme: string // "System" | "Light" | "Dark"
+//   LLMConfigs: LLMConfig[]
+// }
+export { AppConfig, LLMConfig } from '#/wvmail/services'
 
-export interface LLMConfig {
-  Name: string
-  Provider: LLMProvider
-  Model: string
-  BaseURL: string
-  APIKey: string
-}
+
+// export interface LLMConfig {
+//   Name: string
+//   Provider: LLMProvider
+//   Model: string
+//   BaseURL: string
+//   APIKey: string
+// }
 
 export type LLMProvider =
   | 'deepseek'

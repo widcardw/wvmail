@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useI18n } from '../i18n'
-import { useNotesStore } from '../stores/notes'
+import { useI18n } from '~/i18n'
+import { useNotesStore } from '~/stores/notes'
 import { NButton, NIcon, NEmpty, NScrollbar, NList, NListItem, NPopconfirm } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'

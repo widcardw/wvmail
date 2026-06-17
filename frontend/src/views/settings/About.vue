@@ -11,8 +11,8 @@ import {
   NDivider,
   useMessage,
 } from 'naive-ui'
-import { useI18n } from '../../i18n'
-import { ConfigService, OsService } from '../../../bindings/wvmail/services'
+import { useI18n } from '~/i18n'
+import { ConfigService, OsService } from '#/wvmail/services'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -84,11 +84,7 @@ async function handleOpenLogFolder() {
 
       <NForm label-placement="left" label-width="140">
         <NFormItem :label="t['settings.about.log.level']">
-          <NSelect
-            v-model:value="logConfig.Level"
-            :options="levelOptions"
-            style="width: 160px"
-          />
+          <NSelect v-model:value="logConfig.Level" :options="levelOptions" style="width: 160px" />
         </NFormItem>
         <NFormItem :label="t['settings.about.log.retention']">
           <NInputNumber

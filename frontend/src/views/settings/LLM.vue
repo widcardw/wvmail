@@ -20,12 +20,12 @@ import {
   NCode,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { useI18n } from '../../i18n'
-import { ConfigService } from '../../../bindings/wvmail/services'
-import type { LLMConfig, LLMProvider } from '../../types/config'
-import { LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '../../types/config'
-import { renderProviderOption, getProviderIconConfig } from '../../composables/provider-icons'
-import AppIcon from '../../components/AppIcon.vue'
+import { useI18n } from '~/i18n'
+import { ConfigService } from '#/wvmail/services'
+import type { LLMConfig, LLMProvider } from '~/types/config'
+import { LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
+import { renderProviderOption, getProviderIconConfig } from '~/composables/provider-icons'
+import AppIcon from '~/components/AppIcon.vue'
 
 const { t } = useI18n()
 

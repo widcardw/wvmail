@@ -15,7 +15,7 @@ import ThemeStyles from './components/ThemeStyles.vue'
 import TitleBar from './components/TitleBar.vue'
 import SideBar from './components/SideBar.vue'
 import { onMounted, ref } from 'vue'
-import { ConfigService } from '../bindings/wvmail/services'
+import { ConfigService } from '#/wvmail/services'
 import { Events } from '@wailsio/runtime'
 
 const theme = useThemeStore()

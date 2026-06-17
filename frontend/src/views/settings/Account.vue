@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useI18n } from '../../i18n'
-import { useAccountsStore } from '../../stores/accounts'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
 import {
   NCard,
   NButton,
@@ -26,8 +26,8 @@ import {
   type FormRules,
   type SelectOption,
 } from 'naive-ui'
-import { EMAIL_PROVIDER_DEFAULTS, EMAIL_PROVIDER_LABELS, detectProvider } from '../../types/email'
-import type { EmailAccount, EmailProvider } from '../../types/email'
+import { EMAIL_PROVIDER_DEFAULTS, EMAIL_PROVIDER_LABELS, detectProvider } from '~/types/email'
+import type { EmailAccount, EmailProvider } from '~/types/email'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -328,7 +328,11 @@ function getProviderTag(provider: string): {
           <div style="display: flex; align-items: center; gap: 8px">
             <NSwitch
               :value="formData.SyncInterval > 0"
-              @update:value="(val: boolean) => { formData.SyncInterval = val ? 5 : 0 }"
+              @update:value="
+                (val: boolean) => {
+                  formData.SyncInterval = val ? 5 : 0
+                }
+              "
             />
             <template v-if="formData.SyncInterval > 0">
               <NInputNumber
@@ -337,9 +341,13 @@ function getProviderTag(provider: string): {
                 :max="1440"
                 style="width: 100px"
               />
-              <span style="opacity: 0.6; font-size: 13px">{{ t['settings.accounts.sync_minutes'] }}</span>
+              <span style="opacity: 0.6; font-size: 13px">{{
+                t['settings.accounts.sync_minutes']
+              }}</span>
             </template>
-            <span v-else style="opacity: 0.4; font-size: 13px">{{ t['settings.accounts.sync_disabled'] }}</span>
+            <span v-else style="opacity: 0.4; font-size: 13px">{{
+              t['settings.accounts.sync_disabled']
+            }}</span>
           </div>
         </NFormItem>
 

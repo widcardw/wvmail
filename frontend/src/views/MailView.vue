@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useI18n } from '../i18n'
-import { useAccountsStore } from '../stores/accounts'
-import EmailList from '../components/EmailList.vue'
-import EmailDetail from '../components/EmailDetail.vue'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
+import EmailList from '~/components/EmailList.vue'
+import EmailDetail from '~/components/EmailDetail.vue'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()

@@ -6,9 +6,10 @@ import { useAccountsStore } from '../stores/accounts'
 import { getFolderDisplay } from '../types/email'
 import { computed } from 'vue'
 import { useThemeVars } from 'naive-ui'
+import { formatDateRecent, displaySender, truncateSubject } from '../composables/formats'
 
 const themeVars = useThemeVars()
-const { primaryColor, primaryColorHover, borderColor } = themeVars.value
+const { primaryColor, borderColor } = themeVars.value
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
@@ -27,29 +28,6 @@ const folderDisplay = computed(() =>
     ? getFolderDisplay(accountsStore.selectedFolder, locale.value)
     : { label: '', icon: '', rank: 99 },
 )
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const isToday = date.toDateString() === now.toDateString()
-  if (isToday) {
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function truncateSubject(subject: string, maxLen = 60): string {
-  if (!subject) return '(No Subject)'
-  return subject.length > maxLen ? subject.slice(0, maxLen) + '…' : subject
-}
-
-function displaySender(email: { from_name?: string; from_addr?: string; from?: string }): string {
-  if (email.from_name) return email.from_name
-  if (email.from_addr) return email.from_addr.split('@')[0]
-  if (email.from) return email.from
-  return 'Unknown'
-}
 
 function handleClick(email: { uid: number }) {
   const account = accountsStore.selectedAccount
@@ -112,7 +90,7 @@ function handleClick(email: { uid: number }) {
               <div class="email-body">
                 <div class="email-header">
                   <span class="email-from">{{ displaySender(email) }}</span>
-                  <span class="email-date">{{ formatDate(email.date) }}</span>
+                  <span class="email-date">{{ formatDateRecent(email.date) }}</span>
                 </div>
                 <div class="email-subject">{{ truncateSubject(email.subject) }}</div>
               </div>

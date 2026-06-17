@@ -20,6 +20,9 @@ import { useAccountsStore } from '../stores/accounts'
 import { useThemeStore } from '../stores/theme'
 import { computed, ref, h, watch } from 'vue'
 import { AttachmentInfo } from '../types/email'
+import { getAttachmentIcon } from '../composables/attachment-icons'
+import { formatDate, formatFileSize, getInitials } from '../composables/formats'
+import { sanitizeHtml } from '../composables/sanitize-html'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -41,22 +44,6 @@ watch(detail, () => {
   translatedText.value = null
   translationError.value = null
 })
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function getInitials(name: string, addr: string): string {
-  return (name || addr || '?').charAt(0).toUpperCase()
-}
 
 /**
  * Returns sender display parts. When both name and address are available,
@@ -117,7 +104,11 @@ async function handleTranslate() {
     }
 
     const result = await TranslationService.TranslateText(
-      textToTranslate, targetLang, engine, llmCfg, tCfg.DeepLAuthKey || '',
+      textToTranslate,
+      targetLang,
+      engine,
+      llmCfg,
+      tCfg.DeepLAuthKey || '',
     )
     translatedText.value = result
   } catch (e) {
@@ -133,93 +124,6 @@ function clearTranslation() {
   translationError.value = null
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
-
-function getAttachmentIcon(mimeType: string, fileName: string): string {
-  const nameSlices = fileName?.split('.')
-  const ext = nameSlices?.[nameSlices.length - 1]?.toLowerCase() ?? ''
-
-  // Extension-based lookup
-  const extMap: Record<string, string> = {
-    // Images
-    jpg: 'vscode-icons:file-type-image',
-    jpeg: 'vscode-icons:file-type-image',
-    png: 'vscode-icons:file-type-image',
-    gif: 'vscode-icons:file-type-image',
-    webp: 'vscode-icons:file-type-image',
-    svg: 'vscode-icons:file-type-image',
-    bmp: 'vscode-icons:file-type-image',
-    ico: 'vscode-icons:file-type-image',
-    // Videos
-    mp4: 'vscode-icons:file-type-video',
-    avi: 'vscode-icons:file-type-video',
-    mov: 'vscode-icons:file-type-video',
-    mkv: 'vscode-icons:file-type-video',
-    webm: 'vscode-icons:file-type-video',
-    // Audio
-    mp3: 'vscode-icons:file-type-audio',
-    wav: 'vscode-icons:file-type-audio',
-    flac: 'vscode-icons:file-type-audio',
-    aac: 'vscode-icons:file-type-audio',
-    ogg: 'vscode-icons:file-type-audio',
-    // PDF
-    pdf: 'vscode-icons:file-type-pdf2',
-    // Archives
-    zip: 'vscode-icons:file-type-zip',
-    rar: 'vscode-icons:file-type-zip',
-    '7z': 'vscode-icons:file-type-zip',
-    tar: 'vscode-icons:file-type-zip',
-    gz: 'vscode-icons:file-type-zip',
-    bz2: 'vscode-icons:file-type-zip',
-    // Office — Word
-    doc: 'vscode-icons:file-type-word',
-    docx: 'vscode-icons:file-type-word',
-    // Office — Excel
-    xls: 'vscode-icons:file-type-excel',
-    xlsx: 'vscode-icons:file-type-excel',
-    csv: 'vscode-icons:file-type-excel',
-    // Office — PowerPoint
-    ppt: 'vscode-icons:file-type-powerpoint',
-    pptx: 'vscode-icons:file-type-powerpoint',
-    // Code / text
-    txt: 'vscode-icons:file-type-text',
-    json: 'vscode-icons:file-type-text',
-    xml: 'vscode-icons:file-type-text',
-    md: 'vscode-icons:file-type-text',
-    yaml: 'vscode-icons:file-type-text',
-    yml: 'vscode-icons:file-type-text',
-  }
-
-  if (ext && ext in extMap) return extMap[ext]
-
-  // Fallback to MIME type
-  if (mimeType.startsWith('image/')) return 'vscode-icons:file-type-image'
-  if (mimeType.startsWith('video/')) return 'vscode-icons:file-type-video'
-  if (mimeType.startsWith('audio/')) return 'vscode-icons:file-type-audio'
-  if (mimeType.includes('pdf')) return 'vscode-icons:file-type-pdf2'
-  if (
-    mimeType.includes('zip') ||
-    mimeType.includes('rar') ||
-    mimeType.includes('tar') ||
-    mimeType.includes('7z')
-  )
-    return 'vscode-icons:file-type-zip'
-  if (mimeType.includes('word') || mimeType.includes('document'))
-    return 'vscode-icons:file-type-word'
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet'))
-    return 'vscode-icons:file-type-excel'
-  if (mimeType.includes('powerpoint') || mimeType.includes('presentation'))
-    return 'vscode-icons:file-type-powerpoint'
-  if (mimeType.includes('text/')) return 'vscode-icons:file-type-text'
-  return 'vscode-icons:default-file'
-}
-
 async function handleDownloadAttachment(attachment: AttachmentInfo) {
   const path = await accountsStore.downloadAttachment(attachment)
   if (path) {
@@ -229,27 +133,6 @@ async function handleDownloadAttachment(attachment: AttachmentInfo) {
       positiveText: 'OK',
     })
   }
-}
-
-/** Basic HTML sanitizer for email body rendering.
- *  Strips dangerous tags and event handler attributes. */
-function sanitizeHtml(html: string): string {
-  // Remove dangerous tags
-  const dangerous =
-    /<\s*\b(script|iframe|object|embed|frame|form|input|style)\b[^>]*>.*?<\/\s*\1\s*>|<(script|iframe|object|embed|frame|form|input|style)\b[^>]*\/?\s*>/gis
-  let clean = html.replace(dangerous, '')
-  // Remove on* event handlers
-  clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-  // Remove javascript: and data: URIs in href/src
-  clean = clean.replace(
-    /(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
-    '',
-  )
-  clean = clean.replace(
-    /(?:href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi,
-    '',
-  )
-  return clean
 }
 
 function handleLinkClick(event: MouseEvent) {
@@ -356,7 +239,9 @@ function handleLinkClick(event: MouseEvent) {
                     @click="translatedText ? clearTranslation() : handleTranslate()"
                   >
                     <template #icon>
-                      <NIcon><Icon :icon="translatedText ? 'ri:close-line' : 'ri:translate-2'" /></NIcon>
+                      <NIcon
+                        ><Icon :icon="translatedText ? 'ri:close-line' : 'ri:translate-2'"
+                      /></NIcon>
                     </template>
                   </NButton>
                 </template>

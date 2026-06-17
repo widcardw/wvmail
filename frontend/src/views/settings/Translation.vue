@@ -12,9 +12,9 @@ import {
   useMessage,
   type SelectOption,
 } from 'naive-ui'
-import { useI18n } from '../../i18n'
-import { ConfigService } from '../../../bindings/wvmail/services'
-import type { LLMConfig } from '../../types/config'
+import { useI18n } from '~/i18n'
+import { ConfigService } from '#/wvmail/services'
+import type { LLMConfig } from '~/types/config'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -86,7 +86,11 @@ async function handleSave() {
 <template>
   <div style="padding: 16px; max-width: 720px">
     <NCard :title="t['settings.translation.title']" size="small">
-      <NAlert v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'" type="warning" style="margin-bottom: 12px">
+      <NAlert
+        v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'"
+        type="warning"
+        style="margin-bottom: 12px"
+      >
         No LLM configurations found. Please add one in the LLM settings page first.
       </NAlert>
 

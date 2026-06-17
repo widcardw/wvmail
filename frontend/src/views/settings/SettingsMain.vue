@@ -2,8 +2,8 @@
 import { NLayout, NLayoutContent, NLayoutSider, NMenu, type MenuOption } from 'naive-ui'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useI18n } from '../../i18n'
-import { useIconRenderer } from '../../composables/use-icon'
+import { useI18n } from '~/i18n'
+import { useIconRenderer } from '~/composables/use-icon'
 const router = useRouter()
 const { t } = useI18n()
 const { renderIcon } = useIconRenderer()

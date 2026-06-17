@@ -129,7 +129,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     const key = `${account.ID}:${folder}`
     loading.value = true
     try {
-      const resp: EmailPageResponse | null = await EmailService.ListEmails(account, folder, page, ps)
+      const resp: EmailPageResponse | null = await EmailService.ListEmails(
+        account,
+        folder,
+        page,
+        ps,
+      )
       emailsByFolder.value[key] = resp?.emails ?? []
       emailTotalByFolder.value[key] = resp?.total ?? 0
       if (page === 1) {
@@ -152,7 +157,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     const key = `${account.ID}:${folder}`
     refreshing.value = true
     try {
-      const resp: EmailPageResponse | null = await EmailService.RefreshEmails(account, folder, 1, pageSize)
+      const resp: EmailPageResponse | null = await EmailService.RefreshEmails(
+        account,
+        folder,
+        1,
+        pageSize,
+      )
       emailsByFolder.value[key] = resp?.emails ?? []
       emailTotalByFolder.value[key] = resp?.total ?? 0
       currentPageByFolder.value[key] = 1
