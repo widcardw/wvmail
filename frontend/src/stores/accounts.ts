@@ -1,14 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type {
-  EmailAccount,
+  // EmailAccount,
   FolderInfo,
   EmailSummary,
   EmailDetail,
   AttachmentInfo,
   EmailPageResponse,
-} from '../types/email'
-import { ConfigService, EmailService, OsService } from '../../bindings/wvmail/services'
+} from '~/types/email'
+import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/services'
 import { Events } from '@wailsio/runtime'
 
 export const useAccountsStore = defineStore('accounts', () => {

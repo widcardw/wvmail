@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { NInput, NText, NFlex, NButton, NButtonGroup, MenuOption, NMenu } from 'naive-ui'
-import { OsService } from '../../bindings/wvmail/services'
+import { OsService } from '#/wvmail/services'
 import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { useI18n } from '../i18n'
+import { useI18n } from '~/i18n'
 import AppIcon from './AppIcon.vue'
 
 const { t } = useI18n()

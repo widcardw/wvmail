@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { NotesService } from '../../bindings/wvmail/services'
+import { NotesService } from '#/wvmail/services'
 
 export interface Note {
   id: string

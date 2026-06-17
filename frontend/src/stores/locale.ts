@@ -2,11 +2,11 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { zhCN, enUS, dateZhCN, dateEnUS } from 'naive-ui'
 import type { NLocale, NDateLocale } from 'naive-ui'
-import type { Locale, TranslationSchema } from '../i18n'
-import type { AppConfig } from '../types/config'
-import enUSTranslations from '../i18n/locales/en-US'
-import zhCNTranslations from '../i18n/locales/zh-CN'
-import { ConfigService } from '../../bindings/wvmail/services'
+import type { Locale, TranslationSchema } from '~/i18n'
+import type { AppConfig } from '~/types/config'
+import enUSTranslations from '~/i18n/locales/en-US'
+import zhCNTranslations from '~/i18n/locales/zh-CN'
+import { ConfigService } from '#/wvmail/services'
 
 const TRANSLATIONS: Record<Locale, TranslationSchema> = {
   'en-US': enUSTranslations,

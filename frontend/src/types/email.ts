@@ -1,22 +1,24 @@
 // TypeScript types matching Go email models
 // The Go field names are PascalCase and map directly to JS property names.
 
-export interface EmailAccount {
-  ID: string
-  Name: string
-  Email: string
-  Provider: EmailProvider
-  IMAPHost: string
-  IMAPPort: number
-  IMAPUser: string
-  IMAPPass: string
-  SMTPHost: string
-  SMTPPort: number
-  SMTPUser: string
-  SMTPPass: string
-  UseTLS: boolean
-  SyncInterval: number
-}
+// export interface EmailAccount {
+//   ID: string
+//   Name: string
+//   Email: string
+//   Provider: EmailProvider
+//   IMAPHost: string
+//   IMAPPort: number
+//   IMAPUser: string
+//   IMAPPass: string
+//   SMTPHost: string
+//   SMTPPort: number
+//   SMTPUser: string
+//   SMTPPass: string
+//   UseTLS: boolean
+//   SyncInterval: number
+// }
+
+export {EmailAccount} from '#/wvmail/services'
 
 export interface EmailSummary {
   uid: number

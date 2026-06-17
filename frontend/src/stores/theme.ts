@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { darkTheme, useOsTheme } from 'naive-ui'
-import type { AppConfig } from '../types/config'
-import { ConfigService } from '../../bindings/wvmail/services'
+import type { AppConfig } from '~/types/config'
+import { ConfigService } from '#/wvmail/services'
 
 export type ThemeMode = 'Light' | 'Dark' | 'System'
 
