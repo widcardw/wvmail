@@ -22,7 +22,8 @@ import { computed, ref, h, watch } from 'vue'
 import { AttachmentInfo } from '../types/email'
 import { getAttachmentIcon } from '../composables/attachment-icons'
 import { formatDate, formatFileSize, getInitials } from '../composables/formats'
-import { sanitizeHtml } from '../composables/sanitize-html'
+import { sanitizeHtmlRehype as sanitizeHtml, extractTextForTranslation } from '../composables/html-utils'
+import EmailShadowBody from './EmailShadowBody.vue'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -92,7 +93,11 @@ async function handleTranslate() {
     const targetLang = tCfg.DefaultTargetLang || 'zh-CN'
     const engine = tCfg.DefaultEngine || 'llm'
 
-    const textToTranslate = detail.value.body_text || detail.value.body_html || ''
+    const textToTranslate = detail.value.body_text
+      ? detail.value.body_text
+      : detail.value.body_html
+        ? extractTextForTranslation(detail.value.body_html)
+        : ''
     if (!textToTranslate) {
       translationError.value = 'No email content to translate'
       return
@@ -136,7 +141,10 @@ async function handleDownloadAttachment(attachment: AttachmentInfo) {
 }
 
 function handleLinkClick(event: MouseEvent) {
-  const target = event.target as HTMLElement
+  // Use composedPath() for shadow DOM support
+  const path = event.composedPath?.() ?? []
+  const target = (path[0] ?? event.target) as HTMLElement | null
+  if (!target) return
   // Walk up to find the anchor element
   let el: HTMLElement | null = target
   while (el && el.tagName !== 'A') {
@@ -295,13 +303,11 @@ function handleLinkClick(event: MouseEvent) {
             </NCollapseItem>
           </NCollapse>
 
-          <div class="detail-body">
-            <div
+          <div class="detail-body" @click="handleLinkClick">
+            <EmailShadowBody
               v-if="detail.body_html"
-              class="body-html"
-              :class="{ 'body-html-dark': isDarkMode }"
-              v-html="sanitizeHtml(detail.body_html)"
-              @click="handleLinkClick"
+              :html="sanitizeHtml(detail.body_html)"
+              :dark="isDarkMode"
             />
             <div v-else-if="detail.body_text" class="body-text">{{ detail.body_text }}</div>
             <div v-else class="body-empty" style="opacity: 0.4; text-align: center; padding: 2rem">
@@ -474,114 +480,5 @@ function handleLinkClick(event: MouseEvent) {
 .attachment-size {
   font-size: 11px;
   opacity: 0.5;
-}
-</style>
-
-<style>
-/* Global styles for v-html rendered email body */
-.body-html {
-  line-height: 1.6;
-  font-size: 14px;
-  word-break: break-word;
-  color-scheme: light dark;
-}
-
-/* Force backgrounds transparent — !important needed because most email HTML
-   has hardcoded white backgrounds that would ruin dark mode. Only in dark mode. */
-.body-html-dark * {
-  background-color: transparent !important;
-  border-color: rgba(128, 128, 128, 0.25) !important;
-}
-
-/* Let common text elements inherit the app's text color, so in dark mode
-   they're not black-on-dark. Elements with inline style="color: ..." keep
-   their original color (inline > class). */
-.body-html-dark
-  :where(
-    p,
-    div,
-    span,
-    li,
-    td,
-    th,
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6,
-    blockquote,
-    pre,
-    section,
-    article,
-    ul,
-    ol,
-    dl
-  ) {
-  color: inherit !important;
-}
-
-/* Links: plain <a> tags without inline color get bright blue in dark mode.
-   But <a class="btn" style="color:white"> keep their inline style. */
-.body-html-dark a:not([style*='color']) {
-  color: #66b0ff;
-  text-decoration: underline;
-}
-
-/* Restore spacing */
-.body-html p,
-.body-html div,
-.body-html h1,
-.body-html h2,
-.body-html h3,
-.body-html h4,
-.body-html h5,
-.body-html h6 {
-  margin: 0 0 8px;
-  line-height: 1.6;
-}
-
-.body-html h1 {
-  font-size: 22px;
-}
-.body-html h2 {
-  font-size: 18px;
-}
-
-.body-html ul,
-.body-html ol {
-  margin: 4px 0;
-  padding-left: 24px;
-}
-
-.body-html li {
-  margin-bottom: 2px;
-}
-
-.body-html img {
-  max-width: 100%;
-  height: auto;
-}
-
-.body-html blockquote {
-  margin: 8px 0;
-  padding: 0 0 0 12px;
-  border-left: 3px solid var(--n-border-color);
-  opacity: 0.85;
-}
-
-.body-html pre {
-  overflow-x: auto;
-  background: var(--n-action-color);
-  padding: 12px;
-  border-radius: 4px;
-  margin: 8px 0;
-}
-
-.body-html table {
-  max-width: 100%;
-  overflow-x: auto;
-  display: block;
-  margin: 8px 0;
 }
 </style>

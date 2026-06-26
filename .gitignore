@@ -12,3 +12,4 @@ reasonix.toml
 frontend/bindings/
 .reasonix/
 .zed/
+.pnpm-store/
