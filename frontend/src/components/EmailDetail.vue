@@ -22,7 +22,7 @@ import { computed, ref, h, watch } from 'vue'
 import { AttachmentInfo } from '../types/email'
 import { getAttachmentIcon } from '../composables/attachment-icons'
 import { formatDate, formatFileSize, getInitials } from '../composables/formats'
-import { sanitizeHtmlRehype as sanitizeHtml, extractTextForTranslation } from '../composables/html-utils'
+import { sanitizeHtmlRehype as sanitizeHtml, extractTextForTranslation, translateHtmlWithLayout } from '../composables/html-utils'
 import EmailShadowBody from './EmailShadowBody.vue'
 
 const { t } = useI18n()
@@ -39,10 +39,12 @@ const loading = computed(() => accountsStore.loadingDetail)
 const translating = ref(false)
 const translatedText = ref<string | null>(null)
 const translationError = ref<string | null>(null)
+const translatedHtml = ref<string | null>(null)
 
 // Clear translation when switching to a different email
 watch(detail, () => {
   translatedText.value = null
+  translatedHtml.value = null
   translationError.value = null
 })
 
@@ -93,6 +95,30 @@ async function handleTranslate() {
     const targetLang = tCfg.DefaultTargetLang || 'zh-CN'
     const engine = tCfg.DefaultEngine || 'llm'
 
+    let llmCfg = null
+    if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
+      llmCfg = cfg.LLMConfigs[0]
+    }
+
+    const translateFn = (text: string) =>
+      TranslationService.TranslateText(text, targetLang, engine, llmCfg, tCfg.DeepLAuthKey || '')
+
+    // 1. Try layout-preserving translation on HTML content
+    if (detail.value.body_html) {
+      const htmlResult = await translateHtmlWithLayout(
+        detail.value.body_html,
+        translateFn,
+      )
+      if (htmlResult) {
+        // Render translated HTML in shadow DOM
+        translatedText.value = null
+        translatedHtml.value = sanitizeHtml(htmlResult)
+        return
+      }
+      // Fall through to plain-text approach
+    }
+
+    // 2. Plain-text fallback
     const textToTranslate = detail.value.body_text
       ? detail.value.body_text
       : detail.value.body_html
@@ -103,19 +129,9 @@ async function handleTranslate() {
       return
     }
 
-    let llmCfg = null
-    if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
-      llmCfg = cfg.LLMConfigs[0]
-    }
-
-    const result = await TranslationService.TranslateText(
-      textToTranslate,
-      targetLang,
-      engine,
-      llmCfg,
-      tCfg.DeepLAuthKey || '',
-    )
+    const result = await translateFn(textToTranslate)
     translatedText.value = result
+    translatedHtml.value = null
   } catch (e) {
     translationError.value = String(e)
     console.error('Translation failed', e)
@@ -126,6 +142,7 @@ async function handleTranslate() {
 
 function clearTranslation() {
   translatedText.value = null
+  translatedHtml.value = null
   translationError.value = null
 }
 
@@ -244,16 +261,16 @@ function handleLinkClick(event: MouseEvent) {
                     quaternary
                     :loading="translating"
                     style="flex-shrink: 0"
-                    @click="translatedText ? clearTranslation() : handleTranslate()"
+                    @click="(translatedText || translatedHtml) ? clearTranslation() : handleTranslate()"
                   >
                     <template #icon>
                       <NIcon
-                        ><Icon :icon="translatedText ? 'ri:close-line' : 'ri:translate-2'"
+                        ><Icon :icon="(translatedText || translatedHtml) ? 'ri:close-line' : 'ri:translate-2'"
                       /></NIcon>
                     </template>
                   </NButton>
                 </template>
-                {{ translatedText ? t['mail.translation.close'] : t['mail.translation.translate'] }}
+                {{ (translatedText || translatedHtml) ? t['mail.translation.close'] : t['mail.translation.translate'] }}
               </NTooltip>
             </div>
 
@@ -315,7 +332,12 @@ function handleLinkClick(event: MouseEvent) {
             </div>
           </div>
 
-          <!-- Translation result -->
+          <!-- Translation result: layout-preserved HTML -->
+          <div v-if="translatedHtml" class="detail-body">
+            <div class="translation-divider">{{ t['mail.translation.label'] }}</div>
+            <EmailShadowBody :html="translatedHtml" :dark="isDarkMode" />
+          </div>
+          <!-- Translation result: plain text -->
           <div v-if="translatedText" class="detail-body translation-result">
             <div class="translation-divider">{{ t['mail.translation.label'] }}</div>
             <div class="body-text">{{ translatedText }}</div>

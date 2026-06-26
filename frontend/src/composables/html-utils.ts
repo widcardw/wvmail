@@ -166,4 +166,94 @@ function extractTextForTranslation(html: string): string {
   return toText(result)
 }
 
-export { sanitizeHtmlRehype, extractTextForTranslation }
+const SEPARATOR = '\n————\n'
+
+/**
+ * Walk the AST and collect all text node values in order.
+ * Also returns a visitor function to re-inject translated texts.
+ */
+function collectAndInject(
+  tree: Root,
+): { texts: string[]; inject: (translated: string[]) => boolean } {
+  const texts: string[] = []
+  const textNodes: { node: Text; parent: Element; index: number }[] = []
+
+  function walk(node: Root | Element): void {
+    if (!('children' in node)) return
+    if (node.type === 'element' && NO_LINK_TAGS.has(node.tagName)) return
+
+    const children = node.children
+    for (let i = children.length - 1; i >= 0; i--) {
+      const child = children[i]
+      if (child.type === 'text') {
+        const val = child.value.trim()
+        if (val) {
+          texts.push(child.value)
+          textNodes.push({ node: child as Text, parent: node, index: i })
+        }
+      } else if (child.type === 'element') {
+        walk(child)
+      }
+    }
+  }
+
+  walk(tree)
+  // We walked in reverse; restore original order
+  texts.reverse()
+  textNodes.reverse()
+
+  function inject(translated: string[]): boolean {
+    if (translated.length !== textNodes.length) return false
+    for (let i = 0; i < translated.length; i++) {
+      textNodes[i].node.value = translated[i]
+    }
+    return true
+  }
+
+  return { texts, inject }
+}
+
+/**
+ * Translate the HTML content while preserving its full layout structure.
+ * Extracts text nodes → joins with separator → translates → splits →
+ * injects back into the AST → stringifies to HTML.
+ *
+ * Returns the translated HTML, or `null` if the segment count didn't match
+ * (caller should fall back to plain-text translation).
+ *
+ * @param html - Email HTML to translate
+ * @param translateFn - Async function that translates a joined text block
+ * @returns Translated HTML string, or null on segment mismatch
+ */
+async function translateHtmlWithLayout(
+  html: string,
+  translateFn: (text: string) => Promise<string>,
+): Promise<string | null> {
+  const parser = unified().use(rehypeParse, { fragment: true })
+  const tree = parser.parse(html)
+
+  const { texts, inject } = collectAndInject(tree)
+
+  if (texts.length === 0) return null
+
+  // Join all text segments with a unique separator
+  const joined = texts.join(SEPARATOR)
+
+  // Translate
+  const translated = await translateFn(joined)
+
+  // Split back
+  const parts = translated.split(SEPARATOR)
+
+  if (parts.length !== texts.length) return null // fallback
+
+  // Inject back into AST
+  if (!inject(parts.map((p) => p.trim()))) return null
+
+  // Stringify back to HTML
+  const stringifier = unified().use(rehypeStringify)
+  const result = stringifier.stringify(tree)
+  return String(result)
+}
+
+export { sanitizeHtmlRehype, extractTextForTranslation, translateHtmlWithLayout }
