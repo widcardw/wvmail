@@ -27,7 +27,7 @@ function extractTitle(html: string): string {
     .replace(/<[^>]+>/g, '\n')
     .trim()
   const lines = text.split('\n').filter(Boolean)
-  const firstLine = lines[0]
+  const firstLine = lines[0] || 'Untitled'
   return firstLine.slice(0, 15) || t.value['notes.untitled']
 }
 

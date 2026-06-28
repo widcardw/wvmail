@@ -58,7 +58,7 @@ const titleMenu: MenuOption[] = [
     <div>
       <NInput size="small" style="width: 400px" :placeholder="t['search.placeholder']" clearable />
     </div>
-    <NMenu :options="titleMenu" mode="horizontal" :icon-size="20" :value="activeKey" />
+    <NMenu class="menu-horizon" :options="titleMenu" mode="horizontal" :icon-size="20" :value="activeKey" />
   </NFlex>
 </template>
 
@@ -70,5 +70,8 @@ const titleMenu: MenuOption[] = [
   font-weight: 700;
   font-size: 15px;
   white-space: nowrap;
+}
+.menu-horizon:deep(.n-menu-item-content) {
+  padding: 0 0.25rem;
 }
 </style>
