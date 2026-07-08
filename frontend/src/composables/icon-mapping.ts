@@ -35,17 +35,24 @@ export const ICON_MAPPING: Record<string, IconSource> = {
     create: () =>
       h(
         NIconWrapper,
-        { borderRadius: 5, color: '#EF790D', iconColor: 'white' },
+        {color: '#00000000'},
         {
-          default: () =>
-            h(
-              NIcon,
-              { size: '20' },
-              {
-                default: () => h(Icon, { icon: 'ri:mail-line' }),
-              },
-            ),
-        },
-      ),
+          default: () => h('img', {src: '/qq_macos_bigsur_icon.png', width: 30, height: 30})
+        }
+      )
+      // h(
+      //   NIconWrapper,
+      //   { borderRadius: 5, color: '#EF790D', iconColor: 'white' },
+      //   {
+      //     default: () =>
+      //       h(
+      //         NIcon,
+      //         { size: '20' },
+      //         {
+      //           default: () => h(Icon, { icon: 'ri:mail-line' }),
+      //         },
+      //       ),
+      //   },
+      // ),
   },
 }
