@@ -8,6 +8,9 @@ export interface TranslationSchema {
   'search.placeholder': string
   'sidebar.inbox': string
   'sidebar.sent': string
+  'sidebar.all_inbox': string
+  'sidebar.all_sent': string
+  'sidebar.all_drafts': string
   'mail.selectFolder': string
   'mail.loading': string
   'mail.noEmails': string

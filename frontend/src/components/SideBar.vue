@@ -40,6 +40,26 @@ function onExpandedKeysChange(keys: string[]) {
 const menuOptions = computed<MenuOption[]>(() => {
   const options: MenuOption[] = []
 
+  // Smart folder section
+  const smartFolderTypes: { key: string; tKey: string; icon: string }[] = [
+    { key: 'inbox', tKey: 'sidebar.all_inbox', icon: 'ri:inbox-archive-line' },
+    { key: 'sent', tKey: 'sidebar.all_sent', icon: 'ri:send-plane-2-line' },
+    { key: 'drafts', tKey: 'sidebar.all_drafts', icon: 'ri:draft-line' },
+  ]
+
+  for (const sf of smartFolderTypes) {
+    options.push({
+      label: t.value[sf.tKey],
+      key: `__smart__:${sf.key}`,
+      icon: renderIconifyIcon(sf.icon),
+    })
+  }
+
+  options.push({
+    type: 'divider',
+    key: '__smart_divider__',
+  })
+
   for (const account of accountsStore.accounts) {
     const iconSource = ICON_MAPPING[account.Provider]
     const folders = accountsStore.foldersByAccount[account.ID]
@@ -94,6 +114,11 @@ const menuOptions = computed<MenuOption[]>(() => {
 function handleUpdateValue(key: string, _item: MenuOption) {
   const parts = key.split(':')
   if (parts.length === 2) {
+    if (parts[0] === '__smart__') {
+      accountsStore.selectSmartFolder(parts[1])
+      router.push('/')
+      return
+    }
     const [accountId, folderName] = parts
     accountsStore.selectFolder(accountId, folderName)
     router.push('/')

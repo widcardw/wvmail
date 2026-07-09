@@ -24,6 +24,13 @@ export const useAccountsStore = defineStore('accounts', () => {
   const selectedAccountId = ref<string | null>(null)
   const selectedFolder = ref<string | null>(null)
 
+  // Smart folder (aggregate view across all accounts)
+  const smartFolder = ref<string | null>(null)
+  const smartEmails = ref<EmailSummary[]>([])
+  const smartFolderLoading = ref(false)
+
+  const isSmartFolder = computed(() => smartFolder.value !== null)
+
   // Email detail state
   const selectedEmailUid = ref<number | null>(null)
   const selectedEmailDetail = ref<EmailDetail | null>(null)
@@ -32,6 +39,7 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   const selectedAccount = computed(() => {
     if (!selectedAccountId.value) return null
+    if (smartFolder.value) return null
     return accounts.value.find((a) => a.ID === selectedAccountId.value) ?? null
   })
 
@@ -41,16 +49,19 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   const currentEmails = computed(() => {
+    if (smartFolder.value) return smartEmails.value
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailsByFolder.value[key] ?? []
   })
 
   const currentTotal = computed(() => {
+    if (smartFolder.value) return smartEmails.value.length
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailTotalByFolder.value[key] ?? 0
   })
 
   const currentPage = computed(() => {
+    if (smartFolder.value) return 1
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return currentPageByFolder.value[key] ?? 1
   })
@@ -265,6 +276,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   function selectFolder(accountId: string, folderName: string) {
     selectedAccountId.value = accountId
     selectedFolder.value = folderName
+    smartFolder.value = null // clear smart folder selection
     selectedEmailUid.value = null
     selectedEmailDetail.value = null
     const account = accounts.value.find((a) => a.ID === accountId)
@@ -277,10 +289,80 @@ export const useAccountsStore = defineStore('accounts', () => {
   function goToPage(page: number) {
     const account = selectedAccount.value
     const folder = selectedFolder.value
+    if (smartFolder.value) {
+      // Smart folders are single-page, no pagination
+      return
+    }
     if (!account || !folder) return
     const key = `${account.ID}:${folder}`
     currentPageByFolder.value[key] = page
     loadEmails(account, folder, page)
+  }
+
+  /** Smart folder helpers */
+  const SMART_FOLDER_TYPES = ['inbox', 'sent', 'drafts'] as const
+
+  function folderMatchesType(folderName: string, smartType: string): boolean {
+    const lower = folderName.toLowerCase()
+    switch (smartType) {
+      case 'inbox':
+        return lower === 'inbox' || lower.endsWith('/inbox')
+      case 'sent':
+        return lower.includes('sent') && !lower.includes('sent item')
+      case 'drafts':
+        return lower === 'drafts' || lower.includes('draft')
+      default:
+        return false
+    }
+  }
+
+  async function selectSmartFolder(smartType: string) {
+    smartFolder.value = smartType
+    selectedAccountId.value = null
+    selectedFolder.value = null
+    selectedEmailUid.value = null
+    selectedEmailDetail.value = null
+    smartFolderLoading.value = true
+
+    try {
+      const all: EmailSummary[] = []
+      for (const account of accounts.value) {
+        let folders = foldersByAccount.value[account.ID]
+        if (!folders) {
+          // Load folders first if not yet cached
+          try {
+            folders = await EmailService.ListFolders(account)
+            foldersByAccount.value[account.ID] = folders
+          } catch {
+            continue
+          }
+        }
+        const match = folders.find((f) => folderMatchesType(f.name, smartType))
+        if (!match) continue
+        const resp: EmailPageResponse | null = await EmailService.ListEmails(
+          account,
+          match.name,
+          1,
+          50,
+        )
+        if (resp?.emails) {
+          // Attach account/folder metadata for opening emails from smart folder
+          for (const email of resp.emails) {
+            ;(email as any)._accountId = account.ID
+            ;(email as any)._folderName = match.name
+          }
+          all.push(...resp.emails)
+        }
+      }
+      // Sort by date descending across all accounts
+      all.sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime())
+      smartEmails.value = all
+    } catch (e) {
+      console.error('Failed to load smart folder', e)
+      smartEmails.value = []
+    } finally {
+      smartFolderLoading.value = false
+    }
   }
 
   return {
@@ -290,6 +372,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     testingId,
     foldersByAccount,
     emailsByFolder,
+    emailTotalByFolder,
     selectedAccountId,
     selectedFolder,
     selectedEmailUid,
@@ -302,6 +385,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     currentTotal,
     currentPage,
     pageSize,
+    smartFolder,
+    smartEmails,
+    smartFolderLoading,
+    isSmartFolder,
+    folderMatchesType,
+    selectSmartFolder,
     loadAccounts,
     addAccount,
     removeAccount,

@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { NInput, NText, NFlex, NButton, NButtonGroup, MenuOption, NMenu } from 'naive-ui'
+import { NInput, NText, NButton, NSwitch, NMenu, MenuOption } from 'naive-ui'
 import { OsService } from '#/wvmail/services'
 import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from '~/i18n'
+import { useThemeStore } from '~/stores/theme'
 import AppIcon from './AppIcon.vue'
 
 const { t } = useI18n()
+const themeStore = useThemeStore()
+
+const isDark = computed(() => themeStore.naiveTheme !== null)
+
+function toggleTheme() {
+  themeStore.mode = isDark.value ? 'Light' : 'Dark'
+}
+
 const lm = ref(0)
 onMounted(() => {
   OsService.GetOs().then((os: string) => {
@@ -48,30 +57,90 @@ const titleMenu: MenuOption[] = [
 </script>
 
 <template>
-  <NFlex inline justify-center :wrap="false" style="height: 40px; align-items: center">
-    <NText class="title-bar-brand" :style="{ marginLeft: `${lm}px` }">{{ t['app.brand'] }}</NText>
-    <NButton text size="small" @click="collapseMode = !collapseMode">
-      <template #icon>
-        <AppIcon icon="material-symbols:dock-to-left-outline" />
-      </template>
-    </NButton>
-    <div>
-      <NInput size="small" style="width: 400px" :placeholder="t['search.placeholder']" clearable />
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <NText class="brand" :style="{ marginLeft: `${lm}px` }">{{ t['app.brand'] }}</NText>
+      <NButton text size="small" @click="collapseMode = !collapseMode">
+        <template #icon>
+          <AppIcon icon="material-symbols:dock-to-left-outline" />
+        </template>
+      </NButton>
     </div>
-    <NMenu class="menu-horizon" :options="titleMenu" mode="horizontal" :icon-size="20" :value="activeKey" />
-  </NFlex>
+
+    <div class="titlebar-center">
+      <NInput
+        size="small"
+        :placeholder="t['search.placeholder']"
+        clearable
+        class="search-input"
+      />
+    </div>
+
+    <div class="titlebar-right">
+      <NMenu class="menu-horizon" :options="titleMenu" mode="horizontal" :icon-size="18" :value="activeKey" />
+      <div class="separator" />
+      <NSwitch :value="isDark" size="small" @update:value="toggleTheme">
+        <template #checked-icon>
+          <AppIcon icon="ri:moon-clear-line" :size="11" />
+        </template>
+        <template #unchecked-icon>
+          <AppIcon icon="ri:sun-line" :size="11" />
+        </template>
+      </NSwitch>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.icon-color {
-  color: var(--n-text-color);
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 12px;
+  gap: 12px;
 }
-.title-bar-brand {
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.brand {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   white-space: nowrap;
 }
+
+.titlebar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  max-width: 380px;
+  width: 100%;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.separator {
+  width: 1px;
+  height: 18px;
+  background: var(--n-border-color);
+  opacity: 0.4;
+}
+
 .menu-horizon:deep(.n-menu-item-content) {
-  padding: 0 0.25rem;
+  padding: 0 0.2rem;
+}
+
+.menu-horizon:deep(.n-menu-item-content .n-icon) {
+  font-size: 18px;
 }
 </style>

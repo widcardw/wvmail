@@ -4,7 +4,7 @@ import { Icon } from '@iconify/vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { getFolderDisplay } from '../types/email'
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { useThemeVars } from 'naive-ui'
 import { formatDateRecent, displaySender, truncateSubject } from '../composables/formats'
 
@@ -14,37 +14,64 @@ const { primaryColor, borderColor } = themeVars.value
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 
-const loading = computed(() => accountsStore.emailsByFolder === undefined)
+const loading = computed(() => {
+  if (accountsStore.isSmartFolder) return accountsStore.smartFolderLoading
+  return accountsStore.emailsByFolder === undefined
+})
 const emails = computed(() => accountsStore.currentEmails)
 const selectedUid = computed(() => accountsStore.selectedEmailUid)
 const pageCount = computed(() => {
+  if (accountsStore.isSmartFolder) return 1
   const total = accountsStore.currentTotal
   const ps = accountsStore.pageSize
   return total > 0 ? Math.ceil(total / ps) : 1
 })
 
-const folderDisplay = computed(() =>
-  accountsStore.selectedFolder
-    ? getFolderDisplay(accountsStore.selectedFolder, locale.value)
-    : { label: '', icon: '', rank: 99 },
-)
+const folderDisplay = computed(() => {
+  if (accountsStore.isSmartFolder) {
+    return { label: accountsStore.smartFolder, icon: '' }
+  }
+  if (accountsStore.selectedFolder) {
+    return getFolderDisplay(accountsStore.selectedFolder, locale.value)
+  }
+  return { label: '', icon: '', rank: 99 }
+})
 
-function handleClick(email: { uid: number }) {
+function handleClick(email: { uid: number; _accountId?: string; _folderName?: string }) {
+  const smartF = accountsStore.smartFolder
+  if (smartF && email._accountId && email._folderName) {
+    const account = accountsStore.accounts.find((a) => a.ID === email._accountId)
+    if (account) {
+      accountsStore.selectEmail(account, email._folderName, email.uid)
+    }
+    return
+  }
   const account = accountsStore.selectedAccount
   if (account && accountsStore.selectedFolder) {
     accountsStore.selectEmail(account, accountsStore.selectedFolder, email.uid)
   }
 }
+
+function getEmailAccountIcon(email: { _accountId?: string }) {
+  let accountName = ''
+  if (accountsStore.isSmartFolder && email._accountId) {
+    const acct = accountsStore.accounts.find((a) => a.ID === email._accountId)
+    if (acct) accountName = acct.Name || acct.Email
+  } else if (accountsStore.selectedAccount) {
+    accountName = accountsStore.selectedAccount.Name || accountsStore.selectedAccount.Email
+  }
+  return accountName ? accountName.charAt(0).toUpperCase() : null
+}
 </script>
 
 <template>
   <div class="email-list">
-    <div class="list-header" v-if="accountsStore.selectedFolder">
+    <div class="list-header" v-if="accountsStore.selectedFolder || accountsStore.isSmartFolder">
       <NTooltip placement="bottom" trigger="hover">
         <template #trigger>
           <span class="folder-label">{{ folderDisplay.label }}</span>
         </template>
-        {{ accountsStore.selectedFolder }}
+        {{ accountsStore.selectedFolder || (accountsStore.isSmartFolder ? folderDisplay.label + ' (all accounts)' : '') }}
       </NTooltip>
       <NButton
         size="tiny"
@@ -52,6 +79,7 @@ function handleClick(email: { uid: number }) {
         :loading="accountsStore.refreshing"
         class="refresh-btn"
         @click="accountsStore.forceRefreshEmails()"
+        v-if="!accountsStore.isSmartFolder"
       >
         <template #icon>
           <NIcon><Icon icon="ri:refresh-line" /></NIcon>
@@ -89,6 +117,10 @@ function handleClick(email: { uid: number }) {
               <div class="unread-marker" :class="{ visible: !email.is_read }"></div>
               <div class="email-body">
                 <div class="email-header">
+                  <span
+                    v-if="accountsStore.isSmartFolder"
+                    class="email-avatar"
+                  >{{ getEmailAccountIcon(email) }}</span>
                   <span class="email-from">{{ displaySender(email) }}</span>
                   <span class="email-date">{{ formatDateRecent(email.date) }}</span>
                 </div>
@@ -131,6 +163,22 @@ function handleClick(email: { uid: number }) {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
+}
+
+.email-avatar {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  background: var(--n-action-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  margin-right: 4px;
+  color: var(--n-text-color);
+  line-height: 1;
 }
 
 .refresh-btn {

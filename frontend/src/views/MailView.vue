@@ -10,7 +10,7 @@ const accountsStore = useAccountsStore()
 
 <template>
   <div class="view-content">
-    <div v-if="accountsStore.selectedFolder" class="mail-split">
+    <div v-if="accountsStore.selectedFolder || accountsStore.isSmartFolder" class="mail-split">
       <div class="split-list">
         <EmailList />
       </div>
