@@ -28,6 +28,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   const smartFolder = ref<string | null>(null)
   const smartEmails = ref<EmailSummary[]>([])
   const smartFolderLoading = ref(false)
+  const smartCurrentPage = ref(1)
 
   const isSmartFolder = computed(() => smartFolder.value !== null)
 
@@ -49,7 +50,10 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   const currentEmails = computed(() => {
-    if (smartFolder.value) return smartEmails.value
+    if (smartFolder.value) {
+      const start = (smartCurrentPage.value - 1) * pageSize
+      return smartEmails.value.slice(start, start + pageSize)
+    }
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailsByFolder.value[key] ?? []
   })
@@ -61,7 +65,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   const currentPage = computed(() => {
-    if (smartFolder.value) return 1
+    if (smartFolder.value) return smartCurrentPage.value
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return currentPageByFolder.value[key] ?? 1
   })
@@ -287,10 +291,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   function goToPage(page: number) {
-    const account = selectedAccount.value
-    const folder = selectedFolder.value
     if (smartFolder.value) {
-      // Smart folders are single-page, no pagination
+      smartCurrentPage.value = page
       return
     }
     if (!account || !folder) return
@@ -343,7 +345,7 @@ export const useAccountsStore = defineStore('accounts', () => {
           account,
           match.name,
           1,
-          50,
+          200,
         )
         if (resp?.emails) {
           // Attach account/folder metadata for opening emails from smart folder
@@ -355,7 +357,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
       }
       // Sort by date descending across all accounts
-      all.sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime())
+      all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       smartEmails.value = all
     } catch (e) {
       console.error('Failed to load smart folder', e)
@@ -388,6 +390,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     smartFolder,
     smartEmails,
     smartFolderLoading,
+    smartCurrentPage,
     isSmartFolder,
     folderMatchesType,
     selectSmartFolder,

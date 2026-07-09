@@ -4,9 +4,10 @@ import { Icon } from '@iconify/vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { getFolderDisplay } from '../types/email'
-import { computed, h } from 'vue'
+import { computed } from 'vue'
 import { useThemeVars } from 'naive-ui'
 import { formatDateRecent, displaySender, truncateSubject } from '../composables/formats'
+import AccountAvatar from './AccountAvatar.vue'
 
 const themeVars = useThemeVars()
 const { primaryColor, borderColor } = themeVars.value
@@ -21,7 +22,6 @@ const loading = computed(() => {
 const emails = computed(() => accountsStore.currentEmails)
 const selectedUid = computed(() => accountsStore.selectedEmailUid)
 const pageCount = computed(() => {
-  if (accountsStore.isSmartFolder) return 1
   const total = accountsStore.currentTotal
   const ps = accountsStore.pageSize
   return total > 0 ? Math.ceil(total / ps) : 1
@@ -50,17 +50,6 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
   if (account && accountsStore.selectedFolder) {
     accountsStore.selectEmail(account, accountsStore.selectedFolder, email.uid)
   }
-}
-
-function getEmailAccountIcon(email: { _accountId?: string }) {
-  let accountName = ''
-  if (accountsStore.isSmartFolder && email._accountId) {
-    const acct = accountsStore.accounts.find((a) => a.ID === email._accountId)
-    if (acct) accountName = acct.Name || acct.Email
-  } else if (accountsStore.selectedAccount) {
-    accountName = accountsStore.selectedAccount.Name || accountsStore.selectedAccount.Email
-  }
-  return accountName ? accountName.charAt(0).toUpperCase() : null
 }
 </script>
 
@@ -120,7 +109,7 @@ function getEmailAccountIcon(email: { _accountId?: string }) {
                   <span
                     v-if="accountsStore.isSmartFolder"
                     class="email-avatar"
-                  >{{ getEmailAccountIcon(email) }}</span>
+                  ><AccountAvatar :account-id="email._accountId!" /></span>
                   <span class="email-from">{{ displaySender(email) }}</span>
                   <span class="email-date">{{ formatDateRecent(email.date) }}</span>
                 </div>
@@ -163,22 +152,6 @@ function getEmailAccountIcon(email: { _accountId?: string }) {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
-}
-
-.email-avatar {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  border-radius: 50%;
-  background: var(--n-action-color);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  font-weight: 700;
-  margin-right: 4px;
-  color: var(--n-text-color);
-  line-height: 1;
 }
 
 .refresh-btn {
@@ -273,5 +246,10 @@ function getEmailAccountIcon(email: { _accountId?: string }) {
 
 .email-item:not(.unread) .email-from {
   opacity: 0.85;
+}
+
+.email-avatar {
+  display: flex;
+  margin-right: 0.25rem;
 }
 </style>
