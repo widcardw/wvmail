@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import { adaptHtmlForDarkMode } from '../composables/html-utils'
 
 const props = defineProps<{
   html: string
@@ -14,15 +15,13 @@ function updateContent() {
   if (!shadowRoot) {
     shadowRoot = container.value.attachShadow({ mode: 'open' })
   }
-  // Inject sanitized HTML + dark mode overrides inside shadow DOM
-  const darkStyles = props.dark
-    ? `<style>
-  :host * { background-color: transparent !important; border-color: rgba(128,128,128,0.25) !important; }
-  :host(:where(p,div,span,li,td,th,h1,h2,h3,h4,h5,h6,blockquote,pre,section,article,ul,ol,dl)) { color: inherit !important; }
-  :host a:not([style*=color]) { color: #66b0ff; text-decoration: underline; }
-  </style>`
-    : ''
-  shadowRoot.innerHTML = darkStyles + props.html
+
+  let content = props.html
+  if (props.dark) {
+    content = adaptHtmlForDarkMode(content)
+  }
+
+  shadowRoot.innerHTML = content
 }
 
 onMounted(updateContent)

@@ -256,4 +256,150 @@ async function translateHtmlWithLayout(
   return String(result)
 }
 
-export { sanitizeHtmlRehype, extractTextForTranslation, translateHtmlWithLayout }
+// ─── Dark mode color adaptation ───────────────────────────────────
+
+/** Parse a CSS hex color (#RGB, #RRGGBB) to RGB tuple, or null. */
+function parseHex(hex: string): [number, number, number] | null {
+  const h = hex.replace(/^#/, '')
+  if (h.length === 3) {
+    const [r, g, b] = h
+    return [parseInt(r + r, 16), parseInt(g + g, 16), parseInt(b + b, 16)]
+  }
+  if (h.length === 6) {
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+  }
+  return null
+}
+
+/** Named CSS colors map (common subset). */
+const NAMED_COLORS: Record<string, string> = {
+  black: '#000000', silver: '#c0c0c0', gray: '#808080', grey: '#808080',
+  white: '#ffffff', maroon: '#800000', red: '#ff0000', purple: '#800080',
+  fuchsia: '#ff00ff', green: '#008000', lime: '#00ff00', olive: '#808000',
+  yellow: '#ffff00', navy: '#000080', blue: '#0000ff', teal: '#008080',
+  aqua: '#00ffff', orange: '#ffa500', darkgray: '#a9a9a9', darkgrey: '#a9a9a9',
+  lightgray: '#d3d3d3', lightgrey: '#d3d3d3', darkblue: '#00008b',
+  darkgreen: '#006400', darkred: '#8b0000', transparent: '',
+}
+
+/** Parse a CSS color value string to RGB tuple, or null. */
+function parseColor(color: string): [number, number, number] | null {
+  const s = color.trim().toLowerCase()
+  if (!s) return null
+  const named = NAMED_COLORS[s]
+  if (named !== undefined) return named ? parseHex(named) : null
+  if (s.startsWith('#')) return parseHex(s)
+  const rgbMatch = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+  if (rgbMatch) {
+    return [parseInt(rgbMatch[1], 10), parseInt(rgbMatch[2], 10), parseInt(rgbMatch[3], 10)]
+  }
+  return null
+}
+
+/** Calculate relative luminance (0-1) from an RGB tuple. */
+function luminance(rgb: [number, number, number]): number {
+  const [lr, lg, lb] = rgb.map((c) => {
+    const v = c / 255
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb
+}
+
+/** Dark-mode adaptations for common color patterns. */
+function adaptColor(color: [number, number, number], isBg: boolean): string {
+  const lum = luminance(color)
+  if (isBg) {
+    if (lum > 0.6) return `rgb(${255 - color[0]},${255 - color[1]},${255 - color[2]})`
+    if (lum > 0.35) return 'rgb(45,45,45)'
+    return ''
+  }
+  // Text: dark on potentially dark bg
+  if (lum < 0.4) return 'rgb(210,210,210)'
+  return ''
+}
+
+const DM_CSS = `
+:host { color-scheme: dark; }
+/* 已适配的 inline color/background */
+[data-dm-color] { color: var(--dm-c) !important; }
+[data-dm-bg] { background-color: var(--dm-b) !important; }
+[data-dm-link] { color: var(--dm-l) !important; }
+`
+
+/** General reset CSS: appended AFTER email's own <style> blocks to win later */
+const DM_RESET = `
+/* 通用文字兜底：所有元素文字变亮，确保任何格式 (hex/rgb/named) 的深色文字都变成可读
+   * 特异度 0,0,0,0，[data-dm-color] (0,1,0,0) 和 a (0,0,0,1) 可以覆盖它 */
+* { color: rgb(210,210,210) !important; }
+a { color: #66b0ff !important; text-decoration: underline; }
+/* 通用背景兜底：清除所有未被 inline 适配的背景色 */
+* { background: transparent !important; }
+/* 已适配的或特殊元素不参与兜底 */
+[data-dm-bg] { background-color: var(--dm-b) !important; }
+img { background: none !important; }
+`
+
+/**
+ * Adapt email HTML for dark mode viewing.
+ * Uses Dark Reader-style approach: inject CSS custom properties + data attributes
+ * + !important CSS rules to override inline colors.
+ */
+function adaptHtmlForDarkMode(html: string): string {
+  const parser = unified().use(rehypeParse, { fragment: true })
+  const tree = parser.parse(html)
+
+  function walk(node: Root | Element): void {
+    if (!('children' in node)) return
+    if (node.type === 'element') {
+      const style = (node.properties?.style as string) ?? ''
+      if (style) {
+        let colorAdapt = ''
+        let bgAdapt = ''
+
+        const colorMatch = style.match(/\bcolor\s*:\s*([^;]+)/i)
+        if (colorMatch) {
+          const parsed = parseColor(colorMatch[1])
+          if (parsed) colorAdapt = adaptColor(parsed, false)
+        }
+
+        const bgMatch = style.match(/\bbackground-color\s*:\s*([^;]+)/i)
+        if (bgMatch) {
+          const parsed = parseColor(bgMatch[1])
+          if (parsed) bgAdapt = adaptColor(parsed, true)
+        }
+
+        const attrs: Record<string, string> = {}
+        const cssVars: string[] = []
+
+        if (colorAdapt) {
+          attrs['data-dm-color'] = ''
+          cssVars.push(`--dm-c: ${colorAdapt}`)
+        }
+        if (bgAdapt) {
+          attrs['data-dm-bg'] = ''
+          cssVars.push(`--dm-b: ${bgAdapt}`)
+        }
+        if (node.tagName === 'a' && colorAdapt) {
+          attrs['data-dm-link'] = ''
+          cssVars.push(`--dm-l: ${colorAdapt}`)
+        }
+
+        if (cssVars.length > 0) {
+          node.properties!.style = style + '; ' + cssVars.join('; ')
+          Object.assign(node.properties!, attrs)
+        }
+      }
+
+      for (const child of node.children) {
+        if (child.type === 'element') walk(child)
+      }
+    }
+  }
+
+  walk(tree)
+  const stringifier = unified().use(rehypeStringify)
+  const result = stringifier.stringify(tree)
+  return `<style>${DM_CSS}</style>` + String(result) + `<style>${DM_RESET}</style>`
+}
+
+export { sanitizeHtmlRehype, extractTextForTranslation, translateHtmlWithLayout, adaptHtmlForDarkMode }
