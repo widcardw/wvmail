@@ -77,10 +77,11 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
       <div class="list-header-spacer"></div>
       <NPagination
         v-if="pageCount > 1"
-        v-model:page="accountsStore.currentPage"
+        :page="accountsStore.currentPage"
         :page-count="pageCount"
         :disabled="accountsStore.loading"
         simple
+        size="small"
         @update:page="accountsStore.goToPage"
       />
     </div>

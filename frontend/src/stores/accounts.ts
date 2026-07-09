@@ -295,6 +295,8 @@ export const useAccountsStore = defineStore('accounts', () => {
       smartCurrentPage.value = page
       return
     }
+    const account = selectedAccount.value
+    const folder = selectedFolder.value
     if (!account || !folder) return
     const key = `${account.ID}:${folder}`
     currentPageByFolder.value[key] = page
