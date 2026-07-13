@@ -11,6 +11,7 @@ import {
   NList,
   NListItem,
   NTooltip,
+  NText,
   useDialog,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
@@ -305,7 +306,7 @@ function handleLinkClick(event: MouseEvent) {
                     </NIcon>
                   </template>
                   <div class="attachment-details">
-                    <span class="attachment-filename">{{ att.filename }}</span>
+                    <span class="attachment-filename">{{ att.filename }}<NText depth="3" style="font-size: 11px; margin-left: 4px" v-if="att.is_inline">({{ t['mail.inline_image'] }})</NText></span>
                     <span class="attachment-size">{{ formatFileSize(att.size) }}</span>
                   </div>
                   <template #suffix>

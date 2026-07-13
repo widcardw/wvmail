@@ -51,6 +51,7 @@ export interface AttachmentInfo {
   mime_type: string
   size: number
   part_path: number[]
+  is_inline: boolean
 }
 
 export interface FolderInfo {

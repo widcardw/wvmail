@@ -68,14 +68,14 @@ func NewEmailService() *EmailService {
 
 // EmailSummary is a lightweight representation of an email for list views.
 type EmailSummary struct {
-	UID       uint32   `json:"uid"`
-	Subject   string   `json:"subject"`
-	From      string   `json:"from"`
-	FromName  string   `json:"from_name"`
-	FromAddr  string   `json:"from_addr"`
-	Date      string   `json:"date"`
-	Flags     []string `json:"flags"`
-	IsRead    bool     `json:"is_read"`
+	UID      uint32   `json:"uid"`
+	Subject  string   `json:"subject"`
+	From     string   `json:"from"`
+	FromName string   `json:"from_name"`
+	FromAddr string   `json:"from_addr"`
+	Date     string   `json:"date"`
+	Flags    []string `json:"flags"`
+	IsRead   bool     `json:"is_read"`
 }
 
 // AttachmentInfo describes a single email attachment discovered in the MIME
@@ -85,6 +85,7 @@ type AttachmentInfo struct {
 	MimeType string `json:"mime_type"`
 	Size     uint32 `json:"size"`
 	PartPath []int  `json:"part_path"`
+	IsInline bool   `json:"is_inline"`
 }
 
 // EmailDetail is the full representation of an email including body content.
@@ -105,9 +106,9 @@ type EmailDetail struct {
 
 // FolderInfo represents a mail folder with its metadata.
 type FolderInfo struct {
-	Name   string   `json:"name"`
-	Delim  string   `json:"delim"`
-	Attrs  []string `json:"attrs"`
+	Name  string   `json:"name"`
+	Delim string   `json:"delim"`
+	Attrs []string `json:"attrs"`
 }
 
 // EmailPageResponse is returned by ListEmails / RefreshEmails and contains
@@ -412,6 +413,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	// --- Walk body structure to find text/plain, text/html, and attachments ---
 	var parts []bodyPartInfo
 	var attachments []AttachmentInfo
+	var inlineImgs []inlineImgInfo
 	if buf.BodyStructure != nil {
 		buf.BodyStructure.Walk(func(path []int, part imap.BodyStructure) bool {
 			mt := part.MediaType()
@@ -442,15 +444,22 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						PartPath: path,
 					})
 				} else if fn := decodeMimeHeader(p.Filename()); fn != "" && !strings.HasPrefix(mt, "text/") {
-					// Has a filename in Content-Type params and is not text — treat as attachment
+					// Has a filename in Content-Type params — also capture CID if present (inline image)
+					if cid := p.ID; cid != "" {
+						inlineImgs = append(inlineImgs, inlineImgInfo{path: path, cid: strings.Trim(cid, "<>"), mime: mt, encoding: p.Encoding})
+					}
 					attachments = append(attachments, AttachmentInfo{
 						Filename: fn,
 						MimeType: mt,
 						Size:     p.Size,
 						PartPath: path,
+						IsInline: true,
 					})
 				} else if p.Disposition() != nil && p.Disposition().Value == "inline" && !strings.HasPrefix(mt, "text/") {
-					// Inline non-text (e.g. embedded image) — show as downloadable
+					// Inline non-text (e.g. embedded image) — replace CID in HTML
+					if cid := p.ID; cid != "" {
+						inlineImgs = append(inlineImgs, inlineImgInfo{path: path, cid: strings.Trim(cid, "<>"), mime: mt, encoding: p.Encoding})
+					}
 					filename := decodeMimeHeader(p.Filename())
 					if filename == "" {
 						if name, ok := p.Params["name"]; ok {
@@ -464,6 +473,29 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						MimeType: mt,
 						Size:     p.Size,
 						PartPath: path,
+					})
+					fmt.Println("disposition + inline + !hasprefix text")
+					fmt.Println(inlineImgs)
+				} else if cid := p.ID; cid != "" && !strings.HasPrefix(mt, "text/") {
+					// No disposition but has Content-ID — CID-referenced inline image
+					inlineImgs = append(inlineImgs, inlineImgInfo{path: path, cid: strings.Trim(cid, "<>"), mime: mt, encoding: p.Encoding})
+					fmt.Println("cid not nil + !hasprefix text")
+					fmt.Println(inlineImgs)
+					// Also record as downloadable attachment
+					filename := decodeMimeHeader(p.Filename())
+					if filename == "" {
+						if name, ok := p.Params["name"]; ok {
+							filename = decodeMimeHeader(name)
+						} else {
+							filename = fmt.Sprintf("inline-%d", len(attachments)+1)
+						}
+					}
+					attachments = append(attachments, AttachmentInfo{
+						Filename: filename,
+						MimeType: mt,
+						Size:     p.Size,
+						PartPath: path,
+						IsInline: true,
 					})
 				}
 			case *imap.BodyStructureMultiPart:
@@ -483,8 +515,9 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	for _, p := range parts {
 		sections = append(sections, &imap.FetchItemBodySection{Part: p.path, Peek: true})
 	}
-	for _, a := range attachments {
-		sections = append(sections, &imap.FetchItemBodySection{Part: a.PartPath, Peek: true})
+	// Only fetch inline image parts for CID resolution, skip regular download-only attachments
+	for _, img := range inlineImgs {
+		sections = append(sections, &imap.FetchItemBodySection{Part: img.path, Peek: true})
 	}
 
 	if len(sections) > 0 {
@@ -524,6 +557,48 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 					detail.BodyText = string(raw)
 				}
 			}
+
+			// --- Resolve inline CID images ---
+			if detail.BodyHTML != "" && len(inlineImgs) > 0 {
+				cidMap := make(map[string]string)
+				for _, sec := range sections {
+					raw := buf2.FindBodySection(sec)
+					if raw == nil {
+						continue
+					}
+					for _, img := range inlineImgs {
+						if !sectionPathEqual(sec.Part, img.path) {
+							continue
+						}
+						var decoded []byte
+						switch strings.ToLower(img.encoding) {
+						case "base64":
+							decoded, err = base64.StdEncoding.DecodeString(string(raw))
+							if err != nil {
+								// IMAP may wrap base64 at 76 chars — retry without whitespace
+								s := strings.TrimSpace(strings.ReplaceAll(string(raw), "\n", ""))
+								decoded, _ = base64.StdEncoding.DecodeString(s)
+							}
+						case "quoted-printable":
+							decoded, _ = io.ReadAll(quotedprintable.NewReader(strings.NewReader(string(raw))))
+						default:
+							decoded = raw
+						}
+						var data string
+						if len(decoded) > 0 {
+							data = base64.StdEncoding.EncodeToString(decoded)
+						} else {
+							// If decode failed entirely, use raw bytes as-is
+							data = base64.StdEncoding.EncodeToString(raw)
+						}
+						cidMap[img.cid] = "data:" + img.mime + ";base64," + data
+						break
+					}
+				}
+				for cid, dataURI := range cidMap {
+					detail.BodyHTML = strings.ReplaceAll(detail.BodyHTML, "cid:"+cid, dataURI)
+				}
+			}
 		}
 	}
 
@@ -542,6 +617,13 @@ type bodyPartInfo struct {
 	isHTML   bool
 	encoding string
 	charset  string
+}
+
+type inlineImgInfo struct {
+	path     []int
+	cid      string
+	mime     string
+	encoding string
 }
 
 // isAttachmentSection checks whether the given part path matches any of the

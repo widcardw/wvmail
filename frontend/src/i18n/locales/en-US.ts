@@ -16,6 +16,7 @@ const enUS: TranslationSchema = {
   'mail.link.open': 'Open Link',
   'mail.attachment': 'attachment',
   'mail.attachments': 'attachments',
+  'mail.inline_image': 'inline',
   'mail.translation.label': 'Translation',
   'mail.translation.translate': 'Translate',
   'mail.translation.close': 'Close translation',

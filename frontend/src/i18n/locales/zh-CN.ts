@@ -16,6 +16,7 @@ const zhCN: TranslationSchema = {
   'mail.link.open': '打开链接',
   'mail.attachment': '个附件',
   'mail.attachments': '个附件',
+  'mail.inline_image': '内嵌',
   'mail.translation.label': '翻译',
   'mail.translation.translate': '翻译',
   'mail.translation.close': '关闭翻译',

@@ -19,6 +19,7 @@ export interface TranslationSchema {
   'mail.link.open': string
   'mail.attachment': string
   'mail.attachments': string
+  'mail.inline_image': string
   'mail.translation.label': string
   'mail.translation.translate': string
   'mail.translation.close': string
