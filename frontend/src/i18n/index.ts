@@ -20,6 +20,9 @@ export interface TranslationSchema {
   'mail.attachment': string
   'mail.attachments': string
   'mail.inline_image': string
+  'mail.security.title': string
+  'mail.security.body': string
+  'mail.security.show_all': string
   'mail.translation.label': string
   'mail.translation.translate': string
   'mail.translation.close': string
@@ -80,6 +83,8 @@ export interface TranslationSchema {
   'settings.about.log.max_size': string
   'settings.about.log.open_folder': string
   'settings.about.log.saved': string
+  'settings.about.security': string
+  'settings.about.scan_safety': string
   'settings.llm': string
   'settings.llm.title': string
   'settings.llm.add': string
@@ -96,6 +101,7 @@ export interface TranslationSchema {
   'settings.llm.delete': string
   'settings.llm.edit': string
   'settings.llm.empty': string
+  'settings.llm.delete_confirm': string
   'settings.llm.testing': string
   'settings.llm.test_connection': string
   'settings.llm.test_chat': string

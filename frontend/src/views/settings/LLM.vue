@@ -11,6 +11,7 @@ import {
   NList,
   NListItem,
   NModal,
+  NPopconfirm,
   NSelect,
   NSpace,
   NAlert,
@@ -18,6 +19,8 @@ import {
   NButtonGroup,
   type SelectOption,
   NCode,
+  NGrid,
+  NGridItem,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { useI18n } from '~/i18n'
@@ -292,19 +295,25 @@ const providerTagType: Record<string, string> = {
                       {{ LLM_PROVIDER_LABELS[item.Provider] ?? item.Provider }}
                     </span>
                   </NTag>
-                  <div style="font-size: 12px; opacity: 0.6; margin-top: 4px">
-                    <template v-if="item.Model"
-                      ><strong>Model:</strong> {{ item.Model }} &middot;
+                  <NGrid :x-gap="12" :y-gap="0" :cols="3" style="font-size: 12px; opacity: 0.6; margin-top: 4px;">
+                    <template v-if="item.Model">
+                      <NGridItem style="font-weight: bold;"> Model </NGridItem> 
+                      <NGridItem :span="2">{{ item.Model }}</NGridItem>
                     </template>
-                    {{ item.BaseURL }}
-                    <template v-if="item.APIKey"> | {{ maskKey(item.APIKey) }}</template>
-                    <template v-else-if="item.Provider === 'ollama'">
-                      | No API key required</template
-                    >
-                  </div>
+                    <NGridItem>URL</NGridItem> <NGridItem :span="2">{{ item.BaseURL }}</NGridItem>
+                    <NGridItem>API Key</NGridItem> 
+                    <NGridItem :span="2">
+                      <template v-if="item.APIKey">
+                        {{ maskKey(item.APIKey) }}
+                      </template>
+                      <template v-else-if="item.Provider === 'ollama'">
+                        No API key required
+                      </template>
+                    </NGridItem>
+                  </NGrid>
                 </div>
               </div>
-              <NButtonGroup>
+              <NButtonGroup size="small">
                 <NButton
                   size="small"
                   :loading="testingIndex === index"
@@ -325,9 +334,19 @@ const providerTagType: Record<string, string> = {
                 <NButton size="small" @click="openEdit(index)">
                   {{ t['settings.llm.edit'] }}
                 </NButton>
-                <NButton size="small" type="error" @click="handleDelete(index)">
-                  {{ t['settings.llm.delete'] }}
-                </NButton>
+                <NPopconfirm
+                  :positive-text="t['settings.llm.delete']"
+                  :negative-text="t['settings.accounts.cancel']"
+                  :positive-button-props="{'type': 'error'}"
+                  @positive-click="handleDelete(index)"
+                >
+                  <template #trigger>
+                    <NButton size="small" type="error" ghost>
+                      {{ t['settings.llm.delete'] }}
+                    </NButton>
+                  </template>
+                  {{ t['settings.llm.delete_confirm'] }}
+                </NPopconfirm>
               </NButtonGroup>
             </div>
           </template>

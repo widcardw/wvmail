@@ -36,6 +36,16 @@ const isDarkMode = computed(() => themeStore.naiveTheme !== null)
 const detail = computed(() => accountsStore.selectedEmailDetail)
 const loading = computed(() => accountsStore.loadingDetail)
 
+// Suspicious email handling
+const suspiciousRevealed = ref(false)
+const blockedCount = computed(() => {
+  if (!detail.value) return 0
+  let count = 0
+  if (detail.value.attachments) count += detail.value.attachments.length
+  if (detail.value.body_html) count++
+  return count
+})
+
 // Translation state
 const translating = ref(false)
 const translatedText = ref<string | null>(null)
@@ -47,6 +57,7 @@ watch(detail, () => {
   translatedText.value = null
   translatedHtml.value = null
   translationError.value = null
+  suspiciousRevealed.value = false
 })
 
 /**
@@ -224,6 +235,19 @@ function handleLinkClick(event: MouseEvent) {
           {{ accountsStore.detailError }}
         </NAlert>
 
+        <!-- Suspicious email warning -->
+        <NAlert
+          v-if="detail?.is_suspicious && !suspiciousRevealed"
+          type="warning"
+          :title="t['mail.security.title']"
+          style="margin: 12px"
+        >
+          <p>{{ t['mail.security.body'].replace('{count}', String(blockedCount)) }}</p>
+          <NButton size="small" @click="suspiciousRevealed = true" style="margin-top: 8px">
+            {{ t['mail.security.show_all'] }}
+          </NButton>
+        </NAlert>
+
         <template v-if="!detail && !loading">
           <NEmpty :description="t['mail.selectFolder']" style="padding: 4rem 0" />
         </template>
@@ -291,7 +315,7 @@ function handleLinkClick(event: MouseEvent) {
 
           <!-- Attachments -->
           <NCollapse
-            v-if="detail.attachments && detail.attachments.length > 0"
+            v-if="detail.attachments && detail.attachments.length > 0 && (!detail.is_suspicious || suspiciousRevealed)"
             class="detail-attachments"
           >
             <NCollapseItem
@@ -323,7 +347,7 @@ function handleLinkClick(event: MouseEvent) {
 
           <div class="detail-body" @click="handleLinkClick">
             <EmailShadowBody
-              v-if="detail.body_html"
+              v-if="detail.body_html && (!detail.is_suspicious || suspiciousRevealed)"
               :html="sanitizeHtml(detail.body_html)"
               :dark="isDarkMode"
             />

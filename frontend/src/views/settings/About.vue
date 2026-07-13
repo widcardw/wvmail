@@ -9,6 +9,7 @@ import {
   NButton,
   NSpace,
   NDivider,
+  NSwitch,
   useMessage,
 } from 'naive-ui'
 import { useI18n } from '~/i18n'
@@ -25,6 +26,7 @@ const logConfig = ref({
 
 const logDir = ref('')
 const saving = ref(false)
+const scanExternalSafety = ref(true)
 
 const levelOptions = [
   { label: t.value['settings.about.log.level.debug'], value: 'debug' },
@@ -38,6 +40,9 @@ onMounted(async () => {
     const cfg = await ConfigService.GetConfig()
     if (cfg.LogConfig) {
       logConfig.value = { ...logConfig.value, ...cfg.LogConfig }
+    }
+    if (cfg.ScanExternalSafety !== undefined) {
+      scanExternalSafety.value = cfg.ScanExternalSafety
     }
   } catch (e) {
     console.error('Failed to load config', e)
@@ -68,6 +73,15 @@ async function handleOpenLogFolder() {
     await OsService.OpenFolder(logDir.value)
   } catch (e) {
     console.error('Failed to open log folder', e)
+  }
+}
+
+async function handleSaveSafety(val: boolean) {
+  scanExternalSafety.value = val
+  try {
+    await ConfigService.SaveConfigField('scan_external_safety', val ? 'true' : 'false')
+  } catch (e) {
+    message.error(String(e))
   }
 }
 </script>
@@ -112,6 +126,14 @@ async function handleOpenLogFolder() {
           {{ t['settings.llm.save'] }}
         </NButton>
       </NSpace>
+
+      <NDivider>⚠️ {{ t['settings.about.security'] }}</NDivider>
+
+      <NForm label-placement="left" label-width="140">
+        <NFormItem :label="t['settings.about.scan_safety']">
+          <NSwitch :value="scanExternalSafety" @update:value="handleSaveSafety" />
+        </NFormItem>
+      </NForm>
     </NCard>
   </div>
 </template>

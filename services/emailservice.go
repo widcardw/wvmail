@@ -90,18 +90,19 @@ type AttachmentInfo struct {
 
 // EmailDetail is the full representation of an email including body content.
 type EmailDetail struct {
-	UID         uint32           `json:"uid"`
-	Subject     string           `json:"subject"`
-	From        string           `json:"from"`
-	FromName    string           `json:"from_name"`
-	FromAddr    string           `json:"from_addr"`
-	To          []string         `json:"to"`
-	Cc          []string         `json:"cc"`
-	Date        string           `json:"date"`
-	BodyText    string           `json:"body_text"`
-	BodyHTML    string           `json:"body_html"`
-	Flags       []string         `json:"flags"`
-	Attachments []AttachmentInfo `json:"attachments"`
+	UID           uint32           `json:"uid"`
+	Subject       string           `json:"subject"`
+	From          string           `json:"from"`
+	FromName      string           `json:"from_name"`
+	FromAddr      string           `json:"from_addr"`
+	To            []string         `json:"to"`
+	Cc            []string         `json:"cc"`
+	Date          string           `json:"date"`
+	BodyText      string           `json:"body_text"`
+	BodyHTML      string           `json:"body_html"`
+	Flags         []string         `json:"flags"`
+	Attachments   []AttachmentInfo `json:"attachments"`
+	IsSuspicious  bool             `json:"is_suspicious"`
 }
 
 // FolderInfo represents a mail folder with its metadata.
@@ -380,6 +381,25 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		Date:    buf.Envelope.Date.Format(time.RFC3339),
 		Flags:   make([]string, len(buf.Flags)),
 	}
+
+	// Copy flags from IMAP response
+	for i, f := range buf.Flags {
+		detail.Flags[i] = string(f)
+	}
+
+	// Detect suspicious (spam/junk) email
+	folderLower := strings.ToLower(folder)
+	isSpamFolder := strings.Contains(folderLower, "spam") ||
+		strings.Contains(folderLower, "junk") ||
+		strings.Contains(folderLower, "垃圾")
+	hasJunkFlag := false
+	for _, f := range detail.Flags {
+		if strings.ToLower(f) == "\\junk" {
+			hasJunkFlag = true
+			break
+		}
+	}
+	detail.IsSuspicious = isSpamFolder || hasJunkFlag
 
 	// Build sender name + address from envelope
 	for _, addr := range buf.Envelope.From {

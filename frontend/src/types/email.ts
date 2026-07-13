@@ -44,6 +44,7 @@ export interface EmailDetail {
   body_html: string
   flags: string[]
   attachments: AttachmentInfo[]
+  is_suspicious: boolean
 }
 
 export interface AttachmentInfo {

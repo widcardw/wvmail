@@ -389,9 +389,9 @@ function getProviderTag(provider: string): {
           <template #default>
             <div style="display: flex; align-items: center; justify-content: space-between">
               <div style="display: flex; align-items: center; gap: 10px">
-                <div class="avatar-circle">
+                <!-- <div class="avatar-circle">
                   {{ account.Email.charAt(0).toUpperCase() }}
-                </div>
+                </div> -->
                 <div>
                   <strong>{{ account.Name || account.Email }}</strong>
                   <NTag
@@ -433,7 +433,7 @@ function getProviderTag(provider: string): {
                   @positive-click="handleDelete(account)"
                 >
                   <template #trigger>
-                    <NButton size="small" type="error">
+                    <NButton size="small" type="error" ghost>
                       {{ t['settings.accounts.delete'] }}
                     </NButton>
                   </template>

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +24,8 @@ type AppConfig struct {
 	Theme             string             `yaml:"theme"`
 	DatabasePath      string             `yaml:"database_path,omitempty"`
 	LogConfig         LogConfig          `yaml:"log_config,omitempty"`
-	TranslationConfig TranslationConfig  `yaml:"translation_config,omitempty"`
+	TranslationConfig  TranslationConfig  `yaml:"translation_config,omitempty"`
+	ScanExternalSafety bool                `yaml:"scan_external_safety,omitempty"`
 	LLMConfigs        []LLMConfig        `yaml:"llm_configs,omitempty"`
 	EmailAccounts     []EmailAccount     `yaml:"email_accounts,omitempty"`
 }
@@ -190,7 +192,7 @@ func defaultConfig() AppConfig {
 			DefaultTargetLang: "zh-CN",
 			DefaultEngine:     "llm",
 		},
-		LLMConfigs:    []LLMConfig{},
+		ScanExternalSafety: true,
 		EmailAccounts: []EmailAccount{},
 	}
 }
@@ -360,6 +362,12 @@ func (s *ConfigService) SaveConfigField(field, value string) error {
 		cfg.Language = value
 	case "theme":
 		cfg.Theme = value
+	case "scan_external_safety":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("invalid boolean value for scan_external_safety: %s", value)
+		}
+		cfg.ScanExternalSafety = b
 	default:
 		return fmt.Errorf("unknown config field: %s", field)
 	}
