@@ -3,6 +3,7 @@ import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import EmailList from '~/components/EmailList.vue'
 import EmailDetail from '~/components/EmailDetail.vue'
+import { NSplit } from 'naive-ui'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -10,14 +11,16 @@ const accountsStore = useAccountsStore()
 
 <template>
   <div class="view-content">
-    <div v-if="accountsStore.selectedFolder || accountsStore.isSmartFolder" class="mail-split">
-      <div class="split-list">
+    <NSplit v-if="accountsStore.selectedFolder || accountsStore.isSmartFolder" 
+    :max="0.75" :min="0.25" :default-size="0.25"
+    :resize-trigger-size="2">
+      <template #1>
         <EmailList />
-      </div>
-      <div class="split-detail">
+      </template>
+      <template #2>
         <EmailDetail />
-      </div>
-    </div>
+      </template>
+    </NSplit>
     <div v-else class="content-placeholder">
       <p style="opacity: 0.5; text-align: center; padding: 4rem 0">
         {{ t['mail.selectFolder'] }}
