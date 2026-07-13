@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"mime"
 	"mime/quotedprintable"
 	"net"
 	"os"
@@ -14,7 +15,31 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-message/charset"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
+
+// decodeMimeHeader decodes a MIME encoded-word (=?charset?B?...?= / =?charset?Q?...?=)
+// with support for Chinese character sets (GBK, GB2312, GB18030).
+func decodeMimeHeader(s string) string {
+	if !strings.Contains(s, "=?") {
+		return s
+	}
+	dec := &mime.WordDecoder{
+		CharsetReader: func(charset string, input io.Reader) (io.Reader, error) {
+			switch strings.ToLower(charset) {
+			case "gbk", "gb2312", "gb18030":
+				return simplifiedchinese.GBK.NewDecoder().Reader(input), nil
+			default:
+				return nil, fmt.Errorf("unhandled charset: %s", charset)
+			}
+		},
+	}
+	decoded, err := dec.DecodeHeader(s)
+	if err != nil {
+		return s // fallback to original
+	}
+	return decoded
+}
 
 // providerNeedsIDCommand checks whether the given email provider requires an
 // RFC 2971 ID command before LOGIN. Coremail-based Chinese mail servers
@@ -402,10 +427,10 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 					})
 				} else if p.Disposition() != nil && p.Disposition().Value == "attachment" {
 					// Explicit attachment (Content-Disposition: attachment)
-					filename := p.Filename()
+					filename := decodeMimeHeader(p.Filename())
 					if filename == "" {
 						if name, ok := p.Params["name"]; ok {
-							filename = name
+							filename = decodeMimeHeader(name)
 						} else {
 							filename = fmt.Sprintf("attachment-%d", len(attachments)+1)
 						}
@@ -416,7 +441,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						Size:     p.Size,
 						PartPath: path,
 					})
-				} else if fn := p.Filename(); fn != "" && !strings.HasPrefix(mt, "text/") {
+				} else if fn := decodeMimeHeader(p.Filename()); fn != "" && !strings.HasPrefix(mt, "text/") {
 					// Has a filename in Content-Type params and is not text — treat as attachment
 					attachments = append(attachments, AttachmentInfo{
 						Filename: fn,
@@ -426,10 +451,10 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 					})
 				} else if p.Disposition() != nil && p.Disposition().Value == "inline" && !strings.HasPrefix(mt, "text/") {
 					// Inline non-text (e.g. embedded image) — show as downloadable
-					filename := p.Filename()
+					filename := decodeMimeHeader(p.Filename())
 					if filename == "" {
 						if name, ok := p.Params["name"]; ok {
-							filename = name
+							filename = decodeMimeHeader(name)
 						} else {
 							filename = fmt.Sprintf("inline-%d", len(attachments)+1)
 						}
