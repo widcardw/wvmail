@@ -25,6 +25,7 @@ import {
   type FormInst,
   type FormRules,
   type SelectOption,
+  NScrollbar,
 } from 'naive-ui'
 import { EMAIL_PROVIDER_DEFAULTS, EMAIL_PROVIDER_LABELS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'

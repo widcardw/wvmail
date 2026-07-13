@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NLayout, NLayoutContent, NLayoutSider, NMenu, type MenuOption } from 'naive-ui'
+import { NLayout, NLayoutContent, NLayoutSider, NMenu, NScrollbar, type MenuOption } from 'naive-ui'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '~/i18n'
@@ -52,7 +52,9 @@ function handleClick(key: string, _item: MenuOption) {
       />
     </NLayoutSider>
     <NLayoutContent>
-      <RouterView />
+      <NScrollbar>
+        <RouterView />
+      </NScrollbar>
     </NLayoutContent>
   </NLayout>
 </template>

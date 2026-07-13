@@ -257,21 +257,42 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		RFC822Size:   true,
 		UID:          true,
 	})
-	defer fetchCmd.Close()
 
 	buffers, err := fetchCmd.Collect()
 	if err != nil {
-		return nil, fmt.Errorf("fetch failed: %w", err)
+		// Some servers (e.g. Tencent WeCom) return malformed ENVELOPE data.
+		// Retry without Envelope and use default values for subject/from/date.
+		fmt.Printf("envelope fetch failed (malformed server response), retrying without envelope: %v\n", err)
+		fetchCmd.Close()
+		fetchCmd = client.Fetch(seqSet, &imap.FetchOptions{
+			Flags:        true,
+			InternalDate: true,
+			RFC822Size:   true,
+			UID:          true,
+		})
+		buffers, err = fetchCmd.Collect()
+		if err != nil {
+			return nil, fmt.Errorf("fetch failed (even without envelope): %w", err)
+		}
 	}
+	defer fetchCmd.Close()
 
 	// Results come in ascending order; reverse for newest-first
 	summaries := make([]EmailSummary, 0, len(buffers))
 	for _, buf := range buffers {
 		summary := EmailSummary{
-			UID:     uint32(buf.UID),
-			Subject: buf.Envelope.Subject,
-			Date:    buf.Envelope.Date.Format(time.RFC3339),
-			Flags:   make([]string, len(buf.Flags)),
+			UID:   uint32(buf.UID),
+			Flags: make([]string, len(buf.Flags)),
+		}
+		if buf.Envelope != nil {
+			summary.Subject = buf.Envelope.Subject
+			summary.Date = buf.Envelope.Date.Format(time.RFC3339)
+		}
+		if summary.Date == "" && !buf.InternalDate.IsZero() {
+			summary.Date = buf.InternalDate.Format(time.RFC3339)
+		}
+		if summary.Subject == "" {
+			summary.Subject = "(No Subject)"
 		}
 		for i, f := range buf.Flags {
 			summary.Flags[i] = string(f)
@@ -284,7 +305,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 			}
 		}
 		// Build sender name + address from envelope
-		if len(buf.Envelope.From) > 0 {
+		if buf.Envelope != nil && len(buf.Envelope.From) > 0 {
 			addr := buf.Envelope.From[0]
 			if addr.Host != "" {
 				summary.FromAddr = addr.Mailbox + "@" + addr.Host
