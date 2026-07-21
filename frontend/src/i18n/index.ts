@@ -72,6 +72,8 @@ export interface TranslationSchema {
   'settings.accounts.cancel': string
   'settings.accounts.provider_detected': string
   'settings.accounts.auth_code_hint': string
+  'settings.accounts.avatar': string
+  'settings.accounts.upload_avatar': string
   'settings.about': string
   'settings.about.log.title': string
   'settings.about.log.level': string

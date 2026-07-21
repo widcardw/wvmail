@@ -20,11 +20,13 @@ import {
   NTag,
   NPopconfirm,
   NAlert,
+  NUpload,
   useMessage,
   useDialog,
   type FormInst,
   type FormRules,
   type SelectOption,
+  type UploadFileInfo,
   NScrollbar,
 } from 'naive-ui'
 import { EMAIL_PROVIDER_DEFAULTS, EMAIL_PROVIDER_LABELS, detectProvider } from '~/types/email'
@@ -61,7 +63,13 @@ const emptyForm = (): EmailAccount => ({
   SMTPPass: '',
   UseTLS: true,
   SyncInterval: 0,
+  Avatar: '',
 })
+
+// Avatar handling
+const avatarFileList = ref<UploadFileInfo[]>([])
+const avatarFileData = ref<ArrayBuffer | null>(null)
+const avatarFileExt = ref('')
 
 const formData = ref<EmailAccount>(emptyForm())
 
@@ -150,6 +158,33 @@ function cancelForm() {
   editingId.value = null
   formData.value = emptyForm()
   testResult.value = null
+}
+
+function handleAvatarChange({ file }: { file: UploadFileInfo }) {
+  if (file.file) {
+    readAvatarFile(file.file)
+  }
+}
+
+function handleAvatarRemove() {
+  avatarFileList.value = []
+  avatarFileData.value = null
+  avatarFileExt.value = ''
+}
+
+function readAvatarFile(file: File) {
+  if (!file.type.startsWith('image/')) {
+    message.error('请选择图片文件')
+    return
+  }
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase() || '.png'
+  avatarFileExt.value = ext
+  // Read as ArrayBuffer for saving to Go
+  const reader = new FileReader()
+  reader.onload = () => {
+    avatarFileData.value = reader.result as ArrayBuffer
+  }
+  reader.readAsArrayBuffer(file)
 }
 
 async function handleSave() {
@@ -262,6 +297,23 @@ function getProviderTag(provider: string): {
         label-width="140"
         require-mark-placement="right"
       >
+        <NFormItem :label="t['settings.accounts.avatar']">
+          <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start">
+            <NUpload
+              list-type="image-card"
+              :max="1"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              :default-file-list="avatarFileList"
+              @change="handleAvatarChange"
+              @remove="handleAvatarRemove"
+              style="width: 48px"
+            >
+            </NUpload>
+            <!-- <div style="font-size: 12px; opacity: 0.6; line-height: 1.5; padding-top: 8px">
+              {{ t['settings.accounts.upload_avatar'] }}
+            </div> -->
+          </div>
+        </NFormItem>
         <NFormItem :label="t['settings.accounts.name']" path="Name">
           <NInput v-model:value="formData.Name" placeholder="My Email" />
         </NFormItem>

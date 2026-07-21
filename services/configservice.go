@@ -71,7 +71,8 @@ type EmailAccount struct {
 	SMTPPass string `yaml:"smtp_pass"` // AES-256-GCM encrypted on disk
 	UseTLS   bool   `yaml:"use_tls"`
 	// Sync settings
-	SyncInterval int `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
+	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
+	Avatar       string `yaml:"avatar"`          // Avatar filename (relative to avatar dir)
 }
 
 // ConfigService provides methods for reading, writing, and managing

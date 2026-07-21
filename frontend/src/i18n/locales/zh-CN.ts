@@ -70,6 +70,8 @@ const zhCN: TranslationSchema = {
   'settings.accounts.provider_detected': '已根据邮箱自动检测提供商',
   'settings.accounts.auth_code_hint':
     'QQ 邮箱需要使用"授权码"而非登录密码。请在网页端的 设置 → 账户 → POP3/IMAP/SMTP 服务中开启并生成授权码。',
+  'settings.accounts.avatar': '头像',
+  'settings.accounts.upload_avatar': '上传头像',
   'settings.about': '关于',
   'settings.about.log.title': '日志设置',
   'settings.about.log.level': '日志级别',

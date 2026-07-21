@@ -70,6 +70,8 @@ const enUS: TranslationSchema = {
   'settings.accounts.provider_detected': 'Provider auto-detected from email',
   'settings.accounts.auth_code_hint':
     'QQ mail requires an "authorization code" instead of your login password. Enable IMAP/SMTP in your webmail settings and generate one.',
+  'settings.accounts.avatar': 'Avatar',
+  'settings.accounts.upload_avatar': 'Upload avatar',
   'settings.about': 'About',
   'settings.about.log.title': 'Log Settings',
   'settings.about.log.level': 'Log Level',
