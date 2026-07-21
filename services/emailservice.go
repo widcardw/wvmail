@@ -285,7 +285,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 			Flags: make([]string, len(buf.Flags)),
 		}
 		if buf.Envelope != nil {
-			summary.Subject = buf.Envelope.Subject
+			summary.Subject = decodeMimeHeader(buf.Envelope.Subject)
 			summary.Date = buf.Envelope.Date.Format(time.RFC3339)
 		}
 		if summary.Date == "" && !buf.InternalDate.IsZero() {
@@ -312,7 +312,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 			} else {
 				summary.FromAddr = addr.Mailbox
 			}
-			summary.FromName = addr.Name
+			summary.FromName = decodeMimeHeader(addr.Name)
 			if summary.FromName != "" {
 				summary.From = summary.FromName + " <" + summary.FromAddr + ">"
 			} else {
@@ -398,7 +398,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 
 	detail := &EmailDetail{
 		UID:     uint32(buf.UID),
-		Subject: buf.Envelope.Subject,
+		Subject: decodeMimeHeader(buf.Envelope.Subject),
 		Date:    buf.Envelope.Date.Format(time.RFC3339),
 		Flags:   make([]string, len(buf.Flags)),
 	}
@@ -429,7 +429,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		} else {
 			detail.FromAddr = addr.Mailbox
 		}
-		detail.FromName = addr.Name
+		detail.FromName = decodeMimeHeader(addr.Name)
 		if detail.FromName != "" {
 			detail.From = detail.FromName + " <" + detail.FromAddr + ">"
 		} else {
