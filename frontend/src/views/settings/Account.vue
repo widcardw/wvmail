@@ -31,6 +31,7 @@ import {
 } from 'naive-ui'
 import { EMAIL_PROVIDER_DEFAULTS, EMAIL_PROVIDER_LABELS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
+import { ConfigService } from '#/wvmail/services'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -151,6 +152,26 @@ function openEditForm(account: EmailAccount) {
   formData.value = { ...account }
   testResult.value = null
   showingForm.value = true
+  // Load saved avatar into the upload preview
+  avatarFileList.value = []
+  avatarFileData.value = null
+  avatarFileExt.value = ''
+  if (account.Avatar) {
+    ConfigService.GetAccountAvatar(account.ID)
+      .then((uri) => {
+        if (uri) {
+          avatarFileList.value = [
+            {
+              id: 'saved-avatar',
+              name: account.Avatar || 'avatar',
+              status: 'finished',
+              url: uri,
+            },
+          ]
+        }
+      })
+      .catch(() => {})
+  }
 }
 
 function cancelForm() {
@@ -160,10 +181,17 @@ function cancelForm() {
   testResult.value = null
 }
 
-function handleAvatarChange({ file }: { file: UploadFileInfo }) {
+function handleCustomRequest({
+  file,
+  onFinish,
+}: {
+  file: UploadFileInfo
+  onFinish: () => void
+}) {
   if (file.file) {
     readAvatarFile(file.file)
   }
+  onFinish()
 }
 
 function handleAvatarRemove() {
@@ -195,14 +223,26 @@ async function handleSave() {
   }
   saving.value = true
   try {
-    if (editingId.value) {
-      await accountsStore.updateAccount(editingId.value, formData.value)
+    let accountId = editingId.value
+    if (accountId) {
+      await accountsStore.updateAccount(accountId, formData.value)
       message.success('Account updated')
     } else {
       const id =
         crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
+      accountId = id
       await accountsStore.addAccount({ ...formData.value, ID: id })
       message.success('Account added')
+    }
+    // Save avatar to config dir if selected
+    if (accountId && avatarFileData.value) {
+      try {
+        const bytes = new Uint8Array(avatarFileData.value)
+        const data = Array.from(bytes)
+        await ConfigService.SaveAccountAvatar(accountId, data, avatarFileExt.value)
+      } catch (e) {
+        console.error('Failed to save avatar', e)
+      }
     }
     cancelForm()
   } catch (e) {
@@ -303,8 +343,8 @@ function getProviderTag(provider: string): {
               list-type="image-card"
               :max="1"
               accept="image/png,image/jpeg,image/gif,image/webp"
-              :default-file-list="avatarFileList"
-              @change="handleAvatarChange"
+              v-model:file-list="avatarFileList"
+              :custom-request="handleCustomRequest"
               @remove="handleAvatarRemove"
               style="width: 48px"
             >

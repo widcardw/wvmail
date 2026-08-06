@@ -4,10 +4,10 @@ import { useRouter } from 'vue-router'
 import { NScrollbar, NMenu, NEmpty, NIcon } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import type { MenuOption } from 'naive-ui'
-import { ICON_MAPPING } from '../composables/icon-mapping'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { getFolderDisplay, compareFolders } from '../types/email'
+import AccountAvatar from './AccountAvatar.vue'
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
@@ -61,7 +61,6 @@ const menuOptions = computed<MenuOption[]>(() => {
   })
 
   for (const account of accountsStore.accounts) {
-    const iconSource = ICON_MAPPING[account.Provider]
     const folders = accountsStore.foldersByAccount[account.ID]
     const isLoading = folders === undefined
 
@@ -103,7 +102,7 @@ const menuOptions = computed<MenuOption[]>(() => {
     options.push({
       label: account.Name || account.Email,
       key: account.ID,
-      icon: iconSource ? () => iconSource.create() : () => account.Email.charAt(0).toUpperCase(),
+      icon: () => h(AccountAvatar, { accountId: account.ID, size: 18 }),
       children,
     })
   }

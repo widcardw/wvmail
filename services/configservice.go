@@ -91,6 +91,18 @@ func configDir() (string, error) {
 	return dir, nil
 }
 
+func avatarDir() (string, error) {
+	base, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	avatarPath := filepath.Join(base, "avatars")
+	if err := os.MkdirAll(avatarPath, 0700); err != nil {
+		return "", fmt.Errorf("failed to create avatar dir: %w", err)
+	}
+	return avatarPath, nil
+}
+
 func configPath() (string, error) {
 	dir, err := configDir()
 	if err != nil {
@@ -466,6 +478,71 @@ func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
 		}
 	}
 	return fmt.Errorf("account with id %q not found", id)
+}
+
+// SaveAccountAvatar saves an avatar image for the given account ID.
+// fileData should be the raw bytes of the image. Returns the relative filename stored.
+func (s *ConfigService) SaveAccountAvatar(accountID string, fileData []byte, ext string) (string, error) {
+	avatarPath, err := avatarDir()
+	if err != nil {
+		return "", err
+	}
+	filename := accountID + ext
+	if err := os.WriteFile(filepath.Join(avatarPath, filename), fileData, 0644); err != nil {
+		return "", fmt.Errorf("failed to save avatar: %w", err)
+	}
+	// Update account config with the new avatar filename
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return "", err
+	}
+	for i := range cfg.EmailAccounts {
+		if cfg.EmailAccounts[i].ID == accountID {
+			cfg.EmailAccounts[i].Avatar = filename
+			break
+		}
+	}
+	if err := s.SaveConfig(cfg); err != nil {
+		return "", err
+	}
+	return filename, nil
+}
+
+// GetAccountAvatar reads an avatar image file and returns it as a base64 data URI.
+func (s *ConfigService) GetAccountAvatar(accountID string) (string, error) {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return "", err
+	}
+	avatarFile := ""
+	for _, a := range cfg.EmailAccounts {
+		if a.ID == accountID && a.Avatar != "" {
+			avatarFile = a.Avatar
+			break
+		}
+	}
+	if avatarFile == "" {
+		return "", nil
+	}
+	avatarPath, err := avatarDir()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(avatarPath, avatarFile))
+	if err != nil {
+		return "", fmt.Errorf("failed to read avatar: %w", err)
+	}
+	ext := filepath.Ext(avatarFile)
+	mime := "image/png"
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		mime = "image/jpeg"
+	case ".gif":
+		mime = "image/gif"
+	case ".webp":
+		mime = "image/webp"
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }
 
 // TestLLMConnection tests the LLM configuration by attempting a real chat
