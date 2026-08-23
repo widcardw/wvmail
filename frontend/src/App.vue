@@ -42,6 +42,7 @@ onMounted(async () => {
 <template>
   <NConfigProvider
     :theme="theme.naiveTheme"
+    :theme-overrides="theme.themeOverrides"
     :locale="localeStore.naiveLocale"
     :date-locale="localeStore.naiveDateLocale"
     style="height: 100%"
@@ -55,7 +56,7 @@ onMounted(async () => {
           </NLayoutHeader>
           <NLayout has-sider class="n-full">
             <NLayoutSider bordered :collapsed="collapsed" collapse-mode="width" width="180">
-              <SideBar />
+              <SideBar :collapsed="collapsed" />
             </NLayoutSider>
             <NLayoutContent>
               <RouterView />

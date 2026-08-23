@@ -6,8 +6,44 @@ import { ConfigService } from '#/wvmail/services'
 
 export type ThemeMode = 'Light' | 'Dark' | 'System'
 
+const DEFAULT_PRIMARY_COLOR = '#18a058'
+
+function normalizeHexColor(value: string): string | null {
+  const color = value.trim()
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color.toLowerCase()
+  if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+    return `#${color
+      .slice(1)
+      .split('')
+      .map((c) => c + c)
+      .join('')
+      .toLowerCase()}`
+  }
+  return null
+}
+
+function mixColor(color: string, target: string, amount: number): string {
+  const sourceRgb = color
+    .slice(1)
+    .match(/.{2}/g)
+    ?.map((part) => parseInt(part, 16))
+  const targetRgb = target
+    .slice(1)
+    .match(/.{2}/g)
+    ?.map((part) => parseInt(part, 16))
+  if (!sourceRgb || !targetRgb) return color
+  return `#${sourceRgb
+    .map((channel, index) =>
+      Math.round(channel + (targetRgb[index] - channel) * amount)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
+}
+
 export const useThemeStore = defineStore('theme', () => {
   const mode = ref<ThemeMode>('System')
+  const primaryColor = ref(DEFAULT_PRIMARY_COLOR)
   const osTheme = useOsTheme()
 
   const icon = computed(() => {
@@ -32,10 +68,21 @@ export const useThemeStore = defineStore('theme', () => {
     }
   })
 
+  const themeOverrides = computed(() => ({
+    common: {
+      primaryColor: primaryColor.value,
+      primaryColorHover: mixColor(primaryColor.value, '#ffffff', 0.15),
+      primaryColorPressed: mixColor(primaryColor.value, '#000000', 0.2),
+      primaryColorSuppl: mixColor(primaryColor.value, '#ffffff', 0.15),
+    },
+  }))
+
   function loadFromConfig(config: AppConfig) {
     if (config.Theme === 'Light' || config.Theme === 'Dark' || config.Theme === 'System') {
       mode.value = config.Theme
     }
+    const configuredColor = normalizeHexColor(config.PrimaryColor || '')
+    primaryColor.value = configuredColor ?? DEFAULT_PRIMARY_COLOR
   }
 
   async function switchTo(m: ThemeMode) {
@@ -47,11 +94,36 @@ export const useThemeStore = defineStore('theme', () => {
     }
   }
 
+  let primaryColorSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+  function setPrimaryColor(value: string) {
+    const normalized = normalizeHexColor(value)
+    if (!normalized) return
+    primaryColor.value = normalized
+
+    if (primaryColorSaveTimer) clearTimeout(primaryColorSaveTimer)
+    primaryColorSaveTimer = setTimeout(() => {
+      void ConfigService.SaveConfigField('primary_color', normalized).catch((error) => {
+        console.error('Failed to save primary color', error)
+      })
+    }, 250)
+  }
+
   function switchMode() {
     const order: Array<ThemeMode> = ['Light', 'Dark', 'System']
     const idx = order.indexOf(mode.value)
     mode.value = order[(idx + 1) % order.length]
   }
 
-  return { mode, icon, naiveTheme, loadFromConfig, switchMode, switchTo }
+  return {
+    mode,
+    primaryColor,
+    icon,
+    naiveTheme,
+    themeOverrides,
+    loadFromConfig,
+    switchMode,
+    switchTo,
+    setPrimaryColor,
+  }
 })

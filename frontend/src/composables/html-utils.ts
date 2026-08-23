@@ -12,6 +12,11 @@ const NO_LINK_TAGS = new Set(['a', 'style', 'script', 'pre', 'code', 'noscript']
 /** Regex matching common URLs (http/https/www) and email addresses. */
 const URL_RE = /(https?:\/\/[^\s<>"']+|(?:www\.)[^\s<>"']+)|([\w.+-]+@[\w-]+\.[\w.-]+)/gi
 
+/** Keep links inside the email shadow DOM aligned with the Naive UI theme. */
+const THEME_LINK_CSS = `
+a { color: var(--n-primary-color, #18a058) !important; }
+`
+
 /**
  * Rehype plugin: convert plain-text URLs and email addresses into clickable `<a>` links.
  * Skips elements already inside `<a>`, `<style>`, `<script>`, `<pre>`, `<code>`.
@@ -61,7 +66,7 @@ function autoLinkText(text: string): (Text | Element)[] {
   while ((match = URL_RE.exec(text)) !== null) {
     const fullMatch = match[0]
     const httpOrWwwUrl = match[1] // group 1: http://... or www...
-    const emailAddr = match[2]    // group 2: user@domain
+    const emailAddr = match[2] // group 2: user@domain
     const isEmail = httpOrWwwUrl == null && !!emailAddr
 
     // Text before the match
@@ -100,6 +105,31 @@ function autoLinkText(text: string): (Text | Element)[] {
 }
 
 /**
+ * Convert a text/plain email body to safe HTML with clickable URLs.
+ *
+ * Building the HAST tree directly keeps the original content as text nodes,
+ * so characters such as `<` and `>` are escaped by rehype-stringify instead
+ * of being interpreted as HTML. The wrapper preserves the line breaks that
+ * were previously provided by `.body-text { white-space: pre-wrap }`.
+ */
+function linkifyPlainText(text: string): string {
+  const tree: Root = {
+    type: 'root',
+    children: [
+      {
+        type: 'element',
+        tagName: 'div',
+        properties: { style: 'white-space: pre-wrap' },
+        children: autoLinkText(text),
+      },
+    ],
+  }
+
+  const stringifier = unified().use(rehypeStringify)
+  return `<style>${THEME_LINK_CSS}</style>` + String(stringifier.stringify(tree))
+}
+
+/**
  * Custom sanitize schema based on GitHub's defaults, with additions for email HTML:
  * - Allow `<style>` blocks (many email layouts rely on embedded CSS)
  * - Allow `style` attribute on all elements
@@ -107,24 +137,14 @@ function autoLinkText(text: string): (Text | Element)[] {
  */
 const emailSchema: Schema = {
   ...defaultSchema,
-  tagNames: [
-    ...(defaultSchema.tagNames ?? []),
-    'style',
-  ],
+  tagNames: [...(defaultSchema.tagNames ?? []), 'style'],
   attributes: {
     ...defaultSchema.attributes,
-    '*': [
-      ...((defaultSchema.attributes as Record<string, unknown[]>)?.['*'] ?? []),
-      ['style'],
-    ],
+    '*': [...((defaultSchema.attributes as Record<string, unknown[]>)?.['*'] ?? []), ['style']],
   },
   protocols: {
     ...(defaultSchema.protocols ?? {}),
-    src: [
-      ...((defaultSchema.protocols as Record<string, string[]>)?.['src'] ?? []),
-      'data',
-      'cid',
-    ],
+    src: [...((defaultSchema.protocols as Record<string, string[]>)?.['src'] ?? []), 'data', 'cid'],
   },
 }
 
@@ -152,7 +172,8 @@ function createTextExtractor() {
 function sanitizeHtmlRehype(html: string): string {
   if (!sanitizer) sanitizer = createSanitizer()
   const result = sanitizer.processSync(html)
-  return String(result)
+  // Append after the email's own styles so the app theme is used for links.
+  return String(result) + `<style>${THEME_LINK_CSS}</style>`
 }
 
 /**
@@ -172,9 +193,10 @@ const SEPARATOR = '\n————\n'
  * Walk the AST and collect all text node values in order.
  * Also returns a visitor function to re-inject translated texts.
  */
-function collectAndInject(
-  tree: Root,
-): { texts: string[]; inject: (translated: string[]) => boolean } {
+function collectAndInject(tree: Root): {
+  texts: string[]
+  inject: (translated: string[]) => boolean
+} {
   const texts: string[] = []
   const textNodes: { node: Text; parent: Element; index: number }[] = []
 
@@ -273,13 +295,32 @@ function parseHex(hex: string): [number, number, number] | null {
 
 /** Named CSS colors map (common subset). */
 const NAMED_COLORS: Record<string, string> = {
-  black: '#000000', silver: '#c0c0c0', gray: '#808080', grey: '#808080',
-  white: '#ffffff', maroon: '#800000', red: '#ff0000', purple: '#800080',
-  fuchsia: '#ff00ff', green: '#008000', lime: '#00ff00', olive: '#808000',
-  yellow: '#ffff00', navy: '#000080', blue: '#0000ff', teal: '#008080',
-  aqua: '#00ffff', orange: '#ffa500', darkgray: '#a9a9a9', darkgrey: '#a9a9a9',
-  lightgray: '#d3d3d3', lightgrey: '#d3d3d3', darkblue: '#00008b',
-  darkgreen: '#006400', darkred: '#8b0000', transparent: '',
+  black: '#000000',
+  silver: '#c0c0c0',
+  gray: '#808080',
+  grey: '#808080',
+  white: '#ffffff',
+  maroon: '#800000',
+  red: '#ff0000',
+  purple: '#800080',
+  fuchsia: '#ff00ff',
+  green: '#008000',
+  lime: '#00ff00',
+  olive: '#808000',
+  yellow: '#ffff00',
+  navy: '#000080',
+  blue: '#0000ff',
+  teal: '#008080',
+  aqua: '#00ffff',
+  orange: '#ffa500',
+  darkgray: '#a9a9a9',
+  darkgrey: '#a9a9a9',
+  lightgray: '#d3d3d3',
+  lightgrey: '#d3d3d3',
+  darkblue: '#00008b',
+  darkgreen: '#006400',
+  darkred: '#8b0000',
+  transparent: '',
 }
 
 /** Parse a CSS color value string to RGB tuple, or null. */
@@ -331,7 +372,7 @@ const DM_RESET = `
 /* 通用文字兜底：所有元素文字变亮，确保任何格式 (hex/rgb/named) 的深色文字都变成可读
    * 特异度 0,0,0,0，[data-dm-color] (0,1,0,0) 和 a (0,0,0,1) 可以覆盖它 */
 * { color: rgb(210,210,210) !important; }
-a { color: #66b0ff !important; text-decoration: underline; }
+a { color: var(--n-primary-color, #66b0ff) !important; text-decoration: underline; }
 /* 通用背景兜底：清除所有未被 inline 适配的背景色 */
 * { background: transparent !important; }
 /* 已适配的或特殊元素不参与兜底 */
@@ -402,4 +443,10 @@ function adaptHtmlForDarkMode(html: string): string {
   return `<style>${DM_CSS}</style>` + String(result) + `<style>${DM_RESET}</style>`
 }
 
-export { sanitizeHtmlRehype, extractTextForTranslation, translateHtmlWithLayout, adaptHtmlForDarkMode }
+export {
+  sanitizeHtmlRehype,
+  linkifyPlainText,
+  extractTextForTranslation,
+  translateHtmlWithLayout,
+  adaptHtmlForDarkMode,
+}

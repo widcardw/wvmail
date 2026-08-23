@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NCard, NSelect, NButton } from 'naive-ui'
+import { NCard, NSelect, NButton, NColorPicker } from 'naive-ui'
 import { NForm, NFormItem, SelectOption } from 'naive-ui'
 import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
@@ -56,6 +56,17 @@ async function openConfigFolder() {
             @update:value="(v) => theme.switchTo(v)"
           />
         </NFormItem>
+        <NFormItem :label="t['settings.common.primaryColor']">
+          <div class="primary-color-picker">
+            <NColorPicker
+              :value="theme.primaryColor"
+              :modes="['hex']"
+              :show-alpha="false"
+              :swatches="['#18a058', '#2080f0', '#f0a020', '#d03050', '#8a2be2', '#e11d48']"
+              @update:value="theme.setPrimaryColor"
+            />
+          </div>
+        </NFormItem>
       </NForm>
       <NButton @click="openConfigFolder">
         {{ t['settings.common.openConfig'] }}
@@ -63,3 +74,10 @@ async function openConfigFolder() {
     </NCard>
   </div>
 </template>
+
+<style scoped>
+.primary-color-picker {
+  width: 200px;
+  flex: 0 0 200px;
+}
+</style>

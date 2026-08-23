@@ -23,7 +23,12 @@ import { computed, ref, h, watch } from 'vue'
 import { AttachmentInfo } from '../types/email'
 import { getAttachmentIcon } from '../composables/attachment-icons'
 import { formatDate, formatFileSize, getInitials } from '../composables/formats'
-import { sanitizeHtmlRehype as sanitizeHtml, extractTextForTranslation, translateHtmlWithLayout } from '../composables/html-utils'
+import {
+  sanitizeHtmlRehype as sanitizeHtml,
+  linkifyPlainText,
+  extractTextForTranslation,
+  translateHtmlWithLayout,
+} from '../composables/html-utils'
 import EmailShadowBody from './EmailShadowBody.vue'
 
 const { t } = useI18n()
@@ -117,10 +122,7 @@ async function handleTranslate() {
 
     // 1. Try layout-preserving translation on HTML content
     if (detail.value.body_html) {
-      const htmlResult = await translateHtmlWithLayout(
-        detail.value.body_html,
-        translateFn,
-      )
+      const htmlResult = await translateHtmlWithLayout(detail.value.body_html, translateFn)
       if (htmlResult) {
         // Render translated HTML in shadow DOM
         translatedText.value = null
@@ -286,16 +288,25 @@ function handleLinkClick(event: MouseEvent) {
                     quaternary
                     :loading="translating"
                     style="flex-shrink: 0"
-                    @click="(translatedText || translatedHtml) ? clearTranslation() : handleTranslate()"
+                    @click="
+                      translatedText || translatedHtml ? clearTranslation() : handleTranslate()
+                    "
                   >
                     <template #icon>
                       <NIcon
-                        ><Icon :icon="(translatedText || translatedHtml) ? 'ri:close-line' : 'ri:translate-2'"
+                        ><Icon
+                          :icon="
+                            translatedText || translatedHtml ? 'ri:close-line' : 'ri:translate-2'
+                          "
                       /></NIcon>
                     </template>
                   </NButton>
                 </template>
-                {{ (translatedText || translatedHtml) ? t['mail.translation.close'] : t['mail.translation.translate'] }}
+                {{
+                  translatedText || translatedHtml
+                    ? t['mail.translation.close']
+                    : t['mail.translation.translate']
+                }}
               </NTooltip>
             </div>
 
@@ -315,7 +326,11 @@ function handleLinkClick(event: MouseEvent) {
 
           <!-- Attachments -->
           <NCollapse
-            v-if="detail.attachments && detail.attachments.length > 0 && (!detail.is_suspicious || suspiciousRevealed)"
+            v-if="
+              detail.attachments &&
+              detail.attachments.length > 0 &&
+              (!detail.is_suspicious || suspiciousRevealed)
+            "
             class="detail-attachments"
           >
             <NCollapseItem
@@ -330,7 +345,15 @@ function handleLinkClick(event: MouseEvent) {
                     </NIcon>
                   </template>
                   <div class="attachment-details">
-                    <span class="attachment-filename">{{ att.filename }}<NText depth="3" style="font-size: 11px; margin-left: 4px" v-if="att.is_inline">({{ t['mail.inline_image'] }})</NText></span>
+                    <span class="attachment-filename"
+                      >{{ att.filename
+                      }}<NText
+                        depth="3"
+                        style="font-size: 11px; margin-left: 4px"
+                        v-if="att.is_inline"
+                        >({{ t['mail.inline_image'] }})</NText
+                      ></span
+                    >
                     <span class="attachment-size">{{ formatFileSize(att.size) }}</span>
                   </div>
                   <template #suffix>
@@ -351,7 +374,11 @@ function handleLinkClick(event: MouseEvent) {
               :html="sanitizeHtml(detail.body_html)"
               :dark="isDarkMode"
             />
-            <div v-else-if="detail.body_text" class="body-text">{{ detail.body_text }}</div>
+            <EmailShadowBody
+              v-else-if="detail.body_text"
+              :html="linkifyPlainText(detail.body_text)"
+              :dark="isDarkMode"
+            />
             <div v-else class="body-empty" style="opacity: 0.4; text-align: center; padding: 2rem">
               (No content)
             </div>

@@ -12,12 +12,12 @@ tasks:
     dir: frontend
     sources:
       - package.json
-      - package-lock.json
+      - pnpm-lock.yaml
     generates:
       - node_modules
     preconditions:
-      - sh: pnpm version
-        msg: "Looks like npm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"
+      - sh: pnpm --version
+        msg: "Looks like pnpm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"
     cmds:
       - pnpm install
 

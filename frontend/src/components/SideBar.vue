@@ -9,6 +9,10 @@ import { useAccountsStore } from '../stores/accounts'
 import { getFolderDisplay, compareFolders } from '../types/email'
 import AccountAvatar from './AccountAvatar.vue'
 
+const props = defineProps<{
+  collapsed?: boolean
+}>()
+
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 const router = useRouter()
@@ -37,29 +41,22 @@ function onExpandedKeysChange(keys: string[]) {
   expandedKeys.value = keys
 }
 
-const menuOptions = computed<MenuOption[]>(() => {
-  const options: MenuOption[] = []
-
-  // Smart folder section
+const smartFolderOptions = computed<MenuOption[]>(() => {
   const smartFolderTypes: { key: string; tKey: string; icon: string }[] = [
     { key: 'inbox', tKey: 'sidebar.all_inbox', icon: 'ri:inbox-archive-line' },
     { key: 'sent', tKey: 'sidebar.all_sent', icon: 'ri:send-plane-2-line' },
     { key: 'drafts', tKey: 'sidebar.all_drafts', icon: 'ri:draft-line' },
   ]
 
-  for (const sf of smartFolderTypes) {
-    options.push({
-      label: t.value[sf.tKey],
-      key: `__smart__:${sf.key}`,
-      icon: renderIconifyIcon(sf.icon),
-    })
-  }
+  return smartFolderTypes.map((sf) => ({
+    label: t.value[sf.tKey],
+    key: `__smart__:${sf.key}`,
+    icon: renderIconifyIcon(sf.icon),
+  }))
+})
 
-  options.push({
-    type: 'divider',
-    key: '__smart_divider__',
-  })
-
+const accountMenuOptions = computed<MenuOption[]>(() => {
+  const options: MenuOption[] = []
   for (const account of accountsStore.accounts) {
     const folders = accountsStore.foldersByAccount[account.ID]
     const isLoading = folders === undefined
@@ -110,6 +107,32 @@ const menuOptions = computed<MenuOption[]>(() => {
   return options
 })
 
+const utilityMenuOptions = computed<MenuOption[]>(() => [
+  {
+    label: t.value['settings.common'],
+    key: 'settings',
+    icon: renderIconifyIcon('ri:settings-2-line'),
+  },
+  {
+    label: t.value['reminders.title'],
+    key: 'reminder',
+    icon: renderIconifyIcon('ri:notification-2-line'),
+  },
+  {
+    label: t.value['notes.title'],
+    key: 'notes',
+    icon: renderIconifyIcon('ri:pen-nib-fill'),
+  },
+])
+
+const activeUtilityKey = computed(() => {
+  const path = router.currentRoute.value.path
+  if (path.startsWith('/settings')) return 'settings'
+  if (path.startsWith('/reminder')) return 'reminder'
+  if (path.startsWith('/notes')) return 'notes'
+  return null
+})
+
 function handleUpdateValue(key: string, _item: MenuOption) {
   const parts = key.split(':')
   if (parts.length === 2) {
@@ -123,31 +146,103 @@ function handleUpdateValue(key: string, _item: MenuOption) {
     router.push('/')
   }
 }
+
+function handleUtilityClick(key: string) {
+  const paths: Record<string, string> = {
+    settings: '/settings',
+    reminder: '/reminder',
+    notes: '/notes',
+  }
+  const path = paths[key]
+  if (path) router.push(path)
+}
 </script>
 
 <template>
-  <NScrollbar>
-    <NEmpty
-      v-if="accountsStore.accounts.length === 0"
-      :description="t['settings.accounts.empty']"
-      size="small"
-      style="padding: 24px 12px"
-    />
-    <NMenu
-      v-else
-      :root-indent="16"
-      :indent="16"
-      :icon-size="20"
-      :collapsed-icon-size="24"
-      :expanded-keys="expandedKeys"
-      :options="menuOptions"
-      @update:value="handleUpdateValue"
-      @update:expanded-keys="onExpandedKeysChange"
-    />
-  </NScrollbar>
+  <div class="sidebar-content">
+    <div class="sidebar-overview">
+      <NMenu
+        :collapsed="props.collapsed"
+        :root-indent="16"
+        :indent="16"
+        :icon-size="20"
+        :collapsed-icon-size="24"
+        :theme-overrides="{ itemHeight: '32px' }"
+        :options="smartFolderOptions"
+        @update:value="handleUpdateValue"
+      />
+    </div>
+
+    <div class="sidebar-divider" />
+
+    <div class="sidebar-accounts">
+      <NScrollbar style="height: 100%">
+        <NEmpty
+          v-if="accountsStore.accounts.length === 0"
+          :description="t['settings.accounts.empty']"
+          size="small"
+          style="padding: 24px 12px"
+        />
+        <NMenu
+          v-else
+          :collapsed="props.collapsed"
+          :root-indent="16"
+          :indent="16"
+          :icon-size="20"
+          :collapsed-icon-size="24"
+          :theme-overrides="{ itemHeight: '32px' }"
+          :expanded-keys="expandedKeys"
+          :options="accountMenuOptions"
+          @update:value="handleUpdateValue"
+          @update:expanded-keys="onExpandedKeysChange"
+        />
+      </NScrollbar>
+    </div>
+
+    <div class="sidebar-divider" />
+
+    <div class="sidebar-tools">
+      <NMenu
+        :value="activeUtilityKey"
+        :collapsed="props.collapsed"
+        :root-indent="16"
+        :indent="16"
+        :icon-size="20"
+        :collapsed-icon-size="24"
+        :theme-overrides="{ itemHeight: '32px' }"
+        :options="utilityMenuOptions"
+        @update:value="handleUtilityClick"
+      />
+    </div>
+  </div>
 </template>
 
 <style scoped>
+.sidebar-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-overview,
+.sidebar-tools {
+  flex-shrink: 0;
+}
+
+.sidebar-accounts {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-divider {
+  height: 1px;
+  margin: 4px 12px;
+  background: var(--n-border-color);
+  opacity: 0.7;
+}
+
 :deep(.n-menu-item-content--child .n-menu-item-content-header) {
   font-size: 13px;
 }

@@ -34,6 +34,7 @@ const zhCN: TranslationSchema = {
   'notes.search': '搜索',
   'settings.common': '通用',
   'settings.common.theme': '颜色主题',
+  'settings.common.primaryColor': '主题色',
   'settings.common.theme.light': '亮色',
   'settings.common.theme.dark': '暗色',
   'settings.common.theme.system': '跟随系统',

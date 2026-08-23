@@ -47,6 +47,7 @@ function handleClick(key: string, _item: MenuOption) {
         :options="settingsMenuOptions"
         :root-indent="16"
         :indent="16"
+        :theme-overrides="{ itemHeight: '32px' }"
         :icon-size="24"
         @update-value="handleClick"
       />

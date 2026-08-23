@@ -20,28 +20,29 @@ import (
 
 // AppConfig represents the application configuration stored in YAML.
 type AppConfig struct {
-	Language          string             `yaml:"language"`
-	Theme             string             `yaml:"theme"`
-	DatabasePath      string             `yaml:"database_path,omitempty"`
-	LogConfig         LogConfig          `yaml:"log_config,omitempty"`
-	TranslationConfig  TranslationConfig  `yaml:"translation_config,omitempty"`
-	ScanExternalSafety bool                `yaml:"scan_external_safety,omitempty"`
-	LLMConfigs        []LLMConfig        `yaml:"llm_configs,omitempty"`
-	EmailAccounts     []EmailAccount     `yaml:"email_accounts,omitempty"`
+	Language           string            `yaml:"language"`
+	Theme              string            `yaml:"theme"`
+	PrimaryColor       string            `yaml:"primary_color"`
+	DatabasePath       string            `yaml:"database_path,omitempty"`
+	LogConfig          LogConfig         `yaml:"log_config,omitempty"`
+	TranslationConfig  TranslationConfig `yaml:"translation_config,omitempty"`
+	ScanExternalSafety bool              `yaml:"scan_external_safety,omitempty"`
+	LLMConfigs         []LLMConfig       `yaml:"llm_configs,omitempty"`
+	EmailAccounts      []EmailAccount    `yaml:"email_accounts,omitempty"`
 }
 
 // LogConfig controls the application's file logging behaviour.
 type LogConfig struct {
-	Level          string `yaml:"level"`            // debug, info, warn, error
-	RetentionDays  int    `yaml:"retention_days"`   // days to keep old log files
-	MaxSizeMB      int    `yaml:"max_size_mb"`       // max size per log file before rotation
+	Level         string `yaml:"level"`          // debug, info, warn, error
+	RetentionDays int    `yaml:"retention_days"` // days to keep old log files
+	MaxSizeMB     int    `yaml:"max_size_mb"`    // max size per log file before rotation
 }
 
 // TranslationConfig controls the email translation feature.
 type TranslationConfig struct {
 	DefaultTargetLang string `yaml:"default_target_lang"`
-	DefaultEngine     string `yaml:"default_engine"`  // "llm", "deepl"
-	DeepLAuthKey      string `yaml:"deepl_auth_key"`   // AES-256-GCM encrypted
+	DefaultEngine     string `yaml:"default_engine"` // "llm", "deepl"
+	DeepLAuthKey      string `yaml:"deepl_auth_key"` // AES-256-GCM encrypted
 }
 
 // LLMConfig represents a single LLM provider configuration.
@@ -72,7 +73,7 @@ type EmailAccount struct {
 	UseTLS   bool   `yaml:"use_tls"`
 	// Sync settings
 	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
-	Avatar       string `yaml:"avatar"`          // Avatar filename (relative to avatar dir)
+	Avatar       string `yaml:"avatar"`        // Avatar filename (relative to avatar dir)
 }
 
 // ConfigService provides methods for reading, writing, and managing
@@ -193,9 +194,10 @@ func decrypt(encoded string) (string, error) {
 
 func defaultConfig() AppConfig {
 	return AppConfig{
-		Language:      "en-US",
-		Theme:         "System",
-		DatabasePath:  "",
+		Language:     "en-US",
+		Theme:        "System",
+		PrimaryColor: "#18a058",
+		DatabasePath: "",
 		LogConfig: LogConfig{
 			Level:         "info",
 			RetentionDays: 30,
@@ -206,7 +208,7 @@ func defaultConfig() AppConfig {
 			DefaultEngine:     "llm",
 		},
 		ScanExternalSafety: true,
-		EmailAccounts: []EmailAccount{},
+		EmailAccounts:      []EmailAccount{},
 	}
 }
 
@@ -286,6 +288,9 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 	if cfg.Theme == "" {
 		cfg.Theme = "System"
 	}
+	if cfg.PrimaryColor == "" {
+		cfg.PrimaryColor = "#18a058"
+	}
 	if cfg.LogConfig.Level == "" {
 		cfg.LogConfig.Level = "info"
 	}
@@ -364,7 +369,7 @@ func (s *ConfigService) SaveConfig(cfg AppConfig) error {
 
 // SaveConfigField updates a single top-level field in the config file. This
 // avoids read-update-write races between stores (e.g. language & theme).
-// Supported fields: "language", "theme".
+// Supported fields: "language", "theme", "primary_color".
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	cfg, err := s.GetConfig()
 	if err != nil {
@@ -375,6 +380,8 @@ func (s *ConfigService) SaveConfigField(field, value string) error {
 		cfg.Language = value
 	case "theme":
 		cfg.Theme = value
+	case "primary_color":
+		cfg.PrimaryColor = value
 	case "scan_external_safety":
 		b, err := strconv.ParseBool(value)
 		if err != nil {

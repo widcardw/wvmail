@@ -334,7 +334,7 @@ const providerTagType: Record<string, string> = {
                 <NButton size="small" @click="openEdit(index)">
                   {{ t['settings.llm.edit'] }}
                 </NButton>
-                <NPopconfirm
+                  <NPopconfirm
                   :positive-text="t['settings.llm.delete']"
                   :negative-text="t['settings.accounts.cancel']"
                   :positive-button-props="{'type': 'error'}"

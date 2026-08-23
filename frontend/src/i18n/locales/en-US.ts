@@ -34,6 +34,7 @@ const enUS: TranslationSchema = {
   'notes.search': 'Search',
   'settings.common': 'Common',
   'settings.common.theme': 'Theme',
+  'settings.common.primaryColor': 'Primary Color',
   'settings.common.theme.light': 'Light',
   'settings.common.theme.dark': 'Dark',
   'settings.common.theme.system': 'System',

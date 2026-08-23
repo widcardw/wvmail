@@ -181,13 +181,7 @@ function cancelForm() {
   testResult.value = null
 }
 
-function handleCustomRequest({
-  file,
-  onFinish,
-}: {
-  file: UploadFileInfo
-  onFinish: () => void
-}) {
+function handleCustomRequest({ file, onFinish }: { file: UploadFileInfo; onFinish: () => void }) {
   if (file.file) {
     readAvatarFile(file.file)
   }
@@ -521,12 +515,18 @@ function getProviderTag(provider: string): {
                   {{ t['settings.llm.edit'] }}
                 </NButton>
                 <NPopconfirm
+                  :disabled="testingIndex === account.ID"
                   :positive-text="t['settings.accounts.delete']"
                   :negative-text="t['settings.accounts.cancel']"
                   @positive-click="handleDelete(account)"
                 >
                   <template #trigger>
-                    <NButton size="small" type="error" ghost>
+                    <NButton
+                      size="small"
+                      type="error"
+                      ghost
+                      :disabled="testingIndex === account.ID"
+                    >
                       {{ t['settings.accounts.delete'] }}
                     </NButton>
                   </template>
