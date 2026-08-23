@@ -14,7 +14,7 @@ const URL_RE = /(https?:\/\/[^\s<>"']+|(?:www\.)[^\s<>"']+)|([\w.+-]+@[\w-]+\.[\
 
 /** Keep links inside the email shadow DOM aligned with the Naive UI theme. */
 const THEME_LINK_CSS = `
-a { color: var(--n-primary-color, #18a058) !important; }
+.email-auto-link { color: var(--n-primary-color, #18a058) !important; }
 `
 
 /**
@@ -90,7 +90,12 @@ function autoLinkText(text: string): (Text | Element)[] {
     result.push({
       type: 'element',
       tagName: 'a',
-      properties: { href, target: '_blank', rel: 'noopener noreferrer' },
+      properties: {
+        href,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        className: ['email-auto-link'],
+      },
       children: [{ type: 'text', value: display }],
     })
 
@@ -141,6 +146,10 @@ const emailSchema: Schema = {
   attributes: {
     ...defaultSchema.attributes,
     '*': [...((defaultSchema.attributes as Record<string, unknown[]>)?.['*'] ?? []), ['style']],
+    a: [
+      ...((defaultSchema.attributes as Record<string, unknown[]>)?.a ?? []),
+      ['className', 'email-auto-link'],
+    ],
   },
   protocols: {
     ...(defaultSchema.protocols ?? {}),
@@ -363,16 +372,16 @@ const DM_CSS = `
 :host { color-scheme: dark; }
 /* 已适配的 inline color/background */
 [data-dm-color] { color: var(--dm-c) !important; }
+[data-dm-preserve-color] { color: var(--dm-original-color) !important; }
 [data-dm-bg] { background-color: var(--dm-b) !important; }
 [data-dm-link] { color: var(--dm-l) !important; }
 `
 
 /** General reset CSS: appended AFTER email's own <style> blocks to win later */
 const DM_RESET = `
-/* 通用文字兜底：所有元素文字变亮，确保任何格式 (hex/rgb/named) 的深色文字都变成可读
-   * 特异度 0,0,0,0，[data-dm-color] (0,1,0,0) 和 a (0,0,0,1) 可以覆盖它 */
+/* 通用文字兜底：所有元素文字变亮，确保任何格式 (hex/rgb/named) 的深色文字都变成可读 */
 * { color: rgb(210,210,210) !important; }
-a { color: var(--n-primary-color, #66b0ff) !important; text-decoration: underline; }
+.email-auto-link { color: var(--n-primary-color, #66b0ff) !important; text-decoration: underline; }
 /* 通用背景兜底：清除所有未被 inline 适配的背景色 */
 * { background: transparent !important; }
 /* 已适配的或特殊元素不参与兜底 */
@@ -396,11 +405,20 @@ function adaptHtmlForDarkMode(html: string): string {
       if (style) {
         let colorAdapt = ''
         let bgAdapt = ''
+        const attrs: Record<string, string> = {}
+        const cssVars: string[] = []
 
         const colorMatch = style.match(/\bcolor\s*:\s*([^;]+)/i)
         if (colorMatch) {
-          const parsed = parseColor(colorMatch[1])
-          if (parsed) colorAdapt = adaptColor(parsed, false)
+          const originalColor = colorMatch[1].trim().replace(/\s*!important\s*$/i, '')
+          const parsed = parseColor(originalColor)
+          if (parsed) {
+            colorAdapt = adaptColor(parsed, false)
+            if (!colorAdapt) {
+              attrs['data-dm-preserve-color'] = ''
+              cssVars.push(`--dm-original-color: ${originalColor}`)
+            }
+          }
         }
 
         const bgMatch = style.match(/\bbackground-color\s*:\s*([^;]+)/i)
@@ -408,9 +426,6 @@ function adaptHtmlForDarkMode(html: string): string {
           const parsed = parseColor(bgMatch[1])
           if (parsed) bgAdapt = adaptColor(parsed, true)
         }
-
-        const attrs: Record<string, string> = {}
-        const cssVars: string[] = []
 
         if (colorAdapt) {
           attrs['data-dm-color'] = ''
