@@ -11,9 +11,13 @@ const accountsStore = useAccountsStore()
 
 <template>
   <div class="view-content">
-    <NSplit v-if="accountsStore.selectedFolder || accountsStore.isSmartFolder" 
-    :max="0.75" :min="0.25" :default-size="0.25"
-    :resize-trigger-size="2">
+    <NSplit
+      v-if="accountsStore.selectedFolder || accountsStore.isSmartFolder"
+      :max="0.75"
+      :min="0.25"
+      :default-size="0.25"
+      :resize-trigger-size="2"
+    >
       <template #1>
         <EmailList />
       </template>

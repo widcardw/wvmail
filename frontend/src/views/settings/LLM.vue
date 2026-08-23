@@ -295,13 +295,18 @@ const providerTagType: Record<string, string> = {
                       {{ LLM_PROVIDER_LABELS[item.Provider] ?? item.Provider }}
                     </span>
                   </NTag>
-                  <NGrid :x-gap="12" :y-gap="0" :cols="3" style="font-size: 12px; opacity: 0.6; margin-top: 4px;">
+                  <NGrid
+                    :x-gap="12"
+                    :y-gap="0"
+                    :cols="3"
+                    style="font-size: 12px; opacity: 0.6; margin-top: 4px"
+                  >
                     <template v-if="item.Model">
-                      <NGridItem style="font-weight: bold;"> Model </NGridItem> 
+                      <NGridItem style="font-weight: bold"> Model </NGridItem>
                       <NGridItem :span="2">{{ item.Model }}</NGridItem>
                     </template>
                     <NGridItem>URL</NGridItem> <NGridItem :span="2">{{ item.BaseURL }}</NGridItem>
-                    <NGridItem>API Key</NGridItem> 
+                    <NGridItem>API Key</NGridItem>
                     <NGridItem :span="2">
                       <template v-if="item.APIKey">
                         {{ maskKey(item.APIKey) }}
@@ -334,10 +339,10 @@ const providerTagType: Record<string, string> = {
                 <NButton size="small" @click="openEdit(index)">
                   {{ t['settings.llm.edit'] }}
                 </NButton>
-                  <NPopconfirm
+                <NPopconfirm
                   :positive-text="t['settings.llm.delete']"
                   :negative-text="t['settings.accounts.cancel']"
-                  :positive-button-props="{'type': 'error'}"
+                  :positive-button-props="{ type: 'error' }"
                   @positive-click="handleDelete(index)"
                 >
                   <template #trigger>

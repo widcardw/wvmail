@@ -60,7 +60,10 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
         <template #trigger>
           <span class="folder-label">{{ folderDisplay.label }}</span>
         </template>
-        {{ accountsStore.selectedFolder || (accountsStore.isSmartFolder ? folderDisplay.label + ' (all accounts)' : '') }}
+        {{
+          accountsStore.selectedFolder ||
+          (accountsStore.isSmartFolder ? folderDisplay.label + ' (all accounts)' : '')
+        }}
       </NTooltip>
       <NButton
         size="tiny"
@@ -107,10 +110,9 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
               <div class="unread-marker" :class="{ visible: !email.is_read }"></div>
               <div class="email-body">
                 <div class="email-header">
-                  <span
-                    v-if="accountsStore.isSmartFolder"
-                    class="email-avatar"
-                  ><AccountAvatar :account-id="email._accountId!" /></span>
+                  <span v-if="accountsStore.isSmartFolder" class="email-avatar"
+                    ><AccountAvatar :account-id="email._accountId!"
+                  /></span>
                   <span class="email-from">{{ displaySender(email) }}</span>
                   <span class="email-date">{{ formatDateRecent(email.date) }}</span>
                 </div>

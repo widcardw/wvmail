@@ -18,7 +18,7 @@
 //   SyncInterval: number
 // }
 
-export {EmailAccount} from '#/wvmail/services'
+export { EmailAccount } from '#/wvmail/services'
 
 export interface EmailSummary {
   uid: number

@@ -55,7 +55,12 @@ const fallbackLetter = computed(() => {
   <span class="account-avatar" v-else-if="iconVNode">
     <component :is="() => iconVNode" />
   </span>
-  <span v-else class="account-avatar-fallback" :style="{ width: size + 'px', height: size + 'px' }">{{ fallbackLetter }}</span>
+  <span
+    v-else
+    class="account-avatar-fallback"
+    :style="{ width: size + 'px', height: size + 'px' }"
+    >{{ fallbackLetter }}</span
+  >
 </template>
 
 <style scoped>
