@@ -10,7 +10,7 @@ import { formatDateRecent, displaySender, truncateSubject } from '../composables
 import AccountAvatar from './AccountAvatar.vue'
 
 const themeVars = useThemeVars()
-const { primaryColor, borderColor } = themeVars.value
+const { primaryColor } = themeVars.value
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
@@ -141,7 +141,7 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
   font-weight: 600;
   opacity: 0.7;
   padding: 6px 16px;
-  border-bottom: 1px solid v-bind(borderColor);
+  border-bottom: 1px solid var(--n-border-color);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -164,12 +164,12 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
 .email-item {
   cursor: pointer;
   transition: border-color 0.1s;
-  border-bottom: 1px solid v-bind(borderColor);
+  border-bottom: 1px solid var(--n-border-color);
   border-left: 2px solid transparent;
 }
 
 .email-item:hover {
-  border-left-color: v-bind(borderColor);
+  border-left-color: var(--n-border-color);
 }
 
 .email-item.selected {

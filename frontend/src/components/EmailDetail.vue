@@ -258,9 +258,6 @@ function handleLinkClick(event: MouseEvent) {
           <div class="detail-header">
             <div style="display: flex; align-items: flex-start">
               <div class="detail-avatar-row">
-                <!-- <div class="detail-avatar">
-                  {{ getInitials(detail.from_name, detail.from_addr) }}
-                </div> -->
                 <div class="detail-sender-info">
                   <span class="detail-from" v-if="senderDisplay(detail).name">
                     <strong>{{ senderDisplay(detail).name }}</strong>

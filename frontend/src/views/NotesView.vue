@@ -9,7 +9,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useThemeVars } from 'naive-ui'
 
 const themeVars = useThemeVars()
-const { primaryColor, codeColor, borderColor, actionColor } = themeVars.value
+const { primaryColor, codeColor, actionColor } = themeVars.value
 
 const { t } = useI18n()
 const notesStore = useNotesStore()
@@ -334,7 +334,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid v-bind(borderColor);
+  border-right: 1px solid var(--n-border-color);
   flex-shrink: 0;
 }
 
@@ -343,7 +343,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  border-bottom: 1px solid v-bind(borderColor);
+  border-bottom: 1px solid var(--n-border-color);
 }
 
 .sidebar-title {
@@ -406,7 +406,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 2px;
   padding: 8px 16px;
-  border-bottom: 1px solid v-bind(borderColor);
+  border-bottom: 1px solid var(--n-border-color);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -419,7 +419,7 @@ onUnmounted(() => {
 .toolbar-sep {
   width: 1px;
   height: 20px;
-  background: v-bind(borderColor);
+  background: var(--n-border-color);
   margin: 0 4px;
   flex-shrink: 0;
 }
@@ -473,7 +473,7 @@ onUnmounted(() => {
 .editor-content :deep(.ProseMirror blockquote) {
   margin: 8px 0;
   padding: 0 0 0 12px;
-  border-left: 3px solid v-bind(borderColor);
+  border-left: 3px solid var(--n-border-color);
   opacity: 0.8;
 }
 

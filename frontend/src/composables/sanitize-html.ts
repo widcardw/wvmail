@@ -1,1 +1,1 @@
-export { sanitizeHtmlRehype as sanitizeHtml } from './html-utils'
+export { sanitizeHtmlRehype as sanitizeHtml } from './html-sanitize'
