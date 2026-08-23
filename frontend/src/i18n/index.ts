@@ -35,6 +35,7 @@ export interface TranslationSchema {
   'notes.untitled': string
   'reminders.title': string
   'reminders.empty': string
+  'settings': string
   'settings.common': string
   'settings.common.theme': string
   'settings.common.primaryColor': string

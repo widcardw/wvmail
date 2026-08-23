@@ -109,7 +109,7 @@ const accountMenuOptions = computed<MenuOption[]>(() => {
 
 const utilityMenuOptions = computed<MenuOption[]>(() => [
   {
-    label: t.value['settings.common'],
+    label: t.value['settings'],
     key: 'settings',
     icon: renderIconifyIcon('ri:settings-2-line'),
   },

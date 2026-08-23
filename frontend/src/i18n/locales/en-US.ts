@@ -32,6 +32,7 @@ const enUS: TranslationSchema = {
   'notes.untitled': 'Untitled',
   'notes.placeholder': 'Input your notes',
   'notes.search': 'Search',
+  'settings': 'Settings',
   'settings.common': 'Common',
   'settings.common.theme': 'Theme',
   'settings.common.primaryColor': 'Primary Color',
