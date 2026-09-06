@@ -32,7 +32,7 @@ const zhCN: TranslationSchema = {
   'notes.untitled': '无标题',
   'notes.placeholder': '请输入',
   'notes.search': '搜索',
-  'settings': '设置',
+  settings: '设置',
   'settings.common': '通用',
   'settings.common.theme': '颜色主题',
   'settings.common.primaryColor': '主题色',

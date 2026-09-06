@@ -186,21 +186,21 @@ func (m *DBManager) LoadFolders(accountID string) ([]FolderInfo, error) {
 	return folders, nil
 }
 
-// SaveEmails replaces all cached email summaries for a (account, folder).
+// SaveEmails upserts cached email summaries for (account, folder) by UID without
+// deleting older rows — so a refresh that only fetches the newest page won't wipe
+// previously cached (older) messages. Removed emails may linger until purged.
 func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSummary) error {
 	db, err := m.getDB()
 	if err != nil {
 		return err
 	}
 
-	// Delete existing emails for this account+folder
-	if err := db.Where("account_id = ? AND folder_name = ?", accountID, folderName).
-		Delete(&CachedEmail{}).Error; err != nil {
-		return err
-	}
-
-	// Insert new emails
 	for _, e := range emails {
+		// delete any previous row with the same (account, folder, uid), then insert fresh
+		if err := db.Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
+			Delete(&CachedEmail{}).Error; err != nil {
+			return err
+		}
 		flagsJSON, _ := json.Marshal(e.Flags)
 		ce := CachedEmail{
 			AccountID:  accountID,

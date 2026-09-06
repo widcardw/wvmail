@@ -1,26 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Icon } from '@iconify/vue'
-import { NIcon } from 'naive-ui'
 import { getProviderIconUrl } from '../composables/provider-icons'
 
 export type AppIconSource = 'iconify' | 'lobehub' | 'ben'
 
 const props = withDefaults(
   defineProps<{
-    /** Icon identifier: iconify name (e.g. 'ri:home-3-line'),
-     *  provider key (e.g. 'openai'), or local image path */
+    /** Iconify icon (e.g. 'ri:home-3-line') — rendered as an offline UnoCSS
+     *  `i-<icons>` icon; provider key for source='lobehub'; local path for 'ben'. */
     icon: string
-    /** Icon source — 'iconify' (default), 'lobehub' (LLM provider avatars),
-     *  or 'ben' (本地图片, local image path) */
+    /** 'iconify' (default), 'lobehub' (LLM provider avatars), or 'ben' (本地图片) */
     source?: AppIconSource
-    /** Icon width/height in pixels */
+    /** Icon size in px (drives the 1em font-size of the icon) */
     size?: number
-    /** Border radius for the icon container */
+    /** Border radius for background-backed icons/images */
     radius?: number
-    /** Icon color (iconify only) */
+    /** Icon color (iconify — uses currentColor) */
     color?: string
-    /** Background color behind the icon (e.g. '#FF3333', 'rgba(0,0,0,0.1)') */
+    /** Background pill behind the icon (iconify) */
     background?: string
   }>(),
   {
@@ -31,33 +28,40 @@ const props = withDefaults(
 )
 
 const imageUrl = computed(() => {
-  if (props.source === 'lobehub') {
-    return getProviderIconUrl(props.icon) ?? null
-  }
+  if (props.source === 'lobehub') return getProviderIconUrl(props.icon) ?? null
   return null
 })
-
 const hasImage = computed(() => props.source === 'lobehub' && imageUrl.value !== null)
 
+// iconify class is applied to the inner <i> below; nothing needed on the wrapper.
+
 const containerStyle = computed(() => ({
-  display: 'inline-flex' as const,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   borderRadius: `${props.radius}px`,
   backgroundColor: props.background || undefined,
   padding: props.background ? '2px' : undefined,
   lineHeight: 1,
 }))
+const iconStyle = computed(() => ({
+  fontSize: `${props.size}px`,
+  color: props.color || undefined,
+}))
 </script>
 
 <template>
   <span class="app-icon" :style="containerStyle">
-    <!-- Iconify: NIcon + Icon -->
-    <NIcon v-if="source === 'iconify'" :size="size" :color="color">
-      <Icon :icon="icon" />
-    </NIcon>
+    <!-- Offline iconify icon: UnoCSS emits .i-<name> for the inner <i>, colored via currentColor -->
+    <i
+      v-if="source === 'iconify'"
+      class="app-icon__glyph"
+      :class="{ [`i-${icon}`]: true }"
+      :style="iconStyle"
+      aria-hidden="true"
+    />
 
-    <!-- LobeHub: provider avatar image -->
+    <!-- LobeHub provider avatar -->
     <img
       v-else-if="source === 'lobehub' && hasImage"
       :src="imageUrl!"
@@ -82,6 +86,10 @@ const containerStyle = computed(() => ({
 <style scoped>
 .app-icon {
   vertical-align: middle;
+}
+
+.app-icon__glyph {
+  line-height: 1;
 }
 
 .app-icon__img {

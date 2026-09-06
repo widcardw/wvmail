@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { darkTheme, useOsTheme } from 'naive-ui'
 import type { AppConfig } from '~/types/config'
 import { ConfigService } from '#/wvmail/services'
 
 export type ThemeMode = 'Light' | 'Dark' | 'System'
+export type ResolvedTheme = 'light' | 'dark'
 
 const DEFAULT_PRIMARY_COLOR = '#18a058'
 
@@ -20,6 +20,11 @@ function normalizeHexColor(value: string): string | null {
       .toLowerCase()}`
   }
   return null
+}
+
+function detectOsTheme(): ResolvedTheme {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function mixColor(color: string, target: string, amount: number): string {
@@ -44,38 +49,27 @@ function mixColor(color: string, target: string, amount: number): string {
 export const useThemeStore = defineStore('theme', () => {
   const mode = ref<ThemeMode>('System')
   const primaryColor = ref(DEFAULT_PRIMARY_COLOR)
-  const osTheme = useOsTheme()
 
-  const icon = computed(() => {
+  /** Effective light/dark after resolving System against the OS preference. */
+  const effectiveTheme = computed<ResolvedTheme>(() => {
     switch (mode.value) {
       case 'Dark':
-        return '🌙'
-      case 'Light':
-        return '☀️'
-      default:
-        return '🖥'
-    }
-  })
-
-  const naiveTheme = computed(() => {
-    switch (mode.value) {
-      case 'Dark':
-        return darkTheme
+        return 'dark'
       case 'System':
-        return osTheme.value === 'dark' ? darkTheme : null
+        return detectOsTheme()
       default:
-        return null
+        return 'light'
     }
   })
 
-  const themeOverrides = computed(() => ({
-    common: {
-      primaryColor: primaryColor.value,
-      primaryColorHover: mixColor(primaryColor.value, '#ffffff', 0.15),
-      primaryColorPressed: mixColor(primaryColor.value, '#000000', 0.2),
-      primaryColorSuppl: mixColor(primaryColor.value, '#ffffff', 0.15),
-    },
-  }))
+  function apply() {
+    const root = document.documentElement
+    root.dataset['theme'] = effectiveTheme.value
+    // Runtime primary overrides (palette itself lives in styles/global.css).
+    root.style.setProperty('--n-primary-color', primaryColor.value)
+    root.style.setProperty('--n-primary-hover', mixColor(primaryColor.value, '#ffffff', 0.15))
+    root.style.setProperty('--n-primary-pressed', mixColor(primaryColor.value, '#000000', 0.2))
+  }
 
   function loadFromConfig(config: AppConfig) {
     if (config.Theme === 'Light' || config.Theme === 'Dark' || config.Theme === 'System') {
@@ -83,10 +77,12 @@ export const useThemeStore = defineStore('theme', () => {
     }
     const configuredColor = normalizeHexColor(config.PrimaryColor || '')
     primaryColor.value = configuredColor ?? DEFAULT_PRIMARY_COLOR
+    apply()
   }
 
   async function switchTo(m: ThemeMode) {
     mode.value = m
+    apply()
     try {
       await ConfigService.SaveConfigField('theme', m)
     } catch {
@@ -103,6 +99,7 @@ export const useThemeStore = defineStore('theme', () => {
 
     if (primaryColorSaveTimer) clearTimeout(primaryColorSaveTimer)
     primaryColorSaveTimer = setTimeout(() => {
+      apply()
       void ConfigService.SaveConfigField('primary_color', normalized).catch((error) => {
         console.error('Failed to save primary color', error)
       })
@@ -112,15 +109,19 @@ export const useThemeStore = defineStore('theme', () => {
   function switchMode() {
     const order: Array<ThemeMode> = ['Light', 'Dark', 'System']
     const idx = order.indexOf(mode.value)
-    mode.value = order[(idx + 1) % order.length]
+    switchTo(order[(idx + 1) % order.length])
+  }
+
+  // Keep effective theme in sync when the OS preference changes while on System.
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => apply())
   }
 
   return {
     mode,
     primaryColor,
-    icon,
-    naiveTheme,
-    themeOverrides,
+    effectiveTheme,
+    apply,
     loadFromConfig,
     switchMode,
     switchTo,

@@ -221,7 +221,25 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		return nil, wrapIMAPError("select folder failed", err)
 	}
 
+	// A successful SELECT reports NumMessages for the mailbox. QQ/Foxmail IMAP can
+	// transiently report 0 for an otherwise non-empty Sent folder right after a
+	// change; when we have a prior non-zero total for this exact folder, retry the
+	// select once before trusting an empty result.
+	priorTotal, _ := s.db.LoadFolderMeta(account.ID, folder)
+	for retry := 0; mbox.NumMessages == 0 && priorTotal > 0 && retry < 1; retry++ {
+		time.Sleep(300 * time.Millisecond)
+		if rs, e2 := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); e2 == nil {
+			mbox = rs
+		}
+	}
+
 	if mbox.NumMessages == 0 {
+		if priorTotal > 0 {
+			return nil, fmt.Errorf(
+				"refresh reported 0 messages in %q while %d were cached — keeping previous list",
+				folder, priorTotal,
+			)
+		}
 		return &EmailPageResponse{Emails: []EmailSummary{}, Total: 0}, nil
 	}
 
@@ -327,15 +345,13 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		summaries[i], summaries[j] = summaries[j], summaries[i]
 	}
 
-	// Update cache (best-effort): save total separately, cache emails only for
-	// page 1 so page 2+ fetches don't overwrite the page 1 cache.
+	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
+	// removing older rows, so paging to an earlier page keeps those in the cache.
 	if err := s.db.SaveFolderMeta(account.ID, folder, total); err != nil {
 		fmt.Printf("failed to cache folder meta: %v\n", err)
 	}
-	if page <= 1 {
-		if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
-			fmt.Printf("failed to cache emails: %v\n", err)
-		}
+	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
+		fmt.Printf("failed to cache emails: %v\n", err)
 	}
 
 	return &EmailPageResponse{

@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { zhCN, enUS, dateZhCN, dateEnUS } from 'naive-ui'
-import type { NLocale, NDateLocale } from 'naive-ui'
 import type { Locale, TranslationSchema } from '~/i18n'
 import type { AppConfig } from '~/types/config'
 import enUSTranslations from '~/i18n/locales/en-US'
@@ -13,11 +11,6 @@ const TRANSLATIONS: Record<Locale, TranslationSchema> = {
   'zh-CN': zhCNTranslations,
 }
 
-const NAIVE_LOCALES: Record<Locale, { locale: NLocale; dateLocale: NDateLocale }> = {
-  'en-US': { locale: enUS, dateLocale: dateEnUS },
-  'zh-CN': { locale: zhCN, dateLocale: dateZhCN },
-}
-
 function detectBrowserLocale(): Locale {
   const lang = navigator.language
   if (lang.startsWith('zh')) return 'zh-CN'
@@ -26,9 +19,6 @@ function detectBrowserLocale(): Locale {
 
 export const useLocaleStore = defineStore('locale', () => {
   const current = ref<Locale>(detectBrowserLocale())
-
-  const naiveLocale = computed(() => NAIVE_LOCALES[current.value].locale)
-  const naiveDateLocale = computed(() => NAIVE_LOCALES[current.value].dateLocale)
 
   const t = computed(() => TRANSLATIONS[current.value])
 
@@ -47,5 +37,5 @@ export const useLocaleStore = defineStore('locale', () => {
     }
   }
 
-  return { current, naiveLocale, naiveDateLocale, t, loadFromConfig, setLocale }
+  return { current, t, loadFromConfig, setLocale }
 })

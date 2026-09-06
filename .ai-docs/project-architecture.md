@@ -113,7 +113,8 @@ Config directory resolves to:
 | UI Framework | Vue 3 | ^3.5.33 |
 | Router | Vue Router | ^5.0.6 |
 | State Mgmt | Pinia | ^3.0.4 |
-| Component Lib | Naive UI | ^2.44.1 |
+| Behavior/Headless Lib | Ark UI | ^5.39.1 |
+| Styling | UnoCSS + CSS Modules + global.css design tokens | frontend |
 | Utilities | @vueuse/core | ^14.3.0 |
 | Build Tool | Vite | ^8.0.10 |
 | Vue Plugin | @vitejs/plugin-vue | ^6.0.6 |
@@ -159,11 +160,16 @@ frontend/
 
 3. **Vite Plugin**: `@wailsio/runtime/plugins/vite` processes the bindings directory and sets up dev-mode proxying.
 
-### Naive UI Theme System
+### Theming & CSS (no library theme)
 
-- `App.vue` wraps content in `<NConfigProvider :theme="theme.value">`
-- `stores/theme.ts` detects OS theme via `useOsTheme()` (from Naive UI) and stores current theme
-- A toggle button switches between `darkTheme` and `null` (light)
+Ark UI provides no forest-level theme. `stores/theme.ts` resolves the effective mode (System syncs with OS dark via
+`window.matchMedia`) and sets `data-theme="light|dark"` on `<html>`. Design tokens in `src/styles/global.css` flip
+under both modes; runtime primary-color writes `--color-primary*`. See `.ai-docs/ark-ui-guide.md` / `arkui-vue.txt`.
+
+### Icons
+
+All icons go through `components/AppIcon.vue` (wraps `@iconify/vue` `<Icon>`, plus lobehub avatars & local `<img>`
+sources). No naive `NIcon` involvement.
 
 ### Coding Conventions
 

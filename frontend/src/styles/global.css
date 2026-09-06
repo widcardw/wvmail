@@ -1,0 +1,111 @@
+/*
+ * Design tokens for wvmail.
+ *
+ * Ark UI is headless and injects no palette. We own every color/space. Tokens live
+ * here as CSS custom properties and flip with <html data-theme="light|dark"> (toggled by
+ * stores/theme.ts). Two kinds of names:
+ *
+ *  - legacy `--n-*` names are intentionally KEPT so existing component CSS and the
+ *    sanitize/dark-mode email rules (`var(--n-border-color)` etc.) keep working without churn.
+ *  - new semantic `--z-*` / `--space-*` etc. aliases for code we write going forward.
+ *
+ * Rules: reference tokens, never hardcode a surface color; toggle theme via data-attr only.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* --- palette (approximate Naive UI light defaults to preserve current look) --- */
+  --primary-base: #18a058;
+  --n-body-color: #ffffff;
+  --n-text-color: #000000; /* naive textColor (base) */
+  --n-action-color: #f5f6fa;
+  --n-border-color: #e0e0e6;
+  --n-primary-color: var(--primary-base);
+  --n-primary-hover: #36ad6a;
+  --n-primary-pressed: #0c7a43;
+
+  /* app chrome / states */
+  --n-sidebar-hover: rgba(128, 128, 128, 0.08);
+  --n-sidebar-active: rgba(128, 128, 128, 0.14);
+
+  /* --- semantic extras used by new/headless markup --- */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafafc;
+  --color-text-2: #555;
+  --color-text-3: #999;
+  --color-border: #e0e0e6;
+  --color-hover: rgba(128, 128, 128, 0.08);
+  --color-active: rgba(128, 128, 128, 0.14);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* approximate Naive UI dark palette */
+  --n-body-color: #101014;
+  --n-text-color: #ffffff;
+  --n-action-color: #2a2a30;
+  --n-border-color: #55555f;
+
+  --color-bg: #101014;
+  --color-surface: #18181c;
+  --color-surface-2: #0a0a0d;
+  --color-text-2: #bbb;
+  --color-text-3: #888;
+  --color-border: #55555f;
+  --color-hover: rgba(255, 255, 255, 0.08);
+  --color-active: rgba(255, 255, 255, 0.14);
+}
+
+/* Primary color is user-configurable at runtime — stores/theme.ts writes these,
+ * but keep a sane default here so first paint doesn't depend on JS. */
+:root,
+[data-theme='dark'] {
+  --n-primary-color: var(--primary-base);
+  --n-primary-hover: #36ad6a;
+  --n-primary-pressed: #0c7a43;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  color: var(--n-text-color);
+  background: var(--n-body-color);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* --- tiny shared primitives so headless parts don't end up totally bare --- */
+button {
+  font: inherit;
+}
+
+/* ARK popover/dialog/menu content often has no border — give overlay surfaces a base so
+ * they don't vanish. Each view refines these with its own recipe eventually. */
+[data-part='content'] {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--n-text-color);
+  border-radius: var(--radius-md);
+}

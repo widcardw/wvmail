@@ -49,9 +49,10 @@ export const useExampleStore = defineStore('example', () => {
 })
 ```
 
-## Naive UI Integration
+## Ark UI Integration
 
-Wrap app root with `<NConfigProvider>` for theming. Access theme store for dark/light toggle.
+Ark UI adds no provider tree. Theme toggling is handled by `stores/theme.ts` (sets `data-theme` on `<html>`); design
+color tokens live in `src/styles/global.css`. There is nothing to wrap app root with for theming.
 
 ## Wails Bridge
 
@@ -113,9 +114,9 @@ import { useIconRenderer } from '@/composables/use-icon'
 <AppIcon icon="openai" source="lobehub" :size="24" :radius="6" />
 ```
 
-### Render Function Usage (Naive UI slots)
+### Render Function Usage (leading icon)
 
-For Naive UI components that accept an `icon` render prop (NMenu, NButton, etc.):
+Return an icon node from a render-ish helper via `h(AppIcon, {...})` or a plain `h('span')`; no naive slot plumbing.
 
 ```ts
 import { useIconRenderer } from '@/composables/use-icon'

@@ -1,25 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
-import {
-  NCard,
-  NForm,
-  NFormItem,
-  NSelect,
-  NInput,
-  NButton,
-  NSpace,
-  NAlert,
-  useMessage,
-  type SelectOption,
-} from 'naive-ui'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from '~/i18n'
+import UiSelect from '~/components/UiSelect.vue'
+import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig } from '~/types/config'
 
 const { t } = useI18n()
-const message = useMessage()
+const fb = useFeedbackStore()
 
-const targetLangOptions: SelectOption[] = [
+const targetLangOptions = [
   { label: '中文', value: 'zh-CN' },
   { label: 'English', value: 'en' },
   { label: '日本語', value: 'ja' },
@@ -30,15 +20,13 @@ const targetLangOptions: SelectOption[] = [
   { label: 'Русский', value: 'ru' },
 ]
 
-const engineOptions: SelectOption[] = [
+const engineOptions = [
   { label: t.value['settings.translation.engine.llm'], value: 'llm' },
   { label: t.value['settings.translation.engine.deepl'], value: 'deepl' },
 ]
 
 const llmConfigs = ref<LLMConfig[]>([])
-const llmOptions = computed<SelectOption[]>(() =>
-  llmConfigs.value.map((c) => ({ label: c.Name, value: c.Name })),
-)
+const llmOptions = computed(() => llmConfigs.value.map((c) => ({ label: c.Name, value: c.Name })))
 
 const form = ref({
   DefaultTargetLang: 'zh-CN',
@@ -46,7 +34,6 @@ const form = ref({
   DeepLAuthKey: '',
   LLMConfigName: '',
 })
-
 const saving = ref(false)
 
 onMounted(async () => {
@@ -58,13 +45,15 @@ onMounted(async () => {
       form.value.DeepLAuthKey = cfg.TranslationConfig.DeepLAuthKey || ''
     }
     llmConfigs.value = cfg.LLMConfigs || []
-    if (llmConfigs.value.length > 0) {
-      form.value.LLMConfigName = llmConfigs.value[0].Name
-    }
+    if (llmConfigs.value.length > 0) form.value.LLMConfigName = llmConfigs.value[0].Name
   } catch (e) {
     console.error('Failed to load config', e)
   }
 })
+
+function onSelect(key: string, v: string) {
+  form.value[key as keyof typeof form.value] = v as never
+}
 
 async function handleSave() {
   saving.value = true
@@ -74,9 +63,9 @@ async function handleSave() {
       DefaultEngine: form.value.DefaultEngine,
       DeepLAuthKey: form.value.DeepLAuthKey,
     })
-    message.success(t.value['settings.translation.saved'])
+    fb.success(t.value['settings.translation.saved'])
   } catch (e) {
-    message.error(String(e))
+    fb.error(String(e))
   } finally {
     saving.value = false
   }
@@ -84,61 +73,144 @@ async function handleSave() {
 </script>
 
 <template>
-  <div style="padding: 16px; max-width: 720px">
-    <NCard :title="t['settings.translation.title']" size="small">
-      <NAlert
-        v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'"
-        type="warning"
-        style="margin-bottom: 12px"
-      >
-        No LLM configurations found. Please add one in the LLM settings page first.
-      </NAlert>
+  <div class="wrap">
+    <section class="surface">
+      <header class="surface__head">
+        <h2>{{ t['settings.translation.title'] }}</h2>
+      </header>
 
-      <NForm label-placement="left" label-width="140">
-        <NFormItem :label="t['settings.translation.target_lang']">
-          <NSelect
-            v-model:value="form.DefaultTargetLang"
-            :options="targetLangOptions"
-            style="width: 200px"
+      <div v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'" class="warning">
+        No LLM configurations found. Add one in the LLM settings first.
+      </div>
+
+      <div class="row">
+        <label class="row__label">{{ t['settings.translation.target_lang'] }}</label>
+        <UiSelect
+          :options="targetLangOptions"
+          :model-value="form.DefaultTargetLang"
+          @update:model-value="(v) => onSelect('DefaultTargetLang', v)"
+        />
+      </div>
+
+      <div class="row">
+        <label class="row__label">{{ t['settings.translation.engine'] }}</label>
+        <UiSelect
+          :options="engineOptions"
+          :model-value="form.DefaultEngine"
+          width="180px"
+          @update:model-value="(v) => onSelect('DefaultEngine', v)"
+        />
+      </div>
+
+      <template v-if="form.DefaultEngine === 'llm'">
+        <div class="row">
+          <label class="row__label">{{ t['settings.translation.llm_config'] }}</label>
+          <UiSelect
+            :options="llmOptions"
+            :model-value="form.LLMConfigName"
+            :disabled="llmConfigs.length === 0"
+            @update:model-value="(v) => onSelect('LLMConfigName', v)"
           />
-        </NFormItem>
-        <NFormItem :label="t['settings.translation.engine']">
-          <NSelect
-            v-model:value="form.DefaultEngine"
-            :options="engineOptions"
-            style="width: 160px"
+        </div>
+      </template>
+
+      <template v-else-if="form.DefaultEngine === 'deepl'">
+        <div class="row">
+          <label class="row__label">{{ t['settings.translation.deepl_key'] }}</label>
+          <input
+            type="password"
+            class="ctl password"
+            v-model="form.DeepLAuthKey"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           />
-        </NFormItem>
+        </div>
+      </template>
 
-        <template v-if="form.DefaultEngine === 'llm'">
-          <NFormItem :label="t['settings.translation.llm_config']">
-            <NSelect
-              v-model:value="form.LLMConfigName"
-              :options="llmOptions"
-              style="width: 240px"
-              :disabled="llmConfigs.length === 0"
-            />
-          </NFormItem>
-        </template>
-
-        <template v-if="form.DefaultEngine === 'deepl'">
-          <NFormItem :label="t['settings.translation.deepl_key']">
-            <NInput
-              v-model:value="form.DeepLAuthKey"
-              type="password"
-              show-password-on="click"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              style="width: 320px"
-            />
-          </NFormItem>
-        </template>
-      </NForm>
-
-      <NSpace justify="end" style="margin-top: 16px">
-        <NButton type="primary" :loading="saving" @click="handleSave">
-          {{ t['settings.llm.save'] }}
-        </NButton>
-      </NSpace>
-    </NCard>
+      <div class="actions">
+        <button type="button" class="btn btn--primary" :disabled="saving" @click="handleSave">
+          {{ saving ? '…' : t['settings.llm.save'] }}
+        </button>
+      </div>
+    </section>
   </div>
 </template>
+
+<style scoped>
+.wrap {
+  padding: 16px;
+  max-width: 720px;
+  color: var(--n-text-color);
+}
+.surface {
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-md);
+}
+.surface__head {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.surface__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.warning {
+  margin: 14px 18px 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--n-text-color);
+  background: rgba(240, 160, 32, 0.15);
+  border-left: 3px solid #f0a020;
+  border-radius: 4px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+}
+.row__label {
+  width: 220px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.ctl {
+  width: 220px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+}
+.ctl--w160 {
+  width: 160px;
+}
+.ctl:focus {
+  border-color: var(--n-primary-color);
+  outline: none;
+}
+.password {
+  width: 320px;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 18px 16px;
+}
+.btn--primary {
+  padding: 5px 12px;
+  font-size: 13px;
+  color: #fff;
+  background: var(--n-primary-color);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn--primary:disabled {
+  opacity: 0.6;
+}
+</style>

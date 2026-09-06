@@ -1,41 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import {
-  NButton,
-  NCard,
-  NEmpty,
-  NForm,
-  NFormItem,
-  NIcon,
-  NInput,
-  NList,
-  NListItem,
-  NModal,
-  NPopconfirm,
-  NSelect,
-  NSpace,
-  NAlert,
-  NTag,
-  NButtonGroup,
-  type SelectOption,
-  NCode,
-  NGrid,
-  NGridItem,
-} from 'naive-ui'
-import { Icon } from '@iconify/vue'
 import { useI18n } from '~/i18n'
+import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import { LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
-import { renderProviderOption, getProviderIconConfig } from '~/composables/provider-icons'
 import AppIcon from '~/components/AppIcon.vue'
+import UiSelect from '~/components/UiSelect.vue'
+import { getProviderIconConfig } from '~/composables/provider-icons'
 
 const { t } = useI18n()
+const fb = useFeedbackStore()
 
 const configs = ref<LLMConfig[]>([])
 const showModal = ref(false)
 const editingIndex = ref<number | null>(null)
 const saving = ref(false)
+const confirmingDelete = ref<number | null>(null)
 
 const form = ref<LLMConfig>({
   Name: '',
@@ -46,56 +27,25 @@ const form = ref<LLMConfig>({
 })
 
 const testing = ref(false)
-const testResult = ref<{ success: boolean; message: string } | null>(null)
-
 const testingChat = ref(false)
-const testChatResult = ref<{ success: boolean; message: string } | null>(null)
-
-const testSummary = computed(() => {
-  if (!testResult.value) return ''
-  const msg = testResult.value.message
-  const idx = msg.indexOf('\n')
-  return idx === -1 ? msg : msg.slice(0, idx)
-})
-const testBody = computed(() => {
-  if (!testResult.value) return ''
-  const msg = testResult.value.message
-  const idx = msg.indexOf('\n')
-  return idx === -1 ? '' : msg.slice(idx + 1)
-})
-
-const testChatSummary = computed(() => {
-  if (!testChatResult.value) return ''
-  const msg = testChatResult.value.message
-  const idx = msg.indexOf('\n')
-  return idx === -1 ? msg : msg.slice(0, idx)
-})
-const testChatBody = computed(() => {
-  if (!testChatResult.value) return ''
-  const msg = testChatResult.value.message
-  const idx = msg.indexOf('\n')
-  return idx === -1 ? '' : msg.slice(idx + 1)
-})
+const testSummary = ref('')
+const testBody = ref('')
+const testOk = ref(false)
+const testChatSummary = ref('')
+const testChatBody = ref('')
+const testChatOk = ref(false)
 
 const testingIndex = ref<number | null>(null)
 const testResultIndex = ref<number | null>(null)
 const testSuccess = ref(false)
 
-const providerOptions: SelectOption[] = Object.entries(LLM_PROVIDER_LABELS).map(
-  ([value, label]) => ({ label, value }),
-)
+const providerOptions = Object.entries(LLM_PROVIDER_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}))
 
-const providerLabelMap = Object.fromEntries(
-  Object.entries(LLM_PROVIDER_LABELS).map(([value, label]) => [value, label]),
-)
+const apiKeyRequired = computed(() => form.value.Provider !== 'ollama')
 
-function renderProviderLabel(option: SelectOption) {
-  const value = option.value as string
-  const label = providerLabelMap[value] ?? (option.label as string)
-  return renderProviderOption(value, label)
-}
-
-/** Returns AppIcon props for a provider, handling lobehub + iconify fallbacks */
 function providerIconProps(provider: string, size = 14, radius = 3) {
   const cfg = getProviderIconConfig(provider)
   if (!cfg) return null
@@ -110,8 +60,15 @@ async function loadConfigs() {
     configs.value = []
   }
 }
-
 onMounted(loadConfigs)
+
+function splitMsg(msg: string) {
+  const idx = msg.indexOf('\n')
+  return {
+    summary: idx === -1 ? msg : msg.slice(0, idx),
+    body: idx === -1 ? '' : msg.slice(idx + 1),
+  }
+}
 
 function openAdd() {
   editingIndex.value = null
@@ -122,86 +79,69 @@ function openAdd() {
     BaseURL: LLM_PROVIDER_DEFAULTS.openai,
     APIKey: '',
   }
-  testResult.value = null
+  testSummary.value = testBody.value = ''
+  testChatSummary.value = testChatBody.value = ''
+  confirmDebounce.value = null
   showModal.value = true
 }
 
+const confirmDebounce = ref<ReturnType<typeof setTimeout> | null>(null)
+
 function openEdit(index: number) {
   editingIndex.value = index
-  const item = configs.value[index]
-  form.value = { ...item }
-  testResult.value = null
+  form.value = { ...configs.value[index] }
+  testSummary.value = testBody.value = testChatSummary.value = testChatBody.value = ''
   showModal.value = true
 }
 
 async function handleSave() {
+  if (!form.value.Name || !form.value.BaseURL) return
   saving.value = true
   try {
     const list = [...configs.value]
-    if (editingIndex.value !== null) {
-      list[editingIndex.value] = { ...form.value }
-    } else {
-      list.push({ ...form.value })
-    }
+    if (editingIndex.value !== null) list[editingIndex.value] = { ...form.value }
+    else list.push({ ...form.value })
     await ConfigService.SaveLLMConfigs(list)
     configs.value = list
     showModal.value = false
+    fb.success(t.value['settings.llm.save'])
   } catch {
-    // Save failed
+    fb.error(t.value['settings.llm.test.fail'])
   } finally {
     saving.value = false
   }
 }
 
-async function handleDelete(index: number) {
-  const list = configs.value.filter((_, i) => i !== index)
+async function deleteRow(index: number) {
+  if (confirmingDelete.value !== index) {
+    confirmingDelete.value = index
+    setTimeout(() => {
+      if (confirmingDelete.value === index) confirmingDelete.value = null
+    }, 3000)
+    return
+  }
+  confirmingDelete.value = null
+  configs.value = configs.value.filter((_, i) => i !== index)
   try {
-    await ConfigService.SaveLLMConfigs(list)
-    configs.value = list
+    await ConfigService.SaveLLMConfigs(configs.value)
   } catch {
-    // Delete failed
+    /* ignore */
   }
 }
 
-async function handleTestConnect() {
-  testing.value = true
-  testResult.value = null
-  try {
-    const [success, message] = await ConfigService.TestLLMConnection({
-      Name: form.value.Name,
-      Provider: form.value.Provider,
-      Model: '',
-      BaseURL: form.value.BaseURL,
-      APIKey: form.value.APIKey,
-    })
-    testResult.value = { success, message }
-  } catch {
-    testResult.value = { success: false, message: 'Connection test failed' }
-  } finally {
-    testing.value = false
-  }
+function onProvider(p: string) {
+  form.value.Provider = p as LLMProvider
+  if (editingIndex.value === null && LLM_PROVIDER_DEFAULTS[p as LLMProvider])
+    form.value.BaseURL = LLM_PROVIDER_DEFAULTS[p as LLMProvider]
+  if (p === 'ollama' && editingIndex.value === null && apiKeyRequired.value === false)
+    form.value.APIKey = ''
 }
 
-async function handleTestChat() {
-  testingChat.value = true
-  testChatResult.value = null
-  try {
-    const [success, message] = await ConfigService.TestLLMConnection({
-      Name: form.value.Name,
-      Provider: form.value.Provider,
-      Model: form.value.Model,
-      BaseURL: form.value.BaseURL,
-      APIKey: form.value.APIKey,
-    })
-    testChatResult.value = { success, message }
-  } catch {
-    testChatResult.value = { success: false, message: 'Chat test failed' }
-  } finally {
-    testingChat.value = false
-  }
+function onInput(key: 'Name' | 'Model' | 'BaseURL' | 'APIKey', e: Event) {
+  form.value[key] = (e.target as HTMLInputElement).value
 }
 
-async function handleTestItem(index: number) {
+async function testItem(index: number) {
   const item = configs.value[index]
   testingIndex.value = index
   testResultIndex.value = null
@@ -210,262 +150,482 @@ async function handleTestItem(index: number) {
     const [success] = await ConfigService.TestLLMConnection({ ...item })
     testResultIndex.value = index
     testSuccess.value = success
-    // Reset after 3 seconds
-    setTimeout(() => {
-      if (testResultIndex.value === index) {
-        testResultIndex.value = null
-        testSuccess.value = false
-      }
-    }, 3000)
   } catch {
     testResultIndex.value = index
     testSuccess.value = false
+  } finally {
+    testingIndex.value = null
     setTimeout(() => {
       if (testResultIndex.value === index) {
         testResultIndex.value = null
         testSuccess.value = false
       }
     }, 3000)
+  }
+}
+
+async function runTest(kind: 'conn' | 'chat') {
+  const cfg = {
+    Name: form.value.Name,
+    Provider: form.value.Provider,
+    Model: kind === 'chat' ? form.value.Model : '',
+    BaseURL: form.value.BaseURL,
+    APIKey: form.value.APIKey,
+  }
+  if (kind === 'conn') testing.value = true
+  else testingChat.value = true
+  try {
+    const [ok, message] = await ConfigService.TestLLMConnection(cfg)
+    const { summary, body } = splitMsg(message)
+    if (kind === 'conn') {
+      testOk.value = ok
+      testSummary.value = summary
+      testBody.value = body
+    } else {
+      testChatOk.value = ok
+      testChatSummary.value = summary
+      testChatBody.value = body
+    }
+  } catch {
+    if (kind === 'conn') {
+      testOk.value = false
+      testSummary.value = 'Connection test failed'
+      testBody.value = ''
+    } else {
+      testChatOk.value = false
+      testChatSummary.value = 'Chat test failed'
+      testChatBody.value = ''
+    }
   } finally {
-    testingIndex.value = null
+    if (kind === 'conn') testing.value = false
+    else testingChat.value = false
   }
 }
-
-function onProviderChange(value: string) {
-  const provider = value as LLMProvider
-  form.value.Provider = provider
-  // Only auto-fill base URL when adding a new config, not when editing
-  if (LLM_PROVIDER_DEFAULTS[provider] && !editingIndex.value) {
-    form.value.BaseURL = LLM_PROVIDER_DEFAULTS[provider]
-  }
-  // Clear API key when switching to Ollama (not needed)
-  if (provider === 'ollama' && !editingIndex.value) {
-    form.value.APIKey = ''
-  }
-}
-
-const apiKeyRequired = computed(() => form.value.Provider !== 'ollama')
 
 function maskKey(key: string): string {
   if (key.length <= 8) return '****'
   return key.slice(0, 4) + '****' + key.slice(-4)
 }
 
-const providerTagType: Record<string, string> = {
-  deepseek: 'info',
-  openai: 'success',
-  anthropic: 'warning',
-  gemini: 'primary',
-  minimax: 'info',
-  kimi: 'warning',
-  ollama: 'default',
-  volcengine: 'info',
-  custom: 'default',
+function canSave() {
+  return Boolean(
+    form.value.Name && form.value.BaseURL && (!apiKeyRequired.value || form.value.APIKey),
+  )
+}
+function canConn() {
+  return Boolean(form.value.BaseURL && (!apiKeyRequired.value || form.value.APIKey))
+}
+function canChat() {
+  return Boolean(
+    form.value.Model && form.value.BaseURL && (!apiKeyRequired.value || form.value.APIKey),
+  )
 }
 </script>
 
 <template>
-  <div style="padding: 16px; max-width: 720px">
-    <NCard :title="t['settings.llm.title']" size="small">
-      <template #header-extra>
-        <NButton type="primary" @click="openAdd" size="small">
+  <div class="wrap">
+    <section class="surface">
+      <header class="surface__head">
+        <h2>{{ t['settings.llm.title'] }}</h2>
+        <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
           {{ t['settings.llm.add'] }}
-        </NButton>
-      </template>
+        </button>
+      </header>
 
-      <NEmpty v-if="configs.length === 0" :description="t['settings.llm.empty']" />
+      <p v-if="configs.length === 0" class="empty">{{ t['settings.llm.empty'] }}</p>
 
-      <NList v-else bordered>
-        <NListItem v-for="(item, index) in configs" :key="index">
-          <template #default>
-            <div style="display: flex; align-items: center; justify-content: space-between">
-              <div style="display: flex; align-items: center; gap: 10px">
-                <div>
-                  <strong>{{ item.Name }}</strong>
-                  <NTag
-                    :type="(providerTagType[item.Provider] as any) ?? 'default'"
-                    size="small"
-                    style="margin-left: 8px"
-                  >
-                    <span style="display: inline-flex; align-items: center; gap: 4px">
-                      <AppIcon
-                        v-if="providerIconProps(item.Provider)"
-                        v-bind="providerIconProps(item.Provider)!"
-                      />
-                      {{ LLM_PROVIDER_LABELS[item.Provider] ?? item.Provider }}
-                    </span>
-                  </NTag>
-                  <NGrid
-                    :x-gap="12"
-                    :y-gap="0"
-                    :cols="3"
-                    style="font-size: 12px; opacity: 0.6; margin-top: 4px"
-                  >
-                    <template v-if="item.Model">
-                      <NGridItem style="font-weight: bold"> Model </NGridItem>
-                      <NGridItem :span="2">{{ item.Model }}</NGridItem>
-                    </template>
-                    <NGridItem>URL</NGridItem> <NGridItem :span="2">{{ item.BaseURL }}</NGridItem>
-                    <NGridItem>API Key</NGridItem>
-                    <NGridItem :span="2">
-                      <template v-if="item.APIKey">
-                        {{ maskKey(item.APIKey) }}
-                      </template>
-                      <template v-else-if="item.Provider === 'ollama'">
-                        No API key required
-                      </template>
-                    </NGridItem>
-                  </NGrid>
-                </div>
-              </div>
-              <NButtonGroup size="small">
-                <NButton
-                  size="small"
-                  :loading="testingIndex === index"
-                  :disabled="testingIndex === index"
-                  :type="
-                    testResultIndex === index ? (testSuccess ? 'success' : 'error') : 'default'
-                  "
-                  @click="handleTestItem(index)"
-                >
-                  <template v-if="testResultIndex === index && testSuccess" #icon>
-                    <NIcon><Icon style="color: white" icon="carbon:checkmark-filled" /></NIcon>
-                  </template>
-                  <template v-else-if="testingIndex === index" #icon>
-                    <NIcon><Icon style="color: white" icon="eos-icons:loading" /></NIcon>
-                  </template>
-                  {{ t['settings.llm.test'] }}
-                </NButton>
-                <NButton size="small" @click="openEdit(index)">
-                  {{ t['settings.llm.edit'] }}
-                </NButton>
-                <NPopconfirm
-                  :positive-text="t['settings.llm.delete']"
-                  :negative-text="t['settings.accounts.cancel']"
-                  :positive-button-props="{ type: 'error' }"
-                  @positive-click="handleDelete(index)"
-                >
-                  <template #trigger>
-                    <NButton size="small" type="error" ghost>
-                      {{ t['settings.llm.delete'] }}
-                    </NButton>
-                  </template>
-                  {{ t['settings.llm.delete_confirm'] }}
-                </NPopconfirm>
-              </NButtonGroup>
+      <ul v-else class="rows">
+        <li v-for="(item, index) in configs" :key="index" class="row">
+          <div class="row__main">
+            <div class="row__head">
+              <strong class="row__name">{{ item.Name }}</strong>
+              <span class="chip">
+                <AppIcon
+                  v-if="providerIconProps(item.Provider)"
+                  v-bind="providerIconProps(item.Provider)!"
+                />
+                {{ LLM_PROVIDER_LABELS[item.Provider] ?? item.Provider }}
+              </span>
             </div>
-          </template>
-        </NListItem>
-      </NList>
-
-      <NModal
-        v-model:show="showModal"
-        preset="card"
-        style="width: 520px"
-        :title="editingIndex !== null ? t['settings.llm.edit'] : t['settings.llm.add']"
-        :mask-closable="false"
-      >
-        <NForm label-placement="top">
-          <NFormItem :label="t['settings.llm.provider']" path="provider">
-            <NSelect
-              v-model:value="form.Provider"
-              :options="providerOptions"
-              :render-label="renderProviderLabel"
-              @update:value="onProviderChange"
-            />
-          </NFormItem>
-          <NFormItem :label="t['settings.llm.name']" path="name">
-            <NInput v-model:value="form.Name" placeholder="My LLM" />
-          </NFormItem>
-          <NFormItem label="Model" path="model">
-            <NInput
-              v-model:value="form.Model"
-              placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
-              :autocapitalize="'none'"
-              autocorrect="off"
-            />
-          </NFormItem>
-          <NFormItem :label="t['settings.llm.baseURL']" path="baseURL">
-            <NInput v-model:value="form.BaseURL" placeholder="https://api.example.com/v1" />
-          </NFormItem>
-          <NFormItem
-            :label="
-              apiKeyRequired ? t['settings.llm.apiKey'] : t['settings.llm.apiKey'] + ' (optional)'
-            "
-            path="apiKey"
-          >
-            <NInput
-              v-model:value="form.APIKey"
-              type="password"
-              show-password-on="click"
-              :placeholder="apiKeyRequired ? 'sk-...' : 'Optional for local Ollama'"
-            />
-          </NFormItem>
-        </NForm>
-
-        <div style="margin-bottom: 12px">
-          <NSpace>
-            <NButton
-              :loading="testing"
-              :disabled="!form.BaseURL || (apiKeyRequired && !form.APIKey)"
-              @click="handleTestConnect"
-            >
-              <template #icon>
-                <NIcon><Icon icon="carbon:network-2" /></NIcon>
+            <dl class="meta">
+              <template v-if="item.Model">
+                <dt>Model</dt>
+                <dd>{{ item.Model }}</dd>
               </template>
-              {{ testing ? t['settings.llm.testing'] : t['settings.llm.test_connection'] }}
-            </NButton>
-            <NButton
-              :loading="testingChat"
-              :disabled="!form.Model || !form.BaseURL || (apiKeyRequired && !form.APIKey)"
-              @click="handleTestChat"
+              <dt>URL</dt>
+              <dd>{{ item.BaseURL }}</dd>
+              <dt>API Key</dt>
+              <dd v-if="item.APIKey">{{ maskKey(item.APIKey) }}</dd>
+              <dd v-else-if="item.Provider === 'ollama'">No API key required</dd>
+            </dl>
+          </div>
+          <div class="row__actions">
+            <button
+              type="button"
+              class="btn btn--sm"
+              :class="{ 'row-testing': testingIndex === index }"
+              @click="testItem(index)"
             >
-              <template #icon>
-                <NIcon><Icon icon="carbon:chat" /></NIcon>
+              <template v-if="testResultIndex === index">
+                {{ testSuccess ? '✓' : '✕' }}
               </template>
-              {{ testingChat ? t['settings.llm.testing'] : t['settings.llm.test_chat'] }}
-            </NButton>
-          </NSpace>
-          <NAlert
-            v-if="testResult"
-            :type="testResult.success ? 'success' : 'error'"
-            :title="'Connectivity: ' + testSummary"
-            style="margin-top: 8px"
-          >
-            <details v-if="testBody">
-              <summary style="cursor: pointer; user-select: none">Response body</summary>
-              <NCode :code="testBody" word-wrap />
-            </details>
-          </NAlert>
-          <NAlert
-            v-if="testChatResult"
-            :type="testChatResult.success ? 'success' : 'error'"
-            :title="'Chat: ' + testChatSummary"
-            style="margin-top: 8px"
-          >
-            <details v-if="testChatBody">
-              <summary style="cursor: pointer; user-select: none">Response body</summary>
-              <NCode :code="testChatBody" word-wrap />
-            </details>
-          </NAlert>
-        </div>
+              {{ testingIndex === index ? '…' : t['settings.llm.test'] }}
+            </button>
+            <button type="button" class="btn btn--sm" @click="openEdit(index)">
+              {{ t['settings.llm.edit'] }}
+            </button>
+            <button
+              type="button"
+              class="btn btn--sm btn--danger"
+              :class="{ 'btn--danger-c': confirmingDelete === index }"
+              @click="deleteRow(index)"
+            >
+              {{
+                confirmingDelete === index
+                  ? t['settings.llm.delete'] + '?'
+                  : t['settings.llm.delete']
+              }}
+            </button>
+          </div>
+        </li>
+      </ul>
+    </section>
 
-        <template #footer>
-          <NSpace justify="end">
-            <NButton @click="showModal = false">
+    <!-- Modal dialog -->
+    <Teleport to="body">
+      <div v-if="showModal" class="overlay">
+        <div class="modal">
+          <header class="modal__head">
+            <h3>{{ editingIndex !== null ? t['settings.llm.edit'] : t['settings.llm.add'] }}</h3>
+            <button type="button" class="btn--ghost" title="close" @click="showModal = false">
+              <i class="i-ri:close-line" />
+            </button>
+          </header>
+          <div class="modal__body">
+            <div class="field">
+              <label>{{ t['settings.llm.provider'] }}</label>
+              <UiSelect
+                :options="providerOptions"
+                :model-value="form.Provider"
+                width="100%"
+                @update:model-value="onProvider"
+              />
+            </div>
+            <div class="field">
+              <label>{{ t['settings.llm.name'] }}</label>
+              <input
+                class="ctl"
+                :value="form.Name"
+                @input="onInput('Name', $event)"
+                placeholder="My LLM"
+              />
+            </div>
+            <div class="field">
+              <label>Model</label>
+              <input
+                class="ctl"
+                :value="form.Model"
+                @input="onInput('Model', $event)"
+                placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
+              />
+            </div>
+            <div class="field">
+              <label>{{ t['settings.llm.baseURL'] }}</label>
+              <input
+                class="ctl"
+                :value="form.BaseURL"
+                @input="onInput('BaseURL', $event)"
+                placeholder="https://api.example.com/v1"
+              />
+            </div>
+            <div class="field">
+              <label
+                >{{ t['settings.llm.apiKey']
+                }}<span v-if="!apiKeyRequired"> (optional)</span></label
+              >
+              <input
+                class="ctl pass"
+                type="password"
+                :value="form.APIKey"
+                @input="onInput('APIKey', $event)"
+                :placeholder="apiKeyRequired ? 'sk-...' : 'Optional for local Ollama'"
+              />
+            </div>
+
+            <div class="test-actions">
+              <button
+                type="button"
+                class="btn"
+                :disabled="!canConn() || testing"
+                @click="runTest('conn')"
+              >
+                {{ testing ? '…' : t['settings.llm.test_connection'] }}
+              </button>
+              <button
+                type="button"
+                class="btn"
+                :disabled="!canChat() || testingChat"
+                @click="runTest('chat')"
+              >
+                {{ testingChat ? '…' : t['settings.llm.test_chat'] }}
+              </button>
+            </div>
+
+            <div v-if="testSummary" class="result" :class="testOk ? 'ok' : 'bad'">
+              <strong>Connectivity: {{ testSummary }}</strong>
+              <details v-if="testBody">
+                <summary>Response body</summary>
+                <pre>{{ testBody }}</pre>
+              </details>
+            </div>
+            <div v-if="testChatSummary" class="result" :class="testChatOk ? 'ok' : 'bad'">
+              <strong>Chat: {{ testChatSummary }}</strong>
+              <details v-if="testChatBody">
+                <summary>Response body</summary>
+                <pre>{{ testChatBody }}</pre>
+              </details>
+            </div>
+          </div>
+          <footer class="modal__foot">
+            <button type="button" class="btn" @click="showModal = false">
               {{ t['settings.llm.cancel'] }}
-            </NButton>
-            <NButton
-              type="primary"
-              :loading="saving"
-              :disabled="!form.Name || !form.BaseURL || (apiKeyRequired && !form.APIKey)"
+            </button>
+            <button
+              type="button"
+              class="btn btn--primary"
+              :disabled="!canSave() || saving"
               @click="handleSave"
             >
-              {{ t['settings.llm.save'] }}
-            </NButton>
-          </NSpace>
-        </template>
-      </NModal>
-    </NCard>
+              {{ saving ? '…' : t['settings.llm.save'] }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.wrap {
+  padding: 16px;
+  max-width: 760px;
+  color: var(--n-text-color);
+}
+.surface {
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-md);
+}
+.surface__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.surface__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.btn {
+  border: 1px solid var(--n-border-color);
+  background: var(--n-action-color);
+  color: var(--n-text-color);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.btn--sm {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.btn--primary {
+  border-color: transparent;
+  color: #fff;
+  background: var(--n-primary-color);
+}
+.btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn--danger {
+  color: #d03050;
+}
+.btn--danger-c {
+  background: rgba(208, 48, 80, 0.15);
+}
+.btn--ghost {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--n-text-color);
+}
+.empty {
+  padding: 32px 18px;
+  color: var(--color-text-3);
+  font-size: 13px;
+}
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row__main {
+  min-width: 0;
+  flex: 1;
+}
+.row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.row__name {
+  font-size: 13px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  opacity: 0.9;
+}
+.meta {
+  margin: 6px 0 0;
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.meta dt {
+  font-weight: 600;
+}
+.meta dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+/* Modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh 16px 16px;
+  overflow: auto;
+}
+.modal {
+  width: 520px;
+  max-width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.modal__head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.modal__body {
+  padding: 12px 16px;
+}
+.modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--n-border-color);
+}
+.field {
+  margin-bottom: 12px;
+}
+.field label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--color-text-2);
+}
+.ctl {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+}
+.ctl:focus {
+  outline: none;
+  border-color: var(--n-primary-color);
+}
+.pass {
+  letter-spacing: 1px;
+}
+.test-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.result {
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--n-border-color);
+}
+.result.ok {
+  background: rgba(24, 160, 88, 0.12);
+}
+.result.bad {
+  background: rgba(208, 48, 80, 0.12);
+}
+.result summary {
+  cursor: pointer;
+  user-select: none;
+}
+.result pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  max-height: 180px;
+  overflow: auto;
+}
+</style>

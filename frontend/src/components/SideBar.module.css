@@ -1,0 +1,82 @@
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+/* Account (branch) trigger row */
+.ctrl {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  margin: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ctrl:hover {
+  background: var(--n-sidebar-hover);
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  width: 16px;
+  flex: 0 0 16px;
+  color: var(--color-text-3);
+  transition: transform 0.12s ease;
+  font-size: 16px;
+}
+.indicator[data-state='open'],
+.ctrl[data-state='open'] .indicator {
+  transform: rotate(90deg);
+}
+
+.branchText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 6px 4px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.folders {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 1px;
+}
+
+/* Folder (leaf) row */
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 3px 4px 3px 18px;
+  border: none;
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.folder:hover {
+  background: var(--n-sidebar-hover);
+}
+.folder[data-selected] {
+  background: var(--n-sidebar-active);
+}
+
+.folderText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}

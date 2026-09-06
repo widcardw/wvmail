@@ -156,7 +156,7 @@ export interface FolderCategory {
 const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }> = [
   {
     patterns: ['inbox'],
-    category: { icon: 'ri:inbox-2-fill', labelCn: '收件箱', labelEn: 'Inbox', rank: 0 },
+    category: { icon: 'ri:inbox-2-line', labelCn: '收件箱', labelEn: 'Inbox', rank: 0 },
   },
   {
     patterns: [
@@ -168,11 +168,11 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
       '已发送邮件',
       '[gmail]/sent mail',
     ],
-    category: { icon: 'ri:send-plane-fill', labelCn: '发件箱', labelEn: 'Sent', rank: 1 },
+    category: { icon: 'ri:send-plane-line', labelCn: '发件箱', labelEn: 'Sent', rank: 1 },
   },
   {
     patterns: ['drafts', '草稿', '草稿箱', '[gmail]/drafts'],
-    category: { icon: 'ri:draft-fill', labelCn: '草稿', labelEn: 'Drafts', rank: 2 },
+    category: { icon: 'ri:draft-line', labelCn: '草稿', labelEn: 'Drafts', rank: 2 },
   },
   {
     patterns: [
@@ -186,7 +186,7 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
       '[gmail]/trash',
       '[gmail]/bin',
     ],
-    category: { icon: 'ri:delete-bin-5-fill', labelCn: '已删除', labelEn: 'Trash', rank: 3 },
+    category: { icon: 'ri:delete-bin-5-line', labelCn: '已删除', labelEn: 'Trash', rank: 3 },
   },
   {
     patterns: [
@@ -198,7 +198,7 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
       '垃圾邮件',
       '[gmail]/spam',
     ],
-    category: { icon: 'ri:spam-2-fill', labelCn: '垃圾邮件', labelEn: 'Spam', rank: 4 },
+    category: { icon: 'ri:spam-2-line', labelCn: '垃圾邮件', labelEn: 'Spam', rank: 4 },
   },
   {
     patterns: [
@@ -210,16 +210,16 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
       '[gmail]/all mail',
       '[gmail]/archive',
     ],
-    category: { icon: 'ri:archive-2-fill', labelCn: '归档', labelEn: 'Archive', rank: 5 },
+    category: { icon: 'ri:archive-2-line', labelCn: '归档', labelEn: 'Archive', rank: 5 },
   },
   {
     patterns: ['starred', 'flagged', 'star', '已加星标', '星标邮件', '[gmail]/starred'],
-    category: { icon: 'ri:star-fill', labelCn: '星标邮件', labelEn: 'Starred', rank: 6 },
+    category: { icon: 'ri:star-line', labelCn: '星标邮件', labelEn: 'Starred', rank: 6 },
   },
   {
     patterns: ['important', '重要', '重要邮件', '[gmail]/important'],
     category: {
-      icon: 'ri:notification-3-fill',
+      icon: 'ri:notification-3-line',
       labelCn: '重要邮件',
       labelEn: 'Important',
       rank: 7,
@@ -253,7 +253,7 @@ export function getFolderDisplay(
   }
   // No match — generic folder, highest rank so it sorts last
   const displayName = folderName.replace(/^\[.*?\]\//, '')
-  return { icon: 'ri:folder-2-fill', label: displayName, rank: 99 }
+  return { icon: 'ri:folder-2-line', label: displayName, rank: 99 }
 }
 
 /**

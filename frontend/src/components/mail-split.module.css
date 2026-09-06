@@ -1,0 +1,56 @@
+.root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+.panel {
+  height: 100%;
+  min-width: 0;
+  background: var(--n-body-color);
+  overflow: hidden;
+}
+
+/*
+ The split seam is the ResizeTrigger itself: it is the single 1px that sits between
+ the two (fully opaque, adjacent) panels. So content — including any edge accent —
+ is flush with the seam on both sides: there is no extra gutter column to the right
+ of the line. The visible affordance is a small center knob that floats on the line
+ (it does not affect layout / spacing).
+ Dedicated grab width is widened invisibly by Ark's registry hitAreaMargins (both
+ splitters pass `Splitter.createRegistry()`), so a 1px line is still easily grabbed.
+*/
+.trigger {
+  position: relative;
+  width: 1px;
+  flex: 0 0 1px; /* keep the layout as exactly +1px; no detonate column */
+  align-self: stretch;
+  background: var(--n-border-color);
+  cursor: col-resize;
+  border: none;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  touch-action: none;
+}
+
+/* small, but clearly visible, center drag knob centred on the seam */
+.indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  border-radius: 3px;
+  background: var(--n-border-color);
+  opacity: 1;
+  transition: background 0.12s ease, height 0.12s ease, box-shadow 0.12s ease;
+}
+
+.trigger:hover .indicator,
+.trigger:focus-visible .indicator,
+.trigger[data-resizing] .indicator {
+  background: var(--n-primary-color);
+  height: 46px;
+}

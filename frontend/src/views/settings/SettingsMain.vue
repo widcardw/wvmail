@@ -1,67 +1,95 @@
 <script setup lang="ts">
-import { NLayout, NLayoutContent, NLayoutSider, NMenu, NScrollbar, type MenuOption } from 'naive-ui'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '~/i18n'
-import { useIconRenderer } from '~/composables/use-icon'
+
 const router = useRouter()
 const { t } = useI18n()
-const { renderIcon } = useIconRenderer()
-const settingsMenuOptions = computed(() => [
-  {
-    label: t.value['settings.common'],
-    key: 'common',
-    icon: renderIcon('ri:home-3-line'),
-  },
-  {
-    label: t.value['settings.accounts'],
-    key: 'accounts',
-    icon: renderIcon('ri:account-circle-2-line'),
-  },
-  {
-    label: t.value['settings.about'],
-    key: 'about',
-    icon: renderIcon('ri:information-line'),
-  },
-  {
-    label: t.value['settings.llm'],
-    key: 'llm',
-    icon: renderIcon('ri:robot-2-line'),
-  },
-  {
-    label: t.value['settings.translation'],
-    key: 'translation',
-    icon: renderIcon('ri:translate-2'),
-  },
+
+const items = computed(() => [
+  { key: 'common', label: t.value['settings.common'], icon: 'ri:home-2-line' },
+  { key: 'accounts', label: t.value['settings.accounts'], icon: 'ri:account-circle-2-line' },
+  { key: 'about', label: t.value['settings.about'], icon: 'ri:information-line' },
+  { key: 'llm', label: t.value['settings.llm'], icon: 'ri:robot-2-line' },
+  { key: 'translation', label: t.value['settings.translation'], icon: 'ri:translate-2' },
 ])
 
-function handleClick(key: string, _item: MenuOption) {
-  router.push(`/settings/${key}`)
+function isActive(key: string) {
+  return router.currentRoute.value.path.endsWith(`/${key}`)
+}
+function go(key: string) {
+  if (!isActive(key)) router.push(`/settings/${key}`)
 }
 </script>
 
 <template>
-  <NLayout has-sider class="n-full">
-    <NLayoutSider :width="160" bordered>
-      <NMenu
-        :options="settingsMenuOptions"
-        :root-indent="16"
-        :indent="16"
-        :theme-overrides="{ itemHeight: '32px' }"
-        :icon-size="24"
-        @update-value="handleClick"
-      />
-    </NLayoutSider>
-    <NLayoutContent>
-      <NScrollbar>
+  <div class="settings">
+    <nav class="settings__nav">
+      <button
+        v-for="item in items"
+        :key="item.key"
+        type="button"
+        class="nav-item"
+        :class="{ active: isActive(item.key) }"
+        @click="go(item.key)"
+      >
+        <i :class="`i-${item.icon}`" aria-hidden="true" />
+        <span>{{ item.label }}</span>
+      </button>
+    </nav>
+    <div class="settings__body">
+      <div class="settings__scroll">
         <RouterView />
-      </NScrollbar>
-    </NLayoutContent>
-  </NLayout>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.n-full {
-  height: calc(100vh - 41px);
+.settings {
+  height: calc(100vh - 40px);
+  display: flex;
+  color: var(--n-text-color);
+}
+.settings__nav {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 8px 6px;
+  border-right: 1px solid var(--n-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--n-text-color);
+}
+.nav-item:hover {
+  background: var(--n-sidebar-hover);
+}
+.nav-item.active {
+  background: var(--n-sidebar-active);
+}
+.nav-item i {
+  flex: 0 0 16px;
+  font-size: 16px;
+}
+.settings__body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.settings__scroll {
+  height: 100%;
+  overflow-y: auto;
 }
 </style>

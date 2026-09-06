@@ -163,7 +163,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
-  /** Force-refresh the current folder from the IMAP server, bypassing cache. */
+  /** Force-refresh from the IMAP server, bypassing cache. Keeps your current page
+   *  instead of hard-resetting to page 1 (previously: any email you were reading on a
+   *  later page appeared to drop away after a refresh / background sync). */
   async function forceRefreshEmails() {
     const account = selectedAccount.value
     const folder = selectedFolder.value
@@ -172,15 +174,19 @@ export const useAccountsStore = defineStore('accounts', () => {
     const key = `${account.ID}:${folder}`
     refreshing.value = true
     try {
+      const cur = currentPageByFolder.value[key] || 1
       const resp: EmailPageResponse | null = await EmailService.RefreshEmails(
         account,
         folder,
-        1,
+        cur,
         pageSize,
       )
+      const total = resp?.total ?? 0
+      const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
+      const next = Math.max(1, Math.min(cur, maxPages))
       emailsByFolder.value[key] = resp?.emails ?? []
-      emailTotalByFolder.value[key] = resp?.total ?? 0
-      currentPageByFolder.value[key] = 1
+      emailTotalByFolder.value[key] = total
+      currentPageByFolder.value[key] = next
     } catch (e) {
       console.error('Failed to refresh emails', e)
     } finally {
@@ -199,11 +205,24 @@ export const useAccountsStore = defineStore('accounts', () => {
         const folder = selectedFolder.value
         if (account && folder) {
           const key = `${account.ID}:${folder}`
-          EmailService.ListEmails(account, folder, 1, pageSize)
+          const want = currentPageByFolder.value[key] || 1
+          EmailService.ListEmails(account, folder, want, pageSize)
             .then((resp: EmailPageResponse | null) => {
-              emailsByFolder.value[key] = resp?.emails ?? []
-              emailTotalByFolder.value[key] = resp?.total ?? 0
-              currentPageByFolder.value[key] = 1
+              const total = resp?.total ?? 0
+              const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
+              const page = Math.min(Math.max(1, want), maxPages)
+              if (page === want) {
+                emailsByFolder.value[key] = resp?.emails ?? []
+                emailTotalByFolder.value[key] = total
+                currentPageByFolder.value[key] = page
+              } else {
+                // our page is now beyond the last page (list shrank) -> show last page
+                return EmailService.ListEmails(account, folder, page, pageSize).then((p2) => {
+                  emailsByFolder.value[key] = p2?.emails ?? []
+                  emailTotalByFolder.value[key] = p2?.total ?? 0
+                  currentPageByFolder.value[key] = page
+                })
+              }
             })
             .catch(() => {})
         }
@@ -304,8 +323,6 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   /** Smart folder helpers */
-  const SMART_FOLDER_TYPES = ['inbox', 'sent', 'drafts'] as const
-
   function folderMatchesType(folderName: string, smartType: string): boolean {
     const lower = folderName.toLowerCase()
     switch (smartType) {

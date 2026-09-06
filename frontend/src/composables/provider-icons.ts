@@ -9,8 +9,6 @@ import kimiIcon from '@lobehub/icons-static-avatar/avatars/kimi.webp'
 import ollamaIcon from '@lobehub/icons-static-avatar/avatars/ollama.webp'
 import volcIcon from '@lobehub/icons-static-avatar/avatars/volcengine.webp'
 import { h } from 'vue'
-import { NIcon } from 'naive-ui'
-import { Icon } from '@iconify/vue'
 import type { VNode } from 'vue'
 
 const ICON_MAP: Record<string, string> = {
@@ -73,14 +71,14 @@ export function renderProviderIcon(provider: string, size = 16): VNode | null {
   }
   const fallbackIcon = FALLBACK_ICON_MAP[provider]
   if (fallbackIcon) {
-    return h(NIcon, { size }, { default: () => h(Icon, { icon: fallbackIcon }) })
+    // offline iconify fallback via UnoCSS class (see uno.config `safelist`)
+    return h('i', { class: ` i-${fallbackIcon}`, style: { fontSize: `${size}px` } })
   }
   return null
 }
 
 /**
- * Renders a provider avatar + label pair for use in NSelect options or
- * NTag content.
+ * Renders a provider avatar + label pair for use in select options / tags / rows.
  */
 export function renderProviderOption(provider: string, label: string, size = 16): VNode {
   const icon = renderProviderIcon(provider, size)

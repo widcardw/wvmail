@@ -1,53 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
-import {
-  NCard,
-  NButton,
-  NButtonGroup,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NSwitch,
-  NSelect,
-  NEmpty,
-  NSpace,
-  NDivider,
-  NList,
-  NListItem,
-  NTag,
-  NPopconfirm,
-  NAlert,
-  NUpload,
-  useMessage,
-  useDialog,
-  type FormInst,
-  type FormRules,
-  type SelectOption,
-  type UploadFileInfo,
-  NScrollbar,
-} from 'naive-ui'
+import { useFeedbackStore } from '~/stores/feedback'
+import UiSelect from '~/components/UiSelect.vue'
 import { EMAIL_PROVIDER_DEFAULTS, EMAIL_PROVIDER_LABELS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 import { ConfigService } from '#/wvmail/services'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
-const message = useMessage()
-const dialog = useDialog()
+const fb = useFeedbackStore()
 
-const showingForm = ref(false)
+const showingList = ref(true) // false => modal form
+const showingForm = computed(() => !showingList.value)
 const editingId = ref<string | null>(null)
 const saving = ref(false)
 const testResult = ref<{ success: boolean; message: string } | null>(null)
-const formRef = ref<FormInst | null>(null)
+const confirmingDeleteId = ref<string | null>(null)
 
-// Per-item test tracking (matching LLM pattern)
-const testingIndex = ref<string | null>(null)
-const testSuccessIndex = ref<string | null>(null)
-const testFailIndex = ref<string | null>(null)
+const testingId = ref<string | null>(null)
+const testSuccessId = ref<string | null>(null)
+const testFailId = ref<string | null>(null)
 
 const emptyForm = (): EmailAccount => ({
   ID: '',
@@ -68,13 +42,13 @@ const emptyForm = (): EmailAccount => ({
 })
 
 // Avatar handling
-const avatarFileList = ref<UploadFileInfo[]>([])
+const avatarPreview = ref('')
 const avatarFileData = ref<ArrayBuffer | null>(null)
 const avatarFileExt = ref('')
 
 const formData = ref<EmailAccount>(emptyForm())
 
-const providerOptions = computed<SelectOption[]>(() =>
+const providerOptions = computed<Array<{ label: string; value: EmailProvider }>>(() =>
   (Object.keys(EMAIL_PROVIDER_LABELS) as EmailProvider[]).map((key) => ({
     label: EMAIL_PROVIDER_LABELS[key],
     value: key,
@@ -85,11 +59,9 @@ const isEditing = computed(() => editingId.value !== null)
 const formTitle = computed(() =>
   isEditing.value ? t.value['settings.accounts.edit'] : t.value['settings.accounts.add'],
 )
-
 const needsAuthCode = computed(
   () => formData.value.Provider === '163' || formData.value.Provider === 'qq',
 )
-
 const is163Provider = computed(() => formData.value.Provider === '163')
 
 watch(
@@ -98,13 +70,13 @@ watch(
     if (email && !isEditing.value) {
       const provider = detectProvider(email)
       formData.value.Provider = provider
-      const defaults = EMAIL_PROVIDER_DEFAULTS[provider]
+      const d = EMAIL_PROVIDER_DEFAULTS[provider]
       if (provider !== 'custom') {
-        formData.value.IMAPHost = defaults.imap_host
-        formData.value.IMAPPort = defaults.imap_port
-        formData.value.UseTLS = defaults.imap_use_tls
-        formData.value.SMTPHost = defaults.smtp_host
-        formData.value.SMTPPort = defaults.smtp_port
+        formData.value.IMAPHost = d.imap_host
+        formData.value.IMAPPort = d.imap_port
+        formData.value.UseTLS = d.imap_use_tls
+        formData.value.SMTPHost = d.smtp_host
+        formData.value.SMTPPort = d.smtp_port
       }
       formData.value.IMAPUser = email
       formData.value.SMTPUser = email
@@ -116,92 +88,62 @@ watch(
   () => formData.value.Provider,
   (provider) => {
     if (provider !== 'custom' && !isEditing.value) {
-      const defaults = EMAIL_PROVIDER_DEFAULTS[provider as EmailProvider]
-      formData.value.IMAPHost = defaults.imap_host
-      formData.value.IMAPPort = defaults.imap_port
-      formData.value.UseTLS = defaults.imap_use_tls
-      formData.value.SMTPHost = defaults.smtp_host
-      formData.value.SMTPPort = defaults.smtp_port
+      const d = EMAIL_PROVIDER_DEFAULTS[provider as EmailProvider]
+      formData.value.IMAPHost = d.imap_host
+      formData.value.IMAPPort = d.imap_port
+      formData.value.UseTLS = d.imap_use_tls
+      formData.value.SMTPHost = d.smtp_host
+      formData.value.SMTPPort = d.smtp_port
     }
   },
 )
-
-const formRules: FormRules = {
-  Name: [{ required: true, message: 'Please enter account name', trigger: 'blur' }],
-  Email: [{ required: true, message: 'Please enter email address', trigger: 'blur' }],
-  IMAPHost: [{ required: true, message: 'Please enter IMAP server', trigger: 'blur' }],
-  IMAPPort: [
-    { type: 'number', required: true, message: 'Please enter IMAP port', trigger: 'blur' },
-  ],
-  IMAPPass: [{ required: true, message: 'Please enter IMAP password', trigger: 'blur' }],
-  SMTPHost: [{ required: true, message: 'Please enter SMTP server', trigger: 'blur' }],
-  SMTPPort: [
-    { type: 'number', required: true, message: 'Please enter SMTP port', trigger: 'blur' },
-  ],
-}
 
 function openAddForm() {
   editingId.value = null
   formData.value = emptyForm()
   testResult.value = null
-  showingForm.value = true
+  avatarPreview.value = ''
+  avatarFileData.value = null
+  showingList.value = false
 }
 
 function openEditForm(account: EmailAccount) {
   editingId.value = account.ID
   formData.value = { ...account }
   testResult.value = null
-  showingForm.value = true
-  // Load saved avatar into the upload preview
-  avatarFileList.value = []
+  avatarPreview.value = ''
   avatarFileData.value = null
-  avatarFileExt.value = ''
+  showingList.value = false
   if (account.Avatar) {
     ConfigService.GetAccountAvatar(account.ID)
       .then((uri) => {
-        if (uri) {
-          avatarFileList.value = [
-            {
-              id: 'saved-avatar',
-              name: account.Avatar || 'avatar',
-              status: 'finished',
-              url: uri,
-            },
-          ]
-        }
+        if (uri) avatarPreview.value = uri
       })
       .catch(() => {})
   }
 }
 
 function cancelForm() {
-  showingForm.value = false
+  showingList.value = true
   editingId.value = null
   formData.value = emptyForm()
   testResult.value = null
-}
-
-function handleCustomRequest({ file, onFinish }: { file: UploadFileInfo; onFinish: () => void }) {
-  if (file.file) {
-    readAvatarFile(file.file)
-  }
-  onFinish()
-}
-
-function handleAvatarRemove() {
-  avatarFileList.value = []
+  avatarPreview.value = ''
   avatarFileData.value = null
-  avatarFileExt.value = ''
 }
 
-function readAvatarFile(file: File) {
+function onAvatarFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  avatarPreview.value = URL.createObjectURL(file)
+
   if (!file.type.startsWith('image/')) {
-    message.error('请选择图片文件')
+    fb.error('请选择图片文件')
     return
   }
-  const ext = '.' + file.name.split('.').pop()?.toLowerCase() || '.png'
+  const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || 'png')
   avatarFileExt.value = ext
-  // Read as ArrayBuffer for saving to Go
   const reader = new FileReader()
   reader.onload = () => {
     avatarFileData.value = reader.result as ArrayBuffer
@@ -209,10 +151,23 @@ function readAvatarFile(file: File) {
   reader.readAsArrayBuffer(file)
 }
 
+function validateForm(): string[] {
+  const f = formData.value
+  const errs: string[] = []
+  if (!f.Name.trim()) errs.push('account name')
+  if (!f.Email.trim()) errs.push('email')
+  if (!f.IMAPHost.trim()) errs.push('IMAP server')
+  if (!f.IMAPPort) errs.push('IMAP port')
+  if (!f.IMAPPass) errs.push('IMAP password')
+  if (!f.SMTPHost.trim()) errs.push('SMTP server')
+  if (!f.SMTPPort) errs.push('SMTP port')
+  return errs
+}
+
 async function handleSave() {
-  try {
-    await formRef.value?.validate()
-  } catch {
+  const errs = validateForm()
+  if (errs.length > 0) {
+    fb.error('缺少必填项: ' + errs.join(', '))
     return
   }
   saving.value = true
@@ -220,27 +175,25 @@ async function handleSave() {
     let accountId = editingId.value
     if (accountId) {
       await accountsStore.updateAccount(accountId, formData.value)
-      message.success('Account updated')
+      fb.success('Account updated')
     } else {
       const id =
         crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
       accountId = id
       await accountsStore.addAccount({ ...formData.value, ID: id })
-      message.success('Account added')
+      fb.success('Account added')
     }
-    // Save avatar to config dir if selected
     if (accountId && avatarFileData.value) {
       try {
         const bytes = new Uint8Array(avatarFileData.value)
-        const data = Array.from(bytes)
-        await ConfigService.SaveAccountAvatar(accountId, data, avatarFileExt.value)
+        await ConfigService.SaveAccountAvatar(accountId, Array.from(bytes), avatarFileExt.value)
       } catch (e) {
         console.error('Failed to save avatar', e)
       }
     }
     cancelForm()
   } catch (e) {
-    message.error(String(e))
+    fb.error(String(e))
   } finally {
     saving.value = false
   }
@@ -248,311 +201,580 @@ async function handleSave() {
 
 async function handleTest() {
   testResult.value = null
-  const result = await accountsStore.testConnection(formData.value)
-  testResult.value = result
-  if (result.success) {
-    message.success(result.message)
-  } else {
-    message.error(result.message)
-  }
+  const res = await accountsStore.testConnection(formData.value)
+  testResult.value = res
+  if (res.success) fb.success(res.message)
+  else fb.error(res.message)
 }
 
-function handleDelete(account: EmailAccount) {
-  dialog.warning({
-    title: t.value['settings.accounts.delete'],
-    content: `${t.value['settings.accounts.delete_confirm']} (${account.Email})`,
-    positiveText: t.value['settings.accounts.delete'],
-    negativeText: t.value['settings.accounts.cancel'],
-    onPositiveClick: async () => {
-      try {
-        await accountsStore.removeAccount(account.ID)
-        message.success('Account deleted')
-      } catch (e) {
-        message.error(String(e))
-      }
-    },
-  })
-}
-
-async function handleTestItem(account: EmailAccount) {
-  testingIndex.value = account.ID
-  testSuccessIndex.value = null
-  testFailIndex.value = null
+async function testItem(account: EmailAccount) {
+  testingId.value = account.ID
+  testSuccessId.value = null
+  testFailId.value = null
   try {
-    const result = await accountsStore.testConnection(account)
-    if (result.success) {
-      testSuccessIndex.value = account.ID
-      message.success(result.message)
+    const res = await accountsStore.testConnection(account)
+    if (res.success) {
+      testSuccessId.value = account.ID
+      fb.success(res.message)
     } else {
-      testFailIndex.value = account.ID
-      message.error(result.message)
+      testFailId.value = account.ID
+      fb.error(res.message)
     }
-    setTimeout(() => {
-      if (testSuccessIndex.value === account.ID) testSuccessIndex.value = null
-      if (testFailIndex.value === account.ID) testFailIndex.value = null
-    }, 3000)
   } catch (e) {
-    testFailIndex.value = account.ID
-    message.error(String(e))
-    setTimeout(() => {
-      if (testFailIndex.value === account.ID) testFailIndex.value = null
-    }, 3000)
+    testFailId.value = account.ID
+    fb.error(String(e))
   } finally {
-    testingIndex.value = null
+    testingId.value = null
+    setTimeout(() => {
+      if (testSuccessId.value === account.ID) testSuccessId.value = null
+      if (testFailId.value === account.ID) testFailId.value = null
+    }, 3000)
   }
 }
 
-function getProviderTag(provider: string): {
-  type: 'default' | 'info' | 'warning' | 'error' | 'success' | 'primary'
-} {
-  switch (provider) {
-    case 'gmail':
-      return { type: 'success' }
-    case 'outlook':
-      return { type: 'info' }
-    case 'qq':
-      return { type: 'warning' }
-    case '163':
-      return { type: 'error' }
-    default:
-      return { type: 'warning' }
+async function deleteAccount(account: EmailAccount) {
+  if (confirmingDeleteId.value !== account.ID) {
+    confirmingDeleteId.value = account.ID
+    setTimeout(() => {
+      if (confirmingDeleteId.value === account.ID) confirmingDeleteId.value = null
+    }, 3000)
+    return
   }
+  confirmingDeleteId.value = null
+  try {
+    await accountsStore.removeAccount(account.ID)
+    fb.success('Account deleted')
+  } catch (e) {
+    fb.error(String(e))
+  }
+}
+
+function intVal(e: Event): number {
+  return Number((e.target as HTMLInputElement).value) || 0
+}
+function strVal(e: Event): string {
+  return (e.target as HTMLInputElement).value
+}
+function setProvider(v: string) {
+  formData.value.Provider = v as EmailProvider
+}
+function providerLabel(p: string): string {
+  return EMAIL_PROVIDER_LABELS[p as EmailProvider] || p
 }
 </script>
 
 <template>
-  <div style="padding: 16px; max-width: 720px">
-    <NCard :title="formTitle" size="small" v-if="showingForm">
-      <NForm
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-placement="left"
-        label-width="140"
-        require-mark-placement="right"
-      >
-        <NFormItem :label="t['settings.accounts.avatar']">
-          <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start">
-            <NUpload
-              list-type="image-card"
-              :max="1"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              v-model:file-list="avatarFileList"
-              :custom-request="handleCustomRequest"
-              @remove="handleAvatarRemove"
-              style="width: 48px"
-            >
-            </NUpload>
-            <!-- <div style="font-size: 12px; opacity: 0.6; line-height: 1.5; padding-top: 8px">
-              {{ t['settings.accounts.upload_avatar'] }}
-            </div> -->
-          </div>
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.name']" path="Name">
-          <NInput v-model:value="formData.Name" placeholder="My Email" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.email']" path="Email">
-          <NInput v-model:value="formData.Email" placeholder="user@example.com" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.provider']" path="Provider">
-          <NSelect v-model:value="formData.Provider" :options="providerOptions" />
-        </NFormItem>
-
-        <NDivider>IMAP</NDivider>
-
-        <NFormItem :label="t['settings.accounts.imap_host']" path="IMAPHost">
-          <NInput v-model:value="formData.IMAPHost" placeholder="imap.example.com" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.imap_port']" path="IMAPPort">
-          <NInputNumber
-            v-model:value="formData.IMAPPort"
-            :min="1"
-            :max="65535"
-            style="width: 120px"
-          />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.imap_user']" path="IMAPUser">
-          <NInput v-model:value="formData.IMAPUser" placeholder="user@example.com" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.imap_pass']" path="IMAPPass">
-          <NInput v-model:value="formData.IMAPPass" type="password" show-password-on="click" />
-        </NFormItem>
-
-        <NAlert v-if="is163Provider" type="warning" closable style="margin-bottom: 8px">
-          163 邮箱对第三方客户端有严格限制，即使使用授权码也可能连接失败。
-          如果无法使用，建议改用官方客户端或 Foxmail。
-        </NAlert>
-        <NAlert v-else-if="needsAuthCode" type="warning" closable style="margin-bottom: 8px">
-          {{ t['settings.accounts.auth_code_hint'] }}
-        </NAlert>
-
-        <NDivider>SMTP</NDivider>
-
-        <NFormItem :label="t['settings.accounts.smtp_host']" path="SMTPHost">
-          <NInput v-model:value="formData.SMTPHost" placeholder="smtp.example.com" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.smtp_port']" path="SMTPPort">
-          <NInputNumber
-            v-model:value="formData.SMTPPort"
-            :min="1"
-            :max="65535"
-            style="width: 120px"
-          />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.smtp_user']" path="SMTPUser">
-          <NInput v-model:value="formData.SMTPUser" placeholder="user@example.com" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.smtp_pass']" path="SMTPPass">
-          <NInput v-model:value="formData.SMTPPass" type="password" show-password-on="click" />
-        </NFormItem>
-        <NFormItem :label="t['settings.accounts.use_tls']" path="UseTLS">
-          <NSwitch v-model:value="formData.UseTLS" />
-        </NFormItem>
-
-        <NDivider>{{ t['settings.accounts.sync'] }}</NDivider>
-
-        <NFormItem :label="t['settings.accounts.auto_sync']" path="SyncInterval">
-          <div style="display: flex; align-items: center; gap: 8px">
-            <NSwitch
-              :value="formData.SyncInterval > 0"
-              @update:value="
-                (val: boolean) => {
-                  formData.SyncInterval = val ? 5 : 0
-                }
-              "
-            />
-            <template v-if="formData.SyncInterval > 0">
-              <NInputNumber
-                v-model:value="formData.SyncInterval"
-                :min="1"
-                :max="1440"
-                style="width: 100px"
-              />
-              <span style="opacity: 0.6; font-size: 13px">{{
-                t['settings.accounts.sync_minutes']
-              }}</span>
-            </template>
-            <span v-else style="opacity: 0.4; font-size: 13px">{{
-              t['settings.accounts.sync_disabled']
-            }}</span>
-          </div>
-        </NFormItem>
-
-        <NAlert
-          v-if="testResult"
-          :type="testResult.success ? 'success' : 'error'"
-          closable
-          style="margin-top: 12px"
-        >
-          {{ testResult.message }}
-        </NAlert>
-
-        <NSpace justify="end" style="margin-top: 16px">
-          <NButton @click="cancelForm">{{ t['settings.accounts.cancel'] }}</NButton>
-          <NButton :loading="accountsStore.testingId !== null" @click="handleTest">
-            {{ t['settings.accounts.test'] }}
-          </NButton>
-          <NButton type="primary" :loading="saving" @click="handleSave">
-            {{ t['settings.accounts.save'] }}
-          </NButton>
-        </NSpace>
-      </NForm>
-    </NCard>
-
-    <NCard v-else :title="t['settings.accounts']" size="small">
-      <template #header-extra>
-        <NButton type="primary" size="small" @click="openAddForm">
-          {{ t['settings.accounts.add'] }}
-        </NButton>
-      </template>
-
-      <NEmpty
-        v-if="accountsStore.accounts.length === 0"
-        :description="t['settings.accounts.empty']"
-      />
-
-      <NList v-else bordered>
-        <NListItem v-for="account in accountsStore.accounts" :key="account.ID">
-          <template #default>
-            <div style="display: flex; align-items: center; justify-content: space-between">
-              <div style="display: flex; align-items: center; gap: 10px">
-                <!-- <div class="avatar-circle">
-                  {{ account.Email.charAt(0).toUpperCase() }}
-                </div> -->
-                <div>
-                  <strong>{{ account.Name || account.Email }}</strong>
-                  <NTag
-                    :type="getProviderTag(account.Provider).type"
-                    size="small"
-                    style="margin-left: 8px"
-                  >
-                    {{
-                      EMAIL_PROVIDER_LABELS[account.Provider as EmailProvider] || account.Provider
-                    }}
-                  </NTag>
-                  <div style="font-size: 12px; opacity: 0.6; margin-top: 4px">
-                    {{ account.Email }} &middot; IMAP: {{ account.IMAPHost }}:{{ account.IMAPPort }}
-                  </div>
-                </div>
-              </div>
-              <NButtonGroup>
-                <NButton
-                  size="small"
-                  :loading="testingIndex === account.ID"
-                  :disabled="testingIndex === account.ID"
-                  :type="
-                    testSuccessIndex === account.ID
-                      ? 'success'
-                      : testFailIndex === account.ID
-                        ? 'error'
-                        : 'default'
-                  "
-                  @click="handleTestItem(account)"
-                >
-                  {{ t['settings.accounts.test'] }}
-                </NButton>
-                <NButton size="small" @click="openEditForm(account)">
-                  {{ t['settings.llm.edit'] }}
-                </NButton>
-                <NPopconfirm
-                  :disabled="testingIndex === account.ID"
-                  :positive-text="t['settings.accounts.delete']"
-                  :negative-text="t['settings.accounts.cancel']"
-                  @positive-click="handleDelete(account)"
-                >
-                  <template #trigger>
-                    <NButton
-                      size="small"
-                      type="error"
-                      ghost
-                      :disabled="testingIndex === account.ID"
-                    >
-                      {{ t['settings.accounts.delete'] }}
-                    </NButton>
-                  </template>
-                  {{ t['settings.accounts.delete_confirm'] }}
-                </NPopconfirm>
-              </NButtonGroup>
+  <div class="wrap">
+    <!-- ===== Account form ===== -->
+    <div v-if="showingForm">
+      <div class="card">
+        <header class="card__head">
+          <h2>{{ formTitle }}</h2>
+        </header>
+        <div class="card__body">
+          <div class="frow">
+            <span class="flabel">{{ t['settings.accounts.avatar'] }}</span>
+            <div class="avatar-area">
+              <label class="avatar-box">
+                <img v-if="avatarPreview" :src="avatarPreview" class="avatar-box__img" alt="" />
+                <i v-else class="i-ri:add-line" aria-hidden="true" />
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  class="avatar-box__input"
+                  @change="onAvatarFile"
+                />
+              </label>
+              <div class="avatar-hint">{{ t['settings.accounts.upload_avatar'] }}</div>
             </div>
-          </template>
-        </NListItem>
-      </NList>
-    </NCard>
+          </div>
+
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.name'] }}</label>
+            <input
+              class="input"
+              :value="formData.Name"
+              @input="formData.Name = strVal($event)"
+              placeholder="My Email"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.email'] }}</label>
+            <input
+              class="input"
+              :value="formData.Email"
+              @input="formData.Email = strVal($event)"
+              placeholder="user@example.com"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.provider'] }}</label>
+            <UiSelect
+              :options="providerOptions"
+              :model-value="formData.Provider"
+              width="230px"
+              @update:model-value="setProvider"
+            />
+          </div>
+
+          <div class="sec">IMAP</div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.imap_host'] }}</label>
+            <input
+              class="input"
+              :value="formData.IMAPHost"
+              @input="formData.IMAPHost = strVal($event)"
+              placeholder="imap.example.com"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.imap_port'] }}</label>
+            <input
+              class="input input--num"
+              type="number"
+              :value="formData.IMAPPort"
+              @change="formData.IMAPPort = intVal($event)"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.imap_user'] }}</label>
+            <input
+              class="input"
+              :value="formData.IMAPUser"
+              @input="formData.IMAPUser = strVal($event)"
+              placeholder="user@example.com"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.imap_pass'] }}</label>
+            <input
+              class="input"
+              type="password"
+              :value="formData.IMAPPass"
+              @input="formData.IMAPPass = strVal($event)"
+            />
+          </div>
+
+          <div v-if="is163Provider" class="hint hint--warn">
+            163
+            邮箱对第三方客户端有严格限制，即使使用授权码也可能连接失败。如果无法使用，建议改用官方客户端或
+            Foxmail。
+          </div>
+          <div v-else-if="needsAuthCode" class="hint hint--warn">
+            {{ t['settings.accounts.auth_code_hint'] }}
+          </div>
+
+          <div class="sec">SMTP</div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.smtp_host'] }}</label>
+            <input
+              class="input"
+              :value="formData.SMTPHost"
+              @input="formData.SMTPHost = strVal($event)"
+              placeholder="smtp.example.com"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.smtp_port'] }}</label>
+            <input
+              class="input input--num"
+              type="number"
+              :value="formData.SMTPPort"
+              @change="formData.SMTPPort = intVal($event)"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.smtp_user'] }}</label>
+            <input
+              class="input"
+              :value="formData.SMTPUser"
+              @input="formData.SMTPUser = strVal($event)"
+              placeholder="user@example.com"
+            />
+          </div>
+          <div class="frow">
+            <label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</label>
+            <input
+              class="input"
+              type="password"
+              :value="formData.SMTPPass"
+              @input="formData.SMTPPass = strVal($event)"
+            />
+          </div>
+          <div class="frow">
+            <span class="flabel">{{ t['settings.accounts.use_tls'] }}</span>
+            <button
+              type="button"
+              class="switch"
+              :class="{ on: formData.UseTLS }"
+              role="switch"
+              :aria-checked="formData.UseTLS"
+              @click="formData.UseTLS = !formData.UseTLS"
+            >
+              <span class="switch__thumb" />
+            </button>
+          </div>
+
+          <div class="sec">{{ t['settings.accounts.sync'] }}</div>
+          <div class="frow">
+            <span class="flabel">{{ t['settings.accounts.auto_sync'] }}</span>
+            <div class="sync-row">
+              <button
+                type="button"
+                class="switch"
+                :class="{ on: formData.SyncInterval > 0 }"
+                role="switch"
+                :aria-checked="formData.SyncInterval > 0"
+                @click="formData.SyncInterval = formData.SyncInterval > 0 ? 0 : 5"
+              >
+                <span class="switch__thumb" />
+              </button>
+              <template v-if="formData.SyncInterval > 0">
+                <input
+                  class="input input--sm"
+                  type="number"
+                  :value="formData.SyncInterval"
+                  @change="formData.SyncInterval = intVal($event)"
+                />
+                <span class="muted">{{ t['settings.accounts.sync_minutes'] }}</span>
+              </template>
+              <span v-else class="muted">{{ t['settings.accounts.sync_disabled'] }}</span>
+            </div>
+          </div>
+
+          <div
+            v-if="testResult"
+            class="hint"
+            :class="testResult.success ? 'hint--ok' : 'hint--err'"
+          >
+            {{ testResult.message }}
+          </div>
+        </div>
+        <footer class="card__foot">
+          <button type="button" class="btn" @click="cancelForm">
+            {{ t['settings.accounts.cancel'] }}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :disabled="accountsStore.testingId !== null"
+            @click="handleTest"
+          >
+            {{ accountsStore.testingId !== null ? '…' : t['settings.accounts.test'] }}
+          </button>
+          <button type="button" class="btn btn--primary" :disabled="saving" @click="handleSave">
+            {{ saving ? '…' : t['settings.accounts.save'] }}
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ===== Account list ===== -->
+    <div v-else class="card">
+      <header class="card__head">
+        <h2>{{ t['settings.accounts'] }}</h2>
+        <button type="button" class="btn btn--primary btn--sm" @click="openAddForm">
+          {{ t['settings.accounts.add'] }}
+        </button>
+      </header>
+      <p v-if="accountsStore.accounts.length === 0" class="empty">
+        {{ t['settings.accounts.empty'] }}
+      </p>
+      <ul v-else class="list">
+        <li v-for="account in accountsStore.accounts" :key="account.ID" class="row">
+          <div class="row-info">
+            <strong>{{ account.Name || account.Email }}</strong>
+            <span class="chip">{{ providerLabel(account.Provider) }}</span>
+            <div class="muted">
+              {{ account.Email }} &middot; IMAP: {{ account.IMAPHost }}:{{ account.IMAPPort }}
+            </div>
+          </div>
+          <div class="row-actions">
+            <button
+              type="button"
+              class="drv"
+              :class="{
+                'drv--ok': testSuccessId === account.ID,
+                'drv--bad': testFailId === account.ID,
+                disabled: testingId === account.ID,
+              }"
+              :disabled="testingId === account.ID"
+              @click="testItem(account)"
+            >
+              {{ testingId === account.ID ? '…' : t['settings.accounts.test'] }}
+            </button>
+            <button type="button" class="drv" @click="openEditForm(account)">
+              {{ t['settings.llm.edit'] }}
+            </button>
+            <button
+              type="button"
+              class="drv drv--danger"
+              :disabled="testingId === account.ID"
+              @click="deleteAccount(account)"
+            >
+              {{
+                confirmingDeleteId === account.ID
+                  ? t['settings.accounts.delete'] + '?'
+                  : t['settings.accounts.delete']
+              }}
+            </button>
+          </div>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.avatar-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+.wrap {
+  padding: 16px;
+  max-width: 760px;
+  color: var(--n-text-color);
+}
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-md);
+}
+.card__head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 600;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.card__head h2 {
+  margin: 0;
   font-size: 14px;
-  color: #fff;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 600;
+}
+.card__body {
+  padding: 8px 16px;
+}
+.card__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--n-border-color);
+}
+
+.frow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+}
+.flabel {
+  width: 200px;
   flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--n-primary-color);
+}
+.input--num {
+  flex: 0 0 120px;
+}
+.input--sm {
+  flex: 0 0 90px;
+}
+.selectrow {
+  flex: 1;
+}
+.sec {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px 0 4px;
+  color: var(--color-text-2);
+}
+
+.hint {
+  margin: 10px 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--n-border-color);
+}
+.hint--warn {
+  background: rgba(240, 160, 32, 0.15);
+  border-color: #f0a020;
+}
+.hint--ok {
+  background: rgba(24, 160, 88, 0.12);
+}
+.hint--err {
+  background: rgba(208, 48, 80, 0.12);
+}
+
+.switch {
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  position: relative;
+  border: none;
+  background: var(--n-border-color);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.switch.on {
+  background: var(--n-primary-color);
+}
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s;
+}
+.switch.on .switch__thumb {
+  left: 18px;
+}
+.sync-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.muted {
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+.avatar-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.avatar-box {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  border: 1px dashed var(--n-border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  color: var(--color-text-3);
+  background: var(--n-action-color);
+}
+.avatar-box i {
+  font-size: 22px;
+}
+.avatar-box__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-box__input {
+  display: none;
+}
+.avatar-hint {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.btn {
+  border: 1px solid var(--n-border-color);
+  background: var(--n-action-color);
+  color: var(--n-text-color);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn--sm {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+.btn--primary {
+  border-color: transparent;
+  color: #fff;
+  background: var(--n-primary-color);
+}
+
+.empty {
+  padding: 30px 18px;
+  color: var(--color-text-3);
+  font-size: 13px;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+  align-items: flex-start;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-info {
+  min-width: 0;
+}
+.chip {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  opacity: 0.9;
+}
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.drv {
+  border: 1px solid var(--n-border-color);
+  background: var(--n-action-color);
+  color: var(--n-text-color);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.drv:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.drv--danger {
+  color: #d03050;
+}
+.drv--ok {
+  background: rgba(24, 160, 88, 0.2);
+}
+.drv--bad {
+  background: rgba(208, 48, 80, 0.2);
 }
 </style>

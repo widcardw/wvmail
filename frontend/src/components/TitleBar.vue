@@ -1,56 +1,54 @@
 <script setup lang="ts">
-import { NInput, NText, NButton, NSwitch } from 'naive-ui'
-import { OsService } from '#/wvmail/services'
 import { computed, onMounted, ref } from 'vue'
+import { OsService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
-import AppIcon from './AppIcon.vue'
 
 const { t } = useI18n()
 const themeStore = useThemeStore()
 
-const isDark = computed(() => themeStore.naiveTheme !== null)
+const isDark = computed(() => themeStore.effectiveTheme === 'dark')
 
 function toggleTheme() {
-  themeStore.mode = isDark.value ? 'Light' : 'Dark'
+  // Persist to config: flip effective light/dark (System stays selectable in Settings).
+  void themeStore.switchTo(isDark.value ? 'Light' : 'Dark')
 }
 
+// macOS traffic-light space
 const lm = ref(0)
 onMounted(() => {
   OsService.GetOs().then((os: string) => {
-    if (os === 'darwin') {
-      lm.value = 80
-    }
+    if (os === 'darwin') lm.value = 80
   })
 })
-
-const collapseMode = defineModel('collapsed', { type: Boolean, default: false })
 </script>
 
 <template>
   <div class="titlebar">
     <div class="titlebar-left">
-      <NText class="brand" :style="{ marginLeft: `${lm}px` }">{{ t['app.brand'] }}</NText>
-      <NButton text size="small" @click="collapseMode = !collapseMode">
-        <template #icon>
-          <AppIcon icon="material-symbols:dock-to-left-outline" />
-        </template>
-      </NButton>
+      <span class="brand" :style="{ marginLeft: `${lm}px` }">{{ t['app.brand'] }}</span>
     </div>
 
     <div class="titlebar-center">
-      <NInput size="small" :placeholder="t['search.placeholder']" clearable class="search-input" />
+      <input class="search-input" type="search" :placeholder="t['search.placeholder']" />
     </div>
 
     <div class="titlebar-right">
-      <NSwitch :value="isDark" size="small" @update:value="toggleTheme">
-        <template #checked-icon>
-          <AppIcon icon="ri:moon-clear-line" :size="11" />
+      <button
+        type="button"
+        class="icon-btn"
+        role="switch"
+        :aria-checked="isDark"
+        :title="isDark ? 'Switch to light' : 'Switch to dark'"
+        @click="toggleTheme"
+      >
+        <template v-if="isDark">
+          <i class="i-ri:moon-clear-line" aria-hidden="true" />
         </template>
-        <template #unchecked-icon>
-          <AppIcon icon="ri:sun-line" :size="11" />
+        <template v-else>
+          <i class="i-ri:sun-line" aria-hidden="true" />
         </template>
-      </NSwitch>
+      </button>
     </div>
   </div>
 </template>
@@ -85,11 +83,44 @@ const collapseMode = defineModel('collapsed', { type: Boolean, default: false })
 .search-input {
   max-width: 380px;
   width: 100%;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--n-text-color);
+  background: var(--action-color, var(--n-action-color));
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  outline: none;
+}
+.search-input:focus {
+  border-color: var(--n-primary-color);
 }
 
 .titlebar-right {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--n-text-color);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: var(--n-border-color);
+}
+
+.icon-btn i {
+  font-size: 16px;
+  line-height: 1;
 }
 </style>
