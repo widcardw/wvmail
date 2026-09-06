@@ -44,6 +44,21 @@ function num(e: Event): number {
   return Number((e.target as HTMLInputElement).value) || 0
 }
 
+function changeLevel(value: string) {
+  logConfig.value.Level = value
+  schedule('log')
+}
+
+function changeRetention(e: Event) {
+  logConfig.value.RetentionDays = num(e)
+  schedule('log')
+}
+
+function changeMax(e: Event) {
+  logConfig.value.MaxSizeMB = num(e)
+  schedule('log')
+}
+
 async function saveLog() {
   try {
     await ConfigService.SaveLogConfig(logConfig.value)
@@ -66,6 +81,11 @@ const persist = useAutoPersist()
 function schedule(kind: 'log' | 'safety') {
   const op = kind === 'safety' ? saveSafety : saveLog
   persist.schedule(kind, () => op())
+}
+
+function toggleSafety() {
+  scanExternalSafety.value = !scanExternalSafety.value
+  schedule('safety')
 }
 async function handleOpenLogFolder() {
   if (!logDir.value) return

@@ -662,7 +662,15 @@ func (s *ConfigService) TestLLMConnection(cfg LLMConfig) (bool, string) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	// A connection-only test requests a model catalog. Its successful response
+	// can contain thousands of models, but the caller only needs the status.
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && cfg.Model == "" {
+		return true, fmt.Sprintf("Connected successfully (HTTP %d)", resp.StatusCode)
+	}
+
+	// Keep diagnostic responses bounded so a provider cannot send a large body
+	// that has to be transferred, parsed, and rendered by the frontend.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 	bodyStr := strings.TrimSpace(string(body))
 	if bodyStr == "" {
 		bodyStr = "(no response body)"
@@ -670,5 +678,5 @@ func (s *ConfigService) TestLLMConnection(cfg LLMConfig) (bool, string) {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true, fmt.Sprintf("Connected successfully (HTTP %d)\n%s", resp.StatusCode, bodyStr)
 	}
-	return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, bodyStr)
+	return false, fmt.Sprintf("HTTP %d\n%s", resp.StatusCode, bodyStr)
 }
