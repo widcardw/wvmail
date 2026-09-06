@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { TreeView, createTreeCollection, type SelectionChangeDetails } from '@ark-ui/vue/tree-view'
+import {
+  TreeView,
+  createTreeCollection,
+  type TreeViewSelectionChangeDetails,
+} from '@ark-ui/vue/tree-view'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { compareFolders, getFolderDisplay } from '../types/email'
@@ -127,7 +131,7 @@ watch(expanded, (vals) => {
   }
 })
 
-function onSelectionChange(details: SelectionChangeDetails) {
+function onSelectionChange(details: TreeViewSelectionChangeDetails) {
   const v = details.selectedValue?.[0]
   if (!v) return
   const sep = v.indexOf('\u200b')

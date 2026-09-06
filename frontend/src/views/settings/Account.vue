@@ -178,6 +178,19 @@ function closeCropDialog() {
   revokeCropSource()
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunkSize = 0x8000
+
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, offset + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+
+  return btoa(binary)
+}
+
 function readImageAspectRatio(url: string): Promise<number> {
   return new Promise((resolve) => {
     const image = new Image()
@@ -273,10 +286,9 @@ async function handleSave() {
     }
     if (accountId && avatarFileData.value) {
       try {
-        const bytes = new Uint8Array(avatarFileData.value)
         const filename = await ConfigService.SaveAccountAvatar(
           accountId,
-          Array.from(bytes),
+          arrayBufferToBase64(avatarFileData.value),
           avatarFileExt.value,
         )
         accountsStore.markAvatarUpdated(accountId, filename)
