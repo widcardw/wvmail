@@ -96,10 +96,11 @@ export const useThemeStore = defineStore('theme', () => {
     const normalized = normalizeHexColor(value)
     if (!normalized) return
     primaryColor.value = normalized
+    // Apply synchronously so every accent updates immediately (incl. dark).
+    apply()
 
     if (primaryColorSaveTimer) clearTimeout(primaryColorSaveTimer)
     primaryColorSaveTimer = setTimeout(() => {
-      apply()
       void ConfigService.SaveConfigField('primary_color', normalized).catch((error) => {
         console.error('Failed to save primary color', error)
       })

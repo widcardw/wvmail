@@ -57,14 +57,14 @@
   --n-body-color: #101014;
   --n-text-color: #ffffff;
   --n-action-color: #2a2a30;
-  --n-border-color: #55555f;
+  --n-border-color: #3b3b40;
 
   --color-bg: #101014;
   --color-surface: #18181c;
   --color-surface-2: #0a0a0d;
   --color-text-2: #bbb;
   --color-text-3: #888;
-  --color-border: #55555f;
+  --color-border: #3b3b40;
   --color-hover: rgba(255, 255, 255, 0.08);
   --color-active: rgba(255, 255, 255, 0.14);
 }

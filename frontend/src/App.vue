@@ -38,7 +38,7 @@ onMounted(async () => {
 
 <template>
   <LocaleProvider :locale="localeStore.current">
-    <div class="app" :data-theme="theme.effectiveTheme">
+    <div class="app">
       <header class="app__titlebar">
         <TitleBar />
       </header>
