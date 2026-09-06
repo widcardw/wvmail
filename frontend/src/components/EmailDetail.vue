@@ -98,8 +98,11 @@ async function handleTranslate() {
     const tCfg = cfg.TranslationConfig || {}
     const targetLang = tCfg.DefaultTargetLang || 'zh-CN'
     const engine = tCfg.DefaultEngine || 'llm'
+    const cfgName = tCfg.LLMConfigName
     let llmCfg = null
-    if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) llmCfg = cfg.LLMConfigs[0]
+    if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
+      llmCfg = (cfgName && cfg.LLMConfigs.find((c) => c.Name === cfgName)) || cfg.LLMConfigs[0]
+    }
     const translateFn = (text: string) =>
       TranslationService.TranslateText(text, targetLang, engine, llmCfg, tCfg.DeepLAuthKey || '')
 
@@ -502,46 +505,11 @@ const showAttachments = computed(
   gap: 4px;
   flex-shrink: 0;
 }
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  background: transparent;
-  border-radius: 5px;
-  cursor: pointer;
-  color: var(--n-text-color);
-}
-.icon-btn:hover {
-  background: var(--n-sidebar-hover);
-}
-.icon-btn i {
-  display: block;
-  font-size: 16px;
-}
 
 /* Top-of-detail actions become themed, visible buttons (not faint icons) */
-.detail-header .icon-btn {
-  width: auto;
-  min-width: 30px;
-  height: 26px;
-  padding: 0 7px;
-  gap: 4px;
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-}
-.detail-header .icon-btn:hover,
-.detail-header .icon-btn:focus-visible {
-  background: var(--n-sidebar-hover);
-  border-color: var(--n-primary-color);
-}
-.detail-header .icon-btn i,
-.detail-header .icon-btn .ic-spin {
-  font-size: 14px;
-}
-.ic-spin {
+.detail-header n-btn:hover,
+.detail-header n-btn i,
+.detail-header .ic-spin {
   display: inline-block;
   width: 14px;
   height: 14px;

@@ -13,3 +13,6 @@ frontend/bindings/
 .reasonix/
 .zed/
 .pnpm-store/
+
+# go build . output
+/wvmail

@@ -4,6 +4,7 @@ import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/UiSelect.vue'
+import { useAutoPersist } from '~/composables/use-autopersist'
 
 const { t } = useI18n()
 const fb = useFeedbackStore()
@@ -43,29 +44,15 @@ function num(e: Event): number {
   return Number((e.target as HTMLInputElement).value) || 0
 }
 
-async function handleSave() {
-  saving.value = true
+async function saveLog() {
   try {
     await ConfigService.SaveLogConfig(logConfig.value)
     fb.success(t.value['settings.about.log.saved'])
   } catch (e) {
     fb.error(String(e))
-  } finally {
-    saving.value = false
   }
 }
-
-async function handleOpenLogFolder() {
-  if (!logDir.value) return
-  try {
-    await OsService.OpenFolder(logDir.value)
-  } catch (e) {
-    console.error('Failed to open log folder', e)
-  }
-}
-
-async function handleSaveSafety() {
-  scanExternalSafety.value = !scanExternalSafety.value
+async function saveSafety() {
   try {
     await ConfigService.SaveConfigField(
       'scan_external_safety',
@@ -73,6 +60,19 @@ async function handleSaveSafety() {
     )
   } catch (e) {
     fb.error(String(e))
+  }
+}
+const persist = useAutoPersist()
+function schedule(kind: 'log' | 'safety') {
+  const op = kind === 'safety' ? saveSafety : saveLog
+  persist.schedule(kind, () => op())
+}
+async function handleOpenLogFolder() {
+  if (!logDir.value) return
+  try {
+    await OsService.OpenFolder(logDir.value)
+  } catch (e) {
+    console.error('Failed to open log folder', e)
   }
 }
 </script>
@@ -96,7 +96,7 @@ async function handleSaveSafety() {
         <UiSelect
           :options="levelOptions"
           :model-value="logConfig.Level"
-          @update:model-value="(v: string) => (logConfig.Level = v)"
+          @update:model-value="changeLevel"
         />
       </div>
       <div class="row">
@@ -107,7 +107,7 @@ async function handleSaveSafety() {
           :value="logConfig.RetentionDays"
           min="1"
           max="365"
-          @input="logConfig.RetentionDays = num($event)"
+          @input="changeRetention($event)"
         />
       </div>
       <div class="row">
@@ -118,16 +118,13 @@ async function handleSaveSafety() {
           :value="logConfig.MaxSizeMB"
           min="1"
           max="1024"
-          @input="logConfig.MaxSizeMB = num($event)"
+          @input="changeMax($event)"
         />
       </div>
 
-      <div class="actions actions--split">
+      <div class="actions">
         <button type="button" class="btn" @click="handleOpenLogFolder">
           {{ t['settings.about.log.open_folder'] }}
-        </button>
-        <button type="button" class="btn btn--primary" :disabled="saving" @click="handleSave">
-          {{ saving ? '…' : t['settings.llm.save'] }}
         </button>
       </div>
 
@@ -140,7 +137,7 @@ async function handleSaveSafety() {
           :class="{ on: scanExternalSafety }"
           role="switch"
           :aria-checked="scanExternalSafety"
-          @click="handleSaveSafety"
+          @click="toggleSafety"
         >
           <span class="switch__thumb" />
         </button>
@@ -154,20 +151,6 @@ async function handleSaveSafety() {
   padding: 16px;
   max-width: 720px;
   color: var(--n-text-color);
-}
-.surface {
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
-}
-.surface__head {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.surface__head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
 }
 .about-line {
   margin: 0;
@@ -202,8 +185,6 @@ async function handleSaveSafety() {
 .row__label {
   width: 220px;
   flex-shrink: 0;
-  font-size: 13px;
-  color: var(--color-text-2);
 }
 .numsel {
   width: 180px;
@@ -227,48 +208,8 @@ async function handleSaveSafety() {
 .actions--split {
   justify-content: space-between;
 }
-.btn {
-  padding: 5px 12px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.btn:hover {
-  background: var(--n-sidebar-hover);
-}
-.btn--primary {
-  color: #fff;
-  background: var(--n-primary-color);
-  border-color: transparent;
-}
-.btn--primary:disabled {
-  opacity: 0.6;
-}
 .switch {
   width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  position: relative;
-  border: none;
-  background: var(--n-border-color);
-  cursor: pointer;
-  padding: 0;
-}
-.switch.on {
-  background: var(--n-primary-color);
-}
-.switch__thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.15s ease;
 }
 .switch.on .switch__thumb {
   left: 20px;

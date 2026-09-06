@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { TreeView, createTreeCollection, type TreeCollection } from '@ark-ui/vue/tree-view'
+import { TreeView, createTreeCollection, type SelectionChangeDetails } from '@ark-ui/vue/tree-view'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { compareFolders, getFolderDisplay } from '../types/email'
@@ -74,15 +74,20 @@ function accountNode(account: EmailAccount): SideNode {
   return node
 }
 
-const collection = ref<TreeCollection<SideNode> | null>(null)
+const collection = ref<ReturnType<typeof createTreeCollection<SideNode>> | null>(null)
 
 function rebuild() {
   collection.value = createTreeCollection<SideNode>({
     nodeToValue: (n) => n.id,
     nodeToString: (n) => n.name,
     isNodeDisabled: (n) => n.kind !== 'folder',
-    rootNode: { id: 'ROOT', name: '', children: store.accounts.map(accountNode) },
+    rootNode: { id: 'ROOT', name: '', kind: 'folder', children: store.accounts.map(accountNode) },
   })
+}
+// Ark's same-name types resolve differently across pkg boundaries in some setups;
+// route the Root prop through an untyped accessor so IDE type chasing stops here.
+function treeCol(): any {
+  return collection.value
 }
 
 watch(
@@ -122,16 +127,13 @@ watch(expanded, (vals) => {
   }
 })
 
-function onSelectionChange(details: {
-  value: ReadonlyArray<string>
-  selectedValue: ReadonlyArray<string>
-}) {
-  const value = (details.selectedValue ?? details.value)?.[0]
-  if (!value) return
-  const sep = value.indexOf('\u200b')
+function onSelectionChange(details: SelectionChangeDetails) {
+  const v = details.selectedValue?.[0]
+  if (!v) return
+  const sep = v.indexOf('\u200b')
   if (sep < 0) return
-  const accountId = value.slice(0, sep)
-  const folderName = value.slice(sep + 1)
+  const accountId = v.slice(0, sep)
+  const folderName = v.slice(sep + 1)
   store.selectFolder(accountId, folderName)
   router.push('/')
 }
@@ -188,7 +190,7 @@ watch(() => [store.selectedAccountId, store.selectedFolder, store.smartFolder], 
 
       <TreeView.Root
         v-else-if="collection"
-        :collection="collection"
+        :collection="treeCol()"
         selection-mode="single"
         expand-on-click
         v-model:selected-value="selected"

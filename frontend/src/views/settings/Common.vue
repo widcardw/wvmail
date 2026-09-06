@@ -97,20 +97,6 @@ async function openConfigFolder() {
   max-width: 720px;
   color: var(--n-text-color);
 }
-.surface {
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
-}
-.surface__head {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.surface__head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
 .row {
   display: flex;
   align-items: center;
@@ -120,22 +106,9 @@ async function openConfigFolder() {
 .row__label {
   width: 220px;
   flex-shrink: 0;
-  font-size: 13px;
-  color: var(--color-text-2);
 }
 .ctl {
   width: 220px;
-  height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-  outline: none;
-}
-.ctl:focus {
-  border-color: var(--n-primary-color);
 }
 .color {
   display: flex;
@@ -168,17 +141,5 @@ async function openConfigFolder() {
 }
 .actions {
   padding: 6px 18px 16px;
-}
-.btn {
-  padding: 5px 12px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.btn:hover {
-  background: var(--n-sidebar-hover);
 }
 </style>

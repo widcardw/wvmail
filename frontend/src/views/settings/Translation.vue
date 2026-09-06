@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from '~/i18n'
 import UiSelect from '~/components/UiSelect.vue'
+import { useAutoPersist } from '~/composables/use-autopersist'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig } from '~/types/config'
@@ -34,7 +35,6 @@ const form = ref({
   DeepLAuthKey: '',
   LLMConfigName: '',
 })
-const saving = ref(false)
 
 onMounted(async () => {
   try {
@@ -45,30 +45,39 @@ onMounted(async () => {
       form.value.DeepLAuthKey = cfg.TranslationConfig.DeepLAuthKey || ''
     }
     llmConfigs.value = cfg.LLMConfigs || []
-    if (llmConfigs.value.length > 0) form.value.LLMConfigName = llmConfigs.value[0].Name
+    const savedName = cfg.TranslationConfig?.LLMConfigName
+    if (savedName && llmConfigs.value.some((c) => c.Name === savedName)) {
+      form.value.LLMConfigName = savedName
+    } else if (llmConfigs.value.length > 0) {
+      form.value.LLMConfigName = llmConfigs.value[0].Name
+    }
   } catch (e) {
     console.error('Failed to load config', e)
   }
 })
 
-function onSelect(key: string, v: string) {
-  form.value[key as keyof typeof form.value] = v as never
-}
+const persist = useAutoPersist()
 
-async function handleSave() {
-  saving.value = true
+function persistNow() {
+  persist.schedule('translation', () => doPersist(), 250)
+}
+async function doPersist() {
   try {
     await ConfigService.SaveTranslationConfig({
       DefaultTargetLang: form.value.DefaultTargetLang,
       DefaultEngine: form.value.DefaultEngine,
+      LLMConfigName: form.value.LLMConfigName,
       DeepLAuthKey: form.value.DeepLAuthKey,
     })
     fb.success(t.value['settings.translation.saved'])
   } catch (e) {
     fb.error(String(e))
-  } finally {
-    saving.value = false
   }
+}
+
+function onSelect(key: string, v: string) {
+  form.value[key as keyof typeof form.value] = v as never
+  persistNow()
 }
 </script>
 
@@ -118,19 +127,14 @@ async function handleSave() {
         <div class="row">
           <label class="row__label">{{ t['settings.translation.deepl_key'] }}</label>
           <input
+            v-model="form.DeepLAuthKey"
             type="password"
             class="ctl password"
-            v-model="form.DeepLAuthKey"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            @change="persistNow()"
           />
         </div>
       </template>
-
-      <div class="actions">
-        <button type="button" class="btn btn--primary" :disabled="saving" @click="handleSave">
-          {{ saving ? '…' : t['settings.llm.save'] }}
-        </button>
-      </div>
     </section>
   </div>
 </template>
@@ -140,20 +144,6 @@ async function handleSave() {
   padding: 16px;
   max-width: 720px;
   color: var(--n-text-color);
-}
-.surface {
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
-}
-.surface__head {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.surface__head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
 }
 .warning {
   margin: 14px 18px 0;
@@ -170,47 +160,13 @@ async function handleSave() {
   gap: 12px;
   padding: 10px 18px;
 }
-.row__label {
-  width: 220px;
-  flex-shrink: 0;
-  font-size: 13px;
-  color: var(--color-text-2);
-}
 .ctl {
   width: 220px;
-  height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
 }
 .ctl--w160 {
   width: 160px;
 }
-.ctl:focus {
-  border-color: var(--n-primary-color);
-  outline: none;
-}
 .password {
   width: 320px;
-}
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 6px 18px 16px;
-}
-.btn--primary {
-  padding: 5px 12px;
-  font-size: 13px;
-  color: #fff;
-  background: var(--n-primary-color);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.btn--primary:disabled {
-  opacity: 0.6;
 }
 </style>

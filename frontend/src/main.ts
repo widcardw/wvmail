@@ -4,6 +4,7 @@ import router from './router'
 import App from './App.vue'
 import 'uno.css'
 import './styles/global.css'
+import './styles/ui.css'
 import { useThemeStore } from './stores/theme'
 
 const pinia = createPinia()

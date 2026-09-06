@@ -558,33 +558,15 @@ function providerLabel(p: string): string {
   padding: 12px 16px;
   border-top: 1px solid var(--n-border-color);
 }
-
 .frow {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 7px 0;
 }
-.flabel {
-  width: 200px;
-  flex-shrink: 0;
-  font-size: 13px;
-  color: var(--color-text-2);
-}
 .input {
   flex: 1;
   min-width: 0;
-  height: 30px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-}
-.input:focus {
-  outline: none;
-  border-color: var(--n-primary-color);
 }
 .input--num {
   flex: 0 0 120px;
@@ -592,20 +574,17 @@ function providerLabel(p: string): string {
 .input--sm {
   flex: 0 0 90px;
 }
-.selectrow {
-  flex: 1;
-}
 .sec {
   font-size: 13px;
   font-weight: 600;
   padding: 12px 0 4px;
   color: var(--color-text-2);
 }
-
 .hint {
   margin: 10px 0;
   padding: 8px 12px;
   font-size: 13px;
+  color: var(--n-text-color);
   border-radius: 6px;
   border: 1px solid var(--n-border-color);
 }
@@ -619,44 +598,11 @@ function providerLabel(p: string): string {
 .hint--err {
   background: rgba(208, 48, 80, 0.12);
 }
-
-.switch {
-  width: 38px;
-  height: 22px;
-  border-radius: 11px;
-  position: relative;
-  border: none;
-  background: var(--n-border-color);
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-}
-.switch.on {
-  background: var(--n-primary-color);
-}
-.switch__thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.15s;
-}
-.switch.on .switch__thumb {
-  left: 18px;
-}
 .sync-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.muted {
-  font-size: 13px;
-  opacity: 0.55;
-}
-
 .avatar-area {
   display: flex;
   align-items: center;
@@ -690,30 +636,7 @@ function providerLabel(p: string): string {
   font-size: 12px;
   opacity: 0.6;
 }
-
-.btn {
-  border: 1px solid var(--n-border-color);
-  background: var(--n-action-color);
-  color: var(--n-text-color);
-  border-radius: 6px;
-  cursor: pointer;
-  padding: 6px 12px;
-  font-size: 13px;
-}
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.btn--sm {
-  padding: 4px 9px;
-  font-size: 12px;
-}
-.btn--primary {
-  border-color: transparent;
-  color: #fff;
-  background: var(--n-primary-color);
-}
-
+.empty-message + p,
 .empty {
   padding: 30px 18px;
   color: var(--color-text-3);
@@ -737,17 +660,6 @@ function providerLabel(p: string): string {
 }
 .row-info {
   min-width: 0;
-}
-.chip {
-  margin-left: 8px;
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  opacity: 0.9;
 }
 .row-actions {
   display: flex;

@@ -1,0 +1,206 @@
+/*
+ * Shared UI primitives (design-system helpers), token-driven.
+ * Import once in src/main.ts. Per-view scoped blocks should only keep page-specific
+ * styles; common surfaces/buttons/fields/labels/switches/chips/icons live here.
+ */
+
+/* --- Card / surface --- */
+.surface {
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-md);
+}
+.surface__head {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.surface__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* --- Icon button (small square icon affordance) --- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--n-text-color);
+}
+.icon-btn:hover {
+  background: var(--n-sidebar-hover);
+}
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.icon-btn i {
+  display: block;
+  font-size: 16px;
+}
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.btn:hover {
+  background: var(--n-sidebar-hover);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn--primary {
+  color: #fff;
+  background: var(--n-primary-color);
+  border-color: transparent;
+}
+.btn--primary:hover {
+  background: var(--n-primary-hover);
+  border-color: transparent;
+}
+.btn--danger:hover {
+  background: rgba(208, 48, 80, 0.18);
+  border-color: #d03050;
+}
+.btn--primary:disabled {
+  opacity: 0.6;
+}
+.btn--danger {
+  color: #d03050;
+}
+.btn--danger-c {
+  background: rgba(208, 48, 80, 0.15);
+}
+.btn--sm {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.btn--ghost {
+  border: none;
+  background: transparent;
+}
+.btn--subtle {
+  background: transparent;
+}
+.btn--subtle:hover {
+  background: var(--n-sidebar-hover);
+}
+
+/* --- Form controls --- */
+.ctl,
+.input {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  outline: none;
+}
+.ctl:focus,
+.input:focus {
+  border-color: var(--n-primary-color);
+}
+
+/* --- Field rows & labels (two variants keep same look) --- */
+.row__label,
+.flabel {
+  flex: 0 0 200px;
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--color-text-2);
+  line-height: 2.15;
+}
+
+/* --- Switch --- */
+.switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  padding: 0;
+  border: none;
+  background: var(--n-border-color);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.switch.on {
+  background: var(--n-primary-color);
+}
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s;
+}
+.switch.on .switch__thumb {
+  left: 18px;
+}
+
+/* --- Small tag/chip --- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+/* --- Muted text / empty state --- */
+.muted {
+  font-size: 12px;
+  opacity: 0.55;
+}
+.muted-label {
+  font-size: 13px;
+  opacity: 0.55;
+}
+.empty-message {
+  padding: 30px 18px;
+  color: var(--color-text-3);
+  font-size: 13px;
+}
+
+/* --- Inline spinner --- */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--n-border-color);
+  border-top-color: var(--n-primary-color);
+  border-radius: 50%;
+  animation: ui-spin 0.7s linear infinite;
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

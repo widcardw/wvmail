@@ -42,6 +42,7 @@ type LogConfig struct {
 type TranslationConfig struct {
 	DefaultTargetLang string `yaml:"default_target_lang"`
 	DefaultEngine     string `yaml:"default_engine"` // "llm", "deepl"
+	LLMConfigName     string `yaml:"llm_config_name"`
 	DeepLAuthKey      string `yaml:"deepl_auth_key"` // AES-256-GCM encrypted
 }
 

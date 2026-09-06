@@ -91,7 +91,7 @@ function onPageChange(details: unknown) {
             <Pagination.Item v-if="pg.type === 'page'" v-bind="pg" class="pg pg--num">
               {{ pg.value }}
             </Pagination.Item>
-            <Pagination.Ellipsis v-else class="pg pg--ell">…</Pagination.Ellipsis>
+            <Pagination.Ellipsis v-else :index="i" class="pg pg--ell">…</Pagination.Ellipsis>
           </template>
         </Pagination.Context>
         <Pagination.NextTrigger class="pg"
@@ -155,25 +155,7 @@ function onPageChange(details: unknown) {
   white-space: nowrap;
   color: var(--n-text-color);
 }
-.icon-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 5px;
-  cursor: pointer;
-  color: var(--n-text-color);
-}
-.icon-btn:hover {
-  background: var(--n-sidebar-hover);
-}
-.icon-btn:disabled {
-  opacity: 50%;
-}
+
 .spacer {
   flex: 1;
 }
