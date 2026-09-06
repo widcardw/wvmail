@@ -49,10 +49,22 @@ const avatarFileData = ref<ArrayBuffer | null>(null)
 const avatarFileExt = ref('')
 const cropDialogOpen = ref(false)
 const cropImageSrc = ref('')
+const cropImageAspect = ref(1)
 const cropSourceUrl = ref<string | null>(null)
 const avatarPreviewUrl = ref<string | null>(null)
 const cropSaving = ref(false)
 const imageCropper = useImageCropper({ aspectRatio: 1 })
+
+const cropViewportStyle = computed(() => {
+  const maxWidth = typeof window === 'undefined' ? 420 : Math.max(220, window.innerWidth - 100)
+  const maxHeight = typeof window === 'undefined' ? 360 : Math.min(420, window.innerHeight * 0.58)
+  const width = Math.min(420, maxWidth, maxHeight * cropImageAspect.value)
+  const height = width / cropImageAspect.value
+  return {
+    width: `${width}px`,
+    height: `${height}px`,
+  }
+})
 
 const formData = ref<EmailAccount>(emptyForm())
 
@@ -166,18 +178,30 @@ function closeCropDialog() {
   revokeCropSource()
 }
 
-function onAvatarFile(e: Event) {
+function readImageAspectRatio(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => resolve(image.naturalWidth / image.naturalHeight || 1)
+    image.onerror = () => resolve(1)
+    image.src = url
+  })
+}
+
+async function onAvatarFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
   if (!file.type.startsWith('image/')) {
-    fb.error('请选择图片文件')
+    fb.error(t.value['settings.accounts.invalid_image'])
     return
   }
   revokeCropSource()
-  cropSourceUrl.value = URL.createObjectURL(file)
-  cropImageSrc.value = cropSourceUrl.value
+  const sourceUrl = URL.createObjectURL(file)
+  cropSourceUrl.value = sourceUrl
+  cropImageSrc.value = sourceUrl
+  cropImageAspect.value = await readImageAspectRatio(sourceUrl)
+  if (cropSourceUrl.value !== sourceUrl) return
   cropDialogOpen.value = true
 }
 
@@ -189,7 +213,7 @@ async function confirmCrop() {
       type: 'image/png',
     })
     if (!(result instanceof Blob)) {
-      fb.error('头像裁剪失败')
+      fb.error(t.value['settings.accounts.crop_failed'])
       return
     }
     avatarFileData.value = await result.arrayBuffer()
@@ -200,7 +224,7 @@ async function confirmCrop() {
     closeCropDialog()
   } catch (e) {
     console.error('Failed to crop avatar', e)
-    fb.error('头像裁剪失败')
+    fb.error(t.value['settings.accounts.crop_failed'])
   } finally {
     cropSaving.value = false
   }
@@ -218,20 +242,20 @@ onUnmounted(() => {
 function validateForm(): string[] {
   const f = formData.value
   const errs: string[] = []
-  if (!f.Name.trim()) errs.push('account name')
-  if (!f.Email.trim()) errs.push('email')
-  if (!f.IMAPHost.trim()) errs.push('IMAP server')
-  if (!f.IMAPPort) errs.push('IMAP port')
-  if (!f.IMAPPass) errs.push('IMAP password')
-  if (!f.SMTPHost.trim()) errs.push('SMTP server')
-  if (!f.SMTPPort) errs.push('SMTP port')
+  if (!f.Name.trim()) errs.push(t.value['settings.accounts.name'])
+  if (!f.Email.trim()) errs.push(t.value['settings.accounts.email'])
+  if (!f.IMAPHost.trim()) errs.push(t.value['settings.accounts.imap_host'])
+  if (!f.IMAPPort) errs.push(t.value['settings.accounts.imap_port'])
+  if (!f.IMAPPass) errs.push(t.value['settings.accounts.imap_pass'])
+  if (!f.SMTPHost.trim()) errs.push(t.value['settings.accounts.smtp_host'])
+  if (!f.SMTPPort) errs.push(t.value['settings.accounts.smtp_port'])
   return errs
 }
 
 async function handleSave() {
   const errs = validateForm()
   if (errs.length > 0) {
-    fb.error('缺少必填项: ' + errs.join(', '))
+    fb.error(`${t.value['settings.accounts.required_fields']}: ${errs.join(', ')}`)
     return
   }
   saving.value = true
@@ -239,19 +263,23 @@ async function handleSave() {
     let accountId = editingId.value
     if (accountId) {
       await accountsStore.updateAccount(accountId, formData.value)
-      fb.success('Account updated')
+      fb.success(t.value['settings.accounts.updated'])
     } else {
       const id =
         crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
       accountId = id
       await accountsStore.addAccount({ ...formData.value, ID: id })
-      fb.success('Account added')
+      fb.success(t.value['settings.accounts.added'])
     }
     if (accountId && avatarFileData.value) {
       try {
         const bytes = new Uint8Array(avatarFileData.value)
-        await ConfigService.SaveAccountAvatar(accountId, Array.from(bytes), avatarFileExt.value)
-        await accountsStore.loadAccounts()
+        const filename = await ConfigService.SaveAccountAvatar(
+          accountId,
+          Array.from(bytes),
+          avatarFileExt.value,
+        )
+        accountsStore.markAvatarUpdated(accountId, filename)
       } catch (e) {
         console.error('Failed to save avatar', e)
       }
@@ -308,7 +336,7 @@ async function deleteAccount(account: EmailAccount) {
   confirmingDeleteId.value = null
   try {
     await accountsStore.removeAccount(account.ID)
-    fb.success('Account deleted')
+    fb.success(t.value['settings.accounts.deleted'])
   } catch (e) {
     fb.error(String(e))
   }
@@ -360,7 +388,7 @@ function providerLabel(p: string): string {
               class="input"
               :value="formData.Name"
               @input="formData.Name = strVal($event)"
-              placeholder="My Email"
+              :placeholder="t['settings.accounts.placeholder_name']"
             />
           </div>
           <div class="frow">
@@ -369,7 +397,7 @@ function providerLabel(p: string): string {
               class="input"
               :value="formData.Email"
               @input="formData.Email = strVal($event)"
-              placeholder="user@example.com"
+              :placeholder="t['settings.accounts.placeholder_email']"
             />
           </div>
           <div class="frow">
@@ -389,7 +417,7 @@ function providerLabel(p: string): string {
               class="input"
               :value="formData.IMAPHost"
               @input="formData.IMAPHost = strVal($event)"
-              placeholder="imap.example.com"
+              :placeholder="t['settings.accounts.placeholder_imap_host']"
             />
           </div>
           <div class="frow">
@@ -407,7 +435,7 @@ function providerLabel(p: string): string {
               class="input"
               :value="formData.IMAPUser"
               @input="formData.IMAPUser = strVal($event)"
-              placeholder="user@example.com"
+              :placeholder="t['settings.accounts.placeholder_email']"
             />
           </div>
           <div class="frow">
@@ -422,8 +450,7 @@ function providerLabel(p: string): string {
 
           <div v-if="is163Provider" class="hint hint--warn">
             163
-            邮箱对第三方客户端有严格限制，即使使用授权码也可能连接失败。如果无法使用，建议改用官方客户端或
-            Foxmail。
+            {{ t['settings.accounts.imap_warning'] }}
           </div>
           <div v-else-if="needsAuthCode" class="hint hint--warn">
             {{ t['settings.accounts.auth_code_hint'] }}
@@ -436,7 +463,7 @@ function providerLabel(p: string): string {
               class="input"
               :value="formData.SMTPHost"
               @input="formData.SMTPHost = strVal($event)"
-              placeholder="smtp.example.com"
+              :placeholder="t['settings.accounts.placeholder_smtp_host']"
             />
           </div>
           <div class="frow">
@@ -454,7 +481,7 @@ function providerLabel(p: string): string {
               class="input"
               :value="formData.SMTPUser"
               @input="formData.SMTPUser = strVal($event)"
-              placeholder="user@example.com"
+              :placeholder="t['settings.accounts.placeholder_email']"
             />
           </div>
           <div class="frow">
@@ -547,7 +574,7 @@ function providerLabel(p: string): string {
               <Dialog.CloseTrigger
                 type="button"
                 class="crop-dialog__close"
-                aria-label="关闭"
+                :aria-label="t['settings.accounts.close_crop']"
                 @click="closeCropDialog"
               >
                 <i class="i-ri:close-line" aria-hidden="true" />
@@ -558,13 +585,16 @@ function providerLabel(p: string): string {
               :value="imageCropper"
               class="avatar-cropper"
             >
-              <ImageCropper.Viewport class="avatar-cropper__viewport">
+              <ImageCropper.Viewport
+                class="avatar-cropper__viewport"
+                :style="cropViewportStyle"
+              >
                 <ImageCropper.Image
                   v-if="cropImageSrc"
                   :key="cropImageSrc"
                   class="avatar-cropper__image"
                   :src="cropImageSrc"
-                  alt="待裁剪头像"
+                  :alt="t['settings.accounts.crop_image_alt']"
                 />
                 <ImageCropper.Selection class="avatar-cropper__selection">
                   <ImageCropper.Handle
@@ -846,8 +876,7 @@ function providerLabel(p: string): string {
 }
 .avatar-cropper__viewport {
   position: relative;
-  width: min(100%, 420px);
-  aspect-ratio: 1 / 1;
+  max-width: 100%;
   margin: 0 auto;
   overflow: hidden;
   background: var(--n-action-color);

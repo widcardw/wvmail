@@ -152,6 +152,10 @@ function activePath(path: string): boolean {
   return path === '/settings' ? cur.startsWith('/settings') : cur === path
 }
 
+function smartPathActive(key: string): boolean {
+  return router.currentRoute.value.path === '/' && store.smartFolder === key
+}
+
 function goNav(path: string) {
   router.push(path)
 }
@@ -177,6 +181,7 @@ watch(() => [store.selectedAccountId, store.selectedFolder, store.smartFolder], 
       :key="row.key"
       type="button"
       class="row"
+      :class="{ 'row--active': smartPathActive(row.key) }"
       @click="onSmart(row.key)"
     >
       <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />

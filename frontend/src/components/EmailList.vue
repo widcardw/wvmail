@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Pagination } from '@ark-ui/vue/pagination'
-import { computed } from 'vue'
+import { Editable } from '@ark-ui/vue/editable'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { getFolderDisplay } from '../types/email'
@@ -20,6 +21,15 @@ const pageCount = computed(() => {
   const ps = accountsStore.pageSize
   return total > 0 ? Math.ceil(total / ps) : 1
 })
+const pageInput = ref('1')
+
+watch(
+  () => accountsStore.currentPage,
+  (page) => {
+    pageInput.value = String(page)
+  },
+  { immediate: true },
+)
 
 const folderDisplay = computed(() => {
   if (accountsStore.isSmartFolder) return { label: String(accountsStore.smartFolder) }
@@ -50,6 +60,21 @@ function smartSenderId(email: { uid: number; _accountId?: string; _folderName?: 
 function onPageChange(details: unknown) {
   const page = (details as { page?: number }).page
   if (typeof page === 'number' && page >= 1) accountsStore.goToPage(page)
+}
+
+function onPageCommit(details: unknown) {
+  const value = (details as { value?: string }).value ?? pageInput.value
+  const page = Number.parseInt(value, 10)
+  const currentPage = accountsStore.currentPage
+
+  if (!Number.isInteger(page)) {
+    pageInput.value = String(currentPage)
+    return
+  }
+
+  const nextPage = Math.min(Math.max(page, 1), pageCount.value)
+  pageInput.value = String(nextPage)
+  if (nextPage !== currentPage) accountsStore.goToPage(nextPage)
 }
 </script>
 
@@ -86,14 +111,26 @@ function onPageChange(details: unknown) {
         <Pagination.PrevTrigger class="pg"
           ><i class="i-ri:arrow-left-s-line"
         /></Pagination.PrevTrigger>
-        <Pagination.Context v-slot="pgCtx">
-          <template v-for="(pg, i) in pgCtx.pages" :key="i">
-            <Pagination.Item v-if="pg.type === 'page'" v-bind="pg" class="pg pg--num">
-              {{ pg.value }}
-            </Pagination.Item>
-            <Pagination.Ellipsis v-else :index="i" class="pg pg--ell">…</Pagination.Ellipsis>
-          </template>
-        </Pagination.Context>
+        <Editable.Root
+          v-model="pageInput"
+          class="pager-editable"
+          submit-mode="enter"
+          :aria-label="t['mail.page']"
+          @value-commit="onPageCommit"
+        >
+          <Editable.Area>
+            <Editable.Preview />
+            <Editable.Input
+              type="number"
+              min="1"
+              :max="pageCount"
+              inputmode="numeric"
+              :aria-label="t['mail.page']"
+            />
+          </Editable.Area>
+        </Editable.Root>
+        <span class="pager-separator" aria-hidden="true">/</span>
+        <span class="pager-total">{{ pageCount }}</span>
         <Pagination.NextTrigger class="pg"
           ><i class="i-ri:arrow-right-s-line"
         /></Pagination.NextTrigger>
@@ -113,11 +150,14 @@ function onPageChange(details: unknown) {
           @click="handleClick(email)"
         >
           <div class="email-row">
-            <span v-if="accountsStore.isSmartFolder" class="email-avatar"
-              ><AccountAvatar v-if="smartSenderId(email)" :account-id="smartSenderId(email)"
-            /></span>
             <span class="email-body">
               <span class="email-header">
+                <span v-if="accountsStore.isSmartFolder" class="email-avatar">
+                  <AccountAvatar
+                    v-if="smartSenderId(email)"
+                    :account-id="smartSenderId(email)"
+                  />
+                </span>
                 <span class="email-from">{{ displaySender(email) }}</span>
                 <span class="email-date">{{ formatDateRecent(email.date) }}</span>
               </span>
@@ -196,10 +236,51 @@ function onPageChange(details: unknown) {
 .pg i {
   font-size: 16px;
 }
-.pg--ell {
-  border: none;
-  cursor: default;
-  opacity: 0.6;
+.pager-editable {
+  display: inline-flex;
+  min-width: 26px;
+  height: 22px;
+}
+.pager-editable [data-part='area'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+}
+.pager-editable [data-part='preview'],
+.pager-editable [data-part='input'] {
+  width: 26px;
+  height: 22px;
+  padding: 0 2px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--n-text-color);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+.pager-editable [data-part='preview'] {
+  cursor: text;
+}
+.pager-editable [data-part='preview']:hover,
+.pager-editable [data-part='input']:focus {
+  border-color: var(--n-primary-color);
+  outline: none;
+  background: var(--n-action-color);
+}
+.pager-editable [data-part='input']::-webkit-inner-spin-button,
+.pager-editable [data-part='input']::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+.pager-separator,
+.pager-total {
+  color: var(--color-text-2);
+  font-size: 13px;
+  line-height: 22px;
 }
 .body {
   flex: 1;
@@ -256,6 +337,7 @@ function onPageChange(details: unknown) {
 .email-avatar {
   flex-shrink: 0;
   display: flex;
+  align-items: center;
 }
 .email-body {
   flex: 1;

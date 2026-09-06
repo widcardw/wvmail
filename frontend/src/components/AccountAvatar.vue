@@ -18,18 +18,19 @@ const store = useAccountsStore()
 const account = computed(() => store.accounts.find((a) => a.ID === props.accountId))
 const avatarSrc = ref<string | null>(null)
 const loadKey = ref(0)
+const avatarRevision = computed(() => store.avatarRevision[props.accountId] ?? 0)
 
 watch(
-  () => account.value?.Avatar,
+  [() => props.accountId, () => account.value?.Avatar, avatarRevision],
   async (avatarFile) => {
-    loadKey.value++
+    const requestKey = ++loadKey.value
     avatarSrc.value = null
-    if (!avatarFile || !props.accountId) return
+    if (!avatarFile[1] || !props.accountId) return
     try {
       const uri = await ConfigService.GetAccountAvatar(props.accountId)
-      if (loadKey.value) avatarSrc.value = uri || null
+      if (requestKey === loadKey.value) avatarSrc.value = uri || null
     } catch {
-      avatarSrc.value = null
+      if (requestKey === loadKey.value) avatarSrc.value = null
     }
   },
   { immediate: true },

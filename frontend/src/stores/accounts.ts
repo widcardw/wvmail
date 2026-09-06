@@ -13,6 +13,7 @@ import { Events } from '@wailsio/runtime'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const accounts = ref<EmailAccount[]>([])
+  const avatarRevision = ref<Record<string, number>>({})
   const loading = ref(false)
   const refreshing = ref(false) // force-refresh loading state
   const testingId = ref<string | null>(null)
@@ -114,6 +115,12 @@ export const useAccountsStore = defineStore('accounts', () => {
       console.error('Failed to update account', e)
       throw e
     }
+  }
+
+  function markAvatarUpdated(id: string, filename: string) {
+    const account = accounts.value.find((item) => item.ID === id)
+    if (account) account.Avatar = filename
+    avatarRevision.value[id] = (avatarRevision.value[id] ?? 0) + 1
   }
 
   async function testConnection(
@@ -388,6 +395,7 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   return {
     accounts,
+    avatarRevision,
     loading,
     refreshing,
     testingId,
@@ -417,6 +425,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     addAccount,
     removeAccount,
     updateAccount,
+    markAvatarUpdated,
     testConnection,
     loadFolders,
     loadEmails,

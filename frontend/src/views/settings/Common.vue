@@ -49,7 +49,7 @@ async function openConfigFolder() {
       </header>
 
       <div class="row">
-        <label class="row__label">Language / 语言</label>
+        <label class="row__label">{{ t['settings.common.language'] }}</label>
         <UiSelect :options="localeOptions" :model-value="locale" @update:model-value="onLocale" />
       </div>
 
@@ -66,7 +66,7 @@ async function openConfigFolder() {
             class="color__native"
             :value="theme.primaryColor"
             @input="onColor"
-            aria-label="primary color"
+            :aria-label="t['settings.common.primaryColorPicker']"
           />
           <button
             v-for="c in PRESETS"

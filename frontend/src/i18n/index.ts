@@ -13,6 +13,7 @@ export interface TranslationSchema {
   'sidebar.all_drafts': string
   'mail.selectFolder': string
   'mail.loading': string
+  'mail.page': string
   'mail.noEmails': string
   'mail.link.title': string
   'mail.link.body': string
@@ -37,8 +38,10 @@ export interface TranslationSchema {
   'reminders.empty': string
   settings: string
   'settings.common': string
+  'settings.common.language': string
   'settings.common.theme': string
   'settings.common.primaryColor': string
+  'settings.common.primaryColorPicker': string
   'settings.common.theme.light': string
   'settings.common.theme.dark': string
   'settings.common.theme.system': string
@@ -79,6 +82,18 @@ export interface TranslationSchema {
   'settings.accounts.crop_avatar': string
   'settings.accounts.crop_avatar_hint': string
   'settings.accounts.crop_avatar_done': string
+  'settings.accounts.invalid_image': string
+  'settings.accounts.crop_failed': string
+  'settings.accounts.required_fields': string
+  'settings.accounts.updated': string
+  'settings.accounts.added': string
+  'settings.accounts.close_crop': string
+  'settings.accounts.crop_image_alt': string
+  'settings.accounts.imap_warning': string
+  'settings.accounts.placeholder_name': string
+  'settings.accounts.placeholder_email': string
+  'settings.accounts.placeholder_imap_host': string
+  'settings.accounts.placeholder_smtp_host': string
   'settings.about': string
   'settings.about.log.title': string
   'settings.about.log.level': string
@@ -115,6 +130,9 @@ export interface TranslationSchema {
   'settings.translation': string
   'settings.translation.title': string
   'settings.translation.target_lang': string
+  'settings.translation.language.zh': string
+  'settings.translation.language.en': string
+  'settings.translation.no_llm': string
   'settings.translation.engine': string
   'settings.translation.engine.llm': string
   'settings.translation.engine.deepl': string

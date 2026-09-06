@@ -10,21 +10,15 @@ import type { LLMConfig } from '~/types/config'
 const { t } = useI18n()
 const fb = useFeedbackStore()
 
-const targetLangOptions = [
-  { label: '中文', value: 'zh-CN' },
-  { label: 'English', value: 'en' },
-  { label: '日本語', value: 'ja' },
-  { label: '한국어', value: 'ko' },
-  { label: 'Français', value: 'fr' },
-  { label: 'Deutsch', value: 'de' },
-  { label: 'Español', value: 'es' },
-  { label: 'Русский', value: 'ru' },
-]
+const targetLangOptions = computed(() => [
+  { label: t.value['settings.translation.language.zh'], value: 'zh-CN' },
+  { label: t.value['settings.translation.language.en'], value: 'en' },
+])
 
-const engineOptions = [
+const engineOptions = computed(() => [
   { label: t.value['settings.translation.engine.llm'], value: 'llm' },
   { label: t.value['settings.translation.engine.deepl'], value: 'deepl' },
-]
+])
 
 const llmConfigs = ref<LLMConfig[]>([])
 const llmOptions = computed(() => llmConfigs.value.map((c) => ({ label: c.Name, value: c.Name })))
@@ -40,7 +34,8 @@ onMounted(async () => {
   try {
     const cfg = await ConfigService.GetConfig()
     if (cfg.TranslationConfig) {
-      form.value.DefaultTargetLang = cfg.TranslationConfig.DefaultTargetLang || 'zh-CN'
+      const targetLang = cfg.TranslationConfig.DefaultTargetLang
+      form.value.DefaultTargetLang = targetLang === 'en' ? 'en' : 'zh-CN'
       form.value.DefaultEngine = cfg.TranslationConfig.DefaultEngine || 'llm'
       form.value.DeepLAuthKey = cfg.TranslationConfig.DeepLAuthKey || ''
     }
@@ -89,7 +84,7 @@ function onSelect(key: string, v: string) {
       </header>
 
       <div v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'" class="warning">
-        No LLM configurations found. Add one in the LLM settings first.
+        {{ t['settings.translation.no_llm'] }}
       </div>
 
       <div class="row">
