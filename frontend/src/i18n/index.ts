@@ -76,6 +76,9 @@ export interface TranslationSchema {
   'settings.accounts.auth_code_hint': string
   'settings.accounts.avatar': string
   'settings.accounts.upload_avatar': string
+  'settings.accounts.crop_avatar': string
+  'settings.accounts.crop_avatar_hint': string
+  'settings.accounts.crop_avatar_done': string
   'settings.about': string
   'settings.about.log.title': string
   'settings.about.log.level': string

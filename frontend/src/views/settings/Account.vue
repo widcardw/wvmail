@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { Dialog } from '@ark-ui/vue/dialog'
+import { ImageCropper, useImageCropper } from '@ark-ui/vue/image-cropper'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useFeedbackStore } from '~/stores/feedback'
@@ -45,6 +47,12 @@ const emptyForm = (): EmailAccount => ({
 const avatarPreview = ref('')
 const avatarFileData = ref<ArrayBuffer | null>(null)
 const avatarFileExt = ref('')
+const cropDialogOpen = ref(false)
+const cropImageSrc = ref('')
+const cropSourceUrl = ref<string | null>(null)
+const avatarPreviewUrl = ref<string | null>(null)
+const cropSaving = ref(false)
+const imageCropper = useImageCropper({ aspectRatio: 1 })
 
 const formData = ref<EmailAccount>(emptyForm())
 
@@ -104,6 +112,8 @@ function openAddForm() {
   testResult.value = null
   avatarPreview.value = ''
   avatarFileData.value = null
+  revokeAvatarPreviewUrl()
+  closeCropDialog()
   showingList.value = false
 }
 
@@ -113,6 +123,8 @@ function openEditForm(account: EmailAccount) {
   testResult.value = null
   avatarPreview.value = ''
   avatarFileData.value = null
+  revokeAvatarPreviewUrl()
+  closeCropDialog()
   showingList.value = false
   if (account.Avatar) {
     ConfigService.GetAccountAvatar(account.ID)
@@ -124,6 +136,8 @@ function openEditForm(account: EmailAccount) {
 }
 
 function cancelForm() {
+  closeCropDialog()
+  revokeAvatarPreviewUrl()
   showingList.value = true
   editingId.value = null
   formData.value = emptyForm()
@@ -132,24 +146,74 @@ function cancelForm() {
   avatarFileData.value = null
 }
 
+function revokeAvatarPreviewUrl() {
+  if (avatarPreviewUrl.value) {
+    URL.revokeObjectURL(avatarPreviewUrl.value)
+    avatarPreviewUrl.value = null
+  }
+}
+
+function revokeCropSource() {
+  if (cropSourceUrl.value) {
+    URL.revokeObjectURL(cropSourceUrl.value)
+    cropSourceUrl.value = null
+  }
+  cropImageSrc.value = ''
+}
+
+function closeCropDialog() {
+  cropDialogOpen.value = false
+  revokeCropSource()
+}
+
 function onAvatarFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
+  input.value = ''
   if (!file) return
-  avatarPreview.value = URL.createObjectURL(file)
-
   if (!file.type.startsWith('image/')) {
     fb.error('请选择图片文件')
     return
   }
-  const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || 'png')
-  avatarFileExt.value = ext
-  const reader = new FileReader()
-  reader.onload = () => {
-    avatarFileData.value = reader.result as ArrayBuffer
-  }
-  reader.readAsArrayBuffer(file)
+  revokeCropSource()
+  cropSourceUrl.value = URL.createObjectURL(file)
+  cropImageSrc.value = cropSourceUrl.value
+  cropDialogOpen.value = true
 }
+
+async function confirmCrop() {
+  cropSaving.value = true
+  try {
+    const result = await imageCropper.value.getCroppedImage({
+      output: 'blob',
+      type: 'image/png',
+    })
+    if (!(result instanceof Blob)) {
+      fb.error('头像裁剪失败')
+      return
+    }
+    avatarFileData.value = await result.arrayBuffer()
+    avatarFileExt.value = '.png'
+    revokeAvatarPreviewUrl()
+    avatarPreviewUrl.value = URL.createObjectURL(result)
+    avatarPreview.value = avatarPreviewUrl.value
+    closeCropDialog()
+  } catch (e) {
+    console.error('Failed to crop avatar', e)
+    fb.error('头像裁剪失败')
+  } finally {
+    cropSaving.value = false
+  }
+}
+
+watch(cropDialogOpen, (open) => {
+  if (!open) revokeCropSource()
+})
+
+onUnmounted(() => {
+  revokeCropSource()
+  revokeAvatarPreviewUrl()
+})
 
 function validateForm(): string[] {
   const f = formData.value
@@ -187,6 +251,7 @@ async function handleSave() {
       try {
         const bytes = new Uint8Array(avatarFileData.value)
         await ConfigService.SaveAccountAvatar(accountId, Array.from(bytes), avatarFileExt.value)
+        await accountsStore.loadAccounts()
       } catch (e) {
         console.error('Failed to save avatar', e)
       }
@@ -266,7 +331,7 @@ function providerLabel(p: string): string {
 <template>
   <div class="wrap">
     <!-- ===== Account form ===== -->
-    <div v-if="showingForm">
+    <template v-if="showingForm">
       <div class="card">
         <header class="card__head">
           <h2>{{ formTitle }}</h2>
@@ -467,7 +532,68 @@ function providerLabel(p: string): string {
           </button>
         </footer>
       </div>
-    </div>
+    <Dialog.Root v-model:open="cropDialogOpen" lazy-mount unmount-on-exit>
+      <Teleport to="body">
+        <Dialog.Backdrop class="crop-dialog-backdrop" />
+        <Dialog.Positioner class="crop-dialog-positioner">
+          <Dialog.Content class="crop-dialog-content">
+            <header class="crop-dialog__head">
+              <div>
+                <Dialog.Title class="crop-dialog__title">{{ t['settings.accounts.crop_avatar'] }}</Dialog.Title>
+                <Dialog.Description class="crop-dialog__description">
+                  {{ t['settings.accounts.crop_avatar_hint'] }}
+                </Dialog.Description>
+              </div>
+              <Dialog.CloseTrigger
+                type="button"
+                class="crop-dialog__close"
+                aria-label="关闭"
+                @click="closeCropDialog"
+              >
+                <i class="i-ri:close-line" aria-hidden="true" />
+              </Dialog.CloseTrigger>
+            </header>
+
+            <ImageCropper.RootProvider
+              :value="imageCropper"
+              class="avatar-cropper"
+            >
+              <ImageCropper.Viewport class="avatar-cropper__viewport">
+                <ImageCropper.Image
+                  v-if="cropImageSrc"
+                  :key="cropImageSrc"
+                  class="avatar-cropper__image"
+                  :src="cropImageSrc"
+                  alt="待裁剪头像"
+                />
+                <ImageCropper.Selection class="avatar-cropper__selection">
+                  <ImageCropper.Handle
+                    v-for="position in ImageCropper.handles"
+                    :key="position"
+                    class="avatar-cropper__handle"
+                    :position="position"
+                  >
+                    <div />
+                  </ImageCropper.Handle>
+                  <ImageCropper.Grid class="avatar-cropper__grid" axis="horizontal" />
+                  <ImageCropper.Grid class="avatar-cropper__grid" axis="vertical" />
+                </ImageCropper.Selection>
+              </ImageCropper.Viewport>
+            </ImageCropper.RootProvider>
+
+            <footer class="crop-dialog__foot">
+              <button type="button" class="btn" @click="closeCropDialog">
+                {{ t['settings.accounts.cancel'] }}
+              </button>
+              <button type="button" class="btn btn--primary" :disabled="cropSaving" @click="confirmCrop">
+                {{ cropSaving ? '…' : t['settings.accounts.crop_avatar_done'] }}
+              </button>
+            </footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Teleport>
+    </Dialog.Root>
+    </template>
 
     <!-- ===== Account list ===== -->
     <div v-else class="card">
@@ -635,6 +761,226 @@ function providerLabel(p: string): string {
 .avatar-hint {
   font-size: 12px;
   opacity: 0.6;
+}
+.crop-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgb(0 0 0 / 55%);
+}
+.crop-dialog-positioner {
+  position: fixed;
+  inset: 0;
+  z-index: 1101;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.crop-dialog-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  color: var(--n-text-color);
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 30%);
+}
+.crop-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 12px;
+}
+.crop-dialog__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.crop-dialog__description {
+  margin-top: 5px;
+  color: var(--color-text-2);
+  font-size: 12px;
+}
+.crop-dialog__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  padding: 0;
+  color: var(--color-text-2);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.crop-dialog__close:hover {
+  color: var(--n-text-color);
+  background: var(--n-sidebar-hover);
+}
+.crop-dialog__close:focus-visible {
+  outline: 2px solid var(--n-primary-color);
+  outline-offset: 1px;
+}
+.avatar-cropper {
+  --cropper-accent: var(--n-primary-color);
+  --cropper-line-color: rgb(255 255 255 / 50%);
+  --cropper-overlay-color: rgb(0 0 0 / 50%);
+  --cropper-handler-size: 6px;
+  --cropper-handler-width: 3px;
+  --cropper-line-width: 2px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 18px;
+  color: var(--n-text-color);
+}
+.avatar-cropper__viewport {
+  position: relative;
+  width: min(100%, 420px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--n-action-color);
+  border-radius: 5px;
+  touch-action: none;
+}
+.avatar-cropper__image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  pointer-events: none;
+  user-select: none;
+  backface-visibility: hidden;
+}
+.avatar-cropper__selection {
+  box-sizing: content-box;
+  border: var(--cropper-line-width) solid var(--cropper-line-color);
+  box-shadow: 0 0 0 9999px var(--cropper-overlay-color);
+  cursor: move;
+  outline: none;
+  backface-visibility: hidden;
+  touch-action: none;
+}
+.avatar-cropper__selection:focus-visible {
+  border-color: var(--cropper-accent);
+}
+.avatar-cropper__selection[data-dragging] {
+  cursor: grabbing;
+  border-color: rgb(255 255 255 / 80%);
+}
+.avatar-cropper__grid {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.avatar-cropper__grid[data-axis='horizontal'] {
+  inset: 33.33% 0;
+  border-top: 1px solid rgb(255 255 255 / 40%);
+  border-bottom: 1px solid rgb(255 255 255 / 40%);
+}
+.avatar-cropper__grid[data-axis='vertical'] {
+  inset: 0 33.33%;
+  border-right: 1px solid rgb(255 255 255 / 40%);
+  border-left: 1px solid rgb(255 255 255 / 40%);
+}
+.avatar-cropper__grid[data-dragging],
+.avatar-cropper__grid[data-panning] {
+  opacity: 1;
+}
+.avatar-cropper__handle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--cropper-handler-size) + 8px);
+  height: calc(var(--cropper-handler-size) + 8px);
+  touch-action: none;
+}
+.avatar-cropper__handle > div {
+  width: var(--cropper-handler-size);
+  height: var(--cropper-handler-size);
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+  transition:
+    opacity 0.2s ease,
+    transform 0.15s ease;
+}
+.avatar-cropper__handle[data-disabled] {
+  display: none;
+}
+.avatar-cropper__handle[data-position='top-left'],
+.avatar-cropper__handle[data-position='top-right'],
+.avatar-cropper__handle[data-position='bottom-right'],
+.avatar-cropper__handle[data-position='bottom-left'] {
+  cursor: nwse-resize;
+}
+.avatar-cropper__handle[data-position='top-left'] > div {
+  border-top: var(--cropper-handler-width) solid var(--cropper-accent);
+  border-left: var(--cropper-handler-width) solid var(--cropper-accent);
+}
+.avatar-cropper__handle[data-position='top-right'] {
+  cursor: nesw-resize;
+}
+.avatar-cropper__handle[data-position='top-right'] > div {
+  border-top: var(--cropper-handler-width) solid var(--cropper-accent);
+  border-right: var(--cropper-handler-width) solid var(--cropper-accent);
+}
+.avatar-cropper__handle[data-position='bottom-right'] > div {
+  border-right: var(--cropper-handler-width) solid var(--cropper-accent);
+  border-bottom: var(--cropper-handler-width) solid var(--cropper-accent);
+}
+.avatar-cropper__handle[data-position='bottom-left'] {
+  cursor: nesw-resize;
+}
+.avatar-cropper__handle[data-position='bottom-left'] > div {
+  border-bottom: var(--cropper-handler-width) solid var(--cropper-accent);
+  border-left: var(--cropper-handler-width) solid var(--cropper-accent);
+}
+.avatar-cropper__handle[data-position='top'] > div,
+.avatar-cropper__handle[data-position='bottom'] > div,
+.avatar-cropper__handle[data-position='left'] > div,
+.avatar-cropper__handle[data-position='right'] > div {
+  width: var(--cropper-handler-size);
+  height: var(--cropper-handler-size);
+  border: none;
+  border-radius: 9999px;
+  background: var(--cropper-accent);
+  opacity: 0;
+}
+.avatar-cropper__handle[data-position='top']:hover > div,
+.avatar-cropper__handle[data-position='bottom']:hover > div,
+.avatar-cropper__handle[data-position='left']:hover > div,
+.avatar-cropper__handle[data-position='right']:hover > div {
+  opacity: 1;
+}
+.avatar-cropper__handle[data-position='top'],
+.avatar-cropper__handle[data-position='bottom'] {
+  cursor: ns-resize;
+}
+.avatar-cropper__handle[data-position='left'],
+.avatar-cropper__handle[data-position='right'] {
+  cursor: ew-resize;
+}
+.crop-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 16px;
 }
 .empty-message + p,
 .empty {
