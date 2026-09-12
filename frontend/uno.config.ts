@@ -82,6 +82,7 @@ export default defineConfig({
     'i-vscode-icons:file-type-markdown',
     'i-vscode-icons:file-type-light-yaml',
     'i-vscode-icons:default-file',
+    'i-ri:arrow-right-s-line',
   ],
   shortcuts: {
     // 'chip' etc. reserved if we need one-token util aliases.

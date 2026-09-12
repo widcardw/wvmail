@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Collapsible } from '@ark-ui/vue/collapsible'
-import { Dialog } from '@ark-ui/vue/dialog'
-import { OsService, ConfigService, TranslationService } from '../../bindings/wvmail/services'
+import { ConfigService, TranslationService } from '../../bindings/wvmail/services'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import { useThemeStore } from '../stores/theme'
 import { useFeedbackStore } from '../stores/feedback'
-import type { AttachmentInfo } from '../types/email'
-import { getAttachmentIcon } from '../composables/attachment-icons'
-import { formatDate, formatFileSize } from '../composables/formats'
+import { formatDate } from '../composables/formats'
 import {
   sanitizeHtmlRehype as sanitizeHtml,
   linkifyPlainText,
@@ -17,6 +13,8 @@ import {
   translateHtmlWithLayout,
 } from '../composables/html-utils'
 import EmailShadowBody from './EmailShadowBody.vue'
+import EmailAttachments from './EmailAttachments.vue'
+import EmailLinkDialog from './EmailLinkDialog.vue'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -142,11 +140,6 @@ function clearTranslation() {
   translationError.value = null
 }
 
-async function handleDownloadAttachment(attachment: AttachmentInfo) {
-  const path = await accountsStore.downloadAttachment(attachment)
-  if (path) fb.success(`Downloaded → ${path}`)
-}
-
 const linkOpen = ref(false)
 const pendingUrl = ref('')
 
@@ -167,24 +160,8 @@ async function handleLinkClick(event: MouseEvent) {
   linkOpen.value = true
 }
 
-async function openPendingLink() {
-  const url = pendingUrl.value
-  linkOpen.value = false
-  if (!url) return
-  try {
-    await OsService.OpenURL(url)
-  } catch (e) {
-    console.error('Failed to open URL', e)
-  }
-}
-
 function closeError() {
   accountsStore.detailError = null
-}
-
-function onAttachOpen(d: unknown) {
-  const open = (d as { open?: boolean }).open
-  if (typeof open === 'boolean') attachmentsOpen.value = open
 }
 
 const showAttachments = computed(
@@ -198,7 +175,7 @@ const showAttachments = computed(
 <template>
   <div class="email-detail">
     <div class="scroll">
-      <div v-if="loading" class="centerpad"><span class="spin" /></div>
+      <div v-if="loading" class="centerpad"><span class="spinner spinner--detail" /></div>
 
       <!-- error / security / translation alerts -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
@@ -283,65 +260,12 @@ const showAttachments = computed(
           </div>
         </div>
 
-        <!-- Attachments → Ark Collapsible -->
-        <Collapsible.Root
+        <EmailAttachments
           v-if="showAttachments"
-          data-side="attach"
-          class="attach-wrap"
+          :attachments="detail.attachments!"
           :open="attachmentsOpen"
-          @open-change="onAttachOpen"
-        >
-          <Collapsible.Trigger class="attach-head">
-            <span class="chev" :class="{ open: attachmentsOpen }">
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </span>
-            <span>
-              {{ detail.attachments!.length }}
-              {{ detail.attachments!.length === 1 ? t['mail.attachment'] : t['mail.attachments'] }}
-            </span>
-          </Collapsible.Trigger>
-          <Collapsible.Content class="attach-collapse">
-            <div class="attach-body">
-              <div
-                v-for="att in detail.attachments!"
-                :key="att.filename + '-' + att.size"
-                class="attach-row"
-              >
-                <i
-                  :class="'i-' + getAttachmentIcon(att.mime_type, att.filename)"
-                  class="att-ic"
-                  aria-hidden="true"
-                />
-                <div class="att-info">
-                  <span class="att-name">
-                    {{ att.filename }}
-                    <span v-if="att.is_inline" class="muted-sm"
-                      >({{ t['mail.inline_image'] }})</span
-                    >
-                  </span>
-                  <span class="att-size">{{ formatFileSize(att.size) }}</span>
-                </div>
-                <button
-                  type="button"
-                  class="icon-btn"
-                  title="download"
-                  @click="handleDownloadAttachment(att)"
-                >
-                  <i class="i-ri:download-2-line" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          </Collapsible.Content>
-        </Collapsible.Root>
+          @update:open="attachmentsOpen = $event"
+        />
 
         <div class="detail-body" @click="handleLinkClick">
           <EmailShadowBody
@@ -375,25 +299,7 @@ const showAttachments = computed(
     </div>
   </div>
   <Teleport to="body">
-    <Dialog.Root
-      :open="linkOpen"
-      @open-change="(o: unknown) => (linkOpen = !!(o as { open?: boolean })?.open)"
-    >
-      <Dialog.Backdrop class="d-back" />
-      <Dialog.Positioner class="d-pos">
-        <Dialog.Content class="d-card">
-          <h3 class="d-title">{{ t['mail.link.title'] }}</h3>
-          <p class="d-desc">{{ t['mail.link.body'] }}</p>
-          <p class="d-url">{{ pendingUrl }}</p>
-          <div class="d-actions">
-            <button type="button" class="d-btn" @click="linkOpen = false">{{ t['cancel'] }}</button>
-            <button type="button" class="d-btn d-btn--primary" @click="openPendingLink">
-              {{ t['mail.link.open'] }}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Dialog.Root>
+    <EmailLinkDialog v-model:open="linkOpen" :url="pendingUrl" />
   </Teleport>
 </template>
 
@@ -421,12 +327,9 @@ const showAttachments = computed(
   color: var(--color-text-3);
   font-size: 13px;
 }
-.spin {
+.spinner--detail {
   width: 20px;
   height: 20px;
-  border: 2px solid var(--n-border-color);
-  border-top-color: var(--n-primary-color);
-  border-radius: 50%;
 }
 .rot {
   animation: rot360 0.8s linear infinite;
@@ -507,8 +410,6 @@ const showAttachments = computed(
 }
 
 /* Top-of-detail actions become themed, visible buttons (not faint icons) */
-.detail-header n-btn:hover,
-.detail-header n-btn i,
 .detail-header .ic-spin {
   display: inline-block;
   width: 14px;
@@ -540,69 +441,6 @@ const showAttachments = computed(
   opacity: 0.6;
 }
 
-.attach-wrap {
-  background: var(--n-action-color);
-}
-.attach-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 16px;
-  border: none;
-  border-bottom: 1px solid var(--n-border-color);
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: inherit;
-  text-align: left;
-}
-.chev {
-  display: inline-flex;
-  transition: transform 0.15s;
-}
-.chev.open {
-  transform: rotate(90deg);
-}
-.attach-body {
-  padding: 0;
-}
-.attach-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 20px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.att-ic {
-  font-size: 20px;
-  flex-shrink: 0;
-  color: var(--color-text-2);
-}
-.att-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.att-name {
-  font-size: 13px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.att-size {
-  font-size: 11px;
-  opacity: 0.5;
-}
-.muted-sm {
-  font-size: 11px;
-  opacity: 0.55;
-  margin-left: 2px;
-}
-
 .detail-body {
   padding: 18px 22px;
   line-height: 1.6;
@@ -622,76 +460,4 @@ const showAttachments = computed(
   margin-bottom: 8px;
 }
 
-/* Confirm-open-link dialog */
-.d-back {
-  position: fixed;
-  inset: 0;
-  z-index: 900;
-  background: rgba(0, 0, 0, 0.4);
-}
-.d-pos {
-  position: fixed;
-  z-index: 901;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  pointer-events: none;
-}
-.d-card {
-  pointer-events: auto;
-  width: min(440px, 100%);
-  background: var(--color-surface);
-  color: var(--n-text-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-}
-.d-title {
-  margin: 0 0 6px;
-  font-size: 15px;
-}
-.d-desc {
-  margin: 0 0 8px;
-  font-size: 13px;
-  opacity: 0.85;
-}
-.d-url {
-  margin: 0 0 16px;
-  font-size: 12px;
-  word-break: break-all;
-  color: var(--info, #2080f0);
-}
-.d-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.d-btn {
-  padding: 6px 12px;
-  font-size: 13px;
-  border: 1px solid var(--n-border-color);
-  background: var(--n-action-color);
-  color: var(--n-text-color);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.d-btn--primary {
-  background: var(--n-primary-color);
-  border-color: transparent;
-  color: #fff;
-}
-</style>
-
-<style>
-/* Neutralise the shared generic [data-part=content] card styling for the email
-   attachment list; we keep only the trigger's bottom border as the divider. */
-[data-side='attach'] [data-part='collapsible:content'],
-[data-side='attach'] [data-scope='collapsible'][data-part='content'] {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
 </style>

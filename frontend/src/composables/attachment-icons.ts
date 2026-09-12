@@ -1,3 +1,4 @@
+// @unocss-include
 function getAttachmentIcon(mimeType: string, fileName: string): string {
   const nameSlices = fileName?.split('.')
   const ext = nameSlices?.[nameSlices.length - 1]?.toLowerCase() ?? ''
