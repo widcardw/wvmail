@@ -354,8 +354,21 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		fmt.Printf("failed to cache emails: %v\n", err)
 	}
 
+	// The IMAP request above only fetched the requested page. Return the page
+	// from the merged cache for page 1, so callers get newly fetched messages
+	// and previously cached older messages in one response. For later pages,
+	// keep returning the IMAP page unless the cache has enough rows to rebuild
+	// that page completely.
+	responseEmails := summaries
+	if cached, cacheErr := s.db.LoadEmails(account.ID, folder); cacheErr == nil && len(cached) > 0 {
+		cacheCoversPage := page <= 1 || len(cached) >= page*pageSize || len(cached) >= total
+		if cacheCoversPage {
+			responseEmails = s.paginate(cached, page, pageSize)
+		}
+	}
+
 	return &EmailPageResponse{
-		Emails: summaries,
+		Emails: responseEmails,
 		Total:  total,
 	}, nil
 }
