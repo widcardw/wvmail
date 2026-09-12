@@ -4,8 +4,8 @@ import AccountAvatar from './AccountAvatar.vue'
 import type { EmailSummary } from '../types/email'
 
 type ListEmail = EmailSummary & {
-  _accountId?: string
-  _folderName?: string
+  account_id?: string
+  folder_name?: string
 }
 
 const props = defineProps<{
@@ -29,10 +29,10 @@ const emit = defineEmits<{
     <div class="email-row">
       <span class="email-body">
         <span class="email-header">
-          <span v-if="props.smart" class="email-avatar">
+          <span v-if="props.smart || props.email.account_id" class="email-avatar">
             <AccountAvatar
-              v-if="props.email._accountId"
-              :account-id="props.email._accountId"
+              v-if="props.email.account_id"
+              :account-id="props.email.account_id"
             />
           </span>
           <span class="email-from">{{ displaySender(props.email) }}</span>

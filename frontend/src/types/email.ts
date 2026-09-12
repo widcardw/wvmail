@@ -26,9 +26,19 @@ export interface EmailSummary {
   from: string
   from_name: string
   from_addr: string
+  to: string[]
   date: string
   flags: string[]
   is_read: boolean
+  account_id?: string
+  folder_name?: string
+}
+
+export type EmailSearchField = 'from' | 'to' | 'content'
+
+export interface EmailSearchFilter {
+  field: EmailSearchField
+  value: string
 }
 
 export interface EmailDetail {

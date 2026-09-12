@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"gorm.io/driver/sqlite"
@@ -28,9 +29,10 @@ type CachedEmail struct {
 	FolderName string `gorm:"size:255;not null"`
 	UID        uint32 `gorm:"not null"`
 	Subject    string `gorm:"size:512"`
-	From       string `gorm:"size:256"`  // display "Name <email>"
+	From       string `gorm:"size:256"` // display "Name <email>"
 	FromName   string `gorm:"size:128"`
 	FromAddr   string `gorm:"size:256"`
+	To         string `gorm:"type:text"` // JSON serialized []string
 	Date       string `gorm:"size:64"`
 	Flags      string `gorm:"size:512"` // JSON serialized []string
 	IsRead     bool
@@ -38,20 +40,20 @@ type CachedEmail struct {
 
 // CachedEmailBody represents a cached full email body content.
 type CachedEmailBody struct {
-	ID        uint   `gorm:"primaryKey"`
-	AccountID string `gorm:"index:idx_ceb_account_folder_uid;size:64;not null"`
-	FolderName string `gorm:"size:255;not null"`
-	UID       uint32 `gorm:"not null"`
-	Subject   string `gorm:"size:512"`
-	From      string `gorm:"size:256"`  // display "Name <email>"
-	FromName  string `gorm:"size:128"`
-	FromAddr  string `gorm:"size:256"`
-	To        string `gorm:"size:512"`  // JSON serialized []string
-	Cc        string `gorm:"size:512"`  // JSON serialized []string
-	Date      string `gorm:"size:64"`
-	BodyText  string `gorm:"type:text"`
-	BodyHTML  string `gorm:"type:text"`
-	Flags     string `gorm:"size:512"` // JSON serialized []string
+	ID          uint   `gorm:"primaryKey"`
+	AccountID   string `gorm:"index:idx_ceb_account_folder_uid;size:64;not null"`
+	FolderName  string `gorm:"size:255;not null"`
+	UID         uint32 `gorm:"not null"`
+	Subject     string `gorm:"size:512"`
+	From        string `gorm:"size:256"` // display "Name <email>"
+	FromName    string `gorm:"size:128"`
+	FromAddr    string `gorm:"size:256"`
+	To          string `gorm:"size:512"` // JSON serialized []string
+	Cc          string `gorm:"size:512"` // JSON serialized []string
+	Date        string `gorm:"size:64"`
+	BodyText    string `gorm:"type:text"`
+	BodyHTML    string `gorm:"type:text"`
+	Flags       string `gorm:"size:512"`  // JSON serialized []string
 	Attachments string `gorm:"type:text"` // JSON serialized []AttachmentInfo
 }
 
@@ -202,6 +204,7 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 			return err
 		}
 		flagsJSON, _ := json.Marshal(e.Flags)
+		toJSON, _ := json.Marshal(e.To)
 		ce := CachedEmail{
 			AccountID:  accountID,
 			FolderName: folderName,
@@ -210,6 +213,7 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 			From:       e.From,
 			FromName:   e.FromName,
 			FromAddr:   e.FromAddr,
+			To:         string(toJSON),
 			Date:       e.Date,
 			Flags:      string(flagsJSON),
 			IsRead:     e.IsRead,
@@ -241,22 +245,143 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 
 	emails := make([]EmailSummary, 0, len(cached))
 	for _, c := range cached {
-		var flags []string
-		if c.Flags != "" {
-			json.Unmarshal([]byte(c.Flags), &flags)
-		}
-		emails = append(emails, EmailSummary{
-			UID:      c.UID,
-			Subject:  c.Subject,
-			From:     c.From,
-			FromName: c.FromName,
-			FromAddr: c.FromAddr,
-			Date:     c.Date,
-			Flags:    flags,
-			IsRead:   c.IsRead,
-		})
+		emails = append(emails, cachedEmailSummary(c))
 	}
 	return emails, nil
+}
+
+// SearchEmails searches cached summaries and any cached message bodies. The
+// cache is intentionally used instead of an external search index: it keeps
+// the desktop app offline-friendly and is sufficient for the current data set.
+func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var cached []CachedEmail
+	emailsQuery := db.Order("date DESC")
+	if query.AccountID != "" {
+		emailsQuery = emailsQuery.Where("account_id = ?", query.AccountID)
+	}
+	if err := emailsQuery.Find(&cached).Error; err != nil {
+		return nil, err
+	}
+
+	var bodies []CachedEmailBody
+	bodiesQuery := db
+	if query.AccountID != "" {
+		bodiesQuery = bodiesQuery.Where("account_id = ?", query.AccountID)
+	}
+	if err := bodiesQuery.Find(&bodies).Error; err != nil {
+		return nil, err
+	}
+	bodyByKey := make(map[string]*CachedEmailBody, len(bodies))
+	for i := range bodies {
+		body := &bodies[i]
+		bodyByKey[emailCacheKey(body.AccountID, body.FolderName, body.UID)] = body
+	}
+
+	results := make([]EmailSummary, 0, len(cached))
+	for _, c := range cached {
+		summary := cachedEmailSummary(c)
+		summary.AccountID = c.AccountID
+		summary.FolderName = c.FolderName
+		body := bodyByKey[emailCacheKey(c.AccountID, c.FolderName, c.UID)]
+		if searchEmailMatches(summary, body, query.Filters) {
+			results = append(results, summary)
+		}
+	}
+	return results, nil
+}
+
+func cachedEmailSummary(c CachedEmail) EmailSummary {
+	var flags, to []string
+	if c.Flags != "" {
+		json.Unmarshal([]byte(c.Flags), &flags)
+	}
+	if c.To != "" {
+		json.Unmarshal([]byte(c.To), &to)
+	}
+	return EmailSummary{
+		UID:      c.UID,
+		Subject:  c.Subject,
+		From:     c.From,
+		FromName: c.FromName,
+		FromAddr: c.FromAddr,
+		To:       to,
+		Date:     c.Date,
+		Flags:    flags,
+		IsRead:   c.IsRead,
+	}
+}
+
+func emailCacheKey(accountID, folderName string, uid uint32) string {
+	return fmt.Sprintf("%s\x00%s\x00%d", accountID, folderName, uid)
+}
+
+func searchEmailMatches(summary EmailSummary, body *CachedEmailBody, filters []EmailSearchFilter) bool {
+	var fromValues, toValues, contentValues []string
+	for _, filter := range filters {
+		value := strings.TrimSpace(filter.Value)
+		if value == "" {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(filter.Field)) {
+		case "from":
+			fromValues = append(fromValues, value)
+		case "to":
+			toValues = append(toValues, value)
+		case "content":
+			contentValues = append(contentValues, value)
+		}
+	}
+
+	fromText := []string{summary.From, summary.FromName, summary.FromAddr}
+	if len(fromValues) > 0 && !containsAny(fromText, fromValues) {
+		return false
+	}
+
+	recipients := append([]string{}, summary.To...)
+	if body != nil && body.To != "" {
+		var bodyRecipients []string
+		json.Unmarshal([]byte(body.To), &bodyRecipients)
+		recipients = append(recipients, bodyRecipients...)
+	}
+	if len(toValues) > 0 && !containsAny(recipients, toValues) {
+		return false
+	}
+
+	contentText := []string{summary.Subject}
+	if body != nil {
+		contentText = append(contentText, body.BodyText, body.BodyHTML)
+	}
+	for _, value := range contentValues {
+		matched := false
+		for _, term := range strings.Split(value, "|") {
+			term = strings.TrimSpace(term)
+			if term != "" && containsAny(contentText, []string{term}) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+func containsAny(values, queries []string) bool {
+	for _, value := range values {
+		lowerValue := strings.ToLower(value)
+		for _, query := range queries {
+			if strings.Contains(lowerValue, strings.ToLower(query)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // SaveFolderMeta stores the total message count for a folder.

@@ -4,6 +4,7 @@ import { Menu } from '@ark-ui/vue/menu'
 import { OsService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useThemeStore, type ThemeMode } from '~/stores/theme'
+import SearchBar from './SearchBar.vue'
 
 const { t } = useI18n()
 const themeStore = useThemeStore()
@@ -41,7 +42,7 @@ onMounted(() => {
     </div>
 
     <div class="titlebar-center">
-      <input class="search-input" type="search" :placeholder="t['search.placeholder']" />
+      <SearchBar />
     </div>
 
     <div class="titlebar-right">
@@ -99,22 +100,6 @@ onMounted(() => {
   flex: 1;
   display: flex;
   justify-content: center;
-}
-
-.search-input {
-  max-width: 380px;
-  width: 100%;
-  height: 26px;
-  padding: 0 10px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--action-color, var(--n-action-color));
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-  outline: none;
-}
-.search-input:focus {
-  border-color: var(--n-primary-color);
 }
 
 .titlebar-right {

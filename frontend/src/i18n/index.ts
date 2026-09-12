@@ -6,6 +6,11 @@ export type Locale = 'zh-CN' | 'en-US'
 export interface TranslationSchema {
   'app.brand': string
   'search.placeholder': string
+  'search.from': string
+  'search.to': string
+  'search.content': string
+  'search.remove': string
+  'search.results': string
   'sidebar.inbox': string
   'sidebar.sent': string
   'sidebar.all_inbox': string

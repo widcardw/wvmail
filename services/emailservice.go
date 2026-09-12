@@ -68,14 +68,31 @@ func NewEmailService() *EmailService {
 
 // EmailSummary is a lightweight representation of an email for list views.
 type EmailSummary struct {
-	UID      uint32   `json:"uid"`
-	Subject  string   `json:"subject"`
-	From     string   `json:"from"`
-	FromName string   `json:"from_name"`
-	FromAddr string   `json:"from_addr"`
-	Date     string   `json:"date"`
-	Flags    []string `json:"flags"`
-	IsRead   bool     `json:"is_read"`
+	UID        uint32   `json:"uid"`
+	Subject    string   `json:"subject"`
+	From       string   `json:"from"`
+	FromName   string   `json:"from_name"`
+	FromAddr   string   `json:"from_addr"`
+	To         []string `json:"to"`
+	Date       string   `json:"date"`
+	Flags      []string `json:"flags"`
+	IsRead     bool     `json:"is_read"`
+	AccountID  string   `json:"account_id,omitempty"`
+	FolderName string   `json:"folder_name,omitempty"`
+}
+
+// EmailSearchFilter is one structured search tag. Supported fields are
+// "from", "to", and "content".
+type EmailSearchFilter struct {
+	Field string `json:"field"`
+	Value string `json:"value"`
+}
+
+// EmailSearchQuery searches the local email cache. An empty AccountID searches
+// across all cached accounts; a non-empty AccountID limits results to it.
+type EmailSearchQuery struct {
+	AccountID string              `json:"account_id"`
+	Filters   []EmailSearchFilter `json:"filters"`
 }
 
 // AttachmentInfo describes a single email attachment discovered in the MIME
@@ -90,19 +107,19 @@ type AttachmentInfo struct {
 
 // EmailDetail is the full representation of an email including body content.
 type EmailDetail struct {
-	UID           uint32           `json:"uid"`
-	Subject       string           `json:"subject"`
-	From          string           `json:"from"`
-	FromName      string           `json:"from_name"`
-	FromAddr      string           `json:"from_addr"`
-	To            []string         `json:"to"`
-	Cc            []string         `json:"cc"`
-	Date          string           `json:"date"`
-	BodyText      string           `json:"body_text"`
-	BodyHTML      string           `json:"body_html"`
-	Flags         []string         `json:"flags"`
-	Attachments   []AttachmentInfo `json:"attachments"`
-	IsSuspicious  bool             `json:"is_suspicious"`
+	UID          uint32           `json:"uid"`
+	Subject      string           `json:"subject"`
+	From         string           `json:"from"`
+	FromName     string           `json:"from_name"`
+	FromAddr     string           `json:"from_addr"`
+	To           []string         `json:"to"`
+	Cc           []string         `json:"cc"`
+	Date         string           `json:"date"`
+	BodyText     string           `json:"body_text"`
+	BodyHTML     string           `json:"body_html"`
+	Flags        []string         `json:"flags"`
+	Attachments  []AttachmentInfo `json:"attachments"`
+	IsSuspicious bool             `json:"is_suspicious"`
 }
 
 // FolderInfo represents a mail folder with its metadata.
@@ -203,6 +220,25 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 	}
 
 	return s.RefreshEmails(account, folder, page, pageSize)
+}
+
+// SearchEmails searches cached email summaries and cached bodies. Results are
+// ordered newest first and paginated before being returned to the frontend.
+func (s *EmailService) SearchEmails(query EmailSearchQuery, page, pageSize int) (*EmailPageResponse, error) {
+	emails, err := s.db.SearchEmails(query)
+	if err != nil {
+		return nil, fmt.Errorf("search emails failed: %w", err)
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	return &EmailPageResponse{
+		Emails: s.paginate(emails, page, pageSize),
+		Total:  len(emails),
+	}, nil
 }
 
 // RefreshEmails fetches email summaries from the IMAP server and updates the
@@ -335,6 +371,15 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 				summary.From = summary.FromName + " <" + summary.FromAddr + ">"
 			} else {
 				summary.From = summary.FromAddr
+			}
+		}
+		if buf.Envelope != nil {
+			for _, addr := range buf.Envelope.To {
+				if addr.Host != "" {
+					summary.To = append(summary.To, addr.Mailbox+"@"+addr.Host)
+				} else {
+					summary.To = append(summary.To, addr.Mailbox)
+				}
 			}
 		}
 		summaries = append(summaries, summary)

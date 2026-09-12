@@ -10,7 +10,11 @@ const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 
 const loading = computed(() =>
-  accountsStore.isSmartFolder ? accountsStore.smartFolderLoading : accountsStore.loading,
+  accountsStore.searchActive
+    ? accountsStore.searchLoading
+    : accountsStore.isSmartFolder
+      ? accountsStore.smartFolderLoading
+      : accountsStore.loading,
 )
 const emails = computed(() => accountsStore.currentEmails)
 const selectedUid = computed(() => accountsStore.selectedEmailUid)
@@ -24,16 +28,22 @@ const folderDisplay = computed(() => {
   if (accountsStore.isSmartFolder) return { label: String(accountsStore.smartFolder) }
   if (accountsStore.selectedFolder)
     return getFolderDisplay(accountsStore.selectedFolder, locale.value)
+  if (accountsStore.searchActive) return { label: t['search.results'] }
   return { label: '', icon: '', rank: 99 }
 })
 
-const showHeader = computed(() => !!accountsStore.selectedFolder || accountsStore.isSmartFolder)
+const showHeader = computed(
+  () =>
+    !!accountsStore.selectedFolder ||
+    accountsStore.isSmartFolder ||
+    accountsStore.searchActive,
+)
 
-function handleClick(email: { uid: number; _accountId?: string; _folderName?: string }) {
+function handleClick(email: { uid: number; account_id?: string; folder_name?: string }) {
   const smartF = accountsStore.smartFolder
-  if (smartF && email._accountId && email._folderName) {
-    const account = accountsStore.accounts.find((a) => a.ID === email._accountId)
-    if (account) accountsStore.selectEmail(account, email._folderName, email.uid)
+  if ((smartF || accountsStore.searchActive) && email.account_id && email.folder_name) {
+    const account = accountsStore.accounts.find((a) => a.ID === email.account_id)
+    if (account) accountsStore.selectEmail(account, email.folder_name, email.uid)
     return
   }
   const account = accountsStore.selectedAccount
@@ -50,7 +60,7 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
       v-if="showHeader"
       :label="folderDisplay.label"
       :title="accountsStore.selectedFolder || folderDisplay.label"
-      :show-refresh="!accountsStore.isSmartFolder"
+      :show-refresh="!accountsStore.isSmartFolder && !accountsStore.searchActive"
       :refreshing="accountsStore.refreshing"
       :page-count="pageCount"
       :total="accountsStore.currentTotal"
@@ -67,7 +77,7 @@ function handleClick(email: { uid: number; _accountId?: string; _folderName?: st
       <template v-else>
         <EmailListItem
           v-for="email in emails"
-          :key="email.uid"
+          :key="`${email.account_id || accountsStore.selectedAccountId}:${email.folder_name || accountsStore.selectedFolder}:${email.uid}`"
           :email="email"
           :selected="selectedUid === email.uid"
           :smart="accountsStore.isSmartFolder"

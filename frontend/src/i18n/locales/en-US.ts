@@ -3,6 +3,11 @@ import type { TranslationSchema } from '../index'
 const enUS: TranslationSchema = {
   'app.brand': 'wvmail',
   'search.placeholder': 'Search emails...',
+  'search.from': 'From',
+  'search.to': 'To',
+  'search.content': 'Content',
+  'search.remove': 'Remove search filter',
+  'search.results': 'Search results',
   'sidebar.inbox': 'Inbox',
   'sidebar.sent': 'Sent',
   'sidebar.all_inbox': 'All Inboxes',

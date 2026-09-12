@@ -3,6 +3,11 @@ import type { TranslationSchema } from '../index'
 const zhCN: TranslationSchema = {
   'app.brand': 'wvmail',
   'search.placeholder': '搜索邮件...',
+  'search.from': '发件人',
+  'search.to': '收件人',
+  'search.content': '内容',
+  'search.remove': '移除搜索条件',
+  'search.results': '搜索结果',
   'sidebar.inbox': '收件箱',
   'sidebar.sent': '已发送',
   'sidebar.all_inbox': '所有收件箱',

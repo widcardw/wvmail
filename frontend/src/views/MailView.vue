@@ -11,7 +11,8 @@ const registry = Splitter.createRegistry()
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
 
-const active = () => Boolean(accountsStore.selectedFolder || accountsStore.isSmartFolder)
+const active = () =>
+  Boolean(accountsStore.selectedFolder || accountsStore.isSmartFolder || accountsStore.searchActive)
 </script>
 
 <template>
