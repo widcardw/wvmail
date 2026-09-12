@@ -1,85 +1,71 @@
-// @unocss-include
-function getAttachmentIcon(mimeType: string, fileName: string): string {
-  const nameSlices = fileName?.split('.')
-  const ext = nameSlices?.[nameSlices.length - 1]?.toLowerCase() ?? ''
+const vscode = (name: string) => `vscode-icons:${name}`
+const logo = (name: string) => `logos:${name}`
 
-  // Extension-based lookup
-  const extMap: Record<string, string> = {
-    // Images
-    jpg: 'vscode-icons:file-type-image',
-    jpeg: 'vscode-icons:file-type-image',
-    png: 'vscode-icons:file-type-image',
-    gif: 'vscode-icons:file-type-image',
-    webp: 'vscode-icons:file-type-image',
-    svg: 'vscode-icons:file-type-image',
-    bmp: 'vscode-icons:file-type-image',
-    ico: 'vscode-icons:file-type-image',
-    // Videos
-    mp4: 'vscode-icons:file-type-video',
-    avi: 'vscode-icons:file-type-video',
-    mov: 'vscode-icons:file-type-video',
-    mkv: 'vscode-icons:file-type-video',
-    webm: 'vscode-icons:file-type-video',
-    // Audio
-    mp3: 'vscode-icons:file-type-audio',
-    wav: 'vscode-icons:file-type-audio',
-    flac: 'vscode-icons:file-type-audio',
-    aac: 'vscode-icons:file-type-audio',
-    ogg: 'vscode-icons:file-type-audio',
-    // PDF
-    pdf: 'vscode-icons:file-type-pdf2',
-    // Archives
-    zip: 'vscode-icons:file-type-zip',
-    rar: 'vscode-icons:file-type-zip',
-    '7z': 'vscode-icons:file-type-zip',
-    tar: 'vscode-icons:file-type-zip',
-    gz: 'vscode-icons:file-type-zip',
-    bz2: 'vscode-icons:file-type-zip',
-    // Office — Word
-    doc: 'vscode-icons:file-type-word',
-    docx: 'vscode-icons:file-type-word',
-    // Office — Excel
-    xls: 'vscode-icons:file-type-excel',
-    xlsx: 'vscode-icons:file-type-excel',
-    csv: 'vscode-icons:file-type-excel',
-    // Office — PowerPoint
-    ppt: 'vscode-icons:file-type-powerpoint',
-    pptx: 'vscode-icons:file-type-powerpoint',
-    // Code / text
-    txt: 'vscode-icons:file-type-text',
-    json: 'vscode-icons:file-type-json',
-    xml: 'vscode-icons:file-type-xml',
-    md: 'vscode-icons:file-type-markdown',
-    yaml: 'vscode-icons:file-type-light-yaml',
-    yml: 'vscode-icons:file-type-light-yaml',
-    ts: 'logos:typescript-icon',
-    js: 'logos:javascript',
-    py: 'logos:python',
-    java: 'logos:java',
-  }
+const ICONS = {
+  image: vscode('file-type-image'),
+  video: vscode('file-type-video'),
+  audio: vscode('file-type-audio'),
+  pdf: vscode('file-type-pdf2'),
+  archive: vscode('file-type-zip'),
+  word: vscode('file-type-word'),
+  excel: vscode('file-type-excel'),
+  powerpoint: vscode('file-type-powerpoint'),
+  text: vscode('file-type-text'),
+  json: vscode('file-type-json'),
+  xml: vscode('file-type-xml'),
+  markdown: vscode('file-type-markdown'),
+  yaml: vscode('file-type-light-yaml'),
+  unknown: vscode('default-file'),
+  typescript: logo('typescript-icon'),
+  javascript: logo('javascript'),
+  python: logo('python'),
+  java: logo('java'),
+} as const
+
+function byExtensions(...groups: Array<readonly [readonly string[], string]>) {
+  return Object.fromEntries(
+    groups.flatMap(([extensions, icon]) => extensions.map((ext) => [ext, icon])),
+  ) as Record<string, string>
+}
+
+const extMap = byExtensions(
+  [['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'], ICONS.image],
+  [['mp4', 'avi', 'mov', 'mkv', 'webm'], ICONS.video],
+  [['mp3', 'wav', 'flac', 'aac', 'ogg'], ICONS.audio],
+  [['pdf'], ICONS.pdf],
+  [['zip', 'rar', '7z', 'tar', 'gz', 'bz2'], ICONS.archive],
+  [['doc', 'docx'], ICONS.word],
+  [['xls', 'xlsx', 'csv'], ICONS.excel],
+  [['ppt', 'pptx'], ICONS.powerpoint],
+  [['txt', 'log'], ICONS.text],
+  [['json'], ICONS.json],
+  [['xml', 'xaml'], ICONS.xml],
+  [['md'], ICONS.markdown],
+  [['yaml', 'yml'], ICONS.yaml],
+  [['ts'], ICONS.typescript],
+  [['js'], ICONS.javascript],
+  [['py'], ICONS.python],
+  [['java'], ICONS.java],
+)
+
+function getAttachmentIcon(mimeType: string, fileName: string): string {
+  const ext = fileName?.split('.').pop()?.toLowerCase() ?? ''
 
   if (ext && ext in extMap) return extMap[ext]
 
   // Fallback to MIME type
-  if (mimeType.startsWith('image/')) return 'vscode-icons:file-type-image'
-  if (mimeType.startsWith('video/')) return 'vscode-icons:file-type-video'
-  if (mimeType.startsWith('audio/')) return 'vscode-icons:file-type-audio'
-  if (mimeType.includes('pdf')) return 'vscode-icons:file-type-pdf2'
-  if (
-    mimeType.includes('zip') ||
-    mimeType.includes('rar') ||
-    mimeType.includes('tar') ||
-    mimeType.includes('7z')
-  )
-    return 'vscode-icons:file-type-zip'
-  if (mimeType.includes('word') || mimeType.includes('document'))
-    return 'vscode-icons:file-type-word'
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet'))
-    return 'vscode-icons:file-type-excel'
-  if (mimeType.includes('powerpoint') || mimeType.includes('presentation'))
-    return 'vscode-icons:file-type-powerpoint'
-  if (mimeType.includes('text/')) return 'vscode-icons:file-type-text'
-  return 'vscode-icons:default-file'
+  if (mimeType.startsWith('image/')) return ICONS.image
+  if (mimeType.startsWith('video/')) return ICONS.video
+  if (mimeType.startsWith('audio/')) return ICONS.audio
+  if (mimeType.includes('pdf')) return ICONS.pdf
+  if (['zip', 'rar', 'tar', '7z'].some((type) => mimeType.includes(type)))
+    return ICONS.archive
+  if (['word', 'document'].some((type) => mimeType.includes(type))) return ICONS.word
+  if (['excel', 'spreadsheet'].some((type) => mimeType.includes(type))) return ICONS.excel
+  if (['powerpoint', 'presentation'].some((type) => mimeType.includes(type)))
+    return ICONS.powerpoint
+  if (mimeType.includes('text/')) return ICONS.text
+  return ICONS.unknown
 }
 
 export { getAttachmentIcon }
