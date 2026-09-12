@@ -209,8 +209,8 @@ const showAttachments = computed(
       </div>
 
       <div v-if="detail?.is_suspicious && !suspiciousRevealed" class="alert alert--warn">
-        <p style="margin: 0 0 6px">{{ t['mail.security.title'] }}</p>
-        <p style="margin: 0 0 8px">
+        <p style="margin: 0">{{ t['mail.security.title'] }}</p>
+        <p style="margin: 0">
           {{ t['mail.security.body'].replace('{count}', String(blockedCount)) }}
         </p>
         <button type="button" class="btn btn--sm btn--subtle" @click="suspiciousRevealed = true">

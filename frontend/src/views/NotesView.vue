@@ -238,15 +238,15 @@ onUnmounted(() => {
         </button>
         <span class="toolbar-sep" />
         <button
-          v-for="(lvl, i) in [1, 2, 3] as const"
+          v-for="lvl in [1, 2, 3] as const"
           :key="lvl"
           type="button"
-          class="tb tb--text"
+          class="tb tb--text select-none"
           :class="{ active: editor?.isActive('heading', { level: lvl }) }"
           title="Heading H{{ lvl }}"
           @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
         >
-          H{{ i }}
+          H{{ lvl }}
         </button>
         <span class="toolbar-sep" />
         <button

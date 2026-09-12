@@ -148,7 +148,7 @@ async function handleOpenLogFolder() {
         </button>
       </div>
 
-      <div class="divider">⚠️ {{ t['settings.about.security'] }}</div>
+      <div class="divider">{{ t['settings.about.security'] }}</div>
       <div class="row">
         <span class="row__label">{{ t['settings.about.scan_safety'] }}</span>
         <button
@@ -178,7 +178,7 @@ async function handleOpenLogFolder() {
   font-size: 13px;
 }
 .lead {
-  padding: 12px 18px 6px;
+  padding: 12px 18px;
 }
 .lead__title {
   margin: 0;
@@ -192,8 +192,8 @@ async function handleOpenLogFolder() {
 .divider {
   padding: 10px 18px 4px;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-2);
+  font-weight: 800;
+  color: var(--color-text-1);
   border-top: 1px solid var(--n-border-color);
 }
 .row {
