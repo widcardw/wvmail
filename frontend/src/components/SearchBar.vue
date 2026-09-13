@@ -21,12 +21,21 @@ const fieldLabels = computed<Record<EmailSearchField, string>>(() => ({
   content: t.value['search.content'],
 }))
 
-const defaultTo = computed(() => accountsStore.selectedAccount?.Email?.trim() || '')
+const defaultFilter = computed<SearchTag | null>(() => {
+  const account = accountsStore.selectedAccount
+  const folder = accountsStore.selectedFolder
+  const email = account?.Email?.trim() || ''
+  if (accountsStore.isSmartFolder || !email || !folder) return null
+
+  const field: EmailSearchField | null = accountsStore.folderMatchesType(folder, 'sent')
+    ? 'from'
+    : accountsStore.folderMatchesType(folder, 'inbox')
+      ? 'to'
+      : null
+  return field ? { field, value: email, locked: true } : null
+})
 const displayedTags = computed<SearchTag[]>(() => {
-  const defaultTag = defaultTo.value
-    ? [{ field: 'to' as const, value: defaultTo.value, locked: true }]
-    : []
-  return [...defaultTag, ...tags.value]
+  return defaultFilter.value ? [defaultFilter.value, ...tags.value] : tags.value
 })
 
 const parsedInput = computed(() => {
@@ -39,6 +48,7 @@ const parsedInput = computed(() => {
 const accountSuggestions = computed(() => {
   const { field, value } = parsedInput.value
   if ((field !== 'from' && field !== 'to') || input.value.trim() === '') return []
+  if (defaultFilter.value?.field === field) return []
   const needle = value.trim().toLowerCase()
   return accountsStore.accounts
     .filter((account) => {
@@ -56,6 +66,7 @@ const fieldSuggestions = computed(() => {
   if (/^\s*(from|to|content)\s*:/i.test(input.value)) return []
   const needle = input.value.trim().toLowerCase()
   const fields = (Object.keys(fieldLabels.value) as EmailSearchField[]).filter((field) => {
+    if (defaultFilter.value?.field === field) return false
     if (!needle) return true
     return field.startsWith(needle) || fieldLabels.value[field].toLowerCase().startsWith(needle)
   })
@@ -119,7 +130,7 @@ function chooseField(field: EmailSearchField) {
 
 function removeTag(index: number) {
   if (displayedTags.value[index]?.locked) return
-  const removableIndex = index - (defaultTo.value ? 1 : 0)
+  const removableIndex = index - (defaultFilter.value ? 1 : 0)
   if (removableIndex >= 0) {
     tags.value.splice(removableIndex, 1)
     void runSearch()
@@ -176,7 +187,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 watch(
-  () => [accountsStore.selectedAccount?.ID, accountsStore.isSmartFolder],
+  () => [accountsStore.selectedAccount?.ID, accountsStore.selectedFolder, accountsStore.isSmartFolder],
   () => {
     if (tags.value.length > 0) void runSearch()
   },
@@ -322,20 +333,23 @@ watch(
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 30px;
-  padding: 5px 8px;
+  min-height: 28px;
+  padding: 4px 8px;
   color: var(--n-text-color);
   text-align: left;
   background: transparent;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .search-suggestion:hover,
 .search-suggestion.highlighted {
   background: var(--n-sidebar-hover);
 }
 .search-suggestion small {
+  font-size: 11px;
   opacity: 0.55;
 }
 .field-suggestion {

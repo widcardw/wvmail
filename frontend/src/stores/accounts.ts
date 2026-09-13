@@ -408,12 +408,14 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   /** Smart folder helpers */
   function folderMatchesType(folderName: string, smartType: string): boolean {
-    const lower = folderName.toLowerCase()
+    const lower = folderName.toLowerCase().trim()
+    const matches = (patterns: string[]) =>
+      patterns.some((pattern) => lower === pattern || lower.endsWith(`/${pattern}`))
     switch (smartType) {
       case 'inbox':
-        return lower === 'inbox' || lower.endsWith('/inbox')
+        return matches(['inbox', '收件箱'])
       case 'sent':
-        return lower.includes('sent') && !lower.includes('sent item')
+        return matches(['sent', 'sent mail', 'sent messages', 'sent items', '已发送', '已发送邮件'])
       case 'drafts':
         return lower === 'drafts' || lower.includes('draft')
       default:
