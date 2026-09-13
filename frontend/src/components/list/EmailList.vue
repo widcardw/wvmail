@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useI18n } from '../i18n'
-import { useAccountsStore } from '../stores/accounts'
-import { getFolderDisplay } from '../types/email'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
+import { getFolderDisplay } from '~/types/email'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 

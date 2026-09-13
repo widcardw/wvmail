@@ -2,7 +2,7 @@
 import { Editable } from '@ark-ui/vue/editable'
 import { Pagination } from '@ark-ui/vue/pagination'
 import { ref, watch } from 'vue'
-import { useI18n } from '../i18n'
+import { useI18n } from '~/i18n'
 
 const props = defineProps<{
   label: string

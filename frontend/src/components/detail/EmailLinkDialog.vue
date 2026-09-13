@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Dialog } from '@ark-ui/vue/dialog'
-import { OsService } from '../../bindings/wvmail/services'
-import { useI18n } from '../i18n'
+import { OsService } from '#/wvmail/services'
+import { useI18n } from '~/i18n'
 
 const props = defineProps<{
   open: boolean

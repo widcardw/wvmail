@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getProviderIconUrl } from '../composables/provider-icons'
+import { getProviderIconUrl } from '~/composables/provider-icons'
 
 export type AppIconSource = 'iconify' | 'lobehub' | 'ben'
 

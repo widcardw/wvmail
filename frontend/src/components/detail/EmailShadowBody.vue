@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { adaptHtmlForDarkMode } from '../composables/html-utils'
+import { adaptHtmlForDarkMode } from '~/composables/html-utils'
 
 const props = defineProps<{
   html: string

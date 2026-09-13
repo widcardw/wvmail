@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { formatDateRecent, displaySender, truncateSubject } from '../composables/formats'
+import { formatDateRecent, displaySender, truncateSubject } from '~/composables/formats'
 import AccountAvatar from './AccountAvatar.vue'
-import type { EmailSummary } from '../types/email'
+import type { EmailSummary } from '~/types/email'
 
 type ListEmail = EmailSummary & {
   account_id?: string

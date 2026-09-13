@@ -6,10 +6,10 @@ import {
   createTreeCollection,
   type TreeViewSelectionChangeDetails,
 } from '@ark-ui/vue/tree-view'
-import { useI18n } from '../i18n'
-import { useAccountsStore } from '../stores/accounts'
-import { compareFolders, getFolderDisplay } from '../types/email'
-import type { EmailAccount } from '../types/email'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
+import { compareFolders, getFolderDisplay } from '~/types/email'
+import type { EmailAccount } from '~/types/email'
 import styles from './SideBar.module.css'
 import AccountAvatar from './AccountAvatar.vue'
 

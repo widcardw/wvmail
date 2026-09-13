@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { useI18n } from '../i18n'
-import { useAccountsStore } from '../stores/accounts'
-import { useFeedbackStore } from '../stores/feedback'
-import { usePreferencesStore } from '../stores/preferences'
-import type { EmailSearchField, EmailSearchFilter } from '../types/email'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
+import { useFeedbackStore } from '~/stores/feedback'
+import { usePreferencesStore } from '~/stores/preferences'
+import type { EmailSearchField, EmailSearchFilter } from '~/types/email'
 import { EmailService } from '#/wvmail/services'
 
 type SearchTag = EmailSearchFilter & { locked?: boolean }
@@ -83,7 +83,9 @@ const accountSuggestions = computed(() => {
 })
 
 const suggestionAccounts = computed(() => {
-  const configuredEmails = new Set(accountSuggestions.value.map((account) => account.Email.toLowerCase()))
+  const configuredEmails = new Set(
+    accountSuggestions.value.map((account) => account.Email.toLowerCase()),
+  )
   const cachedSuggestions = contactSuggestions.value
     .filter((contact) => !configuredEmails.has(contact.address.toLowerCase()))
     .map((contact) => ({
@@ -134,12 +136,7 @@ async function loadContactSuggestions() {
   }
 
   try {
-    const result = await EmailService.SuggestEmailContacts(
-      field,
-      value.trim(),
-      scopeAccountId(),
-      6,
-    )
+    const result = await EmailService.SuggestEmailContacts(field, value.trim(), scopeAccountId(), 6)
     if (requestId === contactRequestId) {
       contactSuggestions.value = (result || []) as CachedContactSuggestion[]
     }
@@ -223,10 +220,7 @@ function clearPendingDelete() {
 }
 
 function removeLastTag() {
-  const lastTag =
-    tags.value.length > 0
-      ? tags.value[tags.value.length - 1]
-      : defaultFilter.value
+  const lastTag = tags.value.length > 0 ? tags.value[tags.value.length - 1] : defaultFilter.value
   const deleteKey = lastTag ? `${lastTag.field}:${lastTag.value}` : null
   if (!deleteKey) return
 
@@ -307,7 +301,11 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 watch(
-  () => [accountsStore.selectedAccount?.ID, accountsStore.selectedFolder, accountsStore.isSmartFolder],
+  () => [
+    accountsStore.selectedAccount?.ID,
+    accountsStore.selectedFolder,
+    accountsStore.isSmartFolder,
+  ],
   () => {
     defaultFilterDismissed.value = false
     clearPendingDelete()

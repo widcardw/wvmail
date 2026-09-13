@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ConfigService, TranslationService } from '../../bindings/wvmail/services'
-import { useI18n } from '../i18n'
-import { useAccountsStore } from '../stores/accounts'
-import { useThemeStore } from '../stores/theme'
-import { useFeedbackStore } from '../stores/feedback'
-import { formatDate } from '../composables/formats'
+import { ConfigService, TranslationService } from '#/wvmail/services'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
+import { useThemeStore } from '~/stores/theme'
+import { useFeedbackStore } from '~/stores/feedback'
+import { formatDate } from '~/composables/formats'
 import {
   sanitizeHtmlRehype as sanitizeHtml,
   linkifyPlainText,
   extractTextForTranslation,
   translateHtmlWithLayout,
-} from '../composables/html-utils'
+} from '~/composables/html-utils'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'

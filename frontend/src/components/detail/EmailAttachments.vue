@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Collapsible } from '@ark-ui/vue/collapsible'
-import { useI18n } from '../i18n'
-import { useAccountsStore } from '../stores/accounts'
-import { useFeedbackStore } from '../stores/feedback'
-import type { AttachmentInfo } from '../types/email'
-import { getAttachmentIcon } from '../composables/attachment-icons'
-import { formatFileSize } from '../composables/formats'
+import { useI18n } from '~/i18n'
+import { useAccountsStore } from '~/stores/accounts'
+import { useFeedbackStore } from '~/stores/feedback'
+import type { AttachmentInfo } from '~/types/email'
+import { getAttachmentIcon } from '~/composables/attachment-icons'
+import { formatFileSize } from '~/composables/formats'
 
 const props = defineProps<{
   attachments: AttachmentInfo[]
