@@ -13,6 +13,7 @@ interface CachedContactSuggestion {
   name: string
 }
 const DEFAULT_SEARCH_FIELD: EmailSearchField = 'content'
+const COMPLETE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -23,6 +24,7 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const suggestionIndex = ref(-1)
 const tags = ref<SearchTag[]>([])
+const defaultFilterDismissed = ref(false)
 const pendingDeleteKey = ref<string | null>(null)
 const contactSuggestions = ref<CachedContactSuggestion[]>([])
 let contactRequestId = 0
@@ -46,9 +48,12 @@ const contextualDefaultFilter = computed<SearchTag | null>(() => {
     : accountsStore.folderMatchesType(folder, 'inbox')
       ? 'to'
       : null
+  if (field && tags.value.some((tag) => tag.field === field)) return null
   return field ? { field, value: email, locked: true } : null
 })
-const defaultFilter = contextualDefaultFilter
+const defaultFilter = computed<SearchTag | null>(() =>
+  defaultFilterDismissed.value ? null : contextualDefaultFilter.value,
+)
 const displayedTags = computed<SearchTag[]>(() => {
   return defaultFilter.value ? [defaultFilter.value, ...tags.value] : tags.value
 })
@@ -178,6 +183,10 @@ function fillSuggestion(email: string) {
   void nextTick(() => inputRef.value?.focus())
 }
 
+function isCompleteEmail(value: string) {
+  return COMPLETE_EMAIL_PATTERN.test(value.trim())
+}
+
 function chooseField(field: EmailSearchField) {
   // Keep the query syntax stable across locales; labels remain localized in
   // the suggestion menu and generated tags.
@@ -187,7 +196,12 @@ function chooseField(field: EmailSearchField) {
 }
 
 function removeTag(index: number) {
-  if (displayedTags.value[index]?.locked) return
+  if (displayedTags.value[index]?.locked) {
+    defaultFilterDismissed.value = true
+    clearPendingDelete()
+    void runSearch()
+    return
+  }
   const removableIndex = index - (defaultFilter.value ? 1 : 0)
   if (removableIndex >= 0) {
     tags.value.splice(removableIndex, 1)
@@ -205,7 +219,10 @@ function clearPendingDelete() {
 }
 
 function removeLastTag() {
-  const lastTag = tags.value.length > 0 ? tags.value[tags.value.length - 1] : undefined
+  const lastTag =
+    tags.value.length > 0
+      ? tags.value[tags.value.length - 1]
+      : defaultFilter.value
   const deleteKey = lastTag ? `${lastTag.field}:${lastTag.value}` : null
   if (!deleteKey) return
 
@@ -220,7 +237,11 @@ function removeLastTag() {
   }
 
   clearPendingDelete()
-  tags.value.pop()
+  if (lastTag?.locked) {
+    defaultFilterDismissed.value = true
+  } else {
+    tags.value.pop()
+  }
   void runSearch()
 }
 
@@ -259,8 +280,16 @@ function onKeydown(event: KeyboardEvent) {
     }
     return
   }
+  const typedValue = parsedInput.value.value.trim()
+  if (
+    (parsedInput.value.field === 'from' || parsedInput.value.field === 'to') &&
+    isCompleteEmail(typedValue)
+  ) {
+    void addTag(typedValue)
+    return
+  }
   const exactSuggestion = suggestions.some(
-    (account) => account.Email.toLowerCase() === parsedInput.value.value.trim().toLowerCase(),
+    (account) => account.Email.toLowerCase() === typedValue.toLowerCase(),
   )
   if (suggestions.length > 0 && suggestionIndex.value < 0 && !exactSuggestion) {
     fillSuggestion(suggestions[0].Email)
@@ -276,6 +305,7 @@ function onKeydown(event: KeyboardEvent) {
 watch(
   () => [accountsStore.selectedAccount?.ID, accountsStore.selectedFolder, accountsStore.isSmartFolder],
   () => {
+    defaultFilterDismissed.value = false
     clearPendingDelete()
     if (tags.value.length > 0) void runSearch()
   },
@@ -320,7 +350,6 @@ onBeforeUnmount(() => {
         <strong>{{ fieldLabels[tag.field] }}:</strong>
         <span>{{ tag.value }}</span>
         <button
-          v-if="!tag.locked"
           type="button"
           class="tag-remove"
           :aria-label="t['search.remove']"
@@ -348,7 +377,7 @@ onBeforeUnmount(() => {
         type="button"
         class="search-suggestion"
         :class="{ highlighted: suggestionIndex === index }"
-        @mousedown.prevent="fillSuggestion(suggestion.Email)"
+        @mousedown.prevent="addTag(suggestion.Email)"
       >
         <span>{{ suggestion.Email }}</span>
         <small>{{ suggestion.Name || suggestion.Provider }}</small>
