@@ -2,11 +2,13 @@
 import { computed } from 'vue'
 import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
+import { usePreferencesStore } from '~/stores/preferences'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/UiSelect.vue'
 
 const { t, locale, setLocale } = useI18n()
 const theme = useThemeStore()
+const preferences = usePreferencesStore()
 
 const PRESETS = ['#18a058', '#2080f0', '#f0a020', '#d03050', '#8a2be2', '#e11d48']
 const localeOptions = [
@@ -19,12 +21,19 @@ const themeOptions = computed(() => [
   { label: t.value['settings.common.theme.light'], value: 'Light' },
   { label: t.value['settings.common.theme.dark'], value: 'Dark' },
 ])
+const tagDeleteOptions = computed(() => [
+  { label: t.value['settings.common.tagDelete.once'], value: '1' },
+  { label: t.value['settings.common.tagDelete.twice'], value: '2' },
+])
 
 function onLocale(v: string) {
   if (v === 'zh-CN' || v === 'en-US') setLocale(v)
 }
 function onTheme(v: string) {
   if (v === 'Light' || v === 'Dark' || v === 'System') theme.switchTo(v)
+}
+function onTagDeletePresses(v: string) {
+  if (v === '1' || v === '2') void preferences.setTagDeletePresses(Number(v) as 1 | 2)
 }
 function onColor(e: Event) {
   const v = (e.target as HTMLInputElement).value
@@ -56,6 +65,15 @@ async function openConfigFolder() {
       <div class="row">
         <label class="row__label">{{ t['settings.common.theme'] }}</label>
         <UiSelect :options="themeOptions" :model-value="theme.mode" @update:model-value="onTheme" />
+      </div>
+
+      <div class="row">
+        <label class="row__label">{{ t['settings.common.tagDelete'] }}</label>
+        <UiSelect
+          :options="tagDeleteOptions"
+          :model-value="String(preferences.tagDeletePresses)"
+          @update:model-value="onTagDeletePresses"
+        />
       </div>
 
       <div class="row">

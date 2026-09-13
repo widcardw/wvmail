@@ -7,6 +7,7 @@ import { Events } from '@wailsio/runtime'
 import { useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'
+import { usePreferencesStore } from './stores/preferences'
 import { ConfigService } from '#/wvmail/services'
 import TitleBar from './components/TitleBar.vue'
 import SideBar from './components/SideBar.vue'
@@ -17,6 +18,7 @@ const appRegistry = Splitter.createRegistry()
 
 const theme = useThemeStore()
 const localeStore = useLocaleStore()
+const preferences = usePreferencesStore()
 const router = useRouter()
 
 onMounted(async () => {
@@ -24,6 +26,7 @@ onMounted(async () => {
     const config = await ConfigService.GetConfig()
     localeStore.loadFromConfig(config)
     theme.loadFromConfig(config) // also calls theme.apply()
+    preferences.loadFromConfig(config)
   } catch (e) {
     console.error('Failed to load config', e)
   }

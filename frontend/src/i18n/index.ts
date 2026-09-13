@@ -11,6 +11,7 @@ export interface TranslationSchema {
   'search.content': string
   'search.remove': string
   'search.results': string
+  'search.deleteAgain': string
   'search.history': string
   'sidebar.inbox': string
   'sidebar.sent': string
@@ -52,6 +53,9 @@ export interface TranslationSchema {
   'settings.common.theme.dark': string
   'settings.common.theme.system': string
   'settings.common.openConfig': string
+  'settings.common.tagDelete': string
+  'settings.common.tagDelete.once': string
+  'settings.common.tagDelete.twice': string
   'settings.accounts': string
   'settings.accounts.add': string
   'settings.accounts.edit': string

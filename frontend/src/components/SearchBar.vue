@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
+import { useFeedbackStore } from '../stores/feedback'
+import { usePreferencesStore } from '../stores/preferences'
 import type { EmailSearchField, EmailSearchFilter } from '../types/email'
 import { EmailService } from '#/wvmail/services'
 
@@ -14,14 +16,18 @@ const DEFAULT_SEARCH_FIELD: EmailSearchField = 'content'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
+const feedback = useFeedbackStore()
+const preferences = usePreferencesStore()
 const input = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const suggestionIndex = ref(-1)
 const tags = ref<SearchTag[]>([])
+const pendingDeleteKey = ref<string | null>(null)
 const contactSuggestions = ref<CachedContactSuggestion[]>([])
 let contactRequestId = 0
 let contactTimer: ReturnType<typeof setTimeout> | undefined
+let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined
 
 const fieldLabels = computed<Record<EmailSearchField, string>>(() => ({
   from: t.value['search.from'],
@@ -29,7 +35,7 @@ const fieldLabels = computed<Record<EmailSearchField, string>>(() => ({
   content: t.value['search.content'],
 }))
 
-const defaultFilter = computed<SearchTag | null>(() => {
+const contextualDefaultFilter = computed<SearchTag | null>(() => {
   const account = accountsStore.selectedAccount
   const folder = accountsStore.selectedFolder
   const email = account?.Email?.trim() || ''
@@ -42,6 +48,7 @@ const defaultFilter = computed<SearchTag | null>(() => {
       : null
   return field ? { field, value: email, locked: true } : null
 })
+const defaultFilter = contextualDefaultFilter
 const displayedTags = computed<SearchTag[]>(() => {
   return defaultFilter.value ? [defaultFilter.value, ...tags.value] : tags.value
 })
@@ -159,6 +166,7 @@ async function addTag(value = parsedInput.value.value) {
     return
   }
   tags.value.push({ field, value: normalized })
+  clearPendingDelete()
   input.value = ''
   suggestionIndex.value = -1
   await runSearch()
@@ -183,8 +191,37 @@ function removeTag(index: number) {
   const removableIndex = index - (defaultFilter.value ? 1 : 0)
   if (removableIndex >= 0) {
     tags.value.splice(removableIndex, 1)
+    clearPendingDelete()
     void runSearch()
   }
+}
+
+function clearPendingDelete() {
+  pendingDeleteKey.value = null
+  if (pendingDeleteTimer) {
+    clearTimeout(pendingDeleteTimer)
+    pendingDeleteTimer = undefined
+  }
+}
+
+function removeLastTag() {
+  const lastTag = tags.value.length > 0 ? tags.value[tags.value.length - 1] : undefined
+  const deleteKey = lastTag ? `${lastTag.field}:${lastTag.value}` : null
+  if (!deleteKey) return
+
+  if (preferences.tagDeletePresses === 2 && pendingDeleteKey.value !== deleteKey) {
+    pendingDeleteKey.value = deleteKey
+    if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer)
+    pendingDeleteTimer = setTimeout(() => {
+      clearPendingDelete()
+    }, 2500)
+    feedback.warn(t.value['search.deleteAgain'])
+    return
+  }
+
+  clearPendingDelete()
+  tags.value.pop()
+  void runSearch()
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -205,9 +242,9 @@ function onKeydown(event: KeyboardEvent) {
     focused.value = false
     return
   }
-  if (event.key === 'Backspace' && input.value === '' && tags.value.length > 0) {
-    tags.value.pop()
-    void runSearch()
+  if ((event.key === 'Backspace' || event.key === 'Delete') && input.value === '') {
+    event.preventDefault()
+    removeLastTag()
     return
   }
   if (event.key !== 'Enter' && event.key !== 'Tab') return
@@ -239,7 +276,15 @@ function onKeydown(event: KeyboardEvent) {
 watch(
   () => [accountsStore.selectedAccount?.ID, accountsStore.selectedFolder, accountsStore.isSmartFolder],
   () => {
+    clearPendingDelete()
     if (tags.value.length > 0) void runSearch()
+  },
+)
+
+watch(
+  () => input.value,
+  () => {
+    clearPendingDelete()
   },
 )
 
@@ -259,6 +304,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (contactTimer) clearTimeout(contactTimer)
+  clearPendingDelete()
 })
 </script>
 

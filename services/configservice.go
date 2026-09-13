@@ -20,15 +20,16 @@ import (
 
 // AppConfig represents the application configuration stored in YAML.
 type AppConfig struct {
-	Language           string            `yaml:"language"`
-	Theme              string            `yaml:"theme"`
-	PrimaryColor       string            `yaml:"primary_color"`
-	DatabasePath       string            `yaml:"database_path,omitempty"`
-	LogConfig          LogConfig         `yaml:"log_config,omitempty"`
-	TranslationConfig  TranslationConfig `yaml:"translation_config,omitempty"`
-	ScanExternalSafety bool              `yaml:"scan_external_safety,omitempty"`
-	LLMConfigs         []LLMConfig       `yaml:"llm_configs,omitempty"`
-	EmailAccounts      []EmailAccount    `yaml:"email_accounts,omitempty"`
+	Language               string            `yaml:"language"`
+	Theme                  string            `yaml:"theme"`
+	PrimaryColor           string            `yaml:"primary_color"`
+	DatabasePath           string            `yaml:"database_path,omitempty"`
+	LogConfig              LogConfig         `yaml:"log_config,omitempty"`
+	TranslationConfig      TranslationConfig `yaml:"translation_config,omitempty"`
+	ScanExternalSafety     bool              `yaml:"scan_external_safety,omitempty"`
+	SearchTagDeletePresses int               `yaml:"search_tag_delete_presses,omitempty"`
+	LLMConfigs             []LLMConfig       `yaml:"llm_configs,omitempty"`
+	EmailAccounts          []EmailAccount    `yaml:"email_accounts,omitempty"`
 }
 
 // LogConfig controls the application's file logging behaviour.
@@ -208,8 +209,9 @@ func defaultConfig() AppConfig {
 			DefaultTargetLang: "zh-CN",
 			DefaultEngine:     "llm",
 		},
-		ScanExternalSafety: true,
-		EmailAccounts:      []EmailAccount{},
+		ScanExternalSafety:     true,
+		SearchTagDeletePresses: 2,
+		EmailAccounts:          []EmailAccount{},
 	}
 }
 
@@ -292,6 +294,9 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 	if cfg.PrimaryColor == "" {
 		cfg.PrimaryColor = "#18a058"
 	}
+	if cfg.SearchTagDeletePresses != 1 && cfg.SearchTagDeletePresses != 2 {
+		cfg.SearchTagDeletePresses = 2
+	}
 	if cfg.LogConfig.Level == "" {
 		cfg.LogConfig.Level = "info"
 	}
@@ -370,7 +375,8 @@ func (s *ConfigService) SaveConfig(cfg AppConfig) error {
 
 // SaveConfigField updates a single top-level field in the config file. This
 // avoids read-update-write races between stores (e.g. language & theme).
-// Supported fields: "language", "theme", "primary_color".
+// Supported fields: "language", "theme", "primary_color",
+// "scan_external_safety", and "search_tag_delete_presses".
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	cfg, err := s.GetConfig()
 	if err != nil {
@@ -389,6 +395,12 @@ func (s *ConfigService) SaveConfigField(field, value string) error {
 			return fmt.Errorf("invalid boolean value for scan_external_safety: %s", value)
 		}
 		cfg.ScanExternalSafety = b
+	case "search_tag_delete_presses":
+		presses, err := strconv.Atoi(value)
+		if err != nil || (presses != 1 && presses != 2) {
+			return fmt.Errorf("invalid value for search_tag_delete_presses: %s", value)
+		}
+		cfg.SearchTagDeletePresses = presses
 	default:
 		return fmt.Errorf("unknown config field: %s", field)
 	}
