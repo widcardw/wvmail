@@ -8,6 +8,7 @@ export interface TranslationSchema {
   'search.placeholder': string
   'search.from': string
   'search.to': string
+  'search.cc': string
   'search.content': string
   'search.remove': string
   'search.results': string

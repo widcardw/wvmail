@@ -5,6 +5,7 @@ const enUS: TranslationSchema = {
   'search.placeholder': 'Search emails...',
   'search.from': 'From',
   'search.to': 'To',
+  'search.cc': 'CC',
   'search.content': 'Content',
   'search.remove': 'Remove search filter',
   'search.results': 'Search results',

@@ -11,7 +11,7 @@ import { useAccountsStore } from '~/stores/accounts'
 import { compareFolders, getFolderDisplay } from '~/types/email'
 import type { EmailAccount } from '~/types/email'
 import styles from './SideBar.module.css'
-import AccountAvatar from './AccountAvatar.vue'
+import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 
 const { t, locale } = useI18n()
 const store = useAccountsStore()

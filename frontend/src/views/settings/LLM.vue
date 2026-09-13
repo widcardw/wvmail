@@ -5,7 +5,7 @@ import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig } from '~/types/config'
 import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
-import AppIcon from '~/components/AppIcon.vue'
+import AppIcon from '~/components/icon/AppIcon.vue'
 import { getProviderIconConfig } from '~/composables/provider-icons'
 import LLMEditorDialog from '~/components/settings/LLMEditorDialog.vue'
 

@@ -257,7 +257,7 @@ const showAttachments = computed(
 
           <div class="meta">
             <div class="mrow">
-              <span class="mlabel">To:</span>
+              <span class="mlabel">{{ t["search.to"] }}</span>
               <span>{{ (detail.to || []).join(', ') }}</span>
             </div>
             <div v-if="detail.cc && detail.cc.length > 0" class="mrow">

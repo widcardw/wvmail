@@ -5,6 +5,7 @@ const zhCN: TranslationSchema = {
   'search.placeholder': '搜索邮件...',
   'search.from': '发件人',
   'search.to': '收件人',
+  'search.cc': '抄送',
   'search.content': '内容',
   'search.remove': '移除搜索条件',
   'search.results': '搜索结果',
