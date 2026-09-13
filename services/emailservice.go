@@ -95,11 +95,12 @@ type EmailContactSuggestion struct {
 	Name    string `json:"name"`
 }
 
-// EmailSearchQuery searches the local email cache. An empty AccountID searches
-// across all cached accounts; a non-empty AccountID limits results to it.
+// EmailSearchQuery searches the local email cache. Empty AccountID and
+// FolderName values leave those dimensions unfiltered.
 type EmailSearchQuery struct {
-	AccountID string              `json:"account_id"`
-	Filters   []EmailSearchFilter `json:"filters"`
+	AccountID  string              `json:"account_id"`
+	FolderName string              `json:"folder_name"`
+	Filters    []EmailSearchFilter `json:"filters"`
 }
 
 // AttachmentInfo describes a single email attachment discovered in the MIME

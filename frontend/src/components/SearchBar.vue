@@ -117,6 +117,10 @@ function scopeAccountId() {
   return accountsStore.isSmartFolder ? '' : accountsStore.selectedAccount?.ID || ''
 }
 
+function scopeFolderName() {
+  return accountsStore.isSmartFolder ? '' : accountsStore.selectedFolder || ''
+}
+
 async function loadContactSuggestions() {
   const requestId = ++contactRequestId
   const { field, value } = parsedInput.value
@@ -155,7 +159,7 @@ async function runSearch() {
     accountsStore.clearSearch()
     return
   }
-  await accountsStore.searchEmails(effectiveFilters(), scopeAccountId())
+  await accountsStore.searchEmails(effectiveFilters(), scopeAccountId(), scopeFolderName())
 }
 
 async function addTag(value = parsedInput.value.value) {
@@ -307,6 +311,13 @@ watch(
   () => {
     defaultFilterDismissed.value = false
     clearPendingDelete()
+    if (accountsStore.isSmartFolder) {
+      tags.value = []
+      input.value = ''
+      suggestionIndex.value = -1
+      accountsStore.clearSearch()
+      return
+    }
     if (tags.value.length > 0) void runSearch()
   },
 )

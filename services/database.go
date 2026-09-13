@@ -264,6 +264,9 @@ func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error)
 	if query.AccountID != "" {
 		emailsQuery = emailsQuery.Where("account_id = ?", query.AccountID)
 	}
+	if query.FolderName != "" {
+		emailsQuery = emailsQuery.Where("folder_name = ?", query.FolderName)
+	}
 	if err := emailsQuery.Find(&cached).Error; err != nil {
 		return nil, err
 	}
@@ -272,6 +275,9 @@ func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error)
 	bodiesQuery := db
 	if query.AccountID != "" {
 		bodiesQuery = bodiesQuery.Where("account_id = ?", query.AccountID)
+	}
+	if query.FolderName != "" {
+		bodiesQuery = bodiesQuery.Where("folder_name = ?", query.FolderName)
 	}
 	if err := bodiesQuery.Find(&bodies).Error; err != nil {
 		return nil, err

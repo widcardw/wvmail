@@ -35,6 +35,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   const searchLoading = ref(false)
   const searchQuery = ref<EmailSearchFilter[]>([])
   const searchAccountId = ref('')
+  const searchFolderName = ref('')
+  let searchRequestId = 0
 
   // Smart folder (aggregate view across all accounts)
   const smartFolder = ref<string | null>(null)
@@ -184,7 +186,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
-  async function searchEmails(filters: EmailSearchFilter[], accountId = '') {
+  async function searchEmails(filters: EmailSearchFilter[], accountId = '', folderName = '') {
     const normalized = filters
       .map((filter) => ({ field: filter.field, value: filter.value.trim() }))
       .filter((filter) => filter.value.length > 0)
@@ -193,17 +195,20 @@ export const useAccountsStore = defineStore('accounts', () => {
       return
     }
 
+    const requestId = ++searchRequestId
     searchActive.value = true
     searchLoading.value = true
     searchPage.value = 1
     searchQuery.value = normalized
     searchAccountId.value = accountId
+    searchFolderName.value = folderName
     try {
       const resp: EmailPageResponse | null = await EmailService.SearchEmails(
-        { account_id: accountId, filters: normalized },
+        { account_id: accountId, folder_name: folderName, filters: normalized },
         1,
         pageSize,
       )
+      if (requestId !== searchRequestId) return
       searchResults.value = (resp?.emails ?? []).map((email) => ({
         ...email,
         account_id: email.account_id,
@@ -211,21 +216,24 @@ export const useAccountsStore = defineStore('accounts', () => {
       }))
       searchTotal.value = resp?.total ?? 0
     } catch (e) {
+      if (requestId !== searchRequestId) return
       console.error('Failed to search emails', e)
       searchResults.value = []
       searchTotal.value = 0
     } finally {
-      searchLoading.value = false
+      if (requestId === searchRequestId) searchLoading.value = false
     }
   }
 
   function clearSearch() {
+    searchRequestId++
     searchActive.value = false
     searchResults.value = []
     searchTotal.value = 0
     searchPage.value = 1
     searchQuery.value = []
     searchAccountId.value = ''
+    searchFolderName.value = ''
     searchLoading.value = false
   }
 
@@ -377,20 +385,28 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   function goToPage(page: number) {
     if (searchActive.value) {
+      const requestId = ++searchRequestId
       searchPage.value = page
       searchLoading.value = true
       EmailService.SearchEmails(
-        { account_id: searchAccountId.value, filters: searchQuery.value },
+        {
+          account_id: searchAccountId.value,
+          folder_name: searchFolderName.value,
+          filters: searchQuery.value,
+        },
         page,
         pageSize,
       )
         .then((resp: EmailPageResponse | null) => {
+          if (requestId !== searchRequestId) return
           searchResults.value = resp?.emails ?? []
           searchTotal.value = resp?.total ?? 0
         })
-        .catch((e) => console.error('Failed to load search page', e))
+        .catch((e) => {
+          if (requestId === searchRequestId) console.error('Failed to load search page', e)
+        })
         .finally(() => {
-          searchLoading.value = false
+          if (requestId === searchRequestId) searchLoading.value = false
         })
       return
     }
