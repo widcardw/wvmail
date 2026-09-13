@@ -8,6 +8,7 @@ const zhCN: TranslationSchema = {
   'search.content': '内容',
   'search.remove': '移除搜索条件',
   'search.results': '搜索结果',
+  'search.history': '历史联系人',
   'sidebar.inbox': '收件箱',
   'sidebar.sent': '已发送',
   'sidebar.all_inbox': '所有收件箱',

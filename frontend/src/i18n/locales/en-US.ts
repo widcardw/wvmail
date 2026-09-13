@@ -8,6 +8,7 @@ const enUS: TranslationSchema = {
   'search.content': 'Content',
   'search.remove': 'Remove search filter',
   'search.results': 'Search results',
+  'search.history': 'From email history',
   'sidebar.inbox': 'Inbox',
   'sidebar.sent': 'Sent',
   'sidebar.all_inbox': 'All Inboxes',

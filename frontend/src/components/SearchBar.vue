@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from '../i18n'
 import { useAccountsStore } from '../stores/accounts'
 import type { EmailSearchField, EmailSearchFilter } from '../types/email'
+import { EmailService } from '#/wvmail/services'
 
 type SearchTag = EmailSearchFilter & { locked?: boolean }
+interface CachedContactSuggestion {
+  address: string
+  name: string
+}
 const DEFAULT_SEARCH_FIELD: EmailSearchField = 'content'
 
 const { t } = useI18n()
@@ -14,6 +19,9 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const suggestionIndex = ref(-1)
 const tags = ref<SearchTag[]>([])
+const contactSuggestions = ref<CachedContactSuggestion[]>([])
+let contactRequestId = 0
+let contactTimer: ReturnType<typeof setTimeout> | undefined
 
 const fieldLabels = computed<Record<EmailSearchField, string>>(() => ({
   from: t.value['search.from'],
@@ -62,6 +70,19 @@ const accountSuggestions = computed(() => {
     .slice(0, 6)
 })
 
+const suggestionAccounts = computed(() => {
+  const configuredEmails = new Set(accountSuggestions.value.map((account) => account.Email.toLowerCase()))
+  const cachedSuggestions = contactSuggestions.value
+    .filter((contact) => !configuredEmails.has(contact.address.toLowerCase()))
+    .map((contact) => ({
+      ID: `cached:${contact.address}`,
+      Email: contact.address,
+      Name: contact.name,
+      Provider: t.value['search.history'],
+    }))
+  return [...accountSuggestions.value, ...cachedSuggestions].slice(0, 6)
+})
+
 const fieldSuggestions = computed(() => {
   if (/^\s*(from|to|content)\s*:/i.test(input.value)) return []
   const needle = input.value.trim().toLowerCase()
@@ -77,11 +98,40 @@ const fieldSuggestions = computed(() => {
 })
 
 const showSuggestions = computed(
-  () => focused.value && (accountSuggestions.value.length > 0 || fieldSuggestions.value.length > 0),
+  () => focused.value && (suggestionAccounts.value.length > 0 || fieldSuggestions.value.length > 0),
 )
 
 function scopeAccountId() {
   return accountsStore.isSmartFolder ? '' : accountsStore.selectedAccount?.ID || ''
+}
+
+async function loadContactSuggestions() {
+  const requestId = ++contactRequestId
+  const { field, value } = parsedInput.value
+  contactSuggestions.value = []
+  if (
+    (field !== 'from' && field !== 'to') ||
+    !value.trim() ||
+    defaultFilter.value?.field === field
+  ) {
+    return
+  }
+
+  try {
+    const result = await EmailService.SuggestEmailContacts(
+      field,
+      value.trim(),
+      scopeAccountId(),
+      6,
+    )
+    if (requestId === contactRequestId) {
+      contactSuggestions.value = (result || []) as CachedContactSuggestion[]
+    }
+  } catch (error) {
+    if (requestId === contactRequestId) {
+      console.error('Failed to load email contact suggestions', error)
+    }
+  }
 }
 
 function effectiveFilters() {
@@ -138,7 +188,7 @@ function removeTag(index: number) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  const suggestions = accountSuggestions.value
+  const suggestions = suggestionAccounts.value
   const fields = fieldSuggestions.value
   if (event.key === 'ArrowDown' && (suggestions.length > 0 || fields.length > 0)) {
     event.preventDefault()
@@ -192,6 +242,24 @@ watch(
     if (tags.value.length > 0) void runSearch()
   },
 )
+
+watch(
+  () => [
+    input.value,
+    accountsStore.selectedAccount?.ID,
+    accountsStore.selectedFolder,
+    accountsStore.isSmartFolder,
+    defaultFilter.value?.field,
+  ],
+  () => {
+    if (contactTimer) clearTimeout(contactTimer)
+    contactTimer = setTimeout(() => void loadContactSuggestions(), 120)
+  },
+)
+
+onBeforeUnmount(() => {
+  if (contactTimer) clearTimeout(contactTimer)
+})
 </script>
 
 <template>
@@ -229,7 +297,7 @@ watch(
 
     <div v-if="showSuggestions" class="search-suggestions">
       <button
-        v-for="(suggestion, index) in accountSuggestions"
+        v-for="(suggestion, index) in suggestionAccounts"
         :key="suggestion.ID"
         type="button"
         class="search-suggestion"

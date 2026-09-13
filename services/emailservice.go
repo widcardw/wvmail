@@ -88,6 +88,13 @@ type EmailSearchFilter struct {
 	Value string `json:"value"`
 }
 
+// EmailContactSuggestion is a distinct sender or recipient found in the
+// local email cache and used to complete a structured search tag.
+type EmailContactSuggestion struct {
+	Address string `json:"address"`
+	Name    string `json:"name"`
+}
+
 // EmailSearchQuery searches the local email cache. An empty AccountID searches
 // across all cached accounts; a non-empty AccountID limits results to it.
 type EmailSearchQuery struct {
@@ -239,6 +246,13 @@ func (s *EmailService) SearchEmails(query EmailSearchQuery, page, pageSize int) 
 		Emails: s.paginate(emails, page, pageSize),
 		Total:  len(emails),
 	}, nil
+}
+
+// SuggestEmailContacts returns a small set of cached senders or recipients
+// matching the typed fragment. Results are scoped to one account when
+// accountID is provided; an empty accountID searches all cached accounts.
+func (s *EmailService) SuggestEmailContacts(field, query, accountID string, limit int) ([]EmailContactSuggestion, error) {
+	return s.db.SuggestEmailContacts(field, query, accountID, limit)
 }
 
 // RefreshEmails fetches email summaries from the IMAP server and updates the

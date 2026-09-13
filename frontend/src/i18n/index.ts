@@ -11,6 +11,7 @@ export interface TranslationSchema {
   'search.content': string
   'search.remove': string
   'search.results': string
+  'search.history': string
   'sidebar.inbox': string
   'sidebar.sent': string
   'sidebar.all_inbox': string

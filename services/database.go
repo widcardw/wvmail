@@ -295,6 +295,130 @@ func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error)
 	return results, nil
 }
 
+// SuggestEmailContacts finds distinct cached senders or recipients matching
+// a fragment. It only selects address-related columns and caps the result so
+// this method remains inexpensive while the user types in the search box.
+func (m *DBManager) SuggestEmailContacts(field, query, accountID string, limit int) ([]EmailContactSuggestion, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+
+	field = strings.ToLower(strings.TrimSpace(field))
+	needle := strings.ToLower(strings.TrimSpace(query))
+	if (field != "from" && field != "to") || needle == "" {
+		return []EmailContactSuggestion{}, nil
+	}
+	if limit < 1 {
+		limit = 6
+	}
+	if limit > 20 {
+		limit = 20
+	}
+
+	pattern := "%" + needle + "%"
+	type contactCacheRow struct {
+		From     string `gorm:"column:from"`
+		FromName string `gorm:"column:from_name"`
+		FromAddr string `gorm:"column:from_addr"`
+		To       string `gorm:"column:to"`
+		Date     string `gorm:"column:date"`
+	}
+
+	loadRows := func(model any) ([]contactCacheRow, error) {
+		var rows []contactCacheRow
+		query := db.Model(model).Select(`"from", from_name, from_addr, "to", date`)
+		if accountID != "" {
+			query = query.Where("account_id = ?", accountID)
+		}
+		if field == "from" {
+			query = query.Where(`LOWER("from_addr") LIKE ? OR LOWER("from_name") LIKE ? OR LOWER("from") LIKE ?`, pattern, pattern, pattern)
+		} else {
+			query = query.Where(`LOWER("to") LIKE ?`, pattern)
+		}
+		if err := query.Order("date DESC").Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		return rows, nil
+	}
+
+	rows, err := loadRows(&CachedEmail{})
+	if err != nil {
+		return nil, err
+	}
+	// A recipient can also be present in a cached body when an older summary
+	// did not contain the complete envelope.
+	bodyRows, err := loadRows(&CachedEmailBody{})
+	if err != nil {
+		return nil, err
+	}
+	rows = append(rows, bodyRows...)
+
+	results := make([]EmailContactSuggestion, 0, limit)
+	seen := make(map[string]struct{}, limit)
+	appendSuggestion := func(raw, name string) {
+		address, parsedName := parseCachedContact(raw)
+		if address == "" {
+			return
+		}
+		if name == "" {
+			name = parsedName
+		}
+		key := strings.ToLower(address)
+		if _, exists := seen[key]; exists {
+			return
+		}
+		seen[key] = struct{}{}
+		results = append(results, EmailContactSuggestion{Address: address, Name: strings.TrimSpace(name)})
+	}
+
+	for _, row := range rows {
+		if len(results) >= limit {
+			break
+		}
+		if field == "from" {
+			appendSuggestion(row.FromAddr, row.FromName)
+			if row.FromAddr == "" {
+				appendSuggestion(row.From, row.FromName)
+			}
+			continue
+		}
+
+		var recipients []string
+		if row.To != "" {
+			_ = json.Unmarshal([]byte(row.To), &recipients)
+		}
+		for _, recipient := range recipients {
+			appendSuggestion(recipient, "")
+			if len(results) >= limit {
+				break
+			}
+		}
+	}
+	return results, nil
+}
+
+func parseCachedContact(raw string) (address, name string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", ""
+	}
+	if start := strings.LastIndex(raw, "<"); start >= 0 {
+		if end := strings.LastIndex(raw, ">"); end > start {
+			address = strings.TrimSpace(raw[start+1 : end])
+			name = strings.Trim(strings.TrimSpace(raw[:start]), `"'`)
+		} else {
+			address = raw
+		}
+	} else {
+		address = strings.Trim(raw, `<> \t\r\n`)
+	}
+	if !strings.Contains(address, "@") {
+		return "", ""
+	}
+	return address, name
+}
+
 func cachedEmailSummary(c CachedEmail) EmailSummary {
 	var flags, to []string
 	if c.Flags != "" {
