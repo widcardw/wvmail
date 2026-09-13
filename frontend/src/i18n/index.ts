@@ -44,6 +44,18 @@ export interface TranslationSchema {
   'notes.untitled': string
   'reminders.title': string
   'reminders.empty': string
+  'reminders.tab.today': string
+  'reminders.tab.week': string
+  'reminders.tab.month': string
+  'reminders.day.today': string
+  'reminders.day.tomorrow': string
+  'reminders.done': string
+  'reminders.add': string
+  'reminders.new': string
+  'reminders.field.title': string
+  'reminders.field.time': string
+  'reminders.placeholder.title': string
+  'reminders.submit': string
   settings: string
   'settings.common': string
   'settings.common.language': string
