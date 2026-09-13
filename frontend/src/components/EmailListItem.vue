@@ -17,7 +17,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [email: ListEmail]
 }>()
-
 </script>
 
 <template>
@@ -30,10 +29,7 @@ const emit = defineEmits<{
       <span class="email-body">
         <span class="email-header">
           <span v-if="props.smart || props.email.account_id" class="email-avatar">
-            <AccountAvatar
-              v-if="props.email.account_id"
-              :account-id="props.email.account_id"
-            />
+            <AccountAvatar v-if="props.email.account_id" :account-id="props.email.account_id" />
           </span>
           <span class="email-from">{{ displaySender(props.email) }}</span>
           <span class="email-date">{{ formatDateRecent(props.email.date) }}</span>

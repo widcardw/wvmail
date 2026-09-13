@@ -26,7 +26,12 @@ async function openLink() {
 </script>
 
 <template>
-  <Dialog.Root :open="props.open" @open-change="(details: unknown) => emit('update:open', !!(details as { open?: boolean })?.open)">
+  <Dialog.Root
+    :open="props.open"
+    @open-change="
+      (details: unknown) => emit('update:open', !!(details as { open?: boolean })?.open)
+    "
+  >
     <Dialog.Backdrop class="d-back" />
     <Dialog.Positioner class="d-pos">
       <Dialog.Content class="d-card">

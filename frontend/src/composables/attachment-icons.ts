@@ -58,8 +58,7 @@ function getAttachmentIcon(mimeType: string, fileName: string): string {
   if (mimeType.startsWith('video/')) return ICONS.video
   if (mimeType.startsWith('audio/')) return ICONS.audio
   if (mimeType.includes('pdf')) return ICONS.pdf
-  if (['zip', 'rar', 'tar', '7z'].some((type) => mimeType.includes(type)))
-    return ICONS.archive
+  if (['zip', 'rar', 'tar', '7z'].some((type) => mimeType.includes(type))) return ICONS.archive
   if (['word', 'document'].some((type) => mimeType.includes(type))) return ICONS.word
   if (['excel', 'spreadsheet'].some((type) => mimeType.includes(type))) return ICONS.excel
   if (['powerpoint', 'presentation'].some((type) => mimeType.includes(type)))

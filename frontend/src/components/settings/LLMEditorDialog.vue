@@ -38,9 +38,7 @@ const canConn = computed(() =>
   Boolean(form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
 )
 const canChat = computed(() =>
-  Boolean(
-    form.value.Model && form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey),
-  ),
+  Boolean(form.value.Model && form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
 )
 
 function onProvider(provider: string) {
@@ -65,7 +63,12 @@ function close() {
       <div class="modal">
         <header class="modal__head">
           <h3>{{ props.editing ? t['settings.llm.edit'] : t['settings.llm.add'] }}</h3>
-          <button type="button" class="btn--ghost" :aria-label="t['settings.accounts.cancel']" @click="close">
+          <button
+            type="button"
+            class="btn--ghost"
+            :aria-label="t['settings.accounts.cancel']"
+            @click="close"
+          >
             <i class="i-ri:close-line" aria-hidden="true" />
           </button>
         </header>
@@ -153,7 +156,12 @@ function close() {
           <button type="button" class="btn" @click="close">
             {{ t['settings.llm.cancel'] }}
           </button>
-          <button type="button" class="btn btn--primary" :disabled="!canSave || props.saving" @click="emit('save')">
+          <button
+            type="button"
+            class="btn btn--primary"
+            :disabled="!canSave || props.saving"
+            @click="emit('save')"
+          >
             {{ props.saving ? '…' : t['settings.llm.save'] }}
           </button>
         </footer>

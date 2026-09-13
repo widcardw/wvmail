@@ -23,7 +23,8 @@ const themeOptions = computed<Array<{ value: ThemeMode; label: string; icon: str
 ])
 
 const activeTheme = computed(
-  () => themeOptions.value.find((option) => option.value === themeStore.mode) ?? themeOptions.value[0],
+  () =>
+    themeOptions.value.find((option) => option.value === themeStore.mode) ?? themeOptions.value[0],
 )
 
 // macOS traffic-light space
@@ -47,7 +48,11 @@ onMounted(() => {
 
     <div class="titlebar-right">
       <Menu.Root :positioning="{ placement: 'bottom-end', gutter: 8 }" lazy-mount unmount-on-exit>
-        <Menu.Trigger class="theme-menu-trigger" :aria-label="activeTheme.label" :title="activeTheme.label">
+        <Menu.Trigger
+          class="theme-menu-trigger"
+          :aria-label="activeTheme.label"
+          :title="activeTheme.label"
+        >
           <i :class="activeTheme.icon" aria-hidden="true" />
         </Menu.Trigger>
         <Teleport to="body">

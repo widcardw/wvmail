@@ -128,7 +128,11 @@ const emailSchema: Schema = {
   },
   protocols: {
     ...defaultSchema.protocols,
-    src: [...((defaultSchema.protocols as Record<string, string[]> | undefined)?.['src'] ?? []), 'data', 'cid'],
+    src: [
+      ...((defaultSchema.protocols as Record<string, string[]> | undefined)?.['src'] ?? []),
+      'data',
+      'cid',
+    ],
   },
 }
 

@@ -201,7 +201,8 @@ async function handleSave() {
       await accountsStore.updateAccount(accountId, formData.value)
       fb.success(t.value['settings.accounts.updated'])
     } else {
-      accountId = crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
+      accountId =
+        crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
       await accountsStore.addAccount({ ...formData.value, ID: accountId })
       fb.success(t.value['settings.accounts.added'])
     }

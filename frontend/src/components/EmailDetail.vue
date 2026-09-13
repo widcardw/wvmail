@@ -459,5 +459,4 @@ const showAttachments = computed(
   opacity: 0.5;
   margin-bottom: 8px;
 }
-
 </style>

@@ -44,7 +44,9 @@ const accountSuggestions = computed(() => {
     .filter((account) => {
       if (!needle) return true
       return [account.Email, account.Name, account.IMAPUser].some((part) =>
-        String(part || '').toLowerCase().includes(needle),
+        String(part || '')
+          .toLowerCase()
+          .includes(needle),
       )
     })
     .slice(0, 6)
@@ -55,10 +57,7 @@ const fieldSuggestions = computed(() => {
   const needle = input.value.trim().toLowerCase()
   const fields = (Object.keys(fieldLabels.value) as EmailSearchField[]).filter((field) => {
     if (!needle) return true
-    return (
-      field.startsWith(needle) ||
-      fieldLabels.value[field].toLowerCase().startsWith(needle)
-    )
+    return field.startsWith(needle) || fieldLabels.value[field].toLowerCase().startsWith(needle)
   })
   return fields.map((field) => ({
     field,
@@ -187,10 +186,21 @@ watch(
 <template>
   <div class="search-box" :class="{ focused }">
     <div class="search-tags">
-      <span v-for="(tag, index) in displayedTags" :key="`${tag.field}-${tag.value}-${index}`" class="search-tag" :class="{ locked: tag.locked }">
+      <span
+        v-for="(tag, index) in displayedTags"
+        :key="`${tag.field}-${tag.value}-${index}`"
+        class="search-tag"
+        :class="{ locked: tag.locked }"
+      >
         <strong>{{ fieldLabels[tag.field] }}:</strong>
         <span>{{ tag.value }}</span>
-        <button v-if="!tag.locked" type="button" class="tag-remove" :aria-label="t['search.remove']" @click="removeTag(index)">
+        <button
+          v-if="!tag.locked"
+          type="button"
+          class="tag-remove"
+          :aria-label="t['search.remove']"
+          @click="removeTag(index)"
+        >
           ×
         </button>
       </span>

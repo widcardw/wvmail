@@ -45,7 +45,10 @@
   border-radius: 3px;
   background: var(--n-border-color);
   opacity: 1;
-  transition: background 0.12s ease, height 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    background 0.12s ease,
+    height 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .trigger:hover .indicator,

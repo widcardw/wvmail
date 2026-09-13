@@ -77,7 +77,12 @@ function onEmailInput(email: string) {
         <span class="flabel">{{ t['settings.accounts.avatar'] }}</span>
         <div class="avatar-area">
           <label class="avatar-box">
-            <img v-if="props.avatarPreview" :src="props.avatarPreview" class="avatar-box__img" alt="" />
+            <img
+              v-if="props.avatarPreview"
+              :src="props.avatarPreview"
+              class="avatar-box__img"
+              alt=""
+            />
             <i v-else class="i-ri:add-line" aria-hidden="true" />
             <input
               type="file"
@@ -241,7 +246,11 @@ function onEmailInput(email: string) {
         </div>
       </div>
 
-      <div v-if="props.testResult" class="hint" :class="props.testResult.success ? 'hint--ok' : 'hint--err'">
+      <div
+        v-if="props.testResult"
+        class="hint"
+        :class="props.testResult.success ? 'hint--ok' : 'hint--err'"
+      >
         {{ props.testResult.message }}
       </div>
     </div>

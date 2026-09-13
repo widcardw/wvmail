@@ -60,7 +60,12 @@ onUnmounted(() => imageCropper.value.reset?.())
 </script>
 
 <template>
-  <Dialog.Root :open="props.open" lazy-mount unmount-on-exit @update:open="emit('update:open', $event)">
+  <Dialog.Root
+    :open="props.open"
+    lazy-mount
+    unmount-on-exit
+    @update:open="emit('update:open', $event)"
+  >
     <Teleport to="body">
       <Dialog.Backdrop class="crop-dialog-backdrop" />
       <Dialog.Positioner class="crop-dialog-positioner">

@@ -33,10 +33,7 @@ const folderDisplay = computed(() => {
 })
 
 const showHeader = computed(
-  () =>
-    !!accountsStore.selectedFolder ||
-    accountsStore.isSmartFolder ||
-    accountsStore.searchActive,
+  () => !!accountsStore.selectedFolder || accountsStore.isSmartFolder || accountsStore.searchActive,
 )
 
 function handleClick(email: { uid: number; account_id?: string; folder_name?: string }) {
@@ -51,7 +48,6 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
     accountsStore.selectEmail(account, accountsStore.selectedFolder, email.uid)
   }
 }
-
 </script>
 
 <template>
