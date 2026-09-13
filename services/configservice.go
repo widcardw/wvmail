@@ -49,11 +49,13 @@ type TranslationConfig struct {
 
 // LLMConfig represents a single LLM provider configuration.
 type LLMConfig struct {
-	Name     string `yaml:"name"`
-	Provider string `yaml:"provider"`
-	Model    string `yaml:"model"`
-	BaseURL  string `yaml:"base_url"`
-	APIKey   string `yaml:"api_key"`
+	Name                string `yaml:"name"`
+	Provider            string `yaml:"provider"`
+	Model               string `yaml:"model"`
+	BaseURL             string `yaml:"base_url"`
+	APIKey              string `yaml:"api_key"`
+	ContextWindowTokens int    `yaml:"context_window_tokens,omitempty"`
+	MaxOutputTokens     int    `yaml:"max_output_tokens,omitempty"`
 }
 
 // EmailAccount represents an email account configuration.

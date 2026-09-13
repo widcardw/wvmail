@@ -3,7 +3,9 @@ import rehypeParse from 'rehype-parse'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeStringify from 'rehype-stringify'
 import type { Schema } from 'hast-util-sanitize'
-import type { Root, Element, Text } from 'hast'
+import type { Root, Element, Text, Comment, Doctype } from 'hast'
+
+type PropertyDefinition = [string, ...(string | number | boolean | RegExp | null | undefined)[]]
 
 /** Tags whose text content should not be auto-linked. */
 const NO_LINK_TAGS = new Set(['a', 'style', 'script', 'pre', 'code', 'noscript'])
@@ -24,7 +26,7 @@ function walkAndLink(node: Root | Element): void {
   if (!('children' in node)) return
   if (node.type === 'element' && NO_LINK_TAGS.has(node.tagName)) return
 
-  const newChildren: (Text | Element)[] = []
+  const newChildren: (Text | Element | Comment | Doctype)[] = []
   let changed = false
 
   for (const child of node.children) {
@@ -45,8 +47,8 @@ function walkAndLink(node: Root | Element): void {
   if (changed) node.children = newChildren
 }
 
-function autoLinkText(text: string): (Text | Element)[] {
-  const result: (Text | Element)[] = []
+function autoLinkText(text: string): (Text | Element | Comment)[] {
+  const result: (Text | Element | Comment)[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
 
@@ -120,10 +122,10 @@ const emailSchema: Schema = {
   tagNames: [...(defaultSchema.tagNames ?? []), 'style'],
   attributes: {
     ...defaultSchema.attributes,
-    '*': [...((defaultSchema.attributes as Record<string, unknown[]>)?.['*'] ?? []), ['style']],
+    '*': [...(defaultSchema.attributes?.['*'] ?? []), ['style'] as PropertyDefinition],
     a: [
-      ...((defaultSchema.attributes as Record<string, unknown[]>)?.a ?? []),
-      ['className', 'email-auto-link'],
+      ...(defaultSchema.attributes?.a ?? []),
+      ['className', 'email-auto-link'] as PropertyDefinition,
     ],
   },
   protocols: {

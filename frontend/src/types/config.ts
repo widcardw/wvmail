@@ -27,6 +27,9 @@ export type LLMProvider =
   | 'volcengine'
   | 'custom'
 
+export const DEFAULT_LLM_CONTEXT_TOKENS = 32_000
+export const DEFAULT_LLM_OUTPUT_TOKENS = 4096
+
 export const LLM_PROVIDER_DEFAULTS: Record<LLMProvider, string> = {
   deepseek: 'https://api.deepseek.com',
   openai: 'https://api.openai.com/v1',
@@ -49,4 +52,20 @@ export const LLM_PROVIDER_LABELS: Record<LLMProvider, string> = {
   ollama: 'Ollama',
   volcengine: 'Volcengine',
   custom: 'Custom',
+}
+
+export const LLM_PROVIDER_LIMITS: Record<LLMProvider, { context: number; output: number }> = {
+  deepseek: { context: 64_000, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  openai: { context: 128_000, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  anthropic: { context: 200_000, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  gemini: { context: 1_000_000, output: 8192 },
+  minimax: { context: 128_000, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  kimi: { context: 128_000, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  ollama: { context: 8192, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  volcengine: { context: DEFAULT_LLM_CONTEXT_TOKENS, output: DEFAULT_LLM_OUTPUT_TOKENS },
+  custom: { context: DEFAULT_LLM_CONTEXT_TOKENS, output: DEFAULT_LLM_OUTPUT_TOKENS },
+}
+
+export function getLLMProviderLimits(provider?: string) {
+  return LLM_PROVIDER_LIMITS[provider as LLMProvider] ?? LLM_PROVIDER_LIMITS.custom
 }

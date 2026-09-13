@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 )
+
+const defaultMaxOutputTokens = 4096
 
 // TranslationService provides methods for translating email content using
 // either a configured LLM or the DeepL API. It caches translations in memory
@@ -78,6 +81,10 @@ func (s *TranslationService) TranslateText(text, targetLang, engine string, llmC
 func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfig) (string, error) {
 	client := &http.Client{Timeout: 60 * time.Second}
 	baseURL := strings.TrimRight(cfg.BaseURL, "/")
+	maxOutputTokens := cfg.MaxOutputTokens
+	if maxOutputTokens <= 0 {
+		maxOutputTokens = defaultMaxOutputTokens
+	}
 
 	prompt := fmt.Sprintf(
 		"Translate the following text to %s. Preserve any email formatting, line breaks, and "+
@@ -92,7 +99,7 @@ func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfi
 	case "anthropic":
 		body := map[string]interface{}{
 			"model":      cfg.Model,
-			"max_tokens": 4096,
+			"max_tokens": maxOutputTokens,
 			"thinking":   map[string]string{"type": "disabled"},
 			"messages":   []map[string]string{{"role": "user", "content": prompt}},
 		}
@@ -126,6 +133,7 @@ func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfi
 					},
 				},
 			},
+			"generationConfig": map[string]int{"maxOutputTokens": maxOutputTokens},
 		}
 		var jsonBody []byte
 		jsonBody, err = json.Marshal(body)
@@ -152,6 +160,7 @@ func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfi
 			"model":    cfg.Model,
 			"messages": []map[string]string{{"role": "user", "content": prompt}},
 			"stream":   false,
+			"options":  map[string]int{"num_predict": maxOutputTokens},
 		}
 		var jsonBody []byte
 		jsonBody, err = json.Marshal(body)
@@ -177,7 +186,7 @@ func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfi
 		body := map[string]interface{}{
 			"model":      cfg.Model,
 			"messages":   []map[string]string{{"role": "user", "content": prompt}},
-			"max_tokens": 4096,
+			"max_tokens": maxOutputTokens,
 		}
 		var jsonBody []byte
 		jsonBody, err = json.Marshal(body)
@@ -210,11 +219,13 @@ func (s *TranslationService) translateDeepL(text, targetLang, authKey string) (s
 
 	client := &http.Client{Timeout: 30 * time.Second}
 
-	body := fmt.Sprintf("auth_key=%s&text=%s&target_lang=%s",
-		authKey, text, strings.ToUpper(targetLang))
+	values := url.Values{}
+	values.Set("auth_key", authKey)
+	values.Set("text", text)
+	values.Set("target_lang", strings.ToUpper(targetLang))
 
 	req, err := http.NewRequest("POST", "https://api-free.deepl.com/v2/translate",
-		strings.NewReader(body))
+		strings.NewReader(values.Encode()))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}

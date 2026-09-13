@@ -123,6 +123,8 @@ const enUS: TranslationSchema = {
   'settings.llm.name': 'Name',
   'settings.llm.baseURL': 'Base URL',
   'settings.llm.apiKey': 'API Key',
+  'settings.llm.contextWindow': 'Context window (tokens)',
+  'settings.llm.maxOutput': 'Max output (tokens)',
   'settings.llm.test': 'Test',
   'settings.llm.test.success': 'Connection successful',
   'settings.llm.test.fail': 'Connection failed',

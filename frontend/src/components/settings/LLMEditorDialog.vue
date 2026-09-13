@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from '~/i18n'
 import UiSelect from '~/components/UiSelect.vue'
-import { LLM_PROVIDER_DEFAULTS } from '~/types/config'
+import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS } from '~/types/config'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import JsonResponseViewer from '~/components/settings/JsonResponseViewer.vue'
 
@@ -46,9 +46,21 @@ function onProvider(provider: string) {
   if (!props.editing && LLM_PROVIDER_DEFAULTS[provider as LLMProvider]) {
     form.value.BaseURL = LLM_PROVIDER_DEFAULTS[provider as LLMProvider]
   }
+  if (!props.editing) {
+    const limits = getLLMProviderLimits(provider)
+    form.value.ContextWindowTokens = limits.context
+    form.value.MaxOutputTokens = limits.output
+  }
 }
 
-function onInput(key: 'Name' | 'Model' | 'BaseURL' | 'APIKey', event: Event) {
+function onInput(
+  key: 'Name' | 'Model' | 'BaseURL' | 'APIKey' | 'ContextWindowTokens' | 'MaxOutputTokens',
+  event: Event,
+) {
+  if (key === 'ContextWindowTokens' || key === 'MaxOutputTokens') {
+    form.value[key] = Number((event.target as HTMLInputElement).value) as never
+    return
+  }
   form.value[key] = (event.target as HTMLInputElement).value
 }
 
@@ -121,6 +133,30 @@ function close() {
               @input="onInput('APIKey', $event)"
               :placeholder="props.apiKeyRequired ? 'sk-...' : 'Optional for local Ollama'"
             />
+          </div>
+          <div class="limits">
+            <div class="field">
+              <label>{{ t['settings.llm.contextWindow'] }}</label>
+              <input
+                class="ctl"
+                type="number"
+                min="1024"
+                step="1024"
+                :value="form.ContextWindowTokens"
+                @input="onInput('ContextWindowTokens', $event)"
+              />
+            </div>
+            <div class="field">
+              <label>{{ t['settings.llm.maxOutput'] }}</label>
+              <input
+                class="ctl"
+                type="number"
+                min="256"
+                step="256"
+                :value="form.MaxOutputTokens"
+                @input="onInput('MaxOutputTokens', $event)"
+              />
+            </div>
           </div>
 
           <div class="test-actions">
@@ -225,6 +261,11 @@ function close() {
 }
 .pass {
   letter-spacing: 1px;
+}
+.limits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 .test-actions {
   display: flex;

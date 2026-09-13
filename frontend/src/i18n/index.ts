@@ -124,6 +124,8 @@ export interface TranslationSchema {
   'settings.llm.name': string
   'settings.llm.baseURL': string
   'settings.llm.apiKey': string
+  'settings.llm.contextWindow': string
+  'settings.llm.maxOutput': string
   'settings.llm.test': string
   'settings.llm.test.success': string
   'settings.llm.test.fail': string

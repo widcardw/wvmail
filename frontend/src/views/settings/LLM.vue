@@ -4,7 +4,7 @@ import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig } from '~/types/config'
-import { LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
+import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
 import AppIcon from '~/components/AppIcon.vue'
 import { getProviderIconConfig } from '~/composables/provider-icons'
 import LLMEditorDialog from '~/components/settings/LLMEditorDialog.vue'
@@ -23,6 +23,8 @@ const form = ref<LLMConfig>({
   Model: '',
   BaseURL: '',
   APIKey: '',
+  ContextWindowTokens: getLLMProviderLimits('openai').context,
+  MaxOutputTokens: getLLMProviderLimits('openai').output,
 })
 
 const testing = ref(false)
@@ -89,6 +91,8 @@ function openAdd() {
     Model: '',
     BaseURL: LLM_PROVIDER_DEFAULTS.openai,
     APIKey: '',
+    ContextWindowTokens: getLLMProviderLimits('openai').context,
+    MaxOutputTokens: getLLMProviderLimits('openai').output,
   }
   clearTestResults()
   showModal.value = true
@@ -96,7 +100,13 @@ function openAdd() {
 
 function openEdit(index: number) {
   editingIndex.value = index
-  form.value = { ...configs.value[index] }
+  const config = configs.value[index]
+  const limits = getLLMProviderLimits(config.Provider)
+  form.value = {
+    ...config,
+    ContextWindowTokens: config.ContextWindowTokens || limits.context,
+    MaxOutputTokens: config.MaxOutputTokens || limits.output,
+  }
   clearTestResults()
   showModal.value = true
 }

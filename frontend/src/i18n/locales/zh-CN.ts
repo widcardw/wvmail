@@ -123,6 +123,8 @@ const zhCN: TranslationSchema = {
   'settings.llm.name': '名称',
   'settings.llm.baseURL': '基础 URL',
   'settings.llm.apiKey': 'API 密钥',
+  'settings.llm.contextWindow': '上下文窗口（Token）',
+  'settings.llm.maxOutput': '最大输出（Token）',
   'settings.llm.test': '测试连接',
   'settings.llm.test.success': '连接成功',
   'settings.llm.test.fail': '连接失败',

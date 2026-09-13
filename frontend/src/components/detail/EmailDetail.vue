@@ -10,7 +10,9 @@ import {
   sanitizeHtmlRehype as sanitizeHtml,
   linkifyPlainText,
   extractTextForTranslation,
+  getTranslationMaxChars,
   translateHtmlWithLayout,
+  translatePlainText,
 } from '~/composables/html-utils'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
@@ -101,11 +103,16 @@ async function handleTranslate() {
     if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
       llmCfg = (cfgName && cfg.LLMConfigs.find((c) => c.Name === cfgName)) || cfg.LLMConfigs[0]
     }
+    const maxTranslationChars = engine === 'llm' ? getTranslationMaxChars(llmCfg) : undefined
     const translateFn = (text: string) =>
       TranslationService.TranslateText(text, targetLang, engine, llmCfg, tCfg.DeepLAuthKey || '')
 
     if (detail.value.body_html) {
-      const htmlResult = await translateHtmlWithLayout(detail.value.body_html, translateFn)
+      const htmlResult = await translateHtmlWithLayout(
+        detail.value.body_html,
+        translateFn,
+        maxTranslationChars,
+      )
       if (gen !== translateToken) return
       if (htmlResult) {
         translatedText.value = null
@@ -123,7 +130,7 @@ async function handleTranslate() {
       if (gen === translateToken) translationError.value = 'No email content to translate'
       return
     }
-    const result = await translateFn(textToTranslate)
+    const result = await translatePlainText(textToTranslate, translateFn, maxTranslationChars)
     if (gen !== translateToken) return
     translatedText.value = result
     translatedHtml.value = null
