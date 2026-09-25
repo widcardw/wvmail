@@ -1,6 +1,7 @@
 package services
 
 import (
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -73,6 +74,7 @@ func (s *EmailSyncService) ForceSyncNow(account EmailAccount, folder string, pag
 func (s *EmailSyncService) syncLoop() {
 	accounts, err := s.config.GetAccounts()
 	if err != nil {
+		slog.Error("background sync: loading accounts failed", "error", err)
 		return
 	}
 
@@ -99,6 +101,7 @@ func (s *EmailSyncService) syncLoop() {
 func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 	folders, err := s.email.ListFolders(acct)
 	if err != nil {
+		slog.Error("background sync: listing folders failed", "account", acct.ID, "error", err)
 		return
 	}
 
@@ -108,6 +111,10 @@ func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 		if name == "inbox" || strings.HasSuffix(name, "/inbox") {
 			_, err := s.email.RefreshEmails(acct, f.Name, 1, 20)
 			if err != nil {
+				// Without this the whole background sync failed silently: the
+				// UI keeps showing stale mail with no hint of why.
+				slog.Error("background sync: refreshing inbox failed",
+					"account", acct.ID, "folder", f.Name, "error", err)
 				return
 			}
 

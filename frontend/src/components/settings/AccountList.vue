@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
+import { useElapsedSeconds } from '~/composables/use-elapsed-seconds'
 import { EMAIL_PROVIDER_LABELS } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 
-defineProps<{
+const props = defineProps<{
   accounts: EmailAccount[]
   testingId: string | null
   testSuccessId: string | null
   testFailId: string | null
   confirmingDeleteId: string | null
 }>()
+
+// Show how long the test has been running instead of a bare ellipsis: a
+// connection that is going to time out is otherwise indistinguishable from one
+// that is about to succeed.
+const testElapsed = useElapsedSeconds(() => props.testingId !== null)
 
 const emit = defineEmits<{
   add: []
@@ -56,7 +62,7 @@ function providerLabel(provider: string): string {
             :disabled="testingId === account.ID"
             @click="emit('test', account)"
           >
-            {{ testingId === account.ID ? '…' : t['settings.accounts.test'] }}
+            {{ testingId === account.ID ? `${t['settings.accounts.testing']} ${testElapsed}s` : t['settings.accounts.test'] }}
           </button>
           <button type="button" class="drv" @click="emit('edit', account)">
             {{ t['settings.llm.edit'] }}

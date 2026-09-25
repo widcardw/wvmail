@@ -168,14 +168,26 @@ function isOpen(id: string) {
   return expanded.value.includes(id)
 }
 
+function onMailView() {
+  return router.currentRoute.value.path === '/'
+}
+
 function syncSelected() {
-  if (!store.isSmartFolder && store.selectedAccountId && store.selectedFolder) {
+  // Only mirror the store into the tree while the mail list is the visible
+  // view. On settings/notes/reminder the folder row must lose its highlight:
+  // otherwise it still looks selected, and re-clicking it emits no
+  // selection-change (the value is unchanged), so the click never navigates
+  // back to the folder.
+  if (onMailView() && !store.isSmartFolder && store.selectedAccountId && store.selectedFolder) {
     selected.value = [fkey(store.selectedAccountId, store.selectedFolder)]
   } else {
     selected.value = []
   }
 }
 watch(() => [store.selectedAccountId, store.selectedFolder, store.smartFolder], syncSelected)
+// Leaving the mail view clears the folder highlight; coming back re-applies it
+// from the store (syncSelected), so the selection survives the round trip.
+watch(() => router.currentRoute.value.path, syncSelected)
 </script>
 
 <template>

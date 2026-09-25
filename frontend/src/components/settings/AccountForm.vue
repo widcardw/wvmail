@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
+import { useElapsedSeconds } from '~/composables/use-elapsed-seconds'
 import UiSelect from '~/components/UiSelect.vue'
 import { EMAIL_PROVIDER_DEFAULTS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
@@ -24,6 +25,10 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// Same as the account list: show the elapsed seconds while the connection test
+// runs, so a stalled attempt is visible before it times out.
+const testElapsed = useElapsedSeconds(() => props.testing)
 
 function strVal(e: Event): string {
   return (e.target as HTMLInputElement).value
@@ -260,7 +265,7 @@ function onEmailInput(email: string) {
         {{ t['settings.accounts.cancel'] }}
       </button>
       <button type="button" class="btn" :disabled="props.testing" @click="emit('test')">
-        {{ props.testing ? '…' : t['settings.accounts.test'] }}
+        {{ props.testing ? `${t['settings.accounts.testing']} ${testElapsed}s` : t['settings.accounts.test'] }}
       </button>
       <button type="button" class="btn btn--primary" :disabled="props.saving" @click="emit('save')">
         {{ props.saving ? '…' : t['settings.accounts.save'] }}

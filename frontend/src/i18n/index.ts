@@ -23,6 +23,7 @@ export interface TranslationSchema {
   'mail.loading': string
   'mail.page': string
   'mail.noEmails': string
+  'mail.refreshFailed': string
   'mail.link.title': string
   'mail.link.body': string
   'mail.link.open': string

@@ -10,9 +10,23 @@ import type {
   EmailSearchFilter,
 } from '~/types/email'
 import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/services'
+import { useFeedbackStore } from '~/stores/feedback'
+import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
 
 export const useAccountsStore = defineStore('accounts', () => {
+  const feedback = useFeedbackStore()
+  const { t: i18n } = useI18n()
+
+  // Fetch failures used to be console.error only, so a timed-out IMAP connect
+  // looked like "nothing happened" for a minute and then silently kept stale
+  // mail. Surface the reason to the user as well.
+  function reportFetchFailure(action: string, e: unknown) {
+    console.error(action, e)
+    const detail = e instanceof Error ? e.message : String(e)
+    feedback.error(`${i18n.value['mail.refreshFailed']}: ${detail}`)
+  }
+
   const accounts = ref<EmailAccount[]>([])
   const avatarRevision = ref<Record<string, number>>({})
   const loading = ref(false)
@@ -179,7 +193,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         currentPageByFolder.value[key] = 1
       }
     } catch (e) {
-      console.error('Failed to load emails', e)
+      reportFetchFailure('Failed to load emails', e)
       emailsByFolder.value[key] = []
     } finally {
       loading.value = false
@@ -262,7 +276,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       emailTotalByFolder.value[key] = total
       currentPageByFolder.value[key] = next
     } catch (e) {
-      console.error('Failed to refresh emails', e)
+      reportFetchFailure('Failed to refresh emails', e)
     } finally {
       refreshing.value = false
     }
