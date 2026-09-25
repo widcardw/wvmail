@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"wvmail/macos"
 	"wvmail/services"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -71,7 +72,7 @@ func main() {
 	// 'Mac' options tailor the window when running on macOS.
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "WVMail",
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
@@ -83,6 +84,11 @@ func main() {
 		Width:            1280,
 		Height:           768,
 	})
+
+	// macOS 26 (Tahoe) drops the traffic lights below the 40px in-page title
+	// bar to clear its larger window corner radius. The header (.app__titlebar)
+	// is 40px tall, so keep the lights centered at 20pt from the top instead.
+	macos.CenterTrafficLights(win, 20)
 
 	// Start the background email sync service
 	syncSvc.Start()
