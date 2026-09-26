@@ -33,6 +33,13 @@ func init() {
 // logs any error that might occur.
 func main() {
 
+	// macOS 26 "Tahoe" rounds window corners far more aggressively than earlier
+	// releases (26pt vs ~10pt). Ask AppKit for the macOS 15-era radius instead.
+	// This must happen before application.New because AppKit reads the
+	// preference once while starting up. It is a no-op on other platforms and on
+	// Sequoia (Darwin 24) or older.
+	macos.SetWindowCornerRadiusPreference(10)
+
 	// Create shared service instances. We keep references so the background
 	// sync service can use ConfigService and EmailService.
 	cfgSvc := &services.ConfigService{}

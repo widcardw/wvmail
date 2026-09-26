@@ -11,7 +11,7 @@ type: project
 wvmail is a cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeScript)**. The Go backend provides system-level services, while the Vue frontend renders the UI inside a native WebView.
 
 - **Go Module**: `wvmail`
-- **Wails Version**: `v3.0.0-alpha.84`
+- **Wails Version**: `v3.0.0-beta.25`
 - **Build System**: Taskfile.yml (https://taskfile.dev)
 - **Platform Targets**: macOS (darwin), Windows, Linux, Android, iOS
 
