@@ -1,0 +1,253 @@
+---
+name: email-fetch-and-display
+description: How wvmail fetches mail over IMAP and renders it — every fallback/degradation path, the cache rules, the security boundary, and the known gaps
+type: project
+---
+
+# 邮件获取与显示：链路与全部 fallback
+
+本文记录「取信（IMAP）」和「显示（Vue）」两条链路上所有的**回退/降级方式**，以及哪些是刻意设计、哪些是可疑之处。
+
+> 行号会漂移，**函数名 / 组件名才是稳定锚点**。撰写时基线：Wails `v3.0.0-beta.25`，macOS 26。
+
+---
+
+## 1. 总览
+
+```
+打开某文件夹                   打开某封邮件
+  │                              │
+ListEmails（缓存优先）          FetchEmail（缓存优先）
+  │  miss                        │  miss
+  └─→ RefreshEmails ──┐          └─→ RefreshEmailBody ──┐
+                      │                                 │
+              dialIMAP（连接阶梯 + ID + 登录看门狗）   同一套 dialIMAP
+                      │                                 │
+        SELECT → 重试0封 → ENVELOPE失败重取    BodyStructure 遍历 → 抓正文/inline
+              → 日期/主题/发件人兜底            → CTE 解码 → 字符集兜底 → CID 替换
+                      │                                 │
+                  写缓存（best-effort）              写缓存（best-effort）
+                      │                                 │
+              前端 store（失败保留旧数据）       EmailDetail → sanitize → Shadow DOM
+```
+
+---
+
+## 2. 获取层（Go / `services/emailservice.go`）
+
+### 2.1 入口一览
+
+| 方法 | 缓存优先？ | 超时 | 说明 |
+|---|---|---|---|
+| `TestConnection` | 否 | **15s** | 只做连接+登录，用于设置页「测试连接」 |
+| `ListFolders` | **是**（缓存非空即返回，**无 TTL**） | 60s（走 Refresh） | 只有缓存为空才 `RefreshFolders` |
+| `RefreshFolders` | 否 | 60s | `LIST "" *`，成功后写缓存 |
+| `ListEmails` | **是**（仅 page ≤ 1） | 60s（走 Refresh） | 缓存缺 folder meta 或 total==0 时强制刷新 |
+| `RefreshEmails` | 否 | 60s | 抓摘要页 + 合并缓存 |
+| `SearchEmails` | **仅缓存** | — | `db.SearchEmails`，**没有 IMAP SEARCH 兜底** |
+| `FetchEmail` | **是** | — | 命中 `LoadEmailBody` 直接返回 |
+| `RefreshEmailBody` | 否 | 60s | 两趟抓取：先 BodyStructure，再正文/inline 段 |
+| `DownloadAttachment` | 否 | 60s | 独立连接，只抓指定 part |
+
+**缓存策略要点**：`SaveEmails` 按 UID 合并、不删旧行，所以翻到更早的页不会丢掉已缓存的邮件；`RefreshEmails` 的返回页可能来自「服务器新抓的页 + 缓存旧行」合并结果（page 1 总是如此）。
+
+### 2.2 连接阶段：`dialIMAP` 的 fallback 阶梯
+
+1. **加密方式**
+   - `UseTLS || port == 993` → `DialTLS`（隐式 TLS）。
+   - 否则 → 先试 `DialStartTLS`（机会性升级）；**失败则回退 `DialInsecure`（明文）**，并记 `warn`。
+   - 注意：该明文回退只对「用户自己配置为未启用 TLS 的非 993 端口」账号生效，但一旦回退，**密码是明文发送**的。
+2. **RFC 2971 ID 命令**：`providerNeedsIDCommand` 判断（provider 标签 `163`/`126`/`qq`，**或主机后缀** `qq.com`/`163.com`/`126.com`，覆盖 `imap.exmail.qq.com` 这类 `provider: custom` 的企业邮）。
+   - 需要时：`WaitGreeting()` → `ID`。
+   - **ID 被拒不再致命**：只记 warn 后继续 LOGIN，让真正的失败由登录阶段报出（原先直接失败，报错是难懂的 `id command failed: BAD`）。
+3. **登录看门狗**：`Login` 放在 goroutine，外面 `select` + `time.After(timeout)`；超时则 `client.Close()` 并返回 `login timed out after ...`。
+4. **登录后补 `CAPABILITY`**（部分服务端如 163 要求），失败即判为连接失败。
+5. **库自带的 30s 响应读超时**（go-imap 在每次读响应前设置）——所以「协议层卡住」通常在 ~30s 结束，而 **60s 只可能来自 TCP+TLS 握手**（`tls.DialWithDialer` 的 dialer 超时覆盖连接+握手整体）。
+6. **错误翻译**：`wrapIMAPError` 把 `Unsafe Login`、`authentication failed` 等翻译成带排查提示的中文/英文文案。
+7. **分阶段日志**：`phase=connect|greeting|login|capability` + `elapsed`，失败用 `slog.Error`，成功用 `slog.Debug`。
+
+### 2.3 列表/摘要阶段：`RefreshEmails` 的兜底
+
+| # | 触发 | 回退行为 |
+|---|---|---|
+| 1 | QQ/Foxmail 刚变更后瞬时 `NumMessages==0` | 等 300ms 后**重试 SELECT 一次** |
+| 2 | 重试后仍为 0，且此前缓存过非零总数 | **返回错误**「keeping previous list」——故意不返回空列表，让上层保留旧数据 |
+| 3 | ENVELOPE 解析失败（腾讯 WeCom 等畸形响应） | **去掉 Envelope 重取一次**，主题/发件人/日期改用默认值 |
+| 4 | `Envelope.Date` 为空 | 退回 `InternalDate`；仍为空则空字符串 |
+| 5 | 主题为空 | `"(No Subject)"`（硬编码英文，未走 i18n） |
+| 6 | 发件人为空 | `name <addr>` → `addr` → 空 |
+| 7 | 缓存写入失败 | `slog.Warn`，**不影响返回**（缓存是 best-effort） |
+
+### 2.4 正文/附件阶段：`RefreshEmailBody` 的兜底
+
+| # | 触发 | 回退行为 |
+|---|---|---|
+| 1 | BodyStructure 为 nil，或走完没发现任何正文 part / 附件 | **抓整封**（`FetchItemBodySection{Peek:true}`）当纯文本，并走 `decodeBodyPart`（本次修正：原先直接 `string(raw)`，会漏掉 CTE/字符集解码） |
+| 2 | 只预取正文 part + inline(CID) 图片 part | 下载型附件**不预取**，点下载时才单独连一次 |
+| 3 | base64 解码失败 | 去掉换行/空白前后再试一次；再失败 → **用原始字节** |
+| 4 | quoted-printable 解码失败 | 用原始字节 |
+| 5 | 其它 CTE（7bit/8bit/binary） | 原样使用 |
+| 6 | 声明的 charset 未知/转换失败，且字节不是合法 UTF-8 | **依次**：声明 charset → 合法 UTF-8 则原样 → **GB18030 兜底**（本次新增，针对中文邮件常见的 GBK 无 charset 声明） |
+| 7 | 附件名为空 | `Content-Disposition.filename` → `Content-Type.name` → 生成 `attachment-N` / `inline-N` |
+| 8 | 附件/正文分类 | **`Content-Disposition: attachment` 优先判定**（本次修正：原先 `text/plain`/`text/html` 判定在前，导致带 `.txt`/`.html` 附件的邮件**把附件当正文渲染**、甚至覆盖真实正文）；其后依次是：无 disposition 的 text 正文 → 有文件名的非文本 → `disposition: inline` → 有 `Content-ID` |
+| 9 | CID 内联图解码失败 | 用原始字节直接 base64，仍生成 data URI（宁可图错也不要空图） |
+| 10 | 缓存写入失败 | `slog.Warn`，不影响返回 |
+
+### 2.5 已知的获取层缺陷（尚未改）
+
+- **`SearchEmails` 只搜本地缓存**：没有 IMAP `SEARCH` 兜底，未缓存过的邮件搜不到，UI 也没说明这一点。
+- **缓存没有 TTL**：`ListFolders` 永不刷新；`ListEmails` page 1 一律优先返回缓存。打开文件夹看到的是上次缓存的内容，需要手动刷新。这是**刻意**的（避免每操作一条新连接加剧腾讯侧限流），但用户无感知。
+- **`text/*` 命名附件**（有 filename、无 `Content-Disposition: attachment`）仍可能被当正文；本次只修了显式 attachment 的情形。
+- **明文回退**（2.2-1）在账号被配置为不用 TLS 时仍会自动发生，仅记 warn。
+
+---
+
+## 3. 显示层（Vue）
+
+### 3.1 打开一封邮件的顺序
+
+1. `EmailList.vue` `handleClick` → 解析 account/folder（聚合/搜索视图 vs 普通）→ `accountsStore.selectEmail`。
+2. `stores/accounts.ts` `selectEmail`：置 uid、清空 detail、`loadingDetail=true`、清 `detailError` → `EmailService.FetchEmail`。
+3. 成功写 `selectedEmailDetail`；失败写 `detailError`（详情保持为空）。
+4. `EmailDetail.vue`：loading 转圈 → 错误横幅 → **垃圾邮件门禁横幅** → 详情占位。
+5. 门禁：`is_suspicious` 时隐藏 **HTML 正文 + 附件列表**，需点「显示全部」。
+6. 头部：`senderDisplay`（name → addr → from → `'Unknown'`）、`formatDate`、主题、to/cc。
+7. 附件区 `EmailAttachments.vue`。
+8. 正文：`body_html` → `sanitizeHtml` → `EmailShadowBody`；否则 `body_text` → `linkifyPlainText` → `EmailShadowBody`；都没有 → `"(No content)"`。
+9. `EmailShadowBody.vue`：暗色时 `adaptHtmlForDarkMode` → `shadowRoot.innerHTML = content`。
+10. 链接点击拦截 → `EmailLinkDialog` → `OsService.OpenURL`。
+11. 可选翻译：`translateHtmlWithLayout`（保留布局）→ 失败则降级为纯文本翻译。
+
+### 3.2 显示层 fallback 清单（按严重度）
+
+**安全相关**
+
+| 位置 | 触发 | 行为 | 判定 |
+|---|---|---|---|
+| `EmailDetail.vue` 翻译分支 | 垃圾邮件 + 点翻译 | **翻译结果原先绕过门禁**直接渲染整段 HTML | 已修（见 §4） |
+| `html-sanitize.ts` schema | 始终 | 允许 `<style>` 与**所有元素**的 `style` 属性 → CSS 未净化（`url()`/`@import`/`position:fixed` 都保留） | **已修**（见 §3.4） |
+| `html-sanitize.ts` schema | 始终 | 远程 `img src` 的 `http(s)` 保留 → **跟踪像素默认会加载**；没有「拦截远程内容」开关 | **已修**（默认拦截 + 白名单，见 §3.4） |
+| `EmailShadowBody.vue` | 暗色转换抛错 | 原先无 try/catch → `innerHTML` 不赋值，正文空白/残留 | 已修 |
+| `EmailDetail.vue` 纯文本分支 | 垃圾邮件 | 纯文本正文仍会渲染（安全，但原先与「已拦截 N 个」横幅措辞不符） | 已修（措辞改为准确描述） |
+| 纯文本兜底 `linkifyPlainText` | 始终 | 转义正确（`<` → `&#x3C;`，autolink 正则排除引号/尖括号） | 合理 |
+
+**可见性 / 静默失败**
+
+| 位置 | 触发 | 行为 | 判定 |
+|---|---|---|---|
+| `html-translation.ts` 分隔符数量不匹配 | LLM 改动 `————` | 返回 `[]`/`''` → 原先**静默无反应**，按钮回弹 | 已修（报错提示） |
+| `EmailDetail.vue` 翻译目标语言缺省 | 配置为空 | 静默用 `zh-CN`；引擎静默用 `llm`；指定 LLM 配置缺失则静默用第一个 | 记录 |
+| `html-translation.ts` 无文本节点 | 无可用文本 | 返回 `null` → 静默降级为纯文本翻译（**布局丢失**） | 合理但无提示 |
+| `stores/accounts.ts` 搜索失败 | `SearchEmails` 抛错 | 原先仅 console → 空结果，与「确实没有」无法区分 | 已修（toast） |
+| `stores/accounts.ts` 聚合视图失败 | smart folder 抛错 | 原先清空聚合列表 | 已修（保留旧数据 + toast） |
+| `stores/accounts.ts` 同步后重取失败 | 后台事件 | 原先 `.catch(() => {})` 完全吞掉 | 已修（记日志，不弹 toast 以免刷屏） |
+| `stores/accounts.ts` 取信/取文件夹失败 | 列表加载抛错 | 原先把 `emailsByFolder`/`foldersByAccount` **清空**，与后端「保留旧列表」的意图相反 | 已修（保留旧数据 + toast） |
+| `EmailList.vue` 空列表 | `length === 0` | 一律显示「暂无邮件」 | 部分改善（现在至少会弹失败 toast） |
+| `EmailList.vue` 聚合邮件缺 account/folder | 点击 | 回落到当前选中账号+文件夹；都没有则**点击无任何反应** | 记录（缺用户反馈） |
+| `formats.ts` 日期不可解析 | 脏数据 | 渲染字面量 `"Invalid Date"` | 记录 |
+| `formats.ts` 文件大小 | ≥1TB / 负数 / NaN | `"1 undefined"` / `"NaN undefined"`（未 clamp） | 记录 |
+| `EmailDetail.vue` 翻译无可译内容 | 空正文 | 硬编码英文错误串（未走 i18n） | 记录 |
+
+**重复 / 冗余**
+
+- `formats.ts` 的 `senderDisplay` 与 `EmailDetail.vue` 的 `senderDisplay` 是**两套不同实现**（前者剥掉域名，后者保留完整地址）。
+- 主题为空有两处 `"(No Subject)"`；i18n 里没有任何对应 key（另有 7 处硬编码英文兜底串）。
+- `EmailDetail.vue` 原先在模板表达式里 `sanitizeHtml(...)`，每次重渲染都重新解析整封 HTML → 本次改为 `computed` 缓存。
+- 已删除死代码 `composables/sanitize-html.ts`（`export { sanitizeHtmlRehype as sanitizeHtml }`，全项目 0 引用；真正在用的是 `html-sanitize.ts` / `html-utils.ts`）。
+
+### 3.3 DOM 与安全边界
+
+- 全前端**唯一**的 DOM sink 是 `EmailShadowBody.vue` 的 `shadowRoot.innerHTML`（`v-html` 全项目 0 处）。
+- 它的三个输入分别是：`sanitizeEmailHtml(body_html)`、`linkifyPlainText(body_text)`、`sanitizeEmailHtml(translatedHtml)` —— 都经过净化或由代码生成。
+- 远程内容默认拦截、CSS 已净化（见 §3.4）。
+
+### 3.4 远程内容拦截与 CSS 净化
+
+**默认行为**：远程内容（`http(s)` 图片、`srcset`、CSS `url()`）默认**拦截**；`data:`（后端已把 `cid:` 内联图解析成 data URI）与相对路径保留。放行有三条途径：
+
+| 粒度 | 入口 | 持久化 |
+|---|---|---|
+| 全局 | 设置 → 通用 → 远程内容 → 「始终加载…」 | `config.yaml: remote_content.allow_remote_content` |
+| 按发件人 | 邮件横幅 → 「总是允许此发件人」 | `config.yaml: remote_content.allowed_senders`（地址小写；`@domain` 匹配整域） |
+| 单封邮件 | 邮件横幅 → 「显示远程内容」 | 不持久化，切换邮件即复位 |
+
+**净化管道**（`composables/html-sanitize.ts`）：
+
+```
+rehype-parse → rehypeAutoLink → rehype-sanitize(白名单)
+   → rehypeSanitizeEmailCss   (重写 <style> 文本与 style 属性)
+   → rehypeBlockRemoteContent (删除并计数远程 src/srcSet/poster/background/data)
+   → rehype-stringify → 追加受信任的 THEME_LINK_CSS + BLOCKED_IMAGE_CSS
+```
+
+CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 `@import`、`expression()`、`behavior`/`-moz-binding`；`position: fixed|sticky` 改写为 `static`；拦截模式下把远程 `url(...)` 替换为 `none`。`<style>` 与 `style=` 两处都过同一函数。
+
+**计数语义**：`sanitizeEmailHtml()` 返回 `{ html, blockedRemote }`，`blockedRemote` 只统计**拦截模式下真正移除**的远程资源；放行模式恒为 0（否则放行后横幅会再次出现）。它驱动横幅文案「已拦截 N 个远程资源…」。
+
+**踩过的坑（已加测试）**：hast 里属性名是**驼峰** `srcSet`，只写小写 `srcset` 会漏掉 `<picture><source srcset=…>` —— 实测确认这是一个真实可用的追踪向量。`URL_ATTRS` 因此同时列出两种拼写；`frontend/tests/html-sanitize.test.mts` 固化了这条回归。
+
+**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）覆盖 26 条断言：远程拦截/放行两态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」。
+
+**仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。
+
+---
+
+## 4. 本次微调（已改）
+
+| 改动 | 位置 | 原因 |
+|---|---|---|
+| 附件/正文判定顺序：`Content-Disposition: attachment` 优先 | `services/emailservice.go` `hasAttachmentDisposition` + 遍历分支 | 原先带 `.txt`/`.html` 附件的邮件会把附件当正文渲染，甚至覆盖真实正文 |
+| 字符集三级兜底（声明 → UTF-8 校验 → GB18030） | `decodeCharset`（新） | 原先 charset 缺失/未知时直接原样返回字节中文邮件变乱码 |
+| 整封兜底正文也走 `decodeBodyPart` | `RefreshEmailBody` 兜底分支 | 原先 `string(raw)` 漏掉 CTE/字符集解码 |
+| 缓存失败改用 `slog`，删除 4 处调试 `fmt.Println` | `services/emailservice.go` | `fmt.Printf/Println` 在 GUI 里无处可见（stdout 未接），且是遗留调试输出 |
+| `TestConnection` 记录实际入参（host/user/provider/`has_password`）与耗时 | `services/emailservice.go` | 让「列表测试超时、编辑页测试成功」这类问题可被日志直接判定 |
+| 翻译结果纳入垃圾邮件门禁 | `EmailDetail.vue`（`handleTranslate` 早退 + 模板条件） | 原先翻译会绕过门禁把未揭示的正文渲染出来 |
+| 翻译返回空内容时报错而非静默 | `EmailDetail.vue`（新增 i18n key `mail.translation.empty`） | 分隔符不匹配导致「点了翻译没反应」 |
+| 暗色转换失败回退原始 HTML | `EmailShadowBody.vue` try/catch | 原先抛错会让正文空白/残留旧内容 |
+| 取信/取文件夹/搜索/聚合失败：保留旧数据 + toast | `stores/accounts.ts` | 原先静默清空，用户误以为「没有邮件」 |
+| 取消保存对话框不再报错 | `stores/accounts.ts` `downloadAttachment` | 取消是正常操作，原先会弹错误横幅 |
+| 正文净化结果用 `computed` 缓存 | `EmailDetail.vue` | 原先每次重渲染都重新解析整封 HTML |
+| 删除死文件 `composables/sanitize-html.ts` | frontend | 0 引用 |
+| **默认拦截远程内容**（`src`/`srcSet`/`poster`/`background`/CSS `url()`）并计数 | `html-sanitize.ts` | 跟踪像素原先默认加载 |
+| **CSS 净化**：`@import`/`expression()`/`behavior` 永久剥离；拦截模式下远程 `url()` → `none`；`position:fixed\|sticky` → `static` | `html-sanitize.ts` | 原先 `<style>` 与 `style=` 原样放行：可外连、可覆盖应用 UI |
+| **放行入口**：全局开关 / 按发件人白名单 / 单封邮件 | `stores/preferences.ts`、`EmailDetail.vue`、`views/settings/Common.vue` + Go `RemoteContentConfig` | 拦截必须有出路，否则用户看不了图 |
+| **横幅措辞改为准确描述**，并新增「已拦截 N 个远程资源」横幅与放行按钮 | `EmailDetail.vue` + i18n | 原「已拦截 {count} 个附件/资源」的 count 是「附件数 + 有 HTML ? 1 : 0」，与实际隐藏内容不符 |
+| **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
+
+---
+
+## 5. 建议的后续项（需产品决策，本次未改）
+
+1. **放开 `class` 属性**：现在 `class` 被 schema 剥掉但 `<style>` 里的 `.class` 规则保留 → 邮件版式半失效，且与暗色模式互相放大。允许 `className` 是成本最低的改善。
+2. **搜索兜底**：接 IMAP `SEARCH`，或在搜索框明确提示「仅搜索已缓存邮件」。
+3. **缓存 TTL / stale-while-revalidate**：打开文件夹先出缓存、后台再刷新。**注意**：这会增加连接数，与已知的腾讯企业邮限流冲突，需要配合连接复用（长连接 + IDLE）一起做。
+4. **统一发件人显示与文案**：合并两套 `senderDisplay`，把 `(No Subject)`/`(No content)`/`Unknown` 等硬编码兜底串纳入 i18n。
+5. **`text/*` 命名附件**：无 disposition 但有 filename 的文本 part 仍会被当正文，可考虑按 filename 存在与否再判一次。
+6. **连接复用**：目前「每个操作一条新连接」是限流与握手超时的根因（见 `email-fetch` 相关排查记录），长连接 + IDLE 是根治方向。
+7. **CSS 净化升级为解析器**：当前是务实黑名单（挡 `@import`/`url()`/`expression`/`position:fixed`），无法穷举未来语法。若要更强保证，需引入 CSS 解析器做声明级白名单（代价：新依赖 + 可能改变邮件版式）。
+8. **`data:` 图片体积**：内联图允许 `data:`（后端 CID 解析需要），恶意邮件可用超大 base64 撑内存；可加尺寸上限并在超限时降级为附件。
+9. **黑名单/发件人白名单的 UI 增强**：目前白名单只能在设置页移除、在邮件里添加；可考虑支持 `@domain` 手工添加与批量清理。
+
+---
+
+## 6. 排查手册
+
+**日志**：`~/Library/Application Support/wvmail/logs/app.log`（slog，10MB 轮转，保留 30 天）。
+
+**关键日志行**
+
+| 关键字 | 含义 |
+|---|---|
+| `testing IMAP connection` | 设置页测试连接，含 `host/port/user/provider/use_tls/has_password` |
+| `imap connect failed (tcp+tls)` `phase=connect` | TCP/TLS 握手失败；`error="tls: DialWithDialer timed out"` = 连上了但握手没完成（限流/链路） |
+| `imap greeting failed` `phase=greeting` | 连上但服务器没发 greeting |
+| `imap login failed` `phase=login` | 凭据/风控问题（会附带 `Unsafe Login` 等提示） |
+| `imap login timed out` | 登录无响应 |
+| `envelope fetch failed ... retrying without envelope` | 服务端 ENVELOPE 畸形，已降级重取 |
+| `failed to cache ...` | 缓存写失败（不影响功能） |
+
+**超时语义速查**
+
+- **15s** = `TestConnection` 的预算（TCP+TLS+登录整体）。
+- **60s** = 其它操作（同样是 TCP+TLS 握手整体，或登录看门狗）。
+- **~30s** = go-imap 库对单次响应读取的超时（协议层卡住时先于上面两者触发）。
