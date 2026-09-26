@@ -240,27 +240,47 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 }
 
 // ListEmails retrieves a page of email summaries from the specified folder.
-// Returns cached data if available.
+// It serves the page from the local cache whenever the cache holds all of its
+// rows; only an uncached page costs an IMAP round trip.
 func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
-	// Try cache first — always return page 1 from cache; pagination over
-	// cached data is disabled for simplicity.
-	if page <= 1 {
-		cached, err := s.db.LoadEmails(account.ID, folder)
-		if err == nil && len(cached) > 0 {
-			total, metaErr := s.db.LoadFolderMeta(account.ID, folder)
-			// If no meta is stored yet (e.g. old cache before this feature),
-			// force a refresh to get the real total from the server.
-			if metaErr != nil || total == 0 {
-				return s.RefreshEmails(account, folder, page, pageSize)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+
+	cached, err := s.db.LoadEmails(account.ID, folder)
+	if err == nil && len(cached) > 0 {
+		total, metaErr := s.db.LoadFolderMeta(account.ID, folder)
+		// If no meta is stored yet (e.g. old cache before this feature), force a
+		// refresh to get the real total from the server.
+		if metaErr == nil && total > 0 {
+			// Page 1 keeps its old behaviour (show whatever is cached), and later
+			// pages are served from cache as soon as it can fill them: paging used
+			// to always dial the server, which cost a full connect+login+fetch
+			// (~0.5s) per page flip even when the rows were already stored.
+			if page <= 1 || cacheCoversPage(page, pageSize, total, len(cached)) {
+				return &EmailPageResponse{
+					Emails: s.paginate(cached, page, pageSize),
+					Total:  total,
+				}, nil
 			}
-			return &EmailPageResponse{
-				Emails: s.paginate(cached, page, pageSize),
-				Total:  total,
-			}, nil
 		}
 	}
 
 	return s.RefreshEmails(account, folder, page, pageSize)
+}
+
+// cacheCoversPage reports whether the cached rows can fill the requested page
+// completely. The last page only needs the rows that exist, so a cache holding
+// exactly `total` rows still covers it.
+func cacheCoversPage(page, pageSize, total, cachedLen int) bool {
+	needed := page * pageSize
+	if needed > total {
+		needed = total
+	}
+	return cachedLen >= needed
 }
 
 // SearchEmails searches cached email summaries and cached bodies. Results are
