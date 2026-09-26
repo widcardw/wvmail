@@ -37,6 +37,7 @@ export interface TranslationSchema {
   'mail.remote.show': string
   'mail.remote.always': string
   'mail.remote.allowed': string
+  'mail.remote.blocked_image': string
   'mail.translation.label': string
   'mail.translation.translate': string
   'mail.translation.close': string

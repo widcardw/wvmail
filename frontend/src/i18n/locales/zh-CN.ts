@@ -35,6 +35,7 @@ const zhCN: TranslationSchema = {
   'mail.remote.show': '显示远程内容',
   'mail.remote.always': '总是允许此发件人',
   'mail.remote.allowed': '已允许此发件人的远程内容',
+  'mail.remote.blocked_image': '远程图片已拦截',
   'mail.translation.label': '翻译',
   'mail.translation.translate': '翻译',
   'mail.translation.close': '关闭翻译',

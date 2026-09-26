@@ -36,6 +36,7 @@ const enUS: TranslationSchema = {
   'mail.remote.show': 'Show remote content',
   'mail.remote.always': 'Always allow this sender',
   'mail.remote.allowed': 'Remote content from this sender is now allowed',
+  'mail.remote.blocked_image': 'Remote image blocked',
   'mail.translation.label': 'Translation',
   'mail.translation.translate': 'Translate',
   'mail.translation.close': 'Close translation',

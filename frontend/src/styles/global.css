@@ -45,6 +45,10 @@
   --color-danger: #d03050;
   --color-danger-bg: rgba(208, 48, 80, 0.18);
 
+  /* blocked-image placeholder stripes (injected into the email shadow root) */
+  --blocked-stripe-a: rgba(128, 128, 128, 0.1);
+  --blocked-stripe-b: rgba(128, 128, 128, 0.26);
+
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -79,6 +83,9 @@
   --color-success-bg: rgba(99, 226, 183, 0.16);
   --color-danger: #e88080;
   --color-danger-bg: rgba(232, 128, 128, 0.16);
+
+  --blocked-stripe-a: rgba(255, 255, 255, 0.06);
+  --blocked-stripe-b: rgba(255, 255, 255, 0.16);
 }
 
 /* Primary color is user-configurable at runtime — stores/theme.ts writes these,

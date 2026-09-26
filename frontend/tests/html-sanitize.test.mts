@@ -28,10 +28,34 @@ console.log('remote images')
 const remoteImg = block('<img src="http://tracker.example/p.png" alt="a">')
 check('block: src removed', !/tracker\.example/.test(remoteImg.html))
 check('block: counted', remoteImg.blockedRemote === 1)
-check('block: marker added for styling', /data-remote-blocked/.test(remoteImg.html))
-check('block: alt text kept', /alt="a"/.test(remoteImg.html))
+check('block: becomes a styled placeholder span', /<span[^>]*class="remote-blocked"/.test(remoteImg.html))
+check('block: marker kept for styling/tests', /data-remote-blocked/.test(remoteImg.html))
+check('block: alt text stays visible', />a<\/span>/.test(remoteImg.html))
+check('block: no broken <img> left', !/<img/.test(remoteImg.html))
 const allowedImg = allow('<img src="http://t.example/p.png">')
 check('allow: src kept and not counted', allowedImg.html.includes('t.example/p.png') && allowedImg.blockedRemote === 0)
+
+console.log('placeholder sizing')
+const tracker = block('<img src="http://t.example/px.gif" width="1" height="1">')
+check(
+  'block: 1x1 tracker keeps its own box (dot)',
+  /remote-blocked--dot/.test(tracker.html) && /width:1px;height:1px/.test(tracker.html),
+)
+const smallIcon = block('<img src="http://t.example/i.png" width="16" height="16">')
+check(
+  'block: small image keeps its box + compact icon',
+  /remote-blocked--icon/.test(smallIcon.html) && /width:16px;height:16px/.test(smallIcon.html),
+)
+const bigNoAlt = block('<img src="http://t.example/big.png" width="400" height="200">')
+check(
+  'block: large image without alt keeps its box + icon',
+  /remote-blocked--icon/.test(bigNoAlt.html) && /width:400px;height:200px/.test(bigNoAlt.html),
+)
+const labelled = sanitizeEmailHtml('<img src="http://t.example/x.png">', {
+  allowRemote: false,
+  blockedImageLabel: 'Remote image blocked',
+})
+check('block: placeholder tooltip is the caller label', labelled.html.includes('title="Remote image blocked"'))
 
 console.log('url-bearing attributes')
 check('block: protocol-relative blocked', block('<img src="//t.example/p.png">').blockedRemote === 1)
@@ -46,6 +70,10 @@ check('block: img srcset never survives', !/t\.example/.test(block('<img srcset=
 check('block: video/audio/iframe dropped by schema', !/t\.example/.test(block('<video src="http://t.example/v.mp4"></video><iframe src="http://t.example/f"></iframe>').html))
 check('block: data: uri untouched', block('<img src="data:image/png;base64,AAA">').blockedRemote === 0)
 check('block: relative url untouched', block('<img src="/local.png">').html.includes('/local.png'))
+// Embedded (CID) images are delivered inside the message — the backend has already
+// turned them into data: URIs, so they cause no request and are deliberately kept.
+// Only references that leave the device are blocked.
+check('block: cid: reference kept', block('<img src="cid:logo@example">').blockedRemote === 0)
 
 console.log('inline style')
 const cssRemote = block('<div style="background:url(http://t.example/x.png)">x</div>')

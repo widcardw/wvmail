@@ -47,10 +47,18 @@ const allowRemote = computed(
 const sanitized = computed(() => {
   const html = detail.value?.body_html
   if (!html) return { html: '', blockedRemote: 0 }
-  return sanitizeEmailHtml(html, { allowRemote: allowRemote.value })
+  return sanitizeEmailHtml(html, sanitizeOptions())
 })
 const sanitizedBodyHtml = computed(() => sanitized.value.html)
 const blockedRemote = computed(() => sanitized.value.blockedRemote)
+
+/** Shared sanitize options: blocked-image tooltips follow the UI language. */
+function sanitizeOptions() {
+  return {
+    allowRemote: allowRemote.value,
+    blockedImageLabel: t.value['mail.remote.blocked_image'],
+  }
+}
 
 const translating = ref(false)
 const translatedText = ref<string | null>(null)
@@ -155,9 +163,7 @@ async function handleTranslate() {
       if (gen !== translateToken) return
       if (htmlResult) {
         translatedText.value = null
-        translatedHtml.value = sanitizeEmailHtml(htmlResult, {
-          allowRemote: allowRemote.value,
-        }).html
+        translatedHtml.value = sanitizeEmailHtml(htmlResult, sanitizeOptions()).html
         return
       }
     }
