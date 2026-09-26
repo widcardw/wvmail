@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
-import { useElapsedSeconds } from '~/composables/use-elapsed-seconds'
+import BusyButton from '~/components/BusyButton.vue'
 import { EMAIL_PROVIDER_LABELS } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 
@@ -12,10 +12,8 @@ const props = defineProps<{
   confirmingDeleteId: string | null
 }>()
 
-// Show how long the test has been running instead of a bare ellipsis: a
-// connection that is going to time out is otherwise indistinguishable from one
-// that is about to succeed.
-const testElapsed = useElapsedSeconds(() => props.testingId !== null)
+// The busy label (with elapsed seconds) is rendered by BusyButton.
+const testBusy = (id: string) => props.testingId === id
 
 const emit = defineEmits<{
   add: []
@@ -51,19 +49,17 @@ function providerLabel(provider: string): string {
           </div>
         </div>
         <div class="row-actions">
-          <button
-            type="button"
+          <BusyButton
             class="drv"
             :class="{
               'drv--ok': testSuccessId === account.ID,
               'drv--bad': testFailId === account.ID,
               disabled: testingId === account.ID,
             }"
-            :disabled="testingId === account.ID"
+            :label="t['settings.accounts.test']"
+            :busy="testBusy(account.ID)"
             @click="emit('test', account)"
-          >
-            {{ testingId === account.ID ? `${t['settings.accounts.testing']} ${testElapsed}s` : t['settings.accounts.test'] }}
-          </button>
+          />
           <button type="button" class="drv" @click="emit('edit', account)">
             {{ t['settings.llm.edit'] }}
           </button>
@@ -150,10 +146,14 @@ function providerLabel(provider: string): string {
   color: #d03050;
 }
 .drv--ok {
-  background: rgba(24, 160, 88, 0.2);
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
 }
 .drv--bad {
-  background: rgba(208, 48, 80, 0.2);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 @media (max-width: 560px) {
   .row {

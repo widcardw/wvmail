@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
-import { useElapsedSeconds } from '~/composables/use-elapsed-seconds'
+import BusyButton from '~/components/BusyButton.vue'
 import UiSelect from '~/components/UiSelect.vue'
+import UiSwitch from '~/components/UiSwitch.vue'
 import { EMAIL_PROVIDER_DEFAULTS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 
@@ -26,10 +27,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// Same as the account list: show the elapsed seconds while the connection test
-// runs, so a stalled attempt is visible before it times out.
-const testElapsed = useElapsedSeconds(() => props.testing)
-
 function strVal(e: Event): string {
   return (e.target as HTMLInputElement).value
 }
@@ -48,6 +45,11 @@ function setProvider(value: string) {
     form.value.SMTPHost = defaults.smtp_host
     form.value.SMTPPort = defaults.smtp_port
   }
+}
+
+/** Auto-sync switch: 5 minute interval when on, 0 (disabled) when off. */
+function onAutoSyncToggle(checked: boolean) {
+  form.value.SyncInterval = checked ? 5 : 0
 }
 
 function onEmailInput(email: string) {
@@ -212,32 +214,17 @@ function onEmailInput(email: string) {
       </div>
       <div class="frow">
         <span class="flabel">{{ t['settings.accounts.use_tls'] }}</span>
-        <button
-          type="button"
-          class="switch"
-          :class="{ on: form.UseTLS }"
-          role="switch"
-          :aria-checked="form.UseTLS"
-          @click="form.UseTLS = !form.UseTLS"
-        >
-          <span class="switch__thumb" />
-        </button>
+        <UiSwitch :checked="form.UseTLS" @update:checked="form.UseTLS = $event" />
       </div>
 
       <div class="sec">{{ t['settings.accounts.sync'] }}</div>
       <div class="frow">
         <span class="flabel">{{ t['settings.accounts.auto_sync'] }}</span>
         <div class="sync-row">
-          <button
-            type="button"
-            class="switch"
-            :class="{ on: form.SyncInterval > 0 }"
-            role="switch"
-            :aria-checked="form.SyncInterval > 0"
-            @click="form.SyncInterval = form.SyncInterval > 0 ? 0 : 5"
-          >
-            <span class="switch__thumb" />
-          </button>
+          <UiSwitch
+            :checked="form.SyncInterval > 0"
+            @update:checked="onAutoSyncToggle"
+          />
           <template v-if="form.SyncInterval > 0">
             <input
               class="input input--sm"
@@ -264,12 +251,18 @@ function onEmailInput(email: string) {
       <button type="button" class="btn" @click="emit('cancel')">
         {{ t['settings.accounts.cancel'] }}
       </button>
-      <button type="button" class="btn" :disabled="props.testing" @click="emit('test')">
-        {{ props.testing ? `${t['settings.accounts.testing']} ${testElapsed}s` : t['settings.accounts.test'] }}
-      </button>
-      <button type="button" class="btn btn--primary" :disabled="props.saving" @click="emit('save')">
-        {{ props.saving ? '…' : t['settings.accounts.save'] }}
-      </button>
+      <BusyButton
+        class="btn"
+        :label="t['settings.accounts.test']"
+        :busy="props.testing"
+        @click="emit('test')"
+      />
+      <BusyButton
+        class="btn btn--primary"
+        :label="t['settings.accounts.save']"
+        :busy="props.saving"
+        @click="emit('save')"
+      />
     </footer>
   </div>
 </template>

@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "fmt": "oxfmt"
+    "typecheck": "vue-tsc --noEmit",
+    "fmt": "oxfmt",
+    "test": "node tests/html-sanitize.test.mts"
   },
   "dependencies": {
     "@ark-ui/vue": "^5.39.1",
@@ -45,6 +47,7 @@
     "oxlint": "^1.62.0",
     "typescript": "^6.0.3",
     "unocss": "^66.10.0",
-    "vite": "^8.0.10"
+    "vite": "^8.0.10",
+    "vue-tsc": "^3.3.11"
   }
 }

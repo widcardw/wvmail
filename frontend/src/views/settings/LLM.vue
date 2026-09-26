@@ -3,9 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
-import type { LLMConfig } from '~/types/config'
+import type { LLMConfig, LLMProvider } from '~/types/config'
 import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
 import AppIcon from '~/components/icon/AppIcon.vue'
+import BusyButton from '~/components/BusyButton.vue'
 import { getProviderIconConfig } from '~/composables/provider-icons'
 import LLMEditorDialog from '~/components/settings/LLMEditorDialog.vue'
 
@@ -21,6 +22,7 @@ const form = ref<LLMConfig>({
   Name: '',
   Provider: 'openai',
   Model: '',
+  Models: [],
   BaseURL: '',
   APIKey: '',
   ContextWindowTokens: getLLMProviderLimits('openai').context,
@@ -89,6 +91,7 @@ function openAdd() {
     Name: '',
     Provider: 'openai',
     Model: '',
+    Models: [],
     BaseURL: LLM_PROVIDER_DEFAULTS.openai,
     APIKey: '',
     ContextWindowTokens: getLLMProviderLimits('openai').context,
@@ -171,13 +174,9 @@ async function testItem(index: number) {
 }
 
 async function runTest(kind: 'conn' | 'chat') {
-  const config = {
-    Name: form.value.Name,
-    Provider: form.value.Provider,
-    Model: kind === 'chat' ? form.value.Model : '',
-    BaseURL: form.value.BaseURL,
-    APIKey: form.value.APIKey,
-  }
+  // Spread the edited config: the binding expects a complete LLMConfig, and the
+  // chat test is the only case that sends a model.
+  const config = { ...form.value, Model: kind === 'chat' ? form.value.Model : '' }
 
   if (kind === 'conn') testing.value = true
   else testingChat.value = true
@@ -214,6 +213,21 @@ function maskKey(key: string): string {
   if (key.length <= 8) return '****'
   return key.slice(0, 4) + '****' + key.slice(-4)
 }
+
+/** `Provider` arrives as a plain string from the config, so map it defensively. */
+function providerLabel(provider: string): string {
+  return LLM_PROVIDER_LABELS[provider as LLMProvider] ?? provider
+}
+
+/**
+ * Models this config can use. Configs saved before the catalog feature only have
+ * the single `Model`, which is shown as the sole entry.
+ */
+function modelTags(item: LLMConfig): string[] {
+  const models = item.Models ?? []
+  if (models.length > 0) return models
+  return item.Model ? [item.Model] : []
+}
 </script>
 
 <template>
@@ -238,13 +252,29 @@ function maskKey(key: string): string {
                   v-if="providerIconProps(item.Provider)"
                   v-bind="providerIconProps(item.Provider)!"
                 />
-                {{ LLM_PROVIDER_LABELS[item.Provider] ?? item.Provider }}
+                {{ providerLabel(item.Provider) }}
               </span>
             </div>
             <dl class="meta">
-              <template v-if="item.Model">
-                <dt>Model</dt>
-                <dd>{{ item.Model }}</dd>
+              <template v-if="modelTags(item).length > 0">
+                <dt>Models</dt>
+                <dd class="model-tags">
+                  <span
+                    v-for="model in modelTags(item).slice(0, 3)"
+                    :key="model"
+                    class="model-tag"
+                    :title="model"
+                  >
+                    {{ model }}
+                  </span>
+                  <span
+                    v-if="modelTags(item).length > 3"
+                    class="model-tag"
+                    :title="modelTags(item).slice(3).join(', ')"
+                  >
+                    +{{ modelTags(item).length - 3 }}
+                  </span>
+                </dd>
               </template>
               <dt>URL</dt>
               <dd>{{ item.BaseURL }}</dd>
@@ -254,15 +284,19 @@ function maskKey(key: string): string {
             </dl>
           </div>
           <div class="row__actions">
-            <button
-              type="button"
+            <BusyButton
               class="btn btn--sm"
-              :class="{ 'row-testing': testingIndex === index }"
+              :class="{
+                'btn--ok': testResultIndex === index && testSuccess,
+                'btn--bad': testResultIndex === index && !testSuccess,
+              }"
+              :label="t['settings.llm.test']"
+              :sizer-label="`✓ ${t['settings.llm.test']}`"
+              :busy="testingIndex === index"
               @click="testItem(index)"
             >
-              <template v-if="testResultIndex === index">{{ testSuccess ? '✓' : '✕' }}</template>
-              {{ testingIndex === index ? '…' : t['settings.llm.test'] }}
-            </button>
+              <template v-if="testResultIndex === index">{{ testSuccess ? '✓ ' : '✕ ' }}</template>
+            </BusyButton>
             <button type="button" class="btn btn--sm" @click="openEdit(index)">
               {{ t['settings.llm.edit'] }}
             </button>

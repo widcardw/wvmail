@@ -94,6 +94,21 @@
 .btn--danger-c {
   background: rgba(208, 48, 80, 0.15);
 }
+/* Transient result states for "test connection" style buttons. The :hover
+   variants are required because `.btn:hover` would otherwise repaint the button
+   grey while the pointer rests on it. */
+.btn--ok,
+.btn--ok:hover {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+}
+.btn--bad,
+.btn--bad:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+}
 .btn--sm {
   padding: 3px 8px;
   font-size: 12px;
@@ -136,33 +151,38 @@
   line-height: 2.15;
 }
 
-/* --- Switch --- */
+/* --- Switch (the Ark `Switch.Control` / `Switch.Thumb` parts) --- */
 .switch {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
   width: 38px;
   height: 22px;
+  padding: 2px;
   border-radius: 11px;
-  padding: 0;
-  border: none;
   background: var(--n-border-color);
-  cursor: pointer;
-  flex-shrink: 0;
+  transition: background 0.15s ease;
 }
-.switch.on {
+.switch[data-state='checked'] {
   background: var(--n-primary-color);
 }
+.switch[data-focus-visible] {
+  outline: 2px solid var(--n-primary-color);
+  outline-offset: 2px;
+}
+.switch[data-disabled] {
+  opacity: 0.5;
+}
 .switch__thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  transition: left 0.15s;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: transform 0.15s ease;
 }
-.switch.on .switch__thumb {
-  left: 18px;
+.switch[data-state='checked'] .switch__thumb {
+  transform: translateX(16px);
 }
 
 /* --- Small tag/chip --- */
@@ -177,6 +197,46 @@
   border: 1px solid var(--n-border-color);
   opacity: 0.9;
   white-space: nowrap;
+}
+
+/* --- model tags (LLM settings: picked models, active one highlighted) --- */
+.model-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.model-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: var(--n-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--n-text-color);
+  background: var(--color-surface-2);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-sm);
+}
+button.model-tag {
+  cursor: pointer;
+}
+button.model-tag:hover {
+  background: var(--color-hover);
+}
+.model-tag__text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.model-tag__remove {
+  opacity: 0.6;
+  font-size: 13px;
+  line-height: 1;
+}
+.model-tag__remove:hover {
+  opacity: 1;
 }
 
 /* --- Muted text / empty state --- */

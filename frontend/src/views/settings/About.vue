@@ -4,6 +4,7 @@ import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/UiSelect.vue'
+import UiSwitch from '~/components/UiSwitch.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
 const { t } = useI18n()
@@ -83,8 +84,8 @@ function schedule(kind: 'log' | 'safety') {
   persist.schedule(kind, () => op())
 }
 
-function toggleSafety() {
-  scanExternalSafety.value = !scanExternalSafety.value
+function onScanSafetyChange(checked: boolean) {
+  scanExternalSafety.value = checked
   schedule('safety')
 }
 async function handleOpenLogFolder() {
@@ -149,19 +150,14 @@ async function handleOpenLogFolder() {
       </div>
 
       <div class="divider">{{ t['settings.about.security'] }}</div>
-      <div class="row">
-        <span class="row__label">{{ t['settings.about.scan_safety'] }}</span>
-        <button
-          type="button"
-          class="switch"
-          :class="{ on: scanExternalSafety }"
-          role="switch"
-          :aria-checked="scanExternalSafety"
-          @click="toggleSafety"
-        >
-          <span class="switch__thumb" />
-        </button>
-      </div>
+      <UiSwitch
+        class="row"
+        label-class="row__label"
+        :checked="scanExternalSafety"
+        @update:checked="onScanSafetyChange"
+      >
+        {{ t['settings.about.scan_safety'] }}
+      </UiSwitch>
     </section>
   </div>
 </template>
@@ -207,7 +203,7 @@ async function handleOpenLogFolder() {
   flex-shrink: 0;
 }
 .numsel {
-  width: 180px;
+  width: 220px;
   height: 28px;
   padding: 0 8px;
   font-size: 13px;
@@ -227,11 +223,5 @@ async function handleOpenLogFolder() {
 }
 .actions--split {
   justify-content: space-between;
-}
-.switch {
-  width: 40px;
-}
-.switch.on .switch__thumb {
-  left: 20px;
 }
 </style>

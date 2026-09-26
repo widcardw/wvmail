@@ -172,8 +172,9 @@ export const useAccountsStore = defineStore('accounts', () => {
       const folders = await EmailService.ListFolders(account)
       foldersByAccount.value[account.ID] = folders
     } catch (e) {
-      console.error('Failed to load folders', e)
-      foldersByAccount.value[account.ID] = []
+      // Keep whatever was already loaded: emptying the list made a transient
+      // failure look like "this account has no folders".
+      reportFetchFailure('Failed to load folders', e)
     }
   }
 
@@ -193,8 +194,10 @@ export const useAccountsStore = defineStore('accounts', () => {
         currentPageByFolder.value[key] = 1
       }
     } catch (e) {
+      // Keep the previously loaded page: the backend deliberately returns an
+      // error instead of an empty list when a refresh looks wrong, and blanking
+      // the list here threw that protection away.
       reportFetchFailure('Failed to load emails', e)
-      emailsByFolder.value[key] = []
     } finally {
       loading.value = false
     }
@@ -231,7 +234,8 @@ export const useAccountsStore = defineStore('accounts', () => {
       searchTotal.value = resp?.total ?? 0
     } catch (e) {
       if (requestId !== searchRequestId) return
-      console.error('Failed to search emails', e)
+      // Without feedback an empty result was indistinguishable from a failure.
+      reportFetchFailure('Failed to search emails', e)
       searchResults.value = []
       searchTotal.value = 0
     } finally {
@@ -312,7 +316,9 @@ export const useAccountsStore = defineStore('accounts', () => {
                 })
               }
             })
-            .catch(() => {})
+            // Background refresh: log only. A toast here would fire on every
+            // failed sync tick, and the previous list is still shown.
+            .catch((e) => console.error('Failed to refresh folder after sync', e))
         }
       }
     })
@@ -367,6 +373,8 @@ export const useAccountsStore = defineStore('accounts', () => {
       await EmailService.DownloadAttachment(account, folder, uid, attachment.part_path, savePath)
       return savePath
     } catch (e) {
+      // Dismissing the save dialog is a normal outcome, not a download failure.
+      if (String(e).toLowerCase().includes('cancel')) return null
       detailError.value = String(e)
       console.error('Failed to download attachment', e)
       return null
@@ -495,8 +503,9 @@ export const useAccountsStore = defineStore('accounts', () => {
       all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       smartEmails.value = all
     } catch (e) {
-      console.error('Failed to load smart folder', e)
-      smartEmails.value = []
+      // Keep any previously loaded aggregate rather than showing an empty list,
+      // and say why: an empty smart folder looked like "no mail at all".
+      reportFetchFailure('Failed to load smart folder', e)
     } finally {
       smartFolderLoading.value = false
     }

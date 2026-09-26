@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ConfigService, TranslationService } from '#/wvmail/services'
+import { AppConfig, ConfigService, TranslationService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useThemeStore } from '~/stores/theme'
 import { useFeedbackStore } from '~/stores/feedback'
+import { usePreferencesStore } from '~/stores/preferences'
 import { formatDate } from '~/composables/formats'
 import {
-  sanitizeHtmlRehype as sanitizeHtml,
+  sanitizeEmailHtml,
   linkifyPlainText,
   extractTextForTranslation,
   getTranslationMaxChars,
@@ -22,6 +23,7 @@ const { t } = useI18n()
 const accountsStore = useAccountsStore()
 const themeStore = useThemeStore()
 const fb = useFeedbackStore()
+const preferences = usePreferencesStore()
 
 const isDarkMode = computed(() => themeStore.effectiveTheme === 'dark')
 const detail = computed(() => accountsStore.selectedEmailDetail)
@@ -29,13 +31,26 @@ const loading = computed(() => accountsStore.loadingDetail)
 
 const suspiciousRevealed = ref(false)
 const attachmentsOpen = ref(true)
-const blockedCount = computed(() => {
-  if (!detail.value) return 0
-  let count = 0
-  if (detail.value.attachments) count += detail.value.attachments.length
-  if (detail.value.body_html) count++
-  return count
+/** Revealed for this message only; reset whenever another email is opened. */
+const remoteRevealed = ref(false)
+
+const senderKey = computed(() => (detail.value?.from_addr ?? '').toLowerCase())
+const senderRemoteAllowed = computed(() => preferences.isRemoteSenderAllowed(senderKey.value))
+// Remote content loads only when the user allowed it globally, allowed this
+// sender, or asked for this one message.
+const allowRemote = computed(
+  () => preferences.allowRemoteContent || senderRemoteAllowed.value || remoteRevealed.value,
+)
+
+// Sanitising parses and rewrites the whole body, so cache it per detail (and per
+// remote-content decision) instead of re-running it on every re-render.
+const sanitized = computed(() => {
+  const html = detail.value?.body_html
+  if (!html) return { html: '', blockedRemote: 0 }
+  return sanitizeEmailHtml(html, { allowRemote: allowRemote.value })
 })
+const sanitizedBodyHtml = computed(() => sanitized.value.html)
+const blockedRemote = computed(() => sanitized.value.blockedRemote)
 
 const translating = ref(false)
 const translatedText = ref<string | null>(null)
@@ -49,8 +64,22 @@ watch(detail, () => {
   translatedHtml.value = null
   translationError.value = null
   suspiciousRevealed.value = false
+  remoteRevealed.value = false
   attachmentsOpen.value = true
 })
+
+/** Load this message's remote content once (nothing is remembered). */
+function revealRemoteContent() {
+  remoteRevealed.value = true
+}
+
+/** Load remote content for every future message from this sender. */
+async function alwaysAllowSender() {
+  if (!senderKey.value) return
+  remoteRevealed.value = true
+  await preferences.allowRemoteSender(senderKey.value)
+  fb.success(t.value['mail.remote.allowed'])
+}
 
 function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: string }): {
   name: string | null
@@ -90,18 +119,28 @@ function cancelTranslation() {
 
 async function handleTranslate() {
   if (!detail.value) return
+  // A suspicious (spam/Junk) email stays behind the reveal gate: translating it
+  // must not render a body the user has not chosen to reveal.
+  if (detail.value.is_suspicious && !suspiciousRevealed.value) return
   const gen = ++translateToken
   translating.value = true
   translationError.value = null
   try {
-    const cfg = await ConfigService.GetConfig()
+    const cfg: AppConfig = await ConfigService.GetConfig()
     const tCfg = cfg.TranslationConfig || {}
     const targetLang = tCfg.DefaultTargetLang || 'zh-CN'
     const engine = tCfg.DefaultEngine || 'llm'
     const cfgName = tCfg.LLMConfigName
     let llmCfg = null
     if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
-      llmCfg = (cfgName && cfg.LLMConfigs.find((c) => c.Name === cfgName)) || cfg.LLMConfigs[0]
+      const picked = cfgName ? cfg.LLMConfigs.find((c) => c.Name === cfgName) : undefined
+      const chosen = picked ?? cfg.LLMConfigs[0]
+      // Translate with the model picked in the translation settings; a config that
+      // never picked one keeps its own default. Mutating the fetched config keeps
+      // it a real LLMConfig: the typed helpers below take a narrow shape and
+      // reject object literals that carry extra keys.
+      if (tCfg.LLMModel) chosen.Model = tCfg.LLMModel
+      llmCfg = chosen
     }
     const maxTranslationChars = engine === 'llm' ? getTranslationMaxChars(llmCfg) : undefined
     const translateFn = (text: string) =>
@@ -116,7 +155,9 @@ async function handleTranslate() {
       if (gen !== translateToken) return
       if (htmlResult) {
         translatedText.value = null
-        translatedHtml.value = sanitizeHtml(htmlResult)
+        translatedHtml.value = sanitizeEmailHtml(htmlResult, {
+          allowRemote: allowRemote.value,
+        }).html
         return
       }
     }
@@ -132,6 +173,14 @@ async function handleTranslate() {
     }
     const result = await translatePlainText(textToTranslate, translateFn, maxTranslationChars)
     if (gen !== translateToken) return
+    if (!result) {
+      // A separator/paragraph-count mismatch makes the translator return
+      // nothing: report it instead of leaving the UI as if the click was lost.
+      translatedText.value = null
+      translatedHtml.value = null
+      translationError.value = t.value['mail.translation.empty']
+      return
+    }
     translatedText.value = result
     translatedHtml.value = null
   } catch (e) {
@@ -194,12 +243,32 @@ const showAttachments = computed(
 
       <div v-if="detail?.is_suspicious && !suspiciousRevealed" class="alert alert--warn">
         <p style="margin: 0">{{ t['mail.security.title'] }}</p>
-        <p style="margin: 0">
-          {{ t['mail.security.body'].replace('{count}', String(blockedCount)) }}
-        </p>
+        <p style="margin: 0">{{ t['mail.security.body'] }}</p>
         <button type="button" class="btn btn--sm btn--subtle" @click="suspiciousRevealed = true">
           {{ t['mail.security.show_all'] }}
         </button>
+      </div>
+
+      <div
+        v-if="blockedRemote > 0 && (!detail?.is_suspicious || suspiciousRevealed)"
+        class="alert alert--warn"
+      >
+        <p style="margin: 0">
+          {{ t['mail.remote.blocked'].replace('{count}', String(blockedRemote)) }}
+        </p>
+        <div class="alert-actions">
+          <button type="button" class="btn btn--sm btn--subtle" @click="revealRemoteContent()">
+            {{ t['mail.remote.show'] }}
+          </button>
+          <button
+            v-if="senderKey"
+            type="button"
+            class="btn btn--sm btn--subtle"
+            @click="alwaysAllowSender()"
+          >
+            {{ t['mail.remote.always'] }}
+          </button>
+        </div>
       </div>
 
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
@@ -257,7 +326,7 @@ const showAttachments = computed(
 
           <div class="meta">
             <div class="mrow">
-              <span class="mlabel">{{ t["search.to"] }}</span>
+              <span class="mlabel">{{ t['search.to'] }}</span>
               <span>{{ (detail.to || []).join(', ') }}</span>
             </div>
             <div v-if="detail.cc && detail.cc.length > 0" class="mrow">
@@ -276,8 +345,8 @@ const showAttachments = computed(
 
         <div class="detail-body" @click="handleLinkClick">
           <EmailShadowBody
-            v-if="detail.body_html && (!detail.is_suspicious || suspiciousRevealed)"
-            :html="sanitizeHtml(detail.body_html)"
+            v-if="sanitizedBodyHtml && (!detail.is_suspicious || suspiciousRevealed)"
+            :html="sanitizedBodyHtml"
             :dark="isDarkMode"
           />
           <EmailShadowBody
@@ -288,7 +357,10 @@ const showAttachments = computed(
           <div v-else class="centerpad-empty">(No content)</div>
         </div>
 
-        <div v-if="translatedHtml" class="detail-body">
+        <div
+          v-if="translatedHtml && (!detail.is_suspicious || suspiciousRevealed)"
+          class="detail-body"
+        >
           <div class="td">{{ t['mail.translation.label'] }}</div>
           <EmailShadowBody :html="translatedHtml" :dark="isDarkMode" />
         </div>
@@ -365,6 +437,11 @@ const showAttachments = computed(
 .alert--warn {
   background: rgba(240, 160, 32, 0.14);
   border-color: #f0a020;
+}
+.alert-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
 }
 .x {
   border: none;

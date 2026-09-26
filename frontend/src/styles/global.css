@@ -39,6 +39,12 @@
   --color-hover: rgba(128, 128, 128, 0.08);
   --color-active: rgba(128, 128, 128, 0.14);
 
+  /* semantic state colors (test results, result banners) */
+  --color-success: #18a058;
+  --color-success-bg: rgba(24, 160, 88, 0.18);
+  --color-danger: #d03050;
+  --color-danger-bg: rgba(208, 48, 80, 0.18);
+
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -67,6 +73,12 @@
   --color-border: #3b3b40;
   --color-hover: rgba(255, 255, 255, 0.08);
   --color-active: rgba(255, 255, 255, 0.14);
+
+  /* lighter state colours so they stay legible on the dark surface */
+  --color-success: #63e2b7;
+  --color-success-bg: rgba(99, 226, 183, 0.16);
+  --color-danger: #e88080;
+  --color-danger-bg: rgba(232, 128, 128, 0.16);
 }
 
 /* Primary color is user-configurable at runtime — stores/theme.ts writes these,

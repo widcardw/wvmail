@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
@@ -232,7 +233,7 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 	// Update cache
 	if err := s.db.SaveFolders(account.ID, folders); err != nil {
 		// Log but don't fail — cache is best-effort
-		fmt.Printf("failed to cache folders: %v\n", err)
+		slog.Warn("failed to cache folders", "account", account.ID, "error", err)
 	}
 
 	return folders, nil
@@ -363,7 +364,8 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	if err != nil {
 		// Some servers (e.g. Tencent WeCom) return malformed ENVELOPE data.
 		// Retry without Envelope and use default values for subject/from/date.
-		fmt.Printf("envelope fetch failed (malformed server response), retrying without envelope: %v\n", err)
+		slog.Warn("envelope fetch failed (malformed server response), retrying without envelope",
+			"account", account.ID, "folder", folder, "error", err)
 		fetchCmd.Close()
 		fetchCmd = client.Fetch(seqSet, &imap.FetchOptions{
 			Flags:        true,
@@ -440,10 +442,10 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
 	// removing older rows, so paging to an earlier page keeps those in the cache.
 	if err := s.db.SaveFolderMeta(account.ID, folder, total); err != nil {
-		fmt.Printf("failed to cache folder meta: %v\n", err)
+		slog.Warn("failed to cache folder meta", "account", account.ID, "folder", folder, "error", err)
 	}
 	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
-		fmt.Printf("failed to cache emails: %v\n", err)
+		slog.Warn("failed to cache emails", "account", account.ID, "folder", folder, "error", err)
 	}
 
 	// The IMAP request above only fetched the requested page. Return the page
@@ -581,7 +583,11 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 			mt := part.MediaType()
 			switch p := part.(type) {
 			case *imap.BodyStructureSinglePart:
-				if mt == "text/plain" || mt == "text/html" {
+				// Content-Disposition wins over the media type: a part the sender
+				// marked as an attachment must not be offered as the message body.
+				// Without this, an attached .txt/.html was rendered as the body
+				// (and could overwrite the real body text).
+				if (mt == "text/plain" || mt == "text/html") && !hasAttachmentDisposition(p) {
 					// Body text part
 					parts = append(parts, bodyPartInfo{
 						path:     path,
@@ -589,7 +595,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						encoding: p.Encoding,
 						charset:  p.Params["charset"],
 					})
-				} else if p.Disposition() != nil && p.Disposition().Value == "attachment" {
+				} else if hasAttachmentDisposition(p) {
 					// Explicit attachment (Content-Disposition: attachment)
 					filename := decodeMimeHeader(p.Filename())
 					if filename == "" {
@@ -636,13 +642,9 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						Size:     p.Size,
 						PartPath: path,
 					})
-					fmt.Println("disposition + inline + !hasprefix text")
-					fmt.Println(inlineImgs)
 				} else if cid := p.ID; cid != "" && !strings.HasPrefix(mt, "text/") {
 					// No disposition but has Content-ID — CID-referenced inline image
 					inlineImgs = append(inlineImgs, inlineImgInfo{path: path, cid: strings.Trim(cid, "<>"), mime: mt, encoding: p.Encoding})
-					fmt.Println("cid not nil + !hasprefix text")
-					fmt.Println(inlineImgs)
 					// Also record as downloadable attachment
 					filename := decodeMimeHeader(p.Filename())
 					if filename == "" {
@@ -715,8 +717,10 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						detail.BodyText = decoded
 					}
 				} else if !isAttachmentSection(sec.Part, attachments) {
-					// Fallback section (not an attachment) — try as plain text
-					detail.BodyText = string(raw)
+					// Whole-message fallback section (no usable body structure
+					// was advertised): decode it like a body part so CTE and
+					// charset are still handled instead of dumping raw bytes.
+					detail.BodyText = decodeBodyPart(raw, "", "")
 				}
 			}
 
@@ -766,7 +770,8 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 
 	// Update cache (best-effort)
 	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
-		fmt.Printf("failed to cache email body: %v\n", err)
+		slog.Warn("failed to cache email body",
+			"account", account.ID, "folder", folder, "uid", uid, "error", err)
 	}
 
 	return detail, nil
@@ -786,6 +791,13 @@ type inlineImgInfo struct {
 	cid      string
 	mime     string
 	encoding string
+}
+
+// hasAttachmentDisposition reports whether a MIME part is explicitly marked as
+// an attachment (Content-Disposition: attachment).
+func hasAttachmentDisposition(p *imap.BodyStructureSinglePart) bool {
+	d := p.Disposition()
+	return d != nil && strings.EqualFold(d.Value, "attachment")
 }
 
 // isAttachmentSection checks whether the given part path matches any of the
@@ -830,17 +842,40 @@ func decodeBodyPart(raw []byte, enc, cs string) string {
 	}
 
 	// Step 2: decode charset to UTF-8
-	if cs != "" && !strings.EqualFold(cs, "utf-8") && !strings.EqualFold(cs, "us-ascii") {
-		reader, err := charset.Reader(cs, strings.NewReader(string(decoded)))
-		if err == nil {
-			utf8bytes, err := io.ReadAll(reader)
-			if err == nil {
-				return string(utf8bytes)
-			}
-		}
+	if s, ok := decodeCharset(decoded, cs); ok {
+		return s
 	}
 
 	return string(decoded)
+}
+
+// decodeCharset converts body bytes to UTF-8 using the charset declared in the
+// MIME part. It reports false when nothing could be applied.
+//
+// Fallback ladder, each step only running when the previous one did not apply:
+//  1. the declared charset, through the charset table (UTF-8/US-ASCII pass
+//     through untouched);
+//  2. bytes that are already valid UTF-8 are kept as they are, even when the
+//     declared charset is unknown or missing;
+//  3. GB18030 as a last resort for bytes that are not valid UTF-8: Chinese mail
+//     routinely arrives as GBK/GB2312 with a missing or wrong charset
+//     parameter, and replacement characters are worse than this heuristic.
+func decodeCharset(raw []byte, cs string) (string, bool) {
+	cs = strings.TrimSpace(cs)
+	if cs != "" && !strings.EqualFold(cs, "utf-8") && !strings.EqualFold(cs, "us-ascii") {
+		if reader, err := charset.Reader(cs, strings.NewReader(string(raw))); err == nil {
+			if utf8bytes, err := io.ReadAll(reader); err == nil {
+				return string(utf8bytes), true
+			}
+		}
+	}
+	if utf8.Valid(raw) {
+		return string(raw), true
+	}
+	if converted, err := io.ReadAll(simplifiedchinese.GB18030.NewDecoder().Reader(strings.NewReader(string(raw)))); err == nil {
+		return string(converted), true
+	}
+	return "", false
 }
 
 // sectionPathEqual compares two IMAP part paths for equality.

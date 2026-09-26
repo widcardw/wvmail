@@ -28,7 +28,21 @@ const form = ref({
   DefaultEngine: 'llm',
   DeepLAuthKey: '',
   LLMConfigName: '',
+  LLMModel: '',
 })
+
+/** Models offered by one config: its picked set, or the single legacy `Model`. */
+function modelListFor(configName: string): string[] {
+  const cfg = llmConfigs.value.find((c) => c.Name === configName)
+  if (!cfg) return []
+  const models = cfg.Models ?? []
+  if (models.length > 0) return models
+  return cfg.Model ? [cfg.Model] : []
+}
+
+const modelOptions = computed(() =>
+  modelListFor(form.value.LLMConfigName).map((model) => ({ label: model, value: model })),
+)
 
 onMounted(async () => {
   try {
@@ -46,6 +60,11 @@ onMounted(async () => {
     } else if (llmConfigs.value.length > 0) {
       form.value.LLMConfigName = llmConfigs.value[0].Name
     }
+    // A saved model can disappear when its config is edited, so fall back to the
+    // config's own default instead of translating with a stale name.
+    const savedModel = cfg.TranslationConfig?.LLMModel || ''
+    const models = modelListFor(form.value.LLMConfigName)
+    form.value.LLMModel = savedModel && models.includes(savedModel) ? savedModel : (models[0] ?? '')
   } catch (e) {
     console.error('Failed to load config', e)
   }
@@ -62,6 +81,7 @@ async function doPersist() {
       DefaultTargetLang: form.value.DefaultTargetLang,
       DefaultEngine: form.value.DefaultEngine,
       LLMConfigName: form.value.LLMConfigName,
+      LLMModel: form.value.LLMModel,
       DeepLAuthKey: form.value.DeepLAuthKey,
     })
     fb.success(t.value['settings.translation.saved'])
@@ -72,6 +92,13 @@ async function doPersist() {
 
 function onSelect(key: string, v: string) {
   form.value[key as keyof typeof form.value] = v as never
+  persistNow()
+}
+
+/** Switching config invalidates the chosen model, which belonged to the old one. */
+function onSelectConfig(name: string) {
+  form.value.LLMConfigName = name
+  form.value.LLMModel = modelListFor(name)[0] ?? ''
   persistNow()
 }
 </script>
@@ -101,7 +128,6 @@ function onSelect(key: string, v: string) {
         <UiSelect
           :options="engineOptions"
           :model-value="form.DefaultEngine"
-          width="180px"
           @update:model-value="(v) => onSelect('DefaultEngine', v)"
         />
       </div>
@@ -113,7 +139,16 @@ function onSelect(key: string, v: string) {
             :options="llmOptions"
             :model-value="form.LLMConfigName"
             :disabled="llmConfigs.length === 0"
-            @update:model-value="(v) => onSelect('LLMConfigName', v)"
+            @update:model-value="onSelectConfig"
+          />
+        </div>
+
+        <div v-if="modelOptions.length > 0" class="row">
+          <label class="row__label">{{ t['settings.translation.llm_model'] }}</label>
+          <UiSelect
+            :options="modelOptions"
+            :model-value="form.LLMModel"
+            @update:model-value="(v) => onSelect('LLMModel', v)"
           />
         </div>
       </template>

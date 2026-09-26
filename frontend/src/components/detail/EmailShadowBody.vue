@@ -18,7 +18,13 @@ function updateContent() {
 
   let content = props.html
   if (props.dark) {
-    content = adaptHtmlForDarkMode(content)
+    try {
+      content = adaptHtmlForDarkMode(content)
+    } catch {
+      // Dark-mode rewriting is best-effort: if it throws, render the original
+      // HTML instead of leaving the body blank or showing stale content.
+      content = props.html
+    }
   }
 
   shadowRoot.innerHTML = content

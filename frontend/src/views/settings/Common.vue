@@ -5,6 +5,7 @@ import { useThemeStore } from '~/stores/theme'
 import { usePreferencesStore } from '~/stores/preferences'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/UiSelect.vue'
+import UiSwitch from '~/components/UiSwitch.vue'
 
 const { t, locale, setLocale } = useI18n()
 const theme = useThemeStore()
@@ -47,6 +48,14 @@ async function openConfigFolder() {
   } catch (e) {
     console.error('Failed to open config folder', e)
   }
+}
+
+function onAllowRemoteChange(checked: boolean) {
+  void preferences.setAllowRemoteContent(checked)
+}
+
+function onRemoveSender(sender: string) {
+  void preferences.removeAllowedRemoteSender(sender)
 }
 </script>
 
@@ -106,6 +115,42 @@ async function openConfigFolder() {
         </button>
       </div>
     </section>
+
+    <section class="surface surface--spaced">
+      <header class="surface__head">
+        <h2>{{ t['settings.remote.title'] }}</h2>
+      </header>
+
+      <UiSwitch
+        class="row remote-row"
+        label-class="row__label"
+        :checked="preferences.allowRemoteContent"
+        @update:checked="onAllowRemoteChange"
+      >
+        {{ t['settings.remote.allow'] }}
+      </UiSwitch>
+
+      <div class="row row--top">
+        <span class="row__label">{{ t['settings.remote.hint'] }}</span>
+        <div class="senders">
+          <p v-if="preferences.allowedRemoteSenders.length === 0" class="senders__empty">
+            {{ t['settings.remote.empty'] }}
+          </p>
+          <ul v-else class="senders__list">
+            <li
+              v-for="sender in preferences.allowedRemoteSenders"
+              :key="sender"
+              class="senders__item"
+            >
+              <code>{{ sender }}</code>
+              <button type="button" class="btn btn--sm" @click="onRemoveSender(sender)">
+                {{ t['settings.remote.remove'] }}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -159,5 +204,48 @@ async function openConfigFolder() {
 }
 .actions {
   padding: 6px 18px 16px;
+}
+.surface--spaced {
+  margin-top: 14px;
+}
+/* Keep stacked content inside a ROW: the shared `.row__label` rule sets
+   `flex: 0 0 200px`, which in a column container becomes a 200px-tall label box
+   (a large blank gap). Use `.row--top` + a flex:1 content column instead. */
+.row--top {
+  align-items: flex-start;
+}
+/* Ark Switch: the root is a <label> for the hidden input, so the whole row is
+   clickable. Part visuals live in styles/ui.css. */
+.remote-row {
+  cursor: pointer;
+}
+.senders {
+  flex: 1;
+  min-width: 0;
+}
+.senders__empty {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.65;
+}
+.senders__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.senders__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.senders__item code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

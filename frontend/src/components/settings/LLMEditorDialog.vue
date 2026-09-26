@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from '~/i18n'
+import BusyButton from '~/components/BusyButton.vue'
 import UiSelect from '~/components/UiSelect.vue'
 import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS } from '~/types/config'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import JsonResponseViewer from '~/components/settings/JsonResponseViewer.vue'
+import LLMModelPicker from '~/components/settings/LLMModelPicker.vue'
 
 const props = defineProps<{
   open: boolean
@@ -54,7 +56,7 @@ function onProvider(provider: string) {
 }
 
 function onInput(
-  key: 'Name' | 'Model' | 'BaseURL' | 'APIKey' | 'ContextWindowTokens' | 'MaxOutputTokens',
+  key: 'Name' | 'BaseURL' | 'APIKey' | 'ContextWindowTokens' | 'MaxOutputTokens',
   event: Event,
 ) {
   if (key === 'ContextWindowTokens' || key === 'MaxOutputTokens') {
@@ -67,6 +69,56 @@ function onInput(
 function close() {
   emit('update:open', false)
 }
+
+/** Model set panel: fetching it is optional, typing a model name always works. */
+const pickerOpen = ref(false)
+/** Name currently being typed into the "add model" box. */
+const typedModel = ref('')
+
+/**
+ * Every model this config can use. Configs saved before the catalog feature only
+ * carry the single `Model`, which is shown as the initial entry.
+ */
+const selectedModels = computed(() => {
+  const models = form.value.Models ?? []
+  if (models.length > 0) return models
+  return form.value.Model ? [form.value.Model] : []
+})
+
+/**
+ * `Model` is kept in sync with the first entry: callers that don't pick a model
+ * explicitly (the chat test, translations without a chosen model) keep working.
+ */
+function setModels(models: string[]) {
+  form.value.Models = models
+  form.value.Model = models[0] ?? ''
+}
+
+function addTypedModel() {
+  const name = typedModel.value.trim()
+  if (!name) return
+  if (!selectedModels.value.includes(name)) setModels([...selectedModels.value, name])
+  typedModel.value = ''
+}
+
+function removeModel(model: string) {
+  setModels(selectedModels.value.filter((m) => m !== model))
+}
+
+function onModelsPicked(models: string[]) {
+  setModels(models)
+  typedModel.value = ''
+  pickerOpen.value = false
+}
+
+// "Test connection" doubles as the entry point for picking models: a successful
+// connection test reveals the catalog panel, which fetches the list itself.
+watch(
+  () => props.testOk,
+  (ok) => {
+    if (ok && !pickerOpen.value) pickerOpen.value = true
+  },
+)
 </script>
 
 <template>
@@ -105,12 +157,46 @@ function close() {
             />
           </div>
           <div class="field">
-            <label>Model</label>
-            <input
-              class="ctl"
-              :value="form.Model"
-              @input="onInput('Model', $event)"
-              placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
+            <label>{{ t['settings.llm.models'] }}</label>
+            <div class="model-row">
+              <input
+                v-model="typedModel"
+                class="ctl"
+                placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
+                @change="addTypedModel()"
+              />
+              <button
+                type="button"
+                class="btn btn--sm"
+                :disabled="!typedModel.trim()"
+                @click="addTypedModel()"
+              >
+                {{ t['settings.llm.modelAdd'] }}
+              </button>
+              <button type="button" class="btn btn--sm" @click="pickerOpen = !pickerOpen">
+                {{ t['settings.llm.fetchModels'] }}
+              </button>
+            </div>
+            <p class="field__hint">{{ t['settings.llm.modelsHint'] }}</p>
+            <div v-if="selectedModels.length > 0" class="model-tags">
+              <span v-for="model in selectedModels" :key="model" class="model-tag" :title="model">
+                <span class="model-tag__text">{{ model }}</span>
+                <button
+                  type="button"
+                  class="model-tag__remove"
+                  :aria-label="`${t['settings.llm.delete']} ${model}`"
+                  @click="removeModel(model)"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+            <LLMModelPicker
+              v-if="pickerOpen"
+              :config="form"
+              :selected="selectedModels"
+              @confirm="onModelsPicked"
+              @cancel="pickerOpen = false"
             />
           </div>
           <div class="field">
@@ -160,22 +246,20 @@ function close() {
           </div>
 
           <div class="test-actions">
-            <button
-              type="button"
+            <BusyButton
               class="btn"
-              :disabled="!canConn || props.testing"
+              :label="t['settings.llm.test_connection']"
+              :busy="props.testing"
+              :disabled="!canConn"
               @click="emit('test', 'conn')"
-            >
-              {{ props.testing ? '…' : t['settings.llm.test_connection'] }}
-            </button>
-            <button
-              type="button"
+            />
+            <BusyButton
               class="btn"
-              :disabled="!canChat || props.testingChat"
+              :label="t['settings.llm.test_chat']"
+              :busy="props.testingChat"
+              :disabled="!canChat"
               @click="emit('test', 'chat')"
-            >
-              {{ props.testingChat ? '…' : t['settings.llm.test_chat'] }}
-            </button>
+            />
           </div>
 
           <div v-if="props.testSummary" class="result" :class="props.testOk ? 'ok' : 'bad'">
@@ -192,14 +276,13 @@ function close() {
           <button type="button" class="btn" @click="close">
             {{ t['settings.llm.cancel'] }}
           </button>
-          <button
-            type="button"
+          <BusyButton
             class="btn btn--primary"
-            :disabled="!canSave || props.saving"
+            :label="t['settings.llm.save']"
+            :busy="props.saving"
+            :disabled="!canSave"
             @click="emit('save')"
-          >
-            {{ props.saving ? '…' : t['settings.llm.save'] }}
-          </button>
+          />
         </footer>
       </div>
     </div>
@@ -272,6 +355,23 @@ function close() {
   gap: 8px;
   margin-bottom: 6px;
 }
+.model-row {
+  display: flex;
+  gap: 6px;
+}
+.model-row .ctl {
+  flex: 1;
+  min-width: 0;
+}
+.field__hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+/* Shared tag styles live in ui.css; only the spacing is local. */
+.model-tags {
+  margin-top: 6px;
+}
 .result {
   margin-top: 8px;
   padding: 8px 10px;
@@ -279,10 +379,16 @@ function close() {
   border: 1px solid var(--n-border-color);
   border-radius: 6px;
 }
+/* Same treatment as the list's test button: matching text, border and tint. The
+   embedded JSON tree keeps its own syntax colours. */
 .result.ok {
-  background: rgba(24, 160, 88, 0.12);
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
 }
 .result.bad {
-  background: rgba(208, 48, 80, 0.12);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 </style>

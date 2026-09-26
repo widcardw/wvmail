@@ -33,9 +33,14 @@ export interface TranslationSchema {
   'mail.security.title': string
   'mail.security.body': string
   'mail.security.show_all': string
+  'mail.remote.blocked': string
+  'mail.remote.show': string
+  'mail.remote.always': string
+  'mail.remote.allowed': string
   'mail.translation.label': string
   'mail.translation.translate': string
   'mail.translation.close': string
+  'mail.translation.empty': string
   'notes.title': string
   'notes.empty': string
   'notes.placeholder': string
@@ -59,6 +64,11 @@ export interface TranslationSchema {
   'reminders.submit': string
   settings: string
   'settings.common': string
+  'settings.remote.title': string
+  'settings.remote.allow': string
+  'settings.remote.hint': string
+  'settings.remote.empty': string
+  'settings.remote.remove': string
   'settings.common.language': string
   'settings.common.theme': string
   'settings.common.primaryColor': string
@@ -90,7 +100,6 @@ export interface TranslationSchema {
   'settings.accounts.sync_minutes': string
   'settings.accounts.sync_disabled': string
   'settings.accounts.test': string
-  'settings.accounts.testing': string
   'settings.accounts.test_success': string
   'settings.accounts.test_fail': string
   'settings.accounts.delete': string
@@ -153,6 +162,15 @@ export interface TranslationSchema {
   'settings.llm.testing': string
   'settings.llm.test_connection': string
   'settings.llm.test_chat': string
+  'settings.llm.fetchModels': string
+  'settings.llm.models': string
+  'settings.llm.modelAdd': string
+  'settings.llm.modelsHint': string
+  'settings.llm.modelsSearch': string
+  'settings.llm.modelsSelected': string
+  'settings.llm.modelsSelectAll': string
+  'settings.llm.modelsClear': string
+  'settings.llm.modelsApply': string
   'settings.translation': string
   'settings.translation.title': string
   'settings.translation.target_lang': string
@@ -164,6 +182,7 @@ export interface TranslationSchema {
   'settings.translation.engine.deepl': string
   'settings.translation.deepl_key': string
   'settings.translation.llm_config': string
+  'settings.translation.llm_model': string
   'settings.translation.saved': string
   'demo.prompt': string
   'demo.greet': string

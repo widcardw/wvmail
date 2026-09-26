@@ -64,6 +64,21 @@ consult the matching section in `arkui-vue.txt` before writing a component.
 | NSpace/NFlex/NLayout/NLayoutSider... | none | plain CSS (flex/grid) — remove |
 | NSplit | `@ark-ui/vue/splitter` | vertical split of mail list/detail |
 | NCalendar | `@ark-ui/vue/date-picker` only if needed | reminders currently `NCard`+`NEmpty` |
+
+### Shared primitives — use these, don't hand-roll
+
+Ark ships no visuals, so a few thin wrappers own the app's look. Reach for them instead of writing
+another one-off (the settings area used to have three hand-rolled switches plus a native checkbox):
+
+| Primitive | Wraps | Visuals live in |
+|---|---|---|
+| `components/UiSwitch.vue` | `Switch.Root/.Label/.Control/.Thumb/.HiddenInput` | `styles/ui.css` (`.switch`, `.switch__thumb`, driven by `[data-state='checked']`) |
+| `components/UiSelect.vue` | native `<select>` styling | component |
+| `components/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
+
+`UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
+`<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
+other controls. Bind with `:checked` + `@update:checked="…"`.
 | NCode | none | syntax block with actual code elements |
 | NUpload | `@ark-ui/vue/file-upload` | account/avatar upload |
 | useMessage/useDialog (naive) | **no equivalent inject.** Use `@ark-ui/vue/toast` `toaster`, or simple `ref` booleans / our message component | see Feedback below |

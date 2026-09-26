@@ -22,6 +22,9 @@ Cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeSc
 | `wails3 dev` | Dev mode with hot-reload (both Go + Vue via Vite) |
 | `wails3 task build` | Production build for current OS |
 | `go vet ./...` | Check Go code compiles |
+| `cd frontend && pnpm typecheck` | Type-check `.vue` + `.ts` with vue-tsc. **Run it after touching components**: `oxlint` and `vite build` do not type-check |
+| `cd frontend && pnpm test` | Sanitizer regression tests |
+| `cd frontend && pnpm lint` | oxlint |
 
 ## Documentation References
 

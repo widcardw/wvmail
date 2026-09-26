@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { Dialog } from '@ark-ui/vue/dialog'
 import { ImageCropper, useImageCropper } from '@ark-ui/vue/image-cropper'
 import { useI18n } from '~/i18n'
+import BusyButton from '~/components/BusyButton.vue'
 import { useFeedbackStore } from '~/stores/feedback'
 
 const props = defineProps<{
@@ -117,9 +118,12 @@ onUnmounted(() => imageCropper.value.reset?.())
             <button type="button" class="btn" @click="close">
               {{ t['settings.accounts.cancel'] }}
             </button>
-            <button type="button" class="btn btn--primary" :disabled="cropSaving" @click="confirm">
-              {{ cropSaving ? '…' : t['settings.accounts.crop_avatar_done'] }}
-            </button>
+            <BusyButton
+              class="btn btn--primary"
+              :label="t['settings.accounts.crop_avatar_done']"
+              :busy="cropSaving"
+              @click="confirm"
+            />
           </footer>
         </Dialog.Content>
       </Dialog.Positioner>
