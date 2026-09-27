@@ -335,11 +335,32 @@ export const useAccountsStore = defineStore('accounts', () => {
     try {
       const detail = await EmailService.FetchEmail(account, folder, uid)
       selectedEmailDetail.value = detail
+      // Opening a message reads it: see markEmailRead.
+      void markEmailRead(account, folder, uid)
     } catch (e) {
       detailError.value = String(e)
       console.error('Failed to fetch email detail', e)
     } finally {
       loadingDetail.value = false
+    }
+  }
+
+  /**
+   * Opening a message marks it seen — on the server (STORE \Seen) and in the local
+   * cache — so the list styling and the tray badge stop counting it. Best effort: a
+   * failure only reverts the optimistic update, it never blocks the detail view.
+   */
+  async function markEmailRead(account: EmailAccount, folder: string, uid: number) {
+    const summary = emailsByFolder.value[`${account.ID}:${folder}`]?.find(
+      (item) => item.uid === uid,
+    )
+    if (summary?.is_read) return // already read, nothing to do
+    if (summary) summary.is_read = true
+    try {
+      await EmailService.MarkEmailRead(account, folder, uid)
+    } catch (e) {
+      if (summary) summary.is_read = false
+      console.error('Failed to mark email as read', e)
     }
   }
 

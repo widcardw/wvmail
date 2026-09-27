@@ -284,6 +284,44 @@ func (s *EmailService) UnseenCount(account EmailAccount, folder string) (int, er
 	return int(*data.NumUnseen), nil
 }
 
+// MarkEmailRead flags one message as seen, in the local cache and on the server.
+// Opening a message must not leave it unread forever: the list styling and the
+// tray badge both follow this state, and providers that answer STATUS UNSEEN keep
+// reporting the message until the flag is actually stored.
+//
+// The cache is updated first so the UI is right even if the server call fails; the
+// error return then tells the caller whether the server agreed.
+func (s *EmailService) MarkEmailRead(account EmailAccount, folder string, uid uint32) error {
+	if err := s.db.MarkEmailRead(account.ID, folder, uid); err != nil {
+		slog.Warn("failed to mark email read in cache",
+			"account", account.ID, "folder", folder, "uid", uid, "error", err)
+	}
+
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	// STORE needs the mailbox opened read-write.
+	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
+		return wrapIMAPError("select folder failed", err)
+	}
+	store := &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}
+	if err := client.Store(imap.UIDSetNum(imap.UID(uid)), store, nil).Close(); err != nil {
+		return wrapIMAPError("marking the message read failed", err)
+	}
+
+	// Keep the tray badge honest without waiting for the next inbox fetch: the
+	// connection is already open, so one STATUS is enough.
+	if isInbox(folder) {
+		if status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait(); statusErr == nil && status.NumUnseen != nil {
+			s.reportUnseen(account.ID, int(*status.NumUnseen))
+		}
+	}
+	return nil
+}
+
 // ListEmails retrieves a page of email summaries from the specified folder.
 // It serves the page from the local cache whenever the cache holds all of its
 // rows; only an uncached page costs an IMAP round trip.

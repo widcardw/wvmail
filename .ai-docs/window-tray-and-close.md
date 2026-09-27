@@ -47,10 +47,14 @@ Three details make this work:
    flag is set — which that built-in listener does. For a user-initiated close it
    emits `WindowClosing` and returns `false`. So intercepting the event is the only
    way to keep the window; hiding it afterwards is what the user sees.
-3. **`ApplicationShouldTerminateAfterLastWindowClosed` stays `true`.** Nothing
-   actually closes while the option is on, so it never fires; and when the option
-   is off it is exactly the behaviour we want (closing the window quits). Setting
-   it to `false` would instead leave a windowless, tray-less app running.
+3. **`ApplicationShouldTerminateAfterLastWindowClosed` is `false`** (and Windows
+   mirrors it with `DisableQuitOnLastWindowClosed`): the app's lifetime must not
+   depend on its window existing, so no close path can terminate the process on its
+   own. With the flag off the hook raises the quit itself (`app.Quit()`, off the
+   close event's call stack because AppKit ignores a terminate raised while it is
+   still unwinding that close; a delayed `os.Exit(0)` catches the case where even
+   that is swallowed). If a close ever slips past the hook the window is gone but
+   the app stays in the tray, and `Show()` re-runs the window — never a dead app.
 
 `App.Quit()` (tray → Quit, Cmd+Q, the macOS app menu) does **not** go through
 `WindowClosing` — it calls the native app teardown — so the hook can never block a
@@ -69,10 +73,9 @@ menu: 显示主窗口 / 隐藏主窗口 / 设置… / 退出 wvmail
   main window" must do `UnMinimise()` *if* minimised, then `Show()` + `Focus()`.
   The first version of this menu only called `Show()` when `IsMinimised()` was
   true, which made the window impossible to restore after a hide-to-tray close.
-- Left-clicking the tray icon opens the menu (`applySmartDefaults` falls back to
-  `OpenMenu()` when no window is attached). `AttachWindow()` is deliberately *not*
-  used: it positions the window next to the tray icon, which is wrong for a main
-  window.
+- Left-clicking the tray icon shows/focuses the window (`tray.OnClick`); the menu
+  stays on right click. `AttachWindow()` is deliberately *not* used: it positions
+  the window next to the tray icon, which is wrong for a main window.
 - Clicking the Dock icon while the window is hidden shows it again — Wails
   registers `ApplicationShouldHandleReopen` itself and shows every hidden window.
 - Menu labels follow the persisted `language`. They are built once at startup and
@@ -113,11 +116,14 @@ EmailService.RefreshEmails(INBOX)
 - **Only flips cross threads.** `publishUnread` calls `SetIcon` (which hops to the
   UI thread) only when the aggregate changes, and logs
   `tray: unread badge updated has_unread=…` when it does.
-- **Known gap:** the app never marks mail as read on the server (there is no IMAP
-  `STORE \Seen` anywhere), so reading a message in wvmail does not clear the badge;
-  it clears when the mail is read elsewhere, or on the next refresh after the
-  server flags change. Adding mark-as-read on open would fix that and is the
-  natural follow-up.
+- **Reading a message clears the badge.** Opening one calls
+  `EmailService.MarkEmailRead` (from `stores/accounts.ts` `markEmailRead`), which
+  flips the cached `is_read`, stores `\Seen` on the server (UID `STORE
+  +FLAGS.SILENT`, on a read-write `SELECT`) and then reads a fresh `STATUS UNSEEN`
+  on that same connection so the icon flips immediately. The list item is updated
+  optimistically and reverted if the server refuses; a cache write failure is
+  logged and does not fail the call, because the server flag is what other clients
+  and the provider's own count follow.
 
 Manual check: `grep 'tray:' ~/Library/Application\ Support/wvmail/logs/app.log`
 shows one `inbox unseen count` line per account at launch, plus a

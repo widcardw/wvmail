@@ -4,7 +4,9 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"os"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"wvmail/macos"
@@ -84,10 +86,16 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			// Keeps "closing the last window quits the app" working for the default
-			// (flag off) case: when the hook below lets the close through, AppKit
-			// terminates. When the flag is on the window is never closed at all.
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			// The app's lifetime must not depend on its window: closing the window
+			// is decided by the hook below, never by AppKit. With this off, no close
+			// path can terminate the process, which is what makes "hide to tray"
+			// hold even if a close slips past the hook (the window is then gone but
+			// the tray keeps the app alive, and Show() re-runs the window).
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
+		},
+		Windows: application.WindowsOptions{
+			// Same on Windows: the hook owns the decision.
+			DisableQuitOnLastWindowClosed: true,
 		},
 	})
 
@@ -134,6 +142,11 @@ func main() {
 	tray := app.SystemTray.New()
 	tray.SetIcon(trayIconEmpty)
 	tray.SetTooltip("wvmail")
+	// Left click restores the window (right click keeps opening the menu via Wails'
+	// smart defaults), so a hidden-to-tray app is one click away.
+	tray.OnClick(func() {
+		showMainWindow()
+	})
 
 	// The badge follows unread mail. EmailSyncService owns the count (an IMAP
 	// STATUS UNSEEN per account, refreshed with the background sync), so the icon
@@ -181,28 +194,46 @@ func main() {
 	})
 
 	// "Hide to tray on close" (Settings → General) is decided by this hook:
-	// flag on → hide the window and keep the app alive; flag off → leave the close
-	// alone, so the window closes and AppKit quits the app
-	// (ApplicationShouldTerminateAfterLastWindowClosed above).
+	// flag on → hide the window and stay in the tray; flag off → quit the app.
+	// AppKit never terminates on its own (ApplicationShouldTerminateAfterLastWindowClosed
+	// is off), so this is the only place a window close is interpreted.
 	//
 	// The decision must happen in a *hook*: hooks run before the built-in
 	// WindowClosing listener, which is what destroys the window and removes it from
 	// the manager. Cancelling the event skips that listener, and hiding the window
 	// leaves the session (sync, tray, webview) alive. The flag is read on every
 	// close, so flipping the switch in Settings applies to the next close.
+	//
+	// quitting guards the teardown started by app.Quit: window closes arriving while
+	// the app is going away must not re-enter the branch below.
+	var quitting atomic.Bool
 	closeRequest := func(event *application.WindowEvent) {
-		if !cfgSvc.MinimizeWhenClose() {
-			// Flag off: leave the event alone, so the window closes and the app
-			// quits exactly as it did before this option existed.
+		if cfgSvc.MinimizeWhenClose() {
+			// Flag on: cancel the close (which skips Wails' built-in WindowClosing
+			// listener that destroys the window) and hide it instead, so the
+			// session — background sync, tray, webview — survives.
+			event.Cancel()
+			hideMainWindow()
 			return
 		}
-		// Flag on: cancel the close and hide the window instead. Cancelling skips
-		// Wails' built-in WindowClosing listener, which is what destroys the window
-		// and removes it from the manager, so the session (background sync, tray,
-		// webview) survives. The flag is read on every close, so flipping the switch
-		// in Settings applies to the next close.
-		event.Cancel()
-		hideMainWindow()
+		// Flag off: "closing the window quits the app". The close itself is left to
+		// Wails, and the terminate request is raised off this event's call stack:
+		// AppKit ignores a terminate while it is still handling the window's close,
+		// which would leave the app running with its window gone. Both the platform
+		// and the common event can arrive for one user close, hence the CAS.
+		if quitting.CompareAndSwap(false, true) {
+			go func() {
+				app.Quit()
+				// app.Quit blocks until AppKit's termination sequence finishes, so
+				// reaching this line means the request was ignored (AppKit drops a
+				// terminate raised while a window close is still unwinding). Never
+				// leave the user with a windowless process that ignores "closing
+				// quits": exit for real a moment later. Config and cache are written
+				// per operation, so nothing is lost by skipping the last teardown steps.
+				time.Sleep(5 * time.Second)
+				os.Exit(0)
+			}()
+		}
 	}
 	// Common.WindowClosing covers programmatic Close() and the other platforms.
 	win.RegisterHook(events.Common.WindowClosing, closeRequest)

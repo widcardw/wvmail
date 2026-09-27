@@ -450,6 +450,19 @@ func emailCacheKey(accountID, folderName string, uid uint32) string {
 	return fmt.Sprintf("%s\x00%s\x00%d", accountID, folderName, uid)
 }
 
+// MarkEmailRead flips the cached read state of one message. The list styling and
+// the unread count read this column, so opening a message should not have to wait
+// for the next fetch before it stops counting as unread.
+func (m *DBManager) MarkEmailRead(accountID, folderName string, uid uint32) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Model(&CachedEmail{}).
+		Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, uid).
+		Update("is_read", true).Error
+}
+
 func searchEmailMatches(summary EmailSummary, body *CachedEmailBody, filters []EmailSearchFilter) bool {
 	var fromValues, toValues, contentValues []string
 	for _, filter := range filters {

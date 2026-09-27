@@ -214,6 +214,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **横幅措辞改为准确描述**，并新增「已拦截 N 个远程资源」横幅与放行按钮 | `EmailDetail.vue` + i18n | 原「已拦截 {count} 个附件/资源」的 count 是「附件数 + 有 HTML ? 1 : 0」，与实际隐藏内容不符 |
 | **提示条从正文上方移到附件折叠栏那条带子上**：`EmailRemoteNotice.vue` 与 `.attach-head` 同几何（8px 16px、13px/600、`border-bottom`），底色用新增 token `--color-warning-bg`，左侧图标用 `--color-warning`；警告/错误 alert 也改为复用 token（原先硬编码 `rgba(240,160,32,.14)`/`#f0a020`） | `components/detail/EmailRemoteNotice.vue`（新）、`EmailDetail.vue`、`styles/global.css` | 顶部不再堆叠一块大警告框；拦截提示与附件同为「可操作条」，位置靠近它所影响的正文 |
 | **附件列表默认折叠** | `EmailDetail.vue`（`attachmentsOpen = ref(false)`，切邮件时也重置为 `false`） | 长附件列表不再默认占满正文上方 |
+| **打开邮件即标记已读**：写服务器 `\Seen`（UID `STORE +FLAGS.SILENT`，读-写 `SELECT`）+ 更新本地缓存 `is_read`，并在同一条连接上重读 `STATUS UNSEEN` | `services/emailservice.go` `MarkEmailRead`、`services/database.go` `MarkEmailRead`、`stores/accounts.ts` `markEmailRead` | 之前从不写 `\Seen`：列表的未读样式与托盘徽标永远不会因为在这里读信而更新；失败只回滚列表项，不影响正文展示 |
 | **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
 
 ---
