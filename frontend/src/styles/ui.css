@@ -151,6 +151,23 @@
   line-height: 2.15;
 }
 
+/* --- Stacked field (dialog / narrow forms): label above control --- */
+.field {
+  margin-bottom: 12px;
+}
+.field__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.field__hint {
+  display: block; /* Ark renders Field.HelperText as a span */
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
 /* --- Switch (the Ark `Switch.Control` / `Switch.Thumb` parts) --- */
 .switch {
   display: inline-flex;
@@ -267,4 +284,259 @@ button.model-tag:hover {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* --- Dialog shell (shared by every Ark Dialog) ---
+   Backdrop, positioner and card are identical across the app, so they live here
+   instead of being copy-pasted into each dialog; dialogs only add their own
+   inner layout on top. */
+.dlg-back {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgb(0 0 0 / 40%);
+}
+.dlg-pos {
+  position: fixed;
+  z-index: 901;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  pointer-events: none;
+}
+/* Tall dialogs (e.g. the LLM editor) start near the top and scroll instead of
+   being centred, so their footer never leaves the viewport. */
+.dlg-pos--top {
+  align-items: flex-start;
+  padding: 10vh 16px 16px;
+  overflow: auto;
+}
+.dlg-card {
+  pointer-events: auto;
+  width: min(440px, 100%);
+  max-height: 100%;
+  padding: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: var(--n-text-color);
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 25%);
+}
+.dlg-card--narrow {
+  width: min(400px, 100%);
+}
+.dlg-card--wide {
+  width: min(720px, 100%);
+}
+/* For cards that supply their own head/body/foot padding. */
+.dlg-card--flush {
+  padding: 0;
+}
+.dlg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.dlg-title {
+  margin: 0;
+  font-size: 15px;
+}
+.dlg-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.dlg-close {
+  padding: 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 16px;
+}
+.dlg-close:hover {
+  opacity: 1;
+}
+.dlg-body {
+  padding: 16px;
+}
+.dlg-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--n-border-color);
+}
+.dlg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* --- Checkbox (UiCheckbox) --- */
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: #fff;
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-sm);
+}
+.checkbox[data-state='checked'] {
+  background: var(--n-primary-color);
+  border-color: var(--n-primary-color);
+}
+.checkbox__indicator {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Ark positions the toast stack itself; keep it clear of the in-page title bar.
+   The group is a fixed, shrink-to-fit flex column whose children are all
+   absolutely positioned, so it has no intrinsic width — each toast root has to
+   size itself, or CJK text wraps one glyph per line. Ark also documents the
+   `--x/--y/--scale/--height/--opacity` variables as "minimal styling required
+   for the toast to work correctly": without them every toast stacks on the
+   same spot. */
+[data-scope='toast'][data-part='group'] {
+  margin-top: 40px;
+}
+[data-scope='toast'][data-part='root'] {
+  width: max-content;
+  min-width: min(220px, calc(100vw - 32px));
+  max-width: min(360px, calc(100vw - 32px));
+  translate: var(--x) var(--y);
+  scale: var(--scale);
+  z-index: var(--z-index);
+  height: var(--height);
+  opacity: var(--opacity);
+  will-change: translate, opacity, scale;
+  transition:
+    translate 400ms,
+    scale 400ms,
+    opacity 400ms,
+    height 400ms,
+    box-shadow 200ms;
+  transition-timing-function: cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+[data-scope='toast'][data-part='root'][data-state='closed'] {
+  transition:
+    translate 400ms,
+    scale 400ms,
+    opacity 200ms;
+  transition-timing-function: cubic-bezier(0.06, 0.71, 0.55, 1);
+}
+
+/* --- Password input (UiPasswordInput) --- */
+.pw {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.pw__input {
+  width: 100%;
+  padding-right: 30px;
+}
+.pw__toggle {
+  position: absolute;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: var(--color-text-2);
+  opacity: 0.75;
+  cursor: pointer;
+  font-size: 15px;
+}
+.pw__toggle:hover {
+  opacity: 1;
+}
+.pw__eye-off,
+.pw__toggle[data-state='visible'] .pw__eye {
+  display: none;
+}
+.pw__toggle[data-state='visible'] .pw__eye-off {
+  display: inline-block;
+}
+
+/* --- Number input (UiNumberInput) --- */
+/* The *control* is the visible box, so a caller class that sets a width / flex
+   basis (`.input--sm`, `.numsel`, `.ctl`) styles the box itself and the inner
+   input just fills it. Steppers are in flow at the inline end. */
+.num {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  overflow: hidden;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+}
+.num[data-focus] {
+  border-color: var(--n-primary-color);
+}
+.num[data-disabled] {
+  opacity: 0.55;
+}
+.num__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  font-size: 13px;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+.num__input:disabled {
+  cursor: not-allowed;
+}
+.num__steppers {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.num__btn {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  padding: 0;
+  color: var(--color-text-2);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--n-border-color);
+  font-size: 13px;
+}
+.num__btn + .num__btn {
+  border-top: 1px solid var(--n-border-color);
+}
+.num__btn:hover {
+  color: var(--n-text-color);
+  background: var(--n-sidebar-hover);
+}
+.num__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

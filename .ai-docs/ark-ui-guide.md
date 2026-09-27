@@ -64,6 +64,11 @@ consult the matching section in `arkui-vue.txt` before writing a component.
 | NSpace/NFlex/NLayout/NLayoutSider... | none | plain CSS (flex/grid) — remove |
 | NSplit | `@ark-ui/vue/splitter` | vertical split of mail list/detail |
 | NCalendar | `@ark-ui/vue/date-picker` only if needed | reminders currently `NCard`+`NEmpty` |
+| NCode | none | syntax block with actual code elements |
+| NUpload | `@ark-ui/vue/file-upload` | account/avatar upload |
+| useMessage/useDialog (naive) | **no equivalent inject.** Use `@ark-ui/vue/toast` `toaster`, or simple `ref` booleans / our message component | see Feedback below |
+| useLoadingBar | CSS | n/a |
+| NTime / date formatting | `@ark-ui/vue/format` (`Format.Byte` ✅, `Format.Time`, `Format.RelativeTime`, `Format.Number`) | `Format.Byte` is used for attachment sizes. `Format.Time` is deliberately **not** used for list/reminder timestamps: its `format` prop defaults to `'24h'` regardless of locale, so a locale's hour cycle would have to be re-derived by hand (en-US would flip from `06:45 PM` to `18:45`). Those stay in `composables/formats.ts` (`toLocaleTimeString` with the app locale). |
 
 ### Shared primitives — use these, don't hand-roll
 
@@ -73,16 +78,21 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | Primitive | Wraps | Visuals live in |
 |---|---|---|
 | `components/UiSwitch.vue` | `Switch.Root/.Label/.Control/.Thumb/.HiddenInput` | `styles/ui.css` (`.switch`, `.switch__thumb`, driven by `[data-state='checked']`) |
+| `components/UiCheckbox.vue` | `Checkbox.Root/.Control/.Indicator/.Label/.HiddenInput` | `styles/ui.css` (`.checkbox`, `.checkbox__indicator`) |
 | `components/UiSelect.vue` | native `<select>` styling | component |
+| `components/UiNumberInput.vue` | `NumberInput.Root/.Control/.Input/.IncrementTrigger/.DecrementTrigger` | `styles/ui.css` (`.num*`); the **control** is the visible box, so a caller `class` (`.input--sm`, `.numsel`) sizes the box and the steppers stay in flow next to the input |
+| `components/UiPasswordInput.vue` | `PasswordInput.Root/.Control/.Input/.VisibilityTrigger` | `styles/ui.css` (`.pw*`; the two eye icons swap on `[data-state='visible']`) |
 | `components/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
+| `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
+| `.dlg-*` classes in `styles/ui.css` | `Dialog.Backdrop/.Positioner/.Content/.Title/.CloseTrigger` | shared dialog shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.dlg-actions` |
 
 `UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
 other controls. Bind with `:checked` + `@update:checked="…"`.
-| NCode | none | syntax block with actual code elements |
-| NUpload | `@ark-ui/vue/file-upload` | account/avatar upload |
-| useMessage/useDialog (naive) | **no equivalent inject.** Use `@ark-ui/vue/toast` `toaster`, or simple `ref` booleans / our message component | see Feedback below |
-| useLoadingBar | CSS | n/a |
+
+`UiNumberInput` / `UiPasswordInput` contracts differ on purpose: NumberInput is **controlled** (Ark emits
+`value-change`, so the wrapper emits `value: [number]` — no DOM event), PasswordInput keeps the native
+`value` + `@input="(event: Event)"` contract so it drops into existing handlers.
 
 _(Remove layout wrappers NCard/NLayout/NSpace/NFlex entirely — replace with our own grid/flex CSS.)_
 
@@ -118,14 +128,42 @@ bare. Do not rely on training defaults; target Ark parts by `data-scope`/`data-p
 
 ## Forms
 
-Remove `NForm/NFormItem/NSelect` large APIs. Sections like settings that are straightforward can be plain markup:
-`<label>` + control + CSS grid (`label-width` col 140, as before). If you need validation behavior, use
-`@ark-ui/vue/fieldset` + `createForm` (ark “Formisch” style) or keep to manual. Prefer shared tokens for label width.
+Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes through Ark `Field`:
+
+```vue
+<Field.Root class="row">                      <!-- or class="frow" / class="field" -->
+  <Field.Label class="row__label">Host</Field.Label>
+  <Field.Input class="input" :model-value="form.Host" @update:model-value="form.Host = String($event)" />
+  <Field.HelperText class="field__hint">Optional hint</Field.HelperText>
+</Field.Root>
+```
+
+- **Why**: `Field.Label` renders a `<label for>` pointing at the field's control id, so the association is real
+  (no more sibling `<label>` + `<input>` pairs that only *look* connected).
+- **Ark form components link themselves.** Docs, `Field`: “Form components in Ark UI automatically integrate with `Field`
+  through context.” So `UiSelect` / `UiNumberInput` / `UiPasswordInput` / `UiSwitch` / `UiCheckbox` need no id wiring —
+  just place them inside `Field.Root`.
+- **A raw `<input>` does NOT register as the control.** Replace bare inputs with `Field.Input` (v-model works: it declares
+  `modelValue` + `update:modelValue`) and `textarea` with `Field.Textarea`. Otherwise the label points at a non-existent id.
+- **Keep as-is** (deliberately not Ark): the mail search box (`SearchBar.vue`, hand-written on purpose), `Editable.Input`
+  text fields, a hidden `<input type="file">` wrapped in its own `<label>` (implicit association), the native
+  `<input type="color">` swatch row, and the tiny unlabelled filter box inside `LLMModelPicker`.
+- **Layout classes stay local, styling is shared.** Row layouts (`.row`, `.frow`, `.d-field`) live in the component;
+  the label/label-column/hint look comes from `styles/ui.css` (`.row__label`/`.flabel`, `.field`, `.field__label`,
+  `.field__hint`).
+- `Field.HelperText` (and `ErrorText`) render **`<span>`s** — give them `display: block` if they must stack.
+- Validation is still manual (no `createForm`); `Field.Root` accepts `invalid` / `required` / `disabled` when we need it.
 
 ## Feedback / confirmation
 
-- ✓ Lightweight success/error display: our small toast util on `@ark-ui/vue/toast`: build once, reuse everywhere.
-- Confirmation: Dialog (`.Root` with open) or popover; replace `NPopconfirm`.
+- ✓ Transient messages: one module-level `toaster = createToaster({ placement: 'top-end', … })` in
+  `stores/feedback.ts`; components keep calling `feedback.success/error/info/warn` and a single
+  `<ToastHost/>` (Ark `Toaster` + `Toast.Root`) renders them anywhere in the app. There is no per-component toast state.
+- The toast root needs Ark's documented runtime styling (`width` — its group is a zero-width fixed flex column, so a
+  content-sized root collapses CJK text one glyph per line — plus `translate: var(--x) var(--y)`, `scale`, `z-index`,
+  `height`, `opacity`). It lives in `styles/ui.css` under `[data-scope='toast'][data-part='root']`.
+- Confirmation: Dialog (`.Root` with open) or popover; replace `NPopconfirm`. Dialogs share the `.dlg-*` shell in
+  `styles/ui.css` instead of re-declaring backdrop/positioner/card CSS per component.
 
 ## Icons
 
@@ -198,6 +236,13 @@ function onSelected(details: { value: string[] }) {
 Use global design tokens in `src/styles/global.css`; icons are offline `i-*` classes (see icon section + `uno.config.ts`
 safelist). Transient messages via `stores/feedback.ts` + `<ToastHost/>`; confirmations use two-step buttons /
 `window.confirm`. Ark per-component `*.module.css` styling is optional on top of `scoped`, per component UI.
+
+Consolidation pass (done): every dialog uses Ark `Dialog` + the shared `.dlg-*` shell, every toast goes through the one
+`toaster`, every labelled control sits in an Ark `Field.Root` (see Forms) — including the one raw composite that keeps its
+native control (the color picker row pins the link with an explicit `Field.Root id=`), and the remaining hand-rolled
+controls were folded into the shared wrappers: `UiSwitch`, `UiCheckbox`, `UiNumberInput`, `UiPasswordInput`, `UiSelect`.
+File sizes use `Format.Byte`; timestamps use `composables/formats.ts` with the active locale (see the `Format.Time` note
+above for why it isn't `Format.Time`).
 
 Possible residual: verify interaction in `wails3 dev`, and confirm the rich-email render (EmailShadowBody + themed email
 sanitize) matches the old look; if needed, polish individual part CSS. The temp naive remnant was deleted; keep the repo

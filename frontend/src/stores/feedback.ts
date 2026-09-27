@@ -1,40 +1,34 @@
 import { defineStore } from 'pinia'
+import { createToaster } from '@ark-ui/vue/toast'
 
 export type ToastKind = 'info' | 'success' | 'error' | 'warn'
-export interface ToastItem {
-  id: number
-  kind: ToastKind
-  text: string
-}
-
-let seq = 0
 
 /**
- * Minimal transient feedback (success/error/info) for the headless UI; replaces the
- * old library message hook. Render host = components/ToastHost.vue mounted in App.
+ * One toaster for the whole app: Ark owns the queue, the stacking, the auto
+ * dismiss timer and the hotkey, so this store only maps our four kinds onto it and
+ * components/ToastHost.vue only renders the parts. Call sites keep using
+ * feedback.success/error/info/warn.
  */
+export const toaster = createToaster({
+  placement: 'top-end',
+  overlap: false,
+  gap: 8,
+  duration: 3000,
+})
+
 export const useFeedbackStore = defineStore('feedback', {
-  state: () => ({ toasts: [] as ToastItem[] }),
   actions: {
-    push(kind: ToastKind, text: string) {
-      const id = ++seq
-      this.toasts.push({ id, kind, text })
-      setTimeout(() => this.dismiss(id), 3000)
-    },
     success(text: string) {
-      this.push('success', text)
+      toaster.create({ title: text, type: 'success' })
     },
     error(text: string) {
-      this.push('error', text)
+      toaster.create({ title: text, type: 'error' })
     },
     info(text: string) {
-      this.push('info', text)
+      toaster.create({ title: text, type: 'info' })
     },
     warn(text: string) {
-      this.push('warn', text)
-    },
-    dismiss(id: number) {
-      this.toasts = this.toasts.filter((t) => t.id !== id)
+      toaster.create({ title: text, type: 'warning' })
     },
   },
 })

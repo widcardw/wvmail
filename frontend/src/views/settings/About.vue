@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/UiSelect.vue'
+import UiNumberInput from '~/components/UiNumberInput.vue'
 import UiSwitch from '~/components/UiSwitch.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
@@ -41,22 +43,18 @@ onMounted(async () => {
   }
 })
 
-function num(e: Event): number {
-  return Number((e.target as HTMLInputElement).value) || 0
-}
-
 function changeLevel(value: string) {
   logConfig.value.Level = value
   schedule('log')
 }
 
-function changeRetention(e: Event) {
-  logConfig.value.RetentionDays = num(e)
+function changeRetention(value: number) {
+  logConfig.value.RetentionDays = value
   schedule('log')
 }
 
-function changeMax(e: Event) {
-  logConfig.value.MaxSizeMB = num(e)
+function changeMax(value: number) {
+  logConfig.value.MaxSizeMB = value
   schedule('log')
 }
 
@@ -112,36 +110,34 @@ async function handleOpenLogFolder() {
 
       <div class="divider">{{ t['settings.about.log.title'] }}</div>
 
-      <div class="row">
-        <label class="row__label">{{ t['settings.about.log.level'] }}</label>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.about.log.level'] }}</Field.Label>
         <UiSelect
           :options="levelOptions"
           :model-value="logConfig.Level"
           @update:model-value="changeLevel"
         />
-      </div>
-      <div class="row">
-        <label class="row__label">{{ t['settings.about.log.retention'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.about.log.retention'] }}</Field.Label>
+        <UiNumberInput
           class="numsel"
-          type="number"
           :value="logConfig.RetentionDays"
-          min="1"
-          max="365"
-          @input="changeRetention($event)"
+          :min="1"
+          :max="365"
+          @value="changeRetention($event)"
         />
-      </div>
-      <div class="row">
-        <label class="row__label">{{ t['settings.about.log.max_size'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.about.log.max_size'] }}</Field.Label>
+        <UiNumberInput
           class="numsel"
-          type="number"
           :value="logConfig.MaxSizeMB"
-          min="1"
-          max="1024"
-          @input="changeMax($event)"
+          :min="1"
+          :max="1024"
+          @value="changeMax($event)"
         />
-      </div>
+      </Field.Root>
 
       <div class="actions">
         <button type="button" class="btn" @click="handleOpenLogFolder">
@@ -203,18 +199,9 @@ async function handleOpenLogFolder() {
   flex-shrink: 0;
 }
 .numsel {
+  /* Width only: UiNumberInput's `.num` control draws the box. */
   width: 220px;
   height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-}
-.numsel:focus {
-  border-color: var(--n-primary-color);
-  outline: none;
 }
 .actions {
   display: flex;

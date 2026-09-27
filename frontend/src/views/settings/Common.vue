@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
 import { usePreferencesStore } from '~/stores/preferences'
@@ -73,29 +74,32 @@ function onRemoveSender(sender: string) {
         <h2>{{ t['settings.common'] }}</h2>
       </header>
 
-      <div class="row">
-        <label class="row__label">{{ t['settings.common.language'] }}</label>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.common.language'] }}</Field.Label>
         <UiSelect :options="localeOptions" :model-value="locale" @update:model-value="onLocale" />
-      </div>
+      </Field.Root>
 
-      <div class="row">
-        <label class="row__label">{{ t['settings.common.theme'] }}</label>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.common.theme'] }}</Field.Label>
         <UiSelect :options="themeOptions" :model-value="theme.mode" @update:model-value="onTheme" />
-      </div>
+      </Field.Root>
 
-      <div class="row">
-        <label class="row__label">{{ t['settings.common.tagDelete'] }}</label>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.common.tagDelete'] }}</Field.Label>
         <UiSelect
           :options="tagDeleteOptions"
           :model-value="String(preferences.tagDeletePresses)"
           @update:model-value="onTagDeletePresses"
         />
-      </div>
+      </Field.Root>
 
-      <div class="row">
-        <span class="row__label">{{ t['settings.common.primaryColor'] }}</span>
+      <!-- Native color input + preset swatches: a bespoke composite, so it keeps the
+           raw control. The explicit Field id still links the label to it. -->
+      <Field.Root class="row" id="primary-color">
+        <Field.Label class="row__label">{{ t['settings.common.primaryColor'] }}</Field.Label>
         <div class="color">
           <input
+            id="primary-color"
             type="color"
             class="color__native"
             :value="theme.primaryColor"
@@ -114,16 +118,16 @@ function onRemoveSender(sender: string) {
           />
           <code class="color__hex">{{ theme.primaryColor }}</code>
         </div>
-      </div>
+      </Field.Root>
 
-      <div class="row">
-        <span class="row__label">{{ t['settings.common.actionOnClose'] }}</span>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.common.actionOnClose'] }}</Field.Label>
         <UiSelect
           :options="minimizeOrCloseOptions"
           :model-value="String(Number(preferences.minimizeWhenClose))"
           @update:model-value="onActionOnClose"
         />
-      </div>
+      </Field.Root>
 
       <div class="actions">
         <button type="button" class="btn" @click="openConfigFolder">

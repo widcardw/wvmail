@@ -1,7 +1,9 @@
-function formatDate(dateStr: string): string {
+// `locale` is the app language (locale store), not the system one: every Ark
+// component in the app follows LocaleProvider, so dates must too.
+function formatDate(dateStr: string, locale?: string): string {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -10,23 +12,15 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function formatDateRecent(dateStr: string): string {
+function formatDateRecent(dateStr: string, locale?: string): string {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const now = new Date()
   const isToday = date.toDateString() === now.toDateString()
   if (isToday) {
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
 }
 
 function getInitials(name: string, addr: string): string {
@@ -45,4 +39,4 @@ function displaySender(email: { from_name?: string; from_addr?: string; from?: s
   return 'Unknown'
 }
 
-export { displaySender, truncateSubject, formatDateRecent, formatDate, formatFileSize, getInitials }
+export { displaySender, truncateSubject, formatDateRecent, formatDate, getInitials }

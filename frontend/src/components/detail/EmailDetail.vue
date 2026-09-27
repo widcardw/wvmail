@@ -6,6 +6,7 @@ import { useAccountsStore } from '~/stores/accounts'
 import { useThemeStore } from '~/stores/theme'
 import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
+import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import {
   sanitizeEmailHtml,
@@ -25,6 +26,7 @@ const accountsStore = useAccountsStore()
 const themeStore = useThemeStore()
 const fb = useFeedbackStore()
 const preferences = usePreferencesStore()
+const localeStore = useLocaleStore()
 
 const isDarkMode = computed(() => themeStore.effectiveTheme === 'dark')
 const detail = computed(() => accountsStore.selectedEmailDetail)
@@ -267,7 +269,7 @@ const showAttachments = computed(
                 <span class="addr">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
               </span>
               <span v-else class="from">{{ senderDisplay(detail).fallback }}</span>
-              <span class="ddate">{{ formatDate(detail.date) }}</span>
+              <span class="ddate">{{ formatDate(detail.date, localeStore.current) }}</span>
             </div>
             <div class="head-actions">
               <button

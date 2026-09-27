@@ -5,7 +5,7 @@ import { useAccountsStore } from '~/stores/accounts'
 import { useFeedbackStore } from '~/stores/feedback'
 import type { AttachmentInfo } from '~/types/email'
 import { getAttachmentIcon } from '~/composables/attachment-icons'
-import { formatFileSize } from '~/composables/formats'
+import { Format } from '@ark-ui/vue/format'
 
 const props = defineProps<{
   attachments: AttachmentInfo[]
@@ -66,7 +66,9 @@ async function download(attachment: AttachmentInfo) {
                 ({{ t['mail.inline_image'] }})
               </span>
             </span>
-            <span class="att-size">{{ formatFileSize(attachment.size) }}</span>
+            <span class="att-size">
+              <Format.Byte :value="attachment.size" unit-system="binary" unit-display="short" />
+            </span>
           </div>
           <button type="button" class="icon-btn" title="download" @click="download(attachment)">
             <i class="i-ri:download-2-line" aria-hidden="true" />

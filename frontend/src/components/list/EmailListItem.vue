@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDateRecent, displaySender, truncateSubject } from '~/composables/formats'
+import { useLocaleStore } from '~/stores/locale'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 import type { EmailSummary } from '~/types/email'
 
@@ -17,6 +18,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [email: ListEmail]
 }>()
+
+/** Dates follow the app language, like every Ark component in the app. */
+const localeStore = useLocaleStore()
 </script>
 
 <template>
@@ -32,7 +36,9 @@ const emit = defineEmits<{
             <AccountAvatar v-if="props.email.account_id" :account-id="props.email.account_id" />
           </span>
           <span class="email-from">{{ displaySender(props.email) }}</span>
-          <span class="email-date">{{ formatDateRecent(props.email.date) }}</span>
+          <span class="email-date">{{
+            formatDateRecent(props.email.date, localeStore.current)
+          }}</span>
         </span>
         <span class="email-subject">{{ truncateSubject(props.email.subject) }}</span>
       </span>

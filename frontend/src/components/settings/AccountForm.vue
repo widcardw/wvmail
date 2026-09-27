@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
+import { Field } from '@ark-ui/vue/field'
 import BusyButton from '~/components/BusyButton.vue'
 import UiSelect from '~/components/UiSelect.vue'
+import UiPasswordInput from '~/components/UiPasswordInput.vue'
+import UiNumberInput from '~/components/UiNumberInput.vue'
 import UiSwitch from '~/components/UiSwitch.vue'
 import { EMAIL_PROVIDER_DEFAULTS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
@@ -29,10 +32,6 @@ const { t } = useI18n()
 
 function strVal(e: Event): string {
   return (e.target as HTMLInputElement).value
-}
-
-function intVal(e: Event): number {
-  return Number((e.target as HTMLInputElement).value) || 0
 }
 
 function setProvider(value: string) {
@@ -102,71 +101,65 @@ function onEmailInput(email: string) {
         </div>
       </div>
 
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.name'] }}</label>
-        <input
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.name'] }}</Field.Label>
+        <Field.Input
           class="input"
-          :value="form.Name"
-          @input="form.Name = strVal($event)"
+          :model-value="form.Name"
           :placeholder="t['settings.accounts.placeholder_name']"
+          @update:model-value="form.Name = String($event)"
         />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.email'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
+        <Field.Input
           class="input"
-          :value="form.Email"
-          @input="onEmailInput(strVal($event))"
+          :model-value="form.Email"
           :placeholder="t['settings.accounts.placeholder_email']"
+          @update:model-value="onEmailInput(String($event))"
         />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.provider'] }}</label>
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.provider'] }}</Field.Label>
         <UiSelect
           :options="props.providerOptions"
           :model-value="form.Provider"
           width="230px"
           @update:model-value="setProvider"
         />
-      </div>
+      </Field.Root>
 
       <div class="sec">IMAP</div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.imap_host'] }}</label>
-        <input
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.imap_host'] }}</Field.Label>
+        <Field.Input
           class="input"
-          :value="form.IMAPHost"
-          @input="form.IMAPHost = strVal($event)"
+          :model-value="form.IMAPHost"
           :placeholder="t['settings.accounts.placeholder_imap_host']"
+          @update:model-value="form.IMAPHost = String($event)"
         />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.imap_port'] }}</label>
-        <input
-          class="input input--num"
-          type="number"
-          :value="form.IMAPPort"
-          @change="form.IMAPPort = intVal($event)"
-        />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.imap_user'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.imap_port'] }}</Field.Label>
+        <UiNumberInput :value="form.IMAPPort" @value="form.IMAPPort = $event" />
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.imap_user'] }}</Field.Label>
+        <Field.Input
           class="input"
-          :value="form.IMAPUser"
-          @input="form.IMAPUser = strVal($event)"
+          :model-value="form.IMAPUser"
           :placeholder="t['settings.accounts.placeholder_email']"
+          @update:model-value="form.IMAPUser = String($event)"
         />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.imap_pass'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.imap_pass'] }}</Field.Label>
+        <UiPasswordInput
           class="input"
-          type="password"
           :value="form.IMAPPass"
           @input="form.IMAPPass = strVal($event)"
         />
-      </div>
+      </Field.Root>
 
       <div v-if="props.is163Provider" class="hint hint--warn">
         163 {{ t['settings.accounts.imap_warning'] }}
@@ -176,67 +169,57 @@ function onEmailInput(email: string) {
       </div>
 
       <div class="sec">SMTP</div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.smtp_host'] }}</label>
-        <input
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.smtp_host'] }}</Field.Label>
+        <Field.Input
           class="input"
-          :value="form.SMTPHost"
-          @input="form.SMTPHost = strVal($event)"
+          :model-value="form.SMTPHost"
           :placeholder="t['settings.accounts.placeholder_smtp_host']"
+          @update:model-value="form.SMTPHost = String($event)"
         />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.smtp_port'] }}</label>
-        <input
-          class="input input--num"
-          type="number"
-          :value="form.SMTPPort"
-          @change="form.SMTPPort = intVal($event)"
-        />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.smtp_user'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.smtp_port'] }}</Field.Label>
+        <UiNumberInput :value="form.SMTPPort" @value="form.SMTPPort = $event" />
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.smtp_user'] }}</Field.Label>
+        <Field.Input
           class="input"
-          :value="form.SMTPUser"
-          @input="form.SMTPUser = strVal($event)"
+          :model-value="form.SMTPUser"
           :placeholder="t['settings.accounts.placeholder_email']"
+          @update:model-value="form.SMTPUser = String($event)"
         />
-      </div>
-      <div class="frow">
-        <label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</label>
-        <input
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</Field.Label>
+        <UiPasswordInput
           class="input"
-          type="password"
           :value="form.SMTPPass"
           @input="form.SMTPPass = strVal($event)"
         />
-      </div>
-      <div class="frow">
-        <span class="flabel">{{ t['settings.accounts.use_tls'] }}</span>
+      </Field.Root>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.use_tls'] }}</Field.Label>
         <UiSwitch :checked="form.UseTLS" @update:checked="form.UseTLS = $event" />
-      </div>
+      </Field.Root>
 
       <div class="sec">{{ t['settings.accounts.sync'] }}</div>
-      <div class="frow">
-        <span class="flabel">{{ t['settings.accounts.auto_sync'] }}</span>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.auto_sync'] }}</Field.Label>
         <div class="sync-row">
-          <UiSwitch
-            :checked="form.SyncInterval > 0"
-            @update:checked="onAutoSyncToggle"
-          />
+          <UiSwitch :checked="form.SyncInterval > 0" @update:checked="onAutoSyncToggle" />
           <template v-if="form.SyncInterval > 0">
-            <input
-              class="input input--sm"
-              type="number"
+            <UiNumberInput
+              class="input--sm"
               :value="form.SyncInterval"
-              @change="form.SyncInterval = intVal($event)"
+              @value="form.SyncInterval = $event"
             />
             <span class="muted">{{ t['settings.accounts.sync_minutes'] }}</span>
           </template>
           <span v-else class="muted">{{ t['settings.accounts.sync_disabled'] }}</span>
         </div>
-      </div>
+      </Field.Root>
 
       <div
         v-if="props.testResult"
@@ -307,9 +290,6 @@ function onEmailInput(email: string) {
 .input {
   flex: 1;
   min-width: 0;
-}
-.input--num {
-  flex: 0 0 120px;
 }
 .input--sm {
   flex: 0 0 90px;
@@ -386,7 +366,6 @@ function onEmailInput(email: string) {
     flex-basis: auto;
   }
   .input,
-  .input--num,
   .input--sm {
     width: 100%;
     flex-basis: auto;

@@ -1,44 +1,33 @@
 <script setup lang="ts">
-import { useFeedbackStore } from '~/stores/feedback'
-
-const feedback = useFeedbackStore()
+import { Toast, Toaster } from '@ark-ui/vue/toast'
+import { toaster } from '~/stores/feedback'
 </script>
 
 <template>
-  <div class="toast-host" role="status" aria-live="polite">
-    <TransitionGroup name="toast">
-      <div v-for="t in feedback.toasts" :key="t.id" class="toast" :class="`toast--${t.kind}`">
-        {{ t.text }}
-        <button
-          type="button"
-          class="toast__close"
-          aria-label="close"
-          @click="feedback.dismiss(t.id)"
-        >
+  <Teleport to="body">
+    <Toaster :toaster="toaster" v-slot="toast">
+      <Toast.Root class="toast" :class="`toast--${toast.type}`">
+        <Toast.Title class="toast__text">{{ toast.title }}</Toast.Title>
+        <Toast.Description v-if="toast.description" class="toast__text">
+          {{ toast.description }}
+        </Toast.Description>
+        <Toast.CloseTrigger type="button" class="toast__close" aria-label="close">
           <i class="i-ri:close-line" />
-        </button>
-      </div>
-    </TransitionGroup>
-  </div>
+        </Toast.CloseTrigger>
+      </Toast.Root>
+    </Toaster>
+  </Teleport>
 </template>
 
 <style scoped>
-.toast-host {
-  position: fixed;
-  top: 48px;
-  right: 16px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-}
+/* Ark owns the stack (placement, grouping, timers); only the card is ours.
+   Sizing and the stacking variables live in styles/ui.css, because they must
+   target Ark's `[data-part='root']` / `[data-part='group']` elements. */
 .toast {
   pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: 320px;
   padding: 9px 12px;
   font-size: 13px;
   color: var(--n-text-color);
@@ -46,40 +35,37 @@ const feedback = useFeedbackStore()
   border: 1px solid var(--n-border-color);
   border-left-width: 3px;
   border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 15%);
+}
+.toast__text {
+  flex: 1;
+  min-width: 0;
 }
 .toast--success {
-  border-left-color: var(--success, #18a058);
+  border-left-color: var(--color-success);
 }
 .toast--error {
-  border-left-color: var(--danger, #d03050);
+  border-left-color: var(--color-danger);
 }
-.toast--warn {
-  border-left-color: var(--warning, #f0a020);
+.toast--warning {
+  border-left-color: var(--color-warning);
 }
 .toast--info {
-  border-left-color: var(--info, #2080f0);
+  border-left-color: var(--n-primary-color);
 }
 .toast__close {
+  flex-shrink: 0;
+  margin-left: auto;
   border: none;
   background: none;
-  cursor: pointer;
-  margin-left: auto;
   color: var(--n-text-color);
   opacity: 0.7;
+  cursor: pointer;
+}
+.toast__close:hover {
+  opacity: 1;
 }
 .toast__close i {
   font-size: 14px;
-}
-.toast-enter-active,
-.toast-leave-active {
-  transition:
-    opacity 0.15s,
-    transform 0.15s;
-}
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 </style>

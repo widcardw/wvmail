@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Dialog } from '@ark-ui/vue/dialog'
+import { Field } from '@ark-ui/vue/field'
 import { Tabs } from '@ark-ui/vue/tabs'
 import { useI18n } from '~/i18n'
 import ReminderTimeline from '~/components/reminder/ReminderTimeline.vue'
@@ -151,28 +152,29 @@ function submitAdd() {
     </section>
 
     <Dialog.Root
+      v-if="showAdd"
       :open="showAdd"
       @open-change="(details: unknown) => (showAdd = !!(details as { open?: boolean })?.open)"
     >
-      <Dialog.Backdrop class="d-back" />
-      <Dialog.Positioner class="d-pos">
-        <Dialog.Content class="d-card">
-          <h3 class="d-title">{{ t['reminders.new'] }}</h3>
-          <label class="d-field">
-            <span class="d-label">{{ t['reminders.field.title'] }}</span>
-            <input
+      <Dialog.Backdrop class="dlg-back" />
+      <Dialog.Positioner class="dlg-pos">
+        <Dialog.Content class="dlg-card dlg-card--narrow">
+          <h3 class="dlg-title">{{ t['reminders.new'] }}</h3>
+          <Field.Root class="d-field">
+            <Field.Label class="d-label">{{ t['reminders.field.title'] }}</Field.Label>
+            <Field.Input
               v-model="newTitle"
               class="input d-input"
               type="text"
               :placeholder="t['reminders.placeholder.title']"
               @keydown.enter="submitAdd"
             />
-          </label>
-          <label class="d-field">
-            <span class="d-label">{{ t['reminders.field.time'] }}</span>
-            <input v-model="newTime" class="input d-input" type="datetime-local" />
-          </label>
-          <div class="d-actions">
+          </Field.Root>
+          <Field.Root class="d-field">
+            <Field.Label class="d-label">{{ t['reminders.field.time'] }}</Field.Label>
+            <Field.Input v-model="newTime" class="input d-input" type="datetime-local" />
+          </Field.Root>
+          <div class="dlg-actions">
             <button type="button" class="btn" @click="showAdd = false">
               {{ t['cancel'] }}
             </button>
@@ -257,36 +259,10 @@ function submitAdd() {
   outline: none;
 }
 
-.d-back {
-  position: fixed;
-  inset: 0;
-  z-index: 900;
-  background: rgba(0, 0, 0, 0.4);
-}
-.d-pos {
-  position: fixed;
-  z-index: 901;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  pointer-events: none;
-}
-.d-card {
-  pointer-events: auto;
-  width: min(400px, 100%);
-  background: var(--color-surface);
-  color: var(--n-text-color);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-}
-.d-title {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 600;
+.dlg-title {
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--n-border-color);
 }
 .d-field {
   display: flex;
@@ -300,12 +276,6 @@ function submitAdd() {
 }
 .d-input {
   width: 100%;
-}
-.d-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
 }
 </style>
 

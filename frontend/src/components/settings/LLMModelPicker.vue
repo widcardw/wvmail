@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useVirtualList } from '@vueuse/core'
 import { ConfigService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
+import UiCheckbox from '~/components/UiCheckbox.vue'
 import type { LLMConfig } from '~/types/config'
 
 const props = defineProps<{
@@ -59,7 +60,9 @@ function isPicked(model: string) {
 }
 
 function toggle(model: string) {
-  picked.value = isPicked(model) ? picked.value.filter((m) => m !== model) : [...picked.value, model]
+  picked.value = isPicked(model)
+    ? picked.value.filter((m) => m !== model)
+    : [...picked.value, model]
 }
 
 function selectAllFiltered() {
@@ -101,10 +104,17 @@ function clearAll() {
     </p>
     <div v-else v-bind="containerProps" class="picker__scroll">
       <div v-bind="wrapperProps">
-        <label v-for="item in list" :key="item.data" class="picker__row">
-          <input type="checkbox" :checked="isPicked(item.data)" @change="toggle(item.data)" />
-          <span class="picker__id font-mono" :title="item.data">{{ item.data }}</span>
-        </label>
+        <UiCheckbox
+          v-for="item in list"
+          :key="item.data"
+          class="picker__row"
+          label-class="picker__id font-mono"
+          :title="item.data"
+          :checked="isPicked(item.data)"
+          @update:checked="toggle(item.data)"
+        >
+          {{ item.data }}
+        </UiCheckbox>
       </div>
     </div>
 

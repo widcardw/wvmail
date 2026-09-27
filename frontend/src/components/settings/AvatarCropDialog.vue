@@ -68,9 +68,9 @@ onUnmounted(() => imageCropper.value.reset?.())
     @update:open="emit('update:open', $event)"
   >
     <Teleport to="body">
-      <Dialog.Backdrop class="crop-dialog-backdrop" />
-      <Dialog.Positioner class="crop-dialog-positioner">
-        <Dialog.Content class="crop-dialog-content">
+      <Dialog.Backdrop class="dlg-back" />
+      <Dialog.Positioner class="dlg-pos">
+        <Dialog.Content class="dlg-card dlg-card--flush">
           <header class="crop-dialog__head">
             <div>
               <Dialog.Title class="crop-dialog__title">
@@ -132,31 +132,11 @@ onUnmounted(() => imageCropper.value.reset?.())
 </template>
 
 <style scoped>
-.crop-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  background: rgb(0 0 0 / 55%);
-}
-.crop-dialog-positioner {
-  position: fixed;
-  inset: 0;
-  z-index: 1101;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-.crop-dialog-content {
+.dlg-card {
   position: relative;
-  display: flex;
-  flex-direction: column;
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
   overflow: auto;
-  color: var(--n-text-color);
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
   border-radius: var(--radius-md);
   box-shadow: 0 20px 50px rgb(0 0 0 / 30%);
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import UiSelect from '~/components/UiSelect.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
@@ -114,56 +115,57 @@ function onSelectConfig(name: string) {
         {{ t['settings.translation.no_llm'] }}
       </div>
 
-      <div class="row">
-        <label class="row__label">{{ t['settings.translation.target_lang'] }}</label>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.translation.target_lang'] }}</Field.Label>
         <UiSelect
           :options="targetLangOptions"
           :model-value="form.DefaultTargetLang"
           @update:model-value="(v) => onSelect('DefaultTargetLang', v)"
         />
-      </div>
+      </Field.Root>
 
-      <div class="row">
-        <label class="row__label">{{ t['settings.translation.engine'] }}</label>
+      <Field.Root class="row">
+        <Field.Label class="row__label">{{ t['settings.translation.engine'] }}</Field.Label>
         <UiSelect
           :options="engineOptions"
           :model-value="form.DefaultEngine"
           @update:model-value="(v) => onSelect('DefaultEngine', v)"
         />
-      </div>
+      </Field.Root>
 
       <template v-if="form.DefaultEngine === 'llm'">
-        <div class="row">
-          <label class="row__label">{{ t['settings.translation.llm_config'] }}</label>
+        <Field.Root class="row">
+          <Field.Label class="row__label">{{ t['settings.translation.llm_config'] }}</Field.Label>
           <UiSelect
             :options="llmOptions"
             :model-value="form.LLMConfigName"
             :disabled="llmConfigs.length === 0"
             @update:model-value="onSelectConfig"
           />
-        </div>
+        </Field.Root>
 
-        <div v-if="modelOptions.length > 0" class="row">
-          <label class="row__label">{{ t['settings.translation.llm_model'] }}</label>
+        <Field.Root v-if="modelOptions.length > 0" class="row">
+          <Field.Label class="row__label">{{ t['settings.translation.llm_model'] }}</Field.Label>
           <UiSelect
             :options="modelOptions"
             :model-value="form.LLMModel"
             @update:model-value="(v) => onSelect('LLMModel', v)"
           />
-        </div>
+        </Field.Root>
       </template>
 
       <template v-else-if="form.DefaultEngine === 'deepl'">
-        <div class="row">
-          <label class="row__label">{{ t['settings.translation.deepl_key'] }}</label>
-          <input
-            v-model="form.DeepLAuthKey"
-            type="password"
-            class="ctl password"
+        <Field.Root class="row">
+          <Field.Label class="row__label">{{ t['settings.translation.deepl_key'] }}</Field.Label>
+          <UiPasswordInput
+            class="ctl"
+            :value="form.DeepLAuthKey"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            @change="persistNow()"
+            @input="
+              (event: Event) => (form.DeepLAuthKey = (event.target as HTMLInputElement).value)
+            "
           />
-        </div>
+        </Field.Root>
       </template>
     </section>
   </div>
