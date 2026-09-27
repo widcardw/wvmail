@@ -103,7 +103,7 @@ function clearAll() {
       <div v-bind="wrapperProps">
         <label v-for="item in list" :key="item.data" class="picker__row">
           <input type="checkbox" :checked="isPicked(item.data)" @change="toggle(item.data)" />
-          <span class="picker__id" :title="item.data">{{ item.data }}</span>
+          <span class="picker__id font-mono" :title="item.data">{{ item.data }}</span>
         </label>
       </div>
     </div>
@@ -161,7 +161,6 @@ function clearAll() {
 .picker__id {
   overflow: hidden;
   font-size: 12px;
-  font-family: var(--n-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
   white-space: nowrap;
   text-overflow: ellipsis;
 }

@@ -524,7 +524,7 @@ onUnmounted(() => {
   margin: 8px 0;
 }
 .editor-content :deep(.ProseMirror code) {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 .editor-placeholder {

@@ -164,11 +164,16 @@ const zhCN: TranslationSchema = {
   'settings.llm.testing': '正在测试连接...',
   'settings.llm.test_connection': '测试连接',
   'settings.llm.test_chat': '测试对话',
+  'settings.llm.test_model': '测试模型',
+  'settings.llm.test_no_model': '尚未勾选模型',
+  'settings.llm.test_hint':
+    '「测试连接」只校验基础 URL 与密钥（不消耗模型）；「测试对话」会向上面选中的模型发送一句问候。',
   'settings.llm.fetchModels': '获取模型',
   'settings.llm.models': '模型',
   'settings.llm.modelAdd': '添加',
   'settings.llm.modelsHint':
     '这里列出的模型都会生效，可在翻译等地方选用；服务商不提供列表时直接填写模型名后回车添加。',
+  'settings.llm.fetchModelsNeeds': '需要先填写基础 URL 与 API 密钥',
   'settings.llm.modelsSearch': '搜索模型…',
   'settings.llm.modelsSelected': '已选 {n} / 共 {total}',
   'settings.llm.modelsSelectAll': '全选',

@@ -21,7 +21,8 @@ const parsedBody = computed<object | null>(() => {
     <summary>Response body</summary>
     <JsonTreeView.Root
       v-if="parsedBody"
-      class="response-tree"
+      :key="props.body"
+      class="response-tree font-mono"
       :data="parsedBody"
       :default-expanded-depth="2"
       :expand-on-click="true"
@@ -55,7 +56,6 @@ const parsedBody = computed<object | null>(() => {
 .response-tree {
   width: 100%;
   color: var(--n-text-color);
-  font-family: var(--n-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 .response-tree :deep([data-part='branch-content']) {
   position: relative;

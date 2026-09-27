@@ -9,8 +9,16 @@ import { defineConfig, presetUno, presetIcons } from 'unocss'
 //
 // The light/dark design tokens live in src/styles/global.css under :root and
 // [data-theme='dark']; anything that flips (borders, surface, text) should use those
-// vars rather than be hardtyped here.
+// vars rather than be hardtyped here. The same applies to fonts: `font-sans` and
+// `font-mono` are mapped onto `--font-sans` / `--font-mono` below, so the utilities
+// and the CSS declarations can never drift apart.
 export default defineConfig({
+  theme: {
+    fontFamily: {
+      sans: 'var(--font-sans)',
+      mono: 'var(--font-mono)',
+    },
+  },
   presets: [
     presetUno(),
     presetIcons({

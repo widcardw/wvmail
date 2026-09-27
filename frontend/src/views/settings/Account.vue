@@ -110,7 +110,7 @@ function openEditForm(account: EmailAccount) {
   showingList.value = false
   if (account.Avatar) {
     ConfigService.GetAccountAvatar(account.ID)
-      .then((uri) => {
+      .then((uri: string) => {
         if (uri && editingId.value === account.ID) avatarPreview.value = uri
       })
       .catch(() => {})

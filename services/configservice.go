@@ -668,10 +668,13 @@ func (s *ConfigService) TestLLMConnection(cfg LLMConfig) (bool, string) {
 			}
 		}
 	} else {
-		// Fallback – basic connectivity check
+		// Fallback – basic connectivity check. This mirrors the catalog endpoints
+		// in ListLLMModels: a probe must hit the same URL the "fetch models" path
+		// uses, otherwise a valid key can look broken (Anthropic's /v1/messages is
+		// POST-only and answers 405 to a GET).
 		switch cfg.Provider {
 		case "anthropic":
-			req, err = http.NewRequest("GET", baseURL+"/v1/messages", nil)
+			req, err = http.NewRequest("GET", baseURL+"/v1/models", nil)
 			if err == nil {
 				req.Header.Set("x-api-key", cfg.APIKey)
 				req.Header.Set("anthropic-version", "2023-06-01")

@@ -83,6 +83,93 @@ func TestListLLMModelsParsesCatalogShapes(t *testing.T) {
 	}
 }
 
+func TestLLMConnectionProbeUsesCatalogEndpoint(t *testing.T) {
+	// The model-free "test connection" call must probe the same catalog endpoint
+	// ListLLMModels uses; a probe on a chat-only path (Anthropic /v1/messages is
+	// POST-only) would report a false failure for a working key.
+	cases := []struct {
+		provider   string
+		wantPath   string
+		wantHeader [2]string
+	}{
+		{provider: "openai", wantPath: "/models", wantHeader: [2]string{"Authorization", "Bearer test-key"}},
+		{provider: "deepseek", wantPath: "/models", wantHeader: [2]string{"Authorization", "Bearer test-key"}},
+		{provider: "anthropic", wantPath: "/v1/models", wantHeader: [2]string{"x-api-key", "test-key"}},
+		{provider: "gemini", wantPath: "/v1/models", wantHeader: [2]string{"x-goog-api-key", "test-key"}},
+		{provider: "ollama", wantPath: "/api/tags"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.provider, func(t *testing.T) {
+			var gotPath string
+			var gotHeader string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotPath = r.URL.Path
+				gotHeader = r.Header.Get(tc.wantHeader[0])
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"data":[{"id":"m"}]}`))
+			}))
+			t.Cleanup(server.Close)
+
+			ok, summary := (&ConfigService{}).TestLLMConnection(LLMConfig{
+				Provider: tc.provider,
+				BaseURL:  server.URL,
+				APIKey:   "test-key",
+			})
+			if !ok {
+				t.Fatalf("probe failed: %s", summary)
+			}
+			if gotPath != tc.wantPath {
+				t.Fatalf("probe hit %q, want %q", gotPath, tc.wantPath)
+			}
+			if tc.wantHeader[0] != "" && gotHeader != tc.wantHeader[1] {
+				t.Fatalf("%s = %q, want %q", tc.wantHeader[0], gotHeader, tc.wantHeader[1])
+			}
+		})
+	}
+}
+
+func TestLLMConnectionChatTestUsesCompletionEndpoint(t *testing.T) {
+	// With a model the same call must POST to the provider's completion endpoint —
+	// that is what the dialog's "test chat" button relies on.
+	cases := []struct {
+		provider string
+		wantPath string
+	}{
+		{provider: "openai", wantPath: "/chat/completions"},
+		{provider: "anthropic", wantPath: "/v1/messages"},
+		{provider: "gemini", wantPath: "/v1/models/m1:generateContent"},
+		{provider: "ollama", wantPath: "/api/chat"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.provider, func(t *testing.T) {
+			gotPath := ""
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotPath = r.URL.Path
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"ok":true}`))
+			}))
+			t.Cleanup(server.Close)
+
+			ok, summary := (&ConfigService{}).TestLLMConnection(LLMConfig{
+				Provider: tc.provider,
+				BaseURL:  server.URL,
+				APIKey:   "test-key",
+				Model:    "m1",
+			})
+			if !ok {
+				t.Fatalf("chat test failed: %s", summary)
+			}
+			if gotPath != tc.wantPath {
+				t.Fatalf("chat test hit %q, want %q", gotPath, tc.wantPath)
+			}
+		})
+	}
+}
+
 func TestListLLMModelsReportsProviderRefusal(t *testing.T) {
 	// A provider without a catalog endpoint must surface a usable reason: the UI
 	// keeps offering manual model entry and shows this text.

@@ -60,6 +60,15 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+
+  /* IBM Plex Mono first (the intended look, installed per machine); the rest are
+     platform fallbacks so a machine without it gets SF Mono via ui-monospace /
+     Menlo on macOS or Consolas on Windows instead of generic "monospace". */
+  --font-mono: IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 [data-theme='dark'] {
@@ -108,9 +117,7 @@ body,
   padding: 0;
   height: 100%;
   overflow: hidden;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'PingFang SC',
-    'Microsoft YaHei', sans-serif;
+  font-family: var(--font-sans);
   color: var(--n-text-color);
   background: var(--n-body-color);
 }

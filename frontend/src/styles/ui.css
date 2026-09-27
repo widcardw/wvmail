@@ -213,7 +213,7 @@
   max-width: 100%;
   padding: 2px 6px;
   font-size: 12px;
-  font-family: var(--n-font-family, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   color: var(--n-text-color);
   background: var(--color-surface-2);
   border: 1px solid var(--n-border-color);

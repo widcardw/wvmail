@@ -37,6 +37,8 @@ const testOk = ref(false)
 const testChatSummary = ref('')
 const testChatBody = ref('')
 const testChatOk = ref(false)
+/** Model the last chat test ran against, echoed in the result heading. */
+const testChatModel = ref('')
 const testingIndex = ref<number | null>(null)
 const testResultIndex = ref<number | null>(null)
 const testSuccess = ref(false)
@@ -83,6 +85,15 @@ function clearTestResults() {
   testBody.value = ''
   testChatSummary.value = ''
   testChatBody.value = ''
+  testChatModel.value = ''
+}
+
+/** The dialog switched the model under test, so the old response no longer applies. */
+function clearChatResult() {
+  testChatSummary.value = ''
+  testChatBody.value = ''
+  testChatOk.value = false
+  testChatModel.value = ''
 }
 
 function openAdd() {
@@ -173,13 +184,14 @@ async function testItem(index: number) {
   }
 }
 
-async function runTest(kind: 'conn' | 'chat') {
+async function runTest(kind: 'conn' | 'chat', model?: string) {
   // Spread the edited config: the binding expects a complete LLMConfig, and the
-  // chat test is the only case that sends a model.
-  const config = { ...form.value, Model: kind === 'chat' ? form.value.Model : '' }
+  // chat test is the only case that sends a model (the one picked in the dialog).
+  const config = { ...form.value, Model: kind === 'chat' ? (model ?? form.value.Model) : '' }
 
   if (kind === 'conn') testing.value = true
   else testingChat.value = true
+  if (kind === 'chat') testChatModel.value = config.Model
 
   try {
     const [ok, message] = await ConfigService.TestLLMConnection(config)
@@ -332,8 +344,10 @@ function modelTags(item: LLMConfig): string[] {
       :test-chat-summary="testChatSummary"
       :test-chat-body="testChatBody"
       :test-chat-ok="testChatOk"
+      :test-chat-model="testChatModel"
       @update:open="showModal = $event"
       @test="runTest"
+      @clear-chat="clearChatResult"
       @save="handleSave"
     />
   </div>
@@ -410,5 +424,8 @@ function modelTags(item: LLMConfig): string[] {
   .row__actions {
     flex-direction: row;
   }
+}
+.model-tag {
+  font-family: var(--font-mono);
 }
 </style>

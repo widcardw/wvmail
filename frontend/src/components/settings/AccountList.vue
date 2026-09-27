@@ -42,8 +42,10 @@ function providerLabel(provider: string): string {
     <ul v-else class="list">
       <li v-for="account in accounts" :key="account.ID" class="row">
         <div class="row-info">
-          <strong>{{ account.Name || account.Email }}</strong>
-          <span class="chip">{{ providerLabel(account.Provider) }}</span>
+          <div class="flex items-center space-x-1">
+            <strong>{{ account.Name || account.Email }}</strong>
+            <span class="chip">{{ providerLabel(account.Provider) }}</span>
+          </div>
           <div class="muted">
             {{ account.Email }} &middot; IMAP: {{ account.IMAPHost }}:{{ account.IMAPPort }}
           </div>

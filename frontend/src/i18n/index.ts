@@ -164,10 +164,14 @@ export interface TranslationSchema {
   'settings.llm.testing': string
   'settings.llm.test_connection': string
   'settings.llm.test_chat': string
+  'settings.llm.test_model': string
+  'settings.llm.test_no_model': string
+  'settings.llm.test_hint': string
   'settings.llm.fetchModels': string
   'settings.llm.models': string
   'settings.llm.modelAdd': string
   'settings.llm.modelsHint': string
+  'settings.llm.fetchModelsNeeds': string
   'settings.llm.modelsSearch': string
   'settings.llm.modelsSelected': string
   'settings.llm.modelsSelectAll': string

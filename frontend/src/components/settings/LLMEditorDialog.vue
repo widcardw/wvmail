@@ -22,12 +22,16 @@ const props = defineProps<{
   testChatSummary: string
   testChatBody: string
   testChatOk: boolean
+  /** Model the last chat test used, so the result names what was tested. */
+  testChatModel: string
 }>()
 
 const form = defineModel<LLMConfig>({ required: true })
 const emit = defineEmits<{
   'update:open': [open: boolean]
-  test: [kind: 'conn' | 'chat']
+  test: [kind: 'conn' | 'chat', model?: string]
+  /** The tested model changed: drop the previous response, it belongs to it. */
+  clearChat: []
   save: []
 }>()
 
@@ -38,9 +42,6 @@ const canSave = computed(() =>
 )
 const canConn = computed(() =>
   Boolean(form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
-)
-const canChat = computed(() =>
-  Boolean(form.value.Model && form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
 )
 
 function onProvider(provider: string) {
@@ -111,6 +112,35 @@ function onModelsPicked(models: string[]) {
   pickerOpen.value = false
 }
 
+/**
+ * Which of the ticked models the chat test sends to. The connection test needs no
+ * model at all (it probes the catalog), so only the chat test is model-bound.
+ */
+const testModel = ref('')
+const testModelOptions = computed(() =>
+  selectedModels.value.map((model) => ({ label: model, value: model })),
+)
+// Keep the choice inside the ticked set: removing the tested model falls back to
+// the first remaining one ('' when nothing is ticked, which disables the button).
+watch(
+  testModelOptions,
+  (options) => {
+    if (!options.some((option) => option.value === testModel.value)) {
+      testModel.value = options[0]?.value ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+const canChat = computed(() =>
+  Boolean(testModel.value && form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
+)
+
+// A chat response belongs to the model that produced it, so switching the target
+// clears the previous result instead of leaving a stale body on screen (two models
+// often fail with byte-identical error JSON, which looks like "nothing updated").
+watch(testModel, () => emit('clearChat'))
+
 // "Test connection" doubles as the entry point for picking models: a successful
 // connection test reveals the catalog panel, which fetches the list itself.
 watch(
@@ -154,49 +184,6 @@ watch(
               :value="form.Name"
               @input="onInput('Name', $event)"
               placeholder="My LLM"
-            />
-          </div>
-          <div class="field">
-            <label>{{ t['settings.llm.models'] }}</label>
-            <div class="model-row">
-              <input
-                v-model="typedModel"
-                class="ctl"
-                placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
-                @change="addTypedModel()"
-              />
-              <button
-                type="button"
-                class="btn btn--sm"
-                :disabled="!typedModel.trim()"
-                @click="addTypedModel()"
-              >
-                {{ t['settings.llm.modelAdd'] }}
-              </button>
-              <button type="button" class="btn btn--sm" @click="pickerOpen = !pickerOpen">
-                {{ t['settings.llm.fetchModels'] }}
-              </button>
-            </div>
-            <p class="field__hint">{{ t['settings.llm.modelsHint'] }}</p>
-            <div v-if="selectedModels.length > 0" class="model-tags">
-              <span v-for="model in selectedModels" :key="model" class="model-tag" :title="model">
-                <span class="model-tag__text">{{ model }}</span>
-                <button
-                  type="button"
-                  class="model-tag__remove"
-                  :aria-label="`${t['settings.llm.delete']} ${model}`"
-                  @click="removeModel(model)"
-                >
-                  ×
-                </button>
-              </span>
-            </div>
-            <LLMModelPicker
-              v-if="pickerOpen"
-              :config="form"
-              :selected="selectedModels"
-              @confirm="onModelsPicked"
-              @cancel="pickerOpen = false"
             />
           </div>
           <div class="field">
@@ -245,29 +232,98 @@ watch(
             </div>
           </div>
 
-          <div class="test-actions">
-            <BusyButton
-              class="btn"
-              :label="t['settings.llm.test_connection']"
-              :busy="props.testing"
-              :disabled="!canConn"
-              @click="emit('test', 'conn')"
-            />
-            <BusyButton
-              class="btn"
-              :label="t['settings.llm.test_chat']"
-              :busy="props.testingChat"
-              :disabled="!canChat"
-              @click="emit('test', 'chat')"
+          <!-- Model set lives after the connection fields: you need a working
+               base URL + key before fetching the catalog, and the test section
+               right below consumes the ticked models. -->
+          <div class="field">
+            <label>{{ t['settings.llm.models'] }}</label>
+            <div class="model-row">
+              <input
+                v-model="typedModel"
+                class="ctl"
+                placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
+                @change="addTypedModel()"
+              />
+              <button
+                type="button"
+                class="btn btn--sm"
+                :disabled="!typedModel.trim()"
+                @click="addTypedModel()"
+              >
+                {{ t['settings.llm.modelAdd'] }}
+              </button>
+              <button
+                type="button"
+                class="btn btn--sm"
+                :disabled="!canConn"
+                :title="canConn ? undefined : t['settings.llm.fetchModelsNeeds']"
+                @click="pickerOpen = !pickerOpen"
+              >
+                {{ t['settings.llm.fetchModels'] }}
+              </button>
+            </div>
+            <p class="field__hint">{{ t['settings.llm.modelsHint'] }}</p>
+            <div v-if="selectedModels.length > 0" class="model-tags">
+              <span v-for="model in selectedModels" :key="model" class="model-tag" :title="model">
+                <span class="model-tag__text">{{ model }}</span>
+                <button
+                  type="button"
+                  class="model-tag__remove"
+                  :aria-label="`${t['settings.llm.delete']} ${model}`"
+                  @click="removeModel(model)"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+            <LLMModelPicker
+              v-if="pickerOpen"
+              :config="form"
+              :selected="selectedModels"
+              @confirm="onModelsPicked"
+              @cancel="pickerOpen = false"
             />
           </div>
 
+          <div class="field">
+            <label>{{ t['settings.llm.test_model'] }}</label>
+            <div class="test-actions">
+              <UiSelect
+                :options="testModelOptions"
+                :model-value="testModel"
+                :disabled="testModelOptions.length === 0"
+                :placeholder="t['settings.llm.test_no_model']"
+                width="200px"
+                @update:model-value="testModel = $event"
+              />
+              <BusyButton
+                class="btn"
+                :label="t['settings.llm.test_connection']"
+                :busy="props.testing"
+                :disabled="!canConn"
+                @click="emit('test', 'conn')"
+              />
+              <BusyButton
+                class="btn"
+                :label="t['settings.llm.test_chat']"
+                :busy="props.testingChat"
+                :disabled="!canChat"
+                @click="emit('test', 'chat', testModel)"
+              />
+            </div>
+            <p class="field__hint">{{ t['settings.llm.test_hint'] }}</p>
+          </div>
+
           <div v-if="props.testSummary" class="result" :class="props.testOk ? 'ok' : 'bad'">
-            <strong>Connectivity: {{ props.testSummary }}</strong>
+            <strong>{{ t['settings.llm.test_connection'] }}: {{ props.testSummary }}</strong>
             <JsonResponseViewer v-if="props.testBody" :body="props.testBody" />
           </div>
           <div v-if="props.testChatSummary" class="result" :class="props.testChatOk ? 'ok' : 'bad'">
-            <strong>Chat: {{ props.testChatSummary }}</strong>
+            <strong>
+              {{ t['settings.llm.test_chat'] }}
+              <template v-if="props.testChatModel">· {{ props.testChatModel }}</template>:
+              {{ props.testChatSummary }}
+            </strong>
             <JsonResponseViewer v-if="props.testChatBody" :body="props.testChatBody" />
           </div>
         </div>

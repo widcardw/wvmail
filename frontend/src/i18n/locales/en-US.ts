@@ -165,11 +165,16 @@ const enUS: TranslationSchema = {
   'settings.llm.testing': 'Testing connection...',
   'settings.llm.test_connection': 'Test connection',
   'settings.llm.test_chat': 'Test Chat',
+  'settings.llm.test_model': 'Test model',
+  'settings.llm.test_no_model': 'No model ticked yet',
+  'settings.llm.test_hint':
+    '“Test connection” only checks the base URL and key (no model involved); “Test chat” sends a one-line greeting to the model selected above.',
   'settings.llm.fetchModels': 'Fetch models',
   'settings.llm.models': 'Models',
   'settings.llm.modelAdd': 'Add',
   'settings.llm.modelsHint':
     'Every model listed here is usable, e.g. for translations. Without a catalog, type a name and press Enter.',
+  'settings.llm.fetchModelsNeeds': 'Fill in the base URL and API key first',
   'settings.llm.modelsSearch': 'Search models…',
   'settings.llm.modelsSelected': '{n} of {total} selected',
   'settings.llm.modelsSelectAll': 'Select all',
