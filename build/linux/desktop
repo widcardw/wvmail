@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
-Comment=A wvmail application
+Name=wvmail
+Comment=A mail client that just works
 # The Exec line includes %u to pass the URL to the application
 Exec=/usr/local/bin/wvmail %u
 Terminal=false

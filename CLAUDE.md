@@ -32,6 +32,9 @@ Additional docs are in `.ai-docs/`:
 - `project-architecture.md` — Full project structure and tech stack (Ark UI + UnoCSS/headless)
 - `vue-patterns.md` — Vue 3 Composition API patterns used in this project
 - `ark-ui-guide.md` — Ark UI (headless) theming, import paths, CSS Modules + global.css tokens, and the naive→ark migration map
+- `email-fetch-and-display.md` — IMAP fetch path, fallbacks, caching/pagination, decoding rules
+- `dev-debugging.md` — running the app, logging, macOS devtools/WebKit pitfalls
+- `build-assets-and-icons.md` — app icon pipeline, `Assets.car` vs `icons.icns` precedence, actool/Xcode-license trap, `build/` vs CLI templates
 
 ## Design Tokens (global.css) + Theming
 

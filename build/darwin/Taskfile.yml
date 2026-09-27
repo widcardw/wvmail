@@ -5,8 +5,8 @@ includes:
 
 vars:
   # Signing configuration - edit these values for your project
-  # SIGN_IDENTITY: "Developer ID Application: Your Company (TEAMID)"
-  # KEYCHAIN_PROFILE: "my-notarize-profile"
+  # SIGN_IDENTITY: "Developer ID Application: widcardw (TEAMID)"
+  # KEYCHAIN_PROFILE: "wvmail-notarize"
   # ENTITLEMENTS: "build/darwin/entitlements.plist"
 
   # Docker image for cross-compilation (used when building on non-macOS)

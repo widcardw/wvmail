@@ -32,6 +32,7 @@ const zhCN: TranslationSchema = {
     '此邮件被标记为可疑（垃圾邮件或 Junk）。为安全起见，HTML 正文与附件默认隐藏。',
   'mail.security.show_all': '显示所有内容',
   'mail.remote.blocked': '已拦截 {count} 个远程资源（跟踪像素、远程图片或样式）',
+  'mail.remote.blocked_short': '已拦截 {count} 个远程资源',
   'mail.remote.show': '显示远程内容',
   'mail.remote.always': '总是允许此发件人',
   'mail.remote.allowed': '已允许此发件人的远程内容',

@@ -20,6 +20,9 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed assets/tray-empty.png
+var icon []byte
+
 func init() {
 	// Register a custom event whose associated data type is string.
 	// This is not required, but the binding generator will pick up registered events
@@ -90,12 +93,18 @@ func main() {
 		URL:              "/",
 		Width:            1280,
 		Height:           768,
+		MinWidth: 800,
+		MinHeight: 600,
 	})
 
 	// macOS 26 (Tahoe) drops the traffic lights below the 40px in-page title
 	// bar to clear its larger window corner radius. The header (.app__titlebar)
 	// is 40px tall, so keep the lights centered at 20pt from the top instead.
 	macos.CenterTrafficLights(win, 20)
+
+	// System Tray
+	systray := app.SystemTray.New()
+	systray.SetIcon(icon)
 
 	// Start the background email sync service
 	syncSvc.Start()

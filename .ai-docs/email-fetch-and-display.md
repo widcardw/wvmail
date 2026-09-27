@@ -182,7 +182,7 @@ rehype-parse → rehypeAutoLink → rehype-sanitize(白名单)
 
 CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 `@import`、`expression()`、`behavior`/`-moz-binding`；`position: fixed|sticky` 改写为 `static`；拦截模式下把远程 `url(...)` 替换为 `none`。`<style>` 与 `style=` 两处都过同一函数。
 
-**计数语义**：`sanitizeEmailHtml()` 返回 `{ html, blockedRemote }`，`blockedRemote` 只统计**拦截模式下真正移除**的远程资源；放行模式恒为 0（否则放行后横幅会再次出现）。它驱动横幅文案「已拦截 N 个远程资源…」。
+**计数语义**：`sanitizeEmailHtml()` 返回 `{ html, blockedRemote }`，`blockedRemote` 只统计**拦截模式下真正移除**的远程资源；放行模式恒为 0（否则提示条放行后会再次出现）。它驱动 `EmailRemoteNotice.vue` 的提示条：条上显示短文案「已拦截 N 个远程资源」（`mail.remote.blocked_short`），完整说明（跟踪像素/远程图片/样式）作为 `title` 提示。
 
 **踩过的坑（已加测试）**：hast 里属性名是**驼峰** `srcSet`，只写小写 `srcset` 会漏掉 `<picture><source srcset=…>` —— 实测确认这是一个真实可用的追踪向量。`URL_ATTRS` 因此同时列出两种拼写；`frontend/tests/html-sanitize.test.mts` 固化了这条回归。
 
@@ -212,6 +212,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **CSS 净化**：`@import`/`expression()`/`behavior` 永久剥离；拦截模式下远程 `url()` → `none`；`position:fixed\|sticky` → `static` | `html-sanitize.ts` | 原先 `<style>` 与 `style=` 原样放行：可外连、可覆盖应用 UI |
 | **放行入口**：全局开关 / 按发件人白名单 / 单封邮件 | `stores/preferences.ts`、`EmailDetail.vue`、`views/settings/Common.vue` + Go `RemoteContentConfig` | 拦截必须有出路，否则用户看不了图 |
 | **横幅措辞改为准确描述**，并新增「已拦截 N 个远程资源」横幅与放行按钮 | `EmailDetail.vue` + i18n | 原「已拦截 {count} 个附件/资源」的 count 是「附件数 + 有 HTML ? 1 : 0」，与实际隐藏内容不符 |
+| **提示条从正文上方移到附件折叠栏那条带子上**：`EmailRemoteNotice.vue` 与 `.attach-head` 同几何（8px 16px、13px/600、`border-bottom`），底色用新增 token `--color-warning-bg`，左侧图标用 `--color-warning`；警告/错误 alert 也改为复用 token（原先硬编码 `rgba(240,160,32,.14)`/`#f0a020`） | `components/detail/EmailRemoteNotice.vue`（新）、`EmailDetail.vue`、`styles/global.css` | 顶部不再堆叠一块大警告框；拦截提示与附件同为「可操作条」，位置靠近它所影响的正文 |
+| **附件列表默认折叠** | `EmailDetail.vue`（`attachmentsOpen = ref(false)`，切邮件时也重置为 `false`） | 长附件列表不再默认占满正文上方 |
 | **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
 
 ---

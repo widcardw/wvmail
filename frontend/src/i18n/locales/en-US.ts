@@ -33,6 +33,7 @@ const enUS: TranslationSchema = {
   'mail.security.show_all': 'Show all content',
   'mail.remote.blocked':
     'Blocked {count} remote resource(s) — tracking pixels, remote images or styles',
+  'mail.remote.blocked_short': 'Blocked {count} remote resource(s)',
   'mail.remote.show': 'Show remote content',
   'mail.remote.always': 'Always allow this sender',
   'mail.remote.allowed': 'Remote content from this sender is now allowed',

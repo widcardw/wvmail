@@ -17,6 +17,7 @@ import {
 } from '~/composables/html-utils'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
+import EmailRemoteNotice from './EmailRemoteNotice.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'
 
 const { t } = useI18n()
@@ -30,7 +31,7 @@ const detail = computed(() => accountsStore.selectedEmailDetail)
 const loading = computed(() => accountsStore.loadingDetail)
 
 const suspiciousRevealed = ref(false)
-const attachmentsOpen = ref(true)
+const attachmentsOpen = ref(false)
 /** Revealed for this message only; reset whenever another email is opened. */
 const remoteRevealed = ref(false)
 
@@ -73,7 +74,7 @@ watch(detail, () => {
   translationError.value = null
   suspiciousRevealed.value = false
   remoteRevealed.value = false
-  attachmentsOpen.value = true
+  attachmentsOpen.value = false
 })
 
 /** Load this message's remote content once (nothing is remembered). */
@@ -255,28 +256,6 @@ const showAttachments = computed(
         </button>
       </div>
 
-      <div
-        v-if="blockedRemote > 0 && (!detail?.is_suspicious || suspiciousRevealed)"
-        class="alert alert--warn"
-      >
-        <p style="margin: 0">
-          {{ t['mail.remote.blocked'].replace('{count}', String(blockedRemote)) }}
-        </p>
-        <div class="alert-actions">
-          <button type="button" class="btn btn--sm btn--subtle" @click="revealRemoteContent()">
-            {{ t['mail.remote.show'] }}
-          </button>
-          <button
-            v-if="senderKey"
-            type="button"
-            class="btn btn--sm btn--subtle"
-            @click="alwaysAllowSender()"
-          >
-            {{ t['mail.remote.always'] }}
-          </button>
-        </div>
-      </div>
-
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
 
       <template v-if="detail">
@@ -341,6 +320,14 @@ const showAttachments = computed(
             </div>
           </div>
         </div>
+
+        <EmailRemoteNotice
+          v-if="blockedRemote > 0 && (!detail.is_suspicious || suspiciousRevealed)"
+          :count="blockedRemote"
+          :can-always-allow="Boolean(senderKey)"
+          @reveal="revealRemoteContent()"
+          @always="alwaysAllowSender()"
+        />
 
         <EmailAttachments
           v-if="showAttachments"
@@ -437,17 +424,12 @@ const showAttachments = computed(
   border: 1px solid var(--n-border-color);
 }
 .alert--err {
-  background: rgba(208, 48, 80, 0.14);
-  border-color: #d03050;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 .alert--warn {
-  background: rgba(240, 160, 32, 0.14);
-  border-color: #f0a020;
-}
-.alert-actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 6px;
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning);
 }
 .x {
   border: none;

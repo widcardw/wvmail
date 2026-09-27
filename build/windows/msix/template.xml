@@ -10,24 +10,24 @@
     <Installer
         Path="wvmail"
         Arguments=""
-        InstallLocation="C:\Program Files\My Company\My Product">
+        InstallLocation="C:\Program Files\widcardw\wvmail">
     </Installer>
     <PackageInformation
-        PackageName="My Product"
-        PackageDisplayName="My Product"
-        PublisherName="CN=My Company"
-        PublisherDisplayName="My Company"
-        Version="0.1.0.0"
-        PackageDescription="A wvmail application">
+        PackageName="wvmail"
+        PackageDisplayName="wvmail"
+        PublisherName="CN=widcardw"
+        PublisherDisplayName="widcardw"
+        Version="0.0.1.0"
+        PackageDescription="A mail client that just works">
         <Capabilities>
             <Capability Name="runFullTrust" />
             
         </Capabilities>
         <Applications>
             <Application
-                Id="com.example.wvmail"
-                Description="A wvmail application"
-                DisplayName="My Product"
+                Id="win.widcard.wvmail"
+                Description="A mail client that just works"
+                DisplayName="wvmail"
                 ExecutableName="wvmail"
                 EntryPoint="Windows.FullTrustApplication">
                 
@@ -41,9 +41,9 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>My Product</DisplayName>
-            <PublisherDisplayName>My Company</PublisherDisplayName>
-            <Description>A wvmail application</Description>
+            <DisplayName>wvmail</DisplayName>
+            <PublisherDisplayName>widcardw</PublisherDisplayName>
+            <Description>A mail client that just works</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
