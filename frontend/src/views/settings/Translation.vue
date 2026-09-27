@@ -172,7 +172,7 @@ function onSelectConfig(name: string) {
 <style scoped>
 .wrap {
   padding: 16px;
-  max-width: 720px;
+  max-width: 800px;
   color: var(--n-text-color);
 }
 .warning {

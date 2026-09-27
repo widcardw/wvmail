@@ -328,7 +328,7 @@ onUnmounted(() => {
 
 <style scoped>
 .wrap {
-  max-width: 760px;
+  max-width: 800px;
   padding: 16px;
   color: var(--n-text-color);
 }

@@ -55,6 +55,8 @@ static void centerTrafficLights(void *nsWindowPtr, double desiredCenterY) {
 	}
 }
 
+
+
 // dispatchCenterTrafficLightsAt runs centerTrafficLights on the main thread,
 // where all AppKit window work must happen.
 static void dispatchCenterTrafficLightsAt(void *nsWindowPtr, double desiredCenterY) {

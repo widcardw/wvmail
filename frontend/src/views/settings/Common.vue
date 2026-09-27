@@ -26,6 +26,10 @@ const tagDeleteOptions = computed(() => [
   { label: t.value['settings.common.tagDelete.once'], value: '1' },
   { label: t.value['settings.common.tagDelete.twice'], value: '2' },
 ])
+const minimizeOrCloseOptions = computed(() => [
+  { label: t.value['settings.common.minimizeWhenClose'], value: '1' },
+  { label: t.value['settings.common.quitWhenClose'], value: '0' },
+])
 
 function onLocale(v: string) {
   if (v === 'zh-CN' || v === 'en-US') setLocale(v)
@@ -39,6 +43,9 @@ function onTagDeletePresses(v: string) {
 function onColor(e: Event) {
   const v = (e.target as HTMLInputElement).value
   if (/^#[0-9a-fA-F]{6}$/.test(v)) theme.setPrimaryColor(v)
+}
+function onActionOnClose(v: string) {
+  preferences.setMinimizeWhenClose(Boolean(Number(v)))
 }
 
 async function openConfigFolder() {
@@ -109,6 +116,15 @@ function onRemoveSender(sender: string) {
         </div>
       </div>
 
+      <div class="row">
+        <span class="row__label">{{ t['settings.common.actionOnClose'] }}</span>
+        <UiSelect
+          :options="minimizeOrCloseOptions"
+          :model-value="String(Number(preferences.minimizeWhenClose))"
+          @update:model-value="onActionOnClose"
+        />
+      </div>
+
       <div class="actions">
         <button type="button" class="btn" @click="openConfigFolder">
           {{ t['settings.common.openConfig'] }}
@@ -142,7 +158,7 @@ function onRemoveSender(sender: string) {
               :key="sender"
               class="senders__item"
             >
-              <code>{{ sender }}</code>
+              <span>{{ sender }}</span>
               <button type="button" class="btn btn--sm" @click="onRemoveSender(sender)">
                 {{ t['settings.remote.remove'] }}
               </button>
@@ -157,7 +173,7 @@ function onRemoveSender(sender: string) {
 <style scoped>
 .wrap {
   padding: 16px;
-  max-width: 720px;
+  max-width: 800px;
   color: var(--n-text-color);
 }
 .row {
@@ -167,11 +183,7 @@ function onRemoveSender(sender: string) {
   padding: 10px 18px;
 }
 .row__label {
-  width: 220px;
   flex-shrink: 0;
-}
-.ctl {
-  width: 220px;
 }
 .color {
   display: flex;
@@ -209,7 +221,7 @@ function onRemoveSender(sender: string) {
   margin-top: 14px;
 }
 /* Keep stacked content inside a ROW: the shared `.row__label` rule sets
-   `flex: 0 0 200px`, which in a column container becomes a 200px-tall label box
+   `flex: 0 0 240px`, which in a column container becomes a 200px-tall label box
    (a large blank gap). Use `.row--top` + a flex:1 content column instead. */
 .row--top {
   align-items: flex-start;
@@ -243,7 +255,7 @@ function onRemoveSender(sender: string) {
   gap: 12px;
   font-size: 13px;
 }
-.senders__item code {
+.senders__item {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

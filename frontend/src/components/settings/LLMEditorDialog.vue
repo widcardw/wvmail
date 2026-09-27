@@ -293,8 +293,8 @@ watch(
                 :model-value="testModel"
                 :disabled="testModelOptions.length === 0"
                 :placeholder="t['settings.llm.test_no_model']"
-                width="200px"
                 @update:model-value="testModel = $event"
+                width="300px"
               />
               <BusyButton
                 class="btn"
@@ -321,7 +321,8 @@ watch(
           <div v-if="props.testChatSummary" class="result" :class="props.testChatOk ? 'ok' : 'bad'">
             <strong>
               {{ t['settings.llm.test_chat'] }}
-              <template v-if="props.testChatModel">· {{ props.testChatModel }}</template>:
+              <template v-if="props.testChatModel">· {{ props.testChatModel }}</template
+              >:
               {{ props.testChatSummary }}
             </strong>
             <JsonResponseViewer v-if="props.testChatBody" :body="props.testChatBody" />

@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -71,11 +72,33 @@ func providerNeedsIDCommand(account EmailAccount) bool {
 // and managing email operations.
 type EmailService struct {
 	db *DBManager
+
+	// onUnseen, when set, receives the unseen count of every INBOX this service
+	// fetches, so the tray badge follows real mail without a second connection.
+	onUnseenMu sync.Mutex
+	onUnseen   func(accountID string, unseen int)
 }
 
 func NewEmailService() *EmailService {
 	return &EmailService{
 		db: NewDBManager(),
+	}
+}
+
+// SetUnseenListener registers the callback that receives INBOX unseen counts.
+// It is called from the goroutine doing the fetch.
+func (s *EmailService) SetUnseenListener(listener func(accountID string, unseen int)) {
+	s.onUnseenMu.Lock()
+	defer s.onUnseenMu.Unlock()
+	s.onUnseen = listener
+}
+
+func (s *EmailService) reportUnseen(accountID string, unseen int) {
+	s.onUnseenMu.Lock()
+	listener := s.onUnseen
+	s.onUnseenMu.Unlock()
+	if listener != nil {
+		listener(accountID, unseen)
 	}
 }
 
@@ -239,6 +262,28 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 	return folders, nil
 }
 
+// UnseenCount asks the server how many messages in folder are still unseen
+// (STATUS … UNSEEN). The tray badge must be right while the window is hidden, so
+// it cannot be derived from whichever page the UI happens to have loaded; a
+// STATUS round trip is one cheap command that does not fetch any message.
+func (s *EmailService) UnseenCount(account EmailAccount, folder string) (int, error) {
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return 0, fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	data, err := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
+	if err != nil {
+		return 0, fmt.Errorf("status failed: %w", err)
+	}
+	if data.NumUnseen == nil {
+		// A server that answers without UNSEEN is treated as "nothing to badge".
+		return 0, nil
+	}
+	return int(*data.NumUnseen), nil
+}
+
 // ListEmails retrieves a page of email summaries from the specified folder.
 // It serves the page from the local cache whenever the cache holds all of its
 // rows; only an uncached page costs an IMAP round trip.
@@ -334,6 +379,19 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		time.Sleep(300 * time.Millisecond)
 		if rs, e2 := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); e2 == nil {
 			mbox = rs
+		}
+	}
+
+	// One extra command on the connection that is already open: the tray badge
+	// needs the unseen count of the inbox, and a second IMAP session just for
+	// STATUS would double both the connection cost and the provider's throttling.
+	if isInbox(folder) {
+		status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
+		switch {
+		case statusErr != nil:
+			slog.Warn("unseen count failed", "account", account.ID, "folder", folder, "error", statusErr)
+		case status.NumUnseen != nil:
+			s.reportUnseen(account.ID, int(*status.NumUnseen))
 		}
 	}
 

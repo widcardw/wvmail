@@ -144,7 +144,7 @@
 /* --- Field rows & labels (two variants keep same look) --- */
 .row__label,
 .flabel {
-  flex: 0 0 200px;
+  flex: 0 0 240px;
   align-self: flex-start;
   font-size: 13px;
   color: var(--color-text-2);

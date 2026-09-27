@@ -16,7 +16,7 @@
   color-scheme: light;
 
   /* --- palette (approximate Naive UI light defaults to preserve current look) --- */
-  --primary-base: #18a058;
+  --primary-base: e11d48;
   --n-body-color: #ffffff;
   --n-text-color: #000000; /* naive textColor (base) */
   --n-action-color: #f5f6fa;

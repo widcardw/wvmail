@@ -14,8 +14,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,6 +34,10 @@ type AppConfig struct {
 	LLMConfigs             []LLMConfig         `yaml:"llm_configs,omitempty"`
 	EmailAccounts          []EmailAccount      `yaml:"email_accounts,omitempty"`
 	RemoteContent          RemoteContentConfig `yaml:"remote_content,omitempty"`
+	// MinimizeWhenClose hides the main window to the system tray instead of
+	// quitting. The zero value quits, which is what a config written before this
+	// option existed expects.
+	MinimizeWhenClose bool `yaml:"minimize_when_close"`
 }
 
 // RemoteContentConfig controls how remote content referenced by email bodies
@@ -218,10 +224,11 @@ func decrypt(encoded string) (string, error) {
 
 func defaultConfig() AppConfig {
 	return AppConfig{
-		Language:     "en-US",
-		Theme:        "System",
-		PrimaryColor: "#18a058",
-		DatabasePath: "",
+		Language:          "en-US",
+		Theme:             "System",
+		PrimaryColor:      "#e11d48",
+		DatabasePath:      "",
+		MinimizeWhenClose: false,
 		LogConfig: LogConfig{
 			Level:         "info",
 			RetentionDays: 30,
@@ -256,9 +263,22 @@ func (s *ConfigService) GetLogDir() (string, error) {
 	return logDir, nil
 }
 
+// configWriteMu serializes config writes. Every mutating method is a
+// read-modify-write cycle, so holding a single lock across both steps is what
+// stops two stores (e.g. language and theme) from overwriting each other. Reads
+// do not take it: writes land with a rename, so a reader always sees a complete
+// file, and read-modify-write callers use readConfig under the lock instead.
+var configWriteMu sync.Mutex
+
 // GetConfig reads the application config from disk. If the file does not exist,
 // a default config is returned without error.
 func (s *ConfigService) GetConfig() (AppConfig, error) {
+	return readConfig()
+}
+
+// readConfig is GetConfig without the write lock. Callers that intend to mutate
+// the result must hold configWriteMu across the read and the write.
+func readConfig() (AppConfig, error) {
 	path, err := configPath()
 	if err != nil {
 		return defaultConfig(), err
@@ -314,7 +334,7 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 		cfg.Theme = "System"
 	}
 	if cfg.PrimaryColor == "" {
-		cfg.PrimaryColor = "#18a058"
+		cfg.PrimaryColor = "#e11d48"
 	}
 	if cfg.SearchTagDeletePresses != 1 && cfg.SearchTagDeletePresses != 2 {
 		cfg.SearchTagDeletePresses = 2
@@ -343,9 +363,28 @@ func (s *ConfigService) GetConfig() (AppConfig, error) {
 	return cfg, nil
 }
 
+// MinimizeWhenClose reports whether closing the main window should hide it to the
+// system tray instead of quitting. It is deliberately read on every call rather
+// than cached at startup, so flipping the switch in Settings takes effect on the
+// very next close. A read error means "quit", the less surprising behaviour.
+func (s *ConfigService) MinimizeWhenClose() bool {
+	cfg, err := s.GetConfig()
+	if err != nil {
+		return false
+	}
+	return cfg.MinimizeWhenClose
+}
+
 // SaveConfig writes the application config to disk, encrypting all API keys
 // before persisting.
 func (s *ConfigService) SaveConfig(cfg AppConfig) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	return writeConfig(cfg)
+}
+
+// writeConfig encrypts and persists cfg. Callers must hold configWriteMu.
+func writeConfig(cfg AppConfig) error {
 	path, err := configPath()
 	if err != nil {
 		return err
@@ -389,24 +428,77 @@ func (s *ConfigService) SaveConfig(cfg AppConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := writeFileAtomic(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 	return nil
 }
 
-// SaveConfigField updates a single top-level field in the config file. This
-// avoids read-update-write races between stores (e.g. language & theme).
+// writeFileAtomic replaces path with data through a temporary file in the same
+// directory, so a crash or a full disk can never leave a truncated config behind.
+// That matters here because the file also holds the encrypted account passwords
+// and API keys: a plain os.WriteFile truncates first and would take them with it.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	// No-op once the rename below has moved the file into place.
+	defer func() { _ = os.Remove(tmpName) }()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	// Flush before the rename: otherwise the rename can be durable while the
+	// contents are not.
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
+// SaveConfigField updates a single top-level field in the config file. The whole
+// read-modify-write runs under configWriteMu, so two settings saved at the same
+// time cannot lose each other's update.
 // Supported fields: "language", "theme", "primary_color",
 // "scan_external_safety", "search_tag_delete_presses", "allow_remote_content"
 // and "allowed_remote_senders" (the latter as a JSON array of strings).
 func (s *ConfigService) SaveConfigField(field, value string) error {
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	languageChanged, err := saveConfigFieldLocked(field, value)
+	configWriteMu.Unlock()
+
 	if err != nil {
 		return err
 	}
+	if languageChanged {
+		notifyLanguageChanged(value)
+	}
+	return nil
+}
+
+// saveConfigFieldLocked performs the read-modify-write. Callers must hold
+// configWriteMu. It reports whether the UI language actually changed, which the
+// caller turns into an event once the lock is released.
+func saveConfigFieldLocked(field, value string) (bool, error) {
+	cfg, err := readConfig()
+	if err != nil {
+		return false, err
+	}
+	languageChanged := false
 	switch field {
 	case "language":
+		languageChanged = cfg.Language != value
 		cfg.Language = value
 	case "theme":
 		cfg.Theme = value
@@ -415,60 +507,83 @@ func (s *ConfigService) SaveConfigField(field, value string) error {
 	case "scan_external_safety":
 		b, err := strconv.ParseBool(value)
 		if err != nil {
-			return fmt.Errorf("invalid boolean value for scan_external_safety: %s", value)
+			return false, fmt.Errorf("invalid boolean value for scan_external_safety: %s", value)
 		}
 		cfg.ScanExternalSafety = b
 	case "search_tag_delete_presses":
 		presses, err := strconv.Atoi(value)
 		if err != nil || (presses != 1 && presses != 2) {
-			return fmt.Errorf("invalid value for search_tag_delete_presses: %s", value)
+			return false, fmt.Errorf("invalid value for search_tag_delete_presses: %s", value)
 		}
 		cfg.SearchTagDeletePresses = presses
 	case "allow_remote_content":
 		b, err := strconv.ParseBool(value)
 		if err != nil {
-			return fmt.Errorf("invalid boolean value for allow_remote_content: %s", value)
+			return false, fmt.Errorf("invalid boolean value for allow_remote_content: %s", value)
 		}
 		cfg.RemoteContent.AllowRemoteContent = b
 	case "allowed_remote_senders":
 		var senders []string
 		if err := json.Unmarshal([]byte(value), &senders); err != nil {
-			return fmt.Errorf("invalid JSON for allowed_remote_senders: %w", err)
+			return false, fmt.Errorf("invalid JSON for allowed_remote_senders: %w", err)
 		}
 		cfg.RemoteContent.AllowedSenders = senders
+	case "minimize_when_close":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("invalid boolean value for minimize_when_close: %s", value)
+		}
+		cfg.MinimizeWhenClose = b
 	default:
-		return fmt.Errorf("unknown config field: %s", field)
+		return false, fmt.Errorf("unknown config field: %s", field)
 	}
-	return s.SaveConfig(cfg)
+	return languageChanged, writeConfig(cfg)
+}
+
+// notifyLanguageChanged tells the Go side that the UI language changed at runtime.
+// The system tray builds its menu before the webview exists and cannot read the
+// frontend's i18n, so main.go listens for this and rebuilds its labels.
+func notifyLanguageChanged(language string) {
+	app := application.Get()
+	if app == nil {
+		return
+	}
+	app.Event.Emit("language-changed", language)
 }
 
 // SaveLogConfig updates the log settings in the config file.
 func (s *ConfigService) SaveLogConfig(cfg LogConfig) error {
-	appCfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	appCfg, err := readConfig()
 	if err != nil {
 		return err
 	}
 	appCfg.LogConfig = cfg
-	return s.SaveConfig(appCfg)
+	return writeConfig(appCfg)
 }
 
 // SaveTranslationConfig updates the translation settings in the config file.
 func (s *ConfigService) SaveTranslationConfig(cfg TranslationConfig) error {
-	appCfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	appCfg, err := readConfig()
 	if err != nil {
 		return err
 	}
 	appCfg.TranslationConfig = cfg
-	return s.SaveConfig(appCfg)
+	return writeConfig(appCfg)
 }
 
 func (s *ConfigService) SaveLLMConfigs(configs []LLMConfig) error {
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
 	if err != nil {
 		return err
 	}
 	cfg.LLMConfigs = configs
-	return s.SaveConfig(cfg)
+	return writeConfig(cfg)
 }
 
 // GetAccounts returns all email accounts from the config.
@@ -482,27 +597,33 @@ func (s *ConfigService) GetAccounts() ([]EmailAccount, error) {
 
 // SaveAccounts replaces the entire email account list in the config file.
 func (s *ConfigService) SaveAccounts(accounts []EmailAccount) error {
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
 	if err != nil {
 		return err
 	}
 	cfg.EmailAccounts = accounts
-	return s.SaveConfig(cfg)
+	return writeConfig(cfg)
 }
 
 // AddAccount appends a new email account to the config.
 func (s *ConfigService) AddAccount(account EmailAccount) error {
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
 	if err != nil {
 		return err
 	}
 	cfg.EmailAccounts = append(cfg.EmailAccounts, account)
-	return s.SaveConfig(cfg)
+	return writeConfig(cfg)
 }
 
 // RemoveAccount removes an email account by its ID.
 func (s *ConfigService) RemoveAccount(id string) error {
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
 	if err != nil {
 		return err
 	}
@@ -517,19 +638,21 @@ func (s *ConfigService) RemoveAccount(id string) error {
 		return fmt.Errorf("account with id %q not found", id)
 	}
 	cfg.EmailAccounts = append(cfg.EmailAccounts[:idx], cfg.EmailAccounts[idx+1:]...)
-	return s.SaveConfig(cfg)
+	return writeConfig(cfg)
 }
 
 // UpdateAccount updates an existing email account identified by its ID.
 func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
 	if err != nil {
 		return err
 	}
 	for i, a := range cfg.EmailAccounts {
 		if a.ID == id {
 			cfg.EmailAccounts[i] = account
-			return s.SaveConfig(cfg)
+			return writeConfig(cfg)
 		}
 	}
 	return fmt.Errorf("account with id %q not found", id)
@@ -547,7 +670,9 @@ func (s *ConfigService) SaveAccountAvatar(accountID string, fileData []byte, ext
 		return "", fmt.Errorf("failed to save avatar: %w", err)
 	}
 	// Update account config with the new avatar filename
-	cfg, err := s.GetConfig()
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
 	if err != nil {
 		return "", err
 	}
@@ -557,7 +682,7 @@ func (s *ConfigService) SaveAccountAvatar(accountID string, fileData []byte, ext
 			break
 		}
 	}
-	if err := s.SaveConfig(cfg); err != nil {
+	if err := writeConfig(cfg); err != nil {
 		return "", err
 	}
 	return filename, nil

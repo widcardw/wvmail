@@ -17,10 +17,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Senders whose remote content always loads (address, or "@domain"). */
   const allowedRemoteSenders = ref<string[]>([])
 
+  const minimizeWhenClose = ref(false)
+
   function loadFromConfig(config: AppConfig) {
     tagDeletePresses.value = config.SearchTagDeletePresses === 1 ? 1 : 2
     allowRemoteContent.value = config.RemoteContent?.AllowRemoteContent === true
     allowedRemoteSenders.value = [...(config.RemoteContent?.AllowedSenders ?? [])]
+    minimizeWhenClose.value = config.MinimizeWhenClose
   }
 
   async function setTagDeletePresses(value: TagDeletePresses) {
@@ -29,6 +32,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
       await ConfigService.SaveConfigField('search_tag_delete_presses', String(value))
     } catch (error) {
       console.error('Failed to save tag delete preference', error)
+    }
+  }
+
+  async function setMinimizeWhenClose(value: boolean) {
+    minimizeWhenClose.value = value
+    try {
+      await ConfigService.SaveConfigField('minimize_when_close', String(value))
+    } catch (error) {
+      console.error('Failed to save action on close preference', error)
     }
   }
 
@@ -77,6 +89,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagDeletePresses,
     allowRemoteContent,
     allowedRemoteSenders,
+    minimizeWhenClose,
+    setMinimizeWhenClose,
     loadFromConfig,
     setTagDeletePresses,
     setAllowRemoteContent,

@@ -35,6 +35,8 @@ Additional docs are in `.ai-docs/`:
 - `email-fetch-and-display.md` — IMAP fetch path, fallbacks, caching/pagination, decoding rules
 - `dev-debugging.md` — running the app, logging, macOS devtools/WebKit pitfalls
 - `build-assets-and-icons.md` — app icon pipeline, `Assets.car` vs `icons.icns` precedence, actool/Xcode-license trap, `build/` vs CLI templates
+- `window-tray-and-close.md` — window-close interception (`minimize_when_close`), tray menu semantics, and why it needs a Wails hook
+- `config-store.md` — what `config.yaml` holds, secret encryption, atomic + serialized writes, and why it stays a single file
 
 ## Design Tokens (global.css) + Theming
 

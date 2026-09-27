@@ -18,20 +18,154 @@ type EmailSyncService struct {
 	mu       sync.Mutex
 	lastSync map[string]time.Time // accountID → last sync time
 	stopCh   chan struct{}
+
+	// unread tracks the per-account unseen counts behind the tray badge.
+	unread     unreadTracker
+	unreadMu   sync.Mutex
+	lastUnread bool
+	onUnread   func(hasUnread bool)
 }
 
 func NewEmailSyncService(cfg *ConfigService, email *EmailService) *EmailSyncService {
-	return &EmailSyncService{
+	svc := &EmailSyncService{
 		config:   cfg,
 		email:    email,
 		lastSync: make(map[string]time.Time),
 		stopCh:   make(chan struct{}),
+		unread:   newUnreadTracker(),
+	}
+	// Every INBOX fetch reports its unseen count on the connection it already has
+	// open, which is what keeps the tray badge current without extra sessions.
+	if email != nil {
+		email.SetUnseenListener(func(accountID string, unseen int) {
+			svc.publishUnread(svc.unread.observe(accountID, unseen))
+		})
+	}
+	return svc
+}
+
+// SetUnreadListener registers the callback that swaps the tray icon. It is called
+// only when the aggregate flips, and from whichever goroutine finished the sync,
+// so the callback must be safe to call off the UI thread (SystemTray.SetIcon is).
+func (s *EmailSyncService) SetUnreadListener(listener func(hasUnread bool)) {
+	s.unreadMu.Lock()
+	defer s.unreadMu.Unlock()
+	s.onUnread = listener
+}
+
+// unreadTracker remembers the last unseen count per account. An account that
+// fails to answer keeps its previous value (see refreshUnread), and accounts that
+// disappear from the config are dropped, so the badge cannot get stuck on.
+type unreadTracker struct {
+	mu     sync.Mutex
+	counts map[string]int
+}
+
+func newUnreadTracker() unreadTracker {
+	return unreadTracker{counts: make(map[string]int)}
+}
+
+// observe records an account's unseen count and reports whether anything is still
+// unread across all accounts.
+func (t *unreadTracker) observe(accountID string, unseen int) bool {
+	if unseen < 0 {
+		unseen = 0
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.counts[accountID] = unseen
+	return t.hasUnreadLocked()
+}
+
+// retain drops accounts that are no longer configured and reports the aggregate.
+func (t *unreadTracker) retain(accountIDs []string) bool {
+	keep := make(map[string]struct{}, len(accountIDs))
+	for _, id := range accountIDs {
+		keep[id] = struct{}{}
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for id := range t.counts {
+		if _, ok := keep[id]; !ok {
+			delete(t.counts, id)
+		}
+	}
+	return t.hasUnreadLocked()
+}
+
+func (t *unreadTracker) hasUnreadLocked() bool {
+	for _, unseen := range t.counts {
+		if unseen > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// refreshUnread re-reads one account's unseen count. It is used at startup, where
+// no folder fetch has happened yet; during normal operation the fetch itself
+// reports the count (see SetUnseenListener).
+func (s *EmailSyncService) refreshUnread(account EmailAccount, inbox string) {
+	unseen, err := s.email.UnseenCount(account, inbox)
+	if err != nil {
+		// Keep the previous value: a transient IMAP error must not clear the badge.
+		slog.Warn("tray: unseen count failed, keeping previous value",
+			"account", account.ID, "error", err)
+		return
+	}
+	slog.Info("tray: inbox unseen count", "account", account.Name, "unseen", unseen)
+	s.publishUnread(s.unread.observe(account.ID, unseen))
+}
+
+// checkUnreadOnce seeds the badge with each account's real unseen count. It runs
+// once at launch even for accounts with sync_interval = 0 (background syncing
+// disabled): a STATUS carries no message bodies, and without it the badge would
+// stay dark until the user happened to refresh an inbox.
+func (s *EmailSyncService) checkUnreadOnce() {
+	accounts, err := s.config.GetAccounts()
+	if err != nil {
+		slog.Error("tray: loading accounts failed", "error", err)
+		return
+	}
+	for _, acct := range accounts {
+		acct := acct
+		go func() {
+			folders, err := s.email.ListFolders(acct)
+			if err != nil {
+				slog.Warn("tray: listing folders failed", "account", acct.ID, "error", err)
+				return
+			}
+			for _, f := range folders {
+				if isInbox(f.Name) {
+					s.refreshUnread(acct, f.Name)
+					return
+				}
+			}
+		}()
+	}
+}
+
+// publishUnread forwards the aggregate to the tray, but only when it flips:
+// SetIcon crosses to the UI thread and there is no point doing that every sync.
+func (s *EmailSyncService) publishUnread(hasUnread bool) {
+	s.unreadMu.Lock()
+	changed := hasUnread != s.lastUnread
+	s.lastUnread = hasUnread
+	listener := s.onUnread
+	s.unreadMu.Unlock()
+
+	if changed && listener != nil {
+		slog.Info("tray: unread badge updated", "has_unread", hasUnread)
+		listener(hasUnread)
 	}
 }
 
 // Start begins the periodic sync loop. It checks every 30 seconds.
 func (s *EmailSyncService) Start() {
 	go func() {
+		// The badge is seeded once at launch, independently of the sync interval.
+		s.checkUnreadOnce()
+
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
@@ -68,7 +202,18 @@ func (s *EmailSyncService) ForceSyncNow(account EmailAccount, folder string, pag
 	if app != nil {
 		app.Event.Emit("emails-synced", account.ID)
 	}
+	// A manual refresh is the moment the user expects the badge to be re-checked.
+	if isInbox(folder) {
+		s.refreshUnread(account, folder)
+	}
 	return resp, nil
+}
+
+// isInbox matches the folder names this app uses for the inbox across providers
+// ("INBOX", "Inbox", "Folders/Inbox", "INBOX/", …).
+func isInbox(folder string) bool {
+	name := strings.ToLower(strings.TrimRight(folder, "/"))
+	return name == "inbox" || strings.HasSuffix(name, "/inbox")
 }
 
 func (s *EmailSyncService) syncLoop() {
@@ -77,6 +222,13 @@ func (s *EmailSyncService) syncLoop() {
 		slog.Error("background sync: loading accounts failed", "error", err)
 		return
 	}
+
+	ids := make([]string, 0, len(accounts))
+	for _, acct := range accounts {
+		ids = append(ids, acct.ID)
+	}
+	// A removed account must not keep the tray badge lit.
+	s.publishUnread(s.unread.retain(ids))
 
 	now := time.Now()
 
@@ -107,26 +259,28 @@ func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 
 	// Find the INBOX folder and sync it
 	for _, f := range folders {
-		name := strings.ToLower(f.Name)
-		if name == "inbox" || strings.HasSuffix(name, "/inbox") {
-			_, err := s.email.RefreshEmails(acct, f.Name, 1, 20)
-			if err != nil {
-				// Without this the whole background sync failed silently: the
-				// UI keeps showing stale mail with no hint of why.
-				slog.Error("background sync: refreshing inbox failed",
-					"account", acct.ID, "folder", f.Name, "error", err)
-				return
-			}
+		if !isInbox(f.Name) {
+			continue
+		}
 
-			s.mu.Lock()
-			s.lastSync[acct.ID] = time.Now()
-			s.mu.Unlock()
-
-			app := application.Get()
-			if app != nil {
-				app.Event.Emit("emails-synced", acct.ID)
-			}
+		_, err := s.email.RefreshEmails(acct, f.Name, 1, 20)
+		if err != nil {
+			// Without this the whole background sync failed silently: the
+			// UI keeps showing stale mail with no hint of why.
+			slog.Error("background sync: refreshing inbox failed",
+				"account", acct.ID, "folder", f.Name, "error", err)
 			return
 		}
+
+		s.mu.Lock()
+		s.lastSync[acct.ID] = time.Now()
+		s.mu.Unlock()
+
+		app := application.Get()
+		if app != nil {
+			app.Event.Emit("emails-synced", acct.ID)
+		}
+		s.refreshUnread(acct, f.Name)
+		return
 	}
 }

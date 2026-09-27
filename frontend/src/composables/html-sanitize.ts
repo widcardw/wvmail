@@ -15,7 +15,7 @@ const URL_RE = /(https?:\/\/[^\s<>"']+|(?:www\.)[^\s<>"']+)|([\w.+-]+@[\w-]+\.[\
 
 /** Keep links inside the email shadow DOM aligned with the Naive UI theme. */
 const THEME_LINK_CSS = `
-.email-auto-link { color: var(--n-primary-color, #18a058) !important; }
+.email-auto-link { color: var(--n-primary-color, #e11d48) !important; }
 `
 
 function rehypeAutoLink() {
@@ -220,7 +220,9 @@ const URL_ATTRS = ['src', 'srcSet', 'srcset', 'poster', 'background', 'data'] as
 /** True when any candidate URL inside the attribute value points off-device. */
 function hasRemoteRef(value: string): boolean {
   // srcset is a comma-separated list of "url descriptor" candidates.
-  return value.split(',').some((candidate) => REMOTE_URL_RE.test(candidate.trim().split(/\s+/)[0] ?? ''))
+  return value
+    .split(',')
+    .some((candidate) => REMOTE_URL_RE.test(candidate.trim().split(/\s+/)[0] ?? ''))
 }
 
 /**
@@ -244,13 +246,16 @@ function sanitizeCss(css: string, allowRemote: boolean): { css: string; blocked:
   })
 
   if (!allowRemote) {
-    out = out.replace(/url\(\s*(['"]?)([^'")]*)\1\s*\)/gi, (whole: string, _q: string, target: string) => {
-      if (REMOTE_URL_RE.test(String(target).trim())) {
-        blocked++
-        return 'none'
-      }
-      return whole
-    })
+    out = out.replace(
+      /url\(\s*(['"]?)([^'")]*)\1\s*\)/gi,
+      (whole: string, _q: string, target: string) => {
+        if (REMOTE_URL_RE.test(String(target).trim())) {
+          blocked++
+          return 'none'
+        }
+        return whole
+      },
+    )
   }
 
   // Legacy code-execution / binding vectors, and layout that could overlay the app.
@@ -337,9 +342,10 @@ function blockedImagePlaceholder(img: Element, label: string): Element {
   // stays 1×1, a 16×16 logo stays 16×16); CSS caps both dimensions so a bogus
   // size cannot blow the layout up. With no declared size the box hugs its
   // content (alt text, or just the icon).
-  const style = width > 0 || height > 0
-    ? `width:${width > 0 ? `${width}px` : 'auto'};height:${height > 0 ? `${height}px` : 'auto'}`
-    : undefined
+  const style =
+    width > 0 || height > 0
+      ? `width:${width > 0 ? `${width}px` : 'auto'};height:${height > 0 ? `${height}px` : 'auto'}`
+      : undefined
 
   return {
     type: 'element',

@@ -82,6 +82,9 @@ export interface TranslationSchema {
   'settings.common.tagDelete': string
   'settings.common.tagDelete.once': string
   'settings.common.tagDelete.twice': string
+  'settings.common.minimizeWhenClose': string
+  'settings.common.quitWhenClose': string
+  'settings.common.actionOnClose': string
   'settings.accounts': string
   'settings.accounts.add': string
   'settings.accounts.edit': string

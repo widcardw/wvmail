@@ -6,7 +6,7 @@ import { ConfigService } from '#/wvmail/services'
 export type ThemeMode = 'Light' | 'Dark' | 'System'
 export type ResolvedTheme = 'light' | 'dark'
 
-const DEFAULT_PRIMARY_COLOR = '#18a058'
+const DEFAULT_PRIMARY_COLOR = '#e11d48'
 
 function normalizeHexColor(value: string): string | null {
   const color = value.trim()
