@@ -137,9 +137,9 @@ function mentionNodes(
       dataRemindAt: String(mention.epoch),
       dataRemindText: mention.text,
     }
-    // Only set when the text named a timezone we converted from — the dialog then
-    // explains why the time it shows differs from the sentence.
-    if (mention.zone) properties.dataRemindZone = mention.zone
+    // Only set when the clock time was actually re-read in that zone — a zone named next
+    // to a bare date (`September 15, 2026 AOE`) is part of the chip but nothing moved.
+    if (mention.zone && mention.zoneApplied) properties.dataRemindZone = mention.zone
     if (options.label) properties.title = options.label(mention.at)
     result.push({
       type: 'element',

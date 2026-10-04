@@ -98,6 +98,12 @@ Rules that keep it predictable:
   otherwise (`AMBIGUOUS_ZONES`).
 - The chip covers the whole expression (`September 28, 2026, at 23:59 AoE (UTC-12)`), and the dialog
   says *"原文写的是 AoE (UTC-12)，已换算成本地时间"* so a converted time never looks like a typo.
+- **A dangling zone is absorbed too** (`absorbTrailingZone`). chrono happily stops short of it when the
+  expression is `September 15, 2026 AOE` (bare date) or `September 25, 2026 (23:59) (PST)` (the zone
+  sits past the bracket the merge closed), so after merging we look for a zone expression right after
+  each final mention and pull it into the chip. A mention with a clock time is converted; a **bare
+  date is not** — there is no instant to move and shifting noon would silently change the day — it
+  just carries the label, with `zoneApplied = false` so the dialog does not claim a conversion.
 
 The table is a curated shortlist rather than an exhaustive one: a wrong offset is visible in the
 dialog, but a long tail of ambiguous abbreviations would make that noise constant.

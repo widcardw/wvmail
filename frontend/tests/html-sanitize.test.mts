@@ -197,6 +197,15 @@ check(
 )
 check('pre-wrapped date keeps its text', cmtStyle.html.includes('September 28, 2026, at 23:59'))
 check('chip carries the converted zone', cmtStyle.html.includes('data-remind-zone="AoE (UTC-12)"'))
+
+// A zone named next to a bare date is part of the chip, but nothing was converted, so the
+// dialog must not claim it was.
+const bareZone = sanitizeEmailHtml('<p>deadline September 15, 2026 AOE</p>', {
+  allowRemote: false,
+  mentions: { ...mentionOptions, locale: 'en-US', now: new Date(2026, 8, 1, 9, 0) },
+})
+check('bare-date zone is highlighted', bareZone.html.includes('September 15, 2026 AOE'))
+check('bare-date zone claims no conversion', !/data-remind-zone/.test(bareZone.html))
 check(
   'dates inside code are still scanned (documented tradeoff)',
   /<span class="date-mention"/.test(

@@ -168,6 +168,26 @@ check(
 )
 check('no zone flag when none written', noZone[0]?.zone === null)
 
+// A zone can also dangle after a bare date, or after the bracket the merge just closed.
+const bareDateZone = find('deadline September 15, 2026 AOE', { locale: 'en-US' })
+check(
+  'zone after a bare date is part of the chip',
+  bareDateZone[0]?.text === 'September 15, 2026 AOE',
+)
+check('bare date keeps its zone label', bareDateZone[0]?.zone === 'AOE')
+check(
+  'a bare date is not shifted',
+  bareDateZone[0]?.epoch === Math.floor(new Date(2026, 8, 15, 12, 0).getTime() / 1000),
+)
+check('bare date reports no conversion', bareDateZone[0]?.zoneApplied === false)
+
+const bracketedZone = find('September 25, 2026 (23:59) (PST)', { locale: 'en-US' })
+check('zone after a bracketed time is part of the chip', bracketedZone.length === 1)
+check('chip covers both brackets', bracketedZone[0]?.text === 'September 25, 2026 (23:59) (PST)')
+check('bracketed zone labelled', bracketedZone[0]?.zone === 'PST')
+check('bracketed zone applied', bracketedZone[0]?.epoch === utc(2026, 9, 26, 7, 59))
+check('bracketed zone reports the conversion', bracketedZone[0]?.zoneApplied === true)
+
 check(
   'lowercase two-letter abbreviation is not a zone',
   find('see you at 15:30 et al').length === 0,

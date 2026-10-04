@@ -37,11 +37,17 @@ export interface DateMention {
   /** The mention carried an explicit calendar day (`3月5日`, `tomorrow`). */
   hasDate: boolean
   /**
-   * Timezone the clock time was written in, when the text named one (`AoE`, `CET`,
-   * `UTC-12`). `at` is already converted to the reader's local time; this is only so
-   * the UI can explain why the time differs from the text.
+   * Timezone the mention named (`AoE`, `CET`, `UTC-12`), if any. A date-only mention
+   * carries the label too — `September 15, 2026 AOE` names a zone even though there is
+   * no clock time to convert.
    */
   zone: string | null
+  /**
+   * True when `at` was actually re-read in that zone (a clock time was present). The UI
+   * only explains a conversion when this is set, so `AOE` on a bare date cannot look
+   * like the day was shifted.
+   */
+  zoneApplied: boolean
 }
 
 export interface FindDateMentionsOptions {
@@ -182,6 +188,43 @@ function zoneLabelIn(matchText: string): string | null {
 }
 
 /**
+ * Absorbs a zone that follows a mention chrono stopped short of, so the chip covers the
+ * whole expression and the moment is read in the right zone:
+ *
+ *   `September 15, 2026 AOE`           — chrono matches only the date, the zone dangles
+ *   `September 25, 2026 (23:59) (PST)` — the zone sits after the bracket the merge closed
+ *
+ * A clock time is converted; a bare date keeps its day and only carries the label (there
+ * is no instant to move, and shifting noon would silently change the date).
+ */
+function absorbTrailingZone(
+  text: string,
+  mention: DateMention,
+  options: FindDateMentionsOptions,
+): DateMention {
+  if (mention.zone) return mention
+
+  const suffix = matchZoneSuffix(text, mention.index + mention.length, options.locale)
+  if (!suffix) return mention
+
+  let at = mention.at
+  if (mention.hasTime) {
+    const localOffset = -at.getTimezoneOffset()
+    at = new Date(at.getTime() + (localOffset - suffix.minutes) * 60_000)
+  }
+  const length = mention.length + suffix.length
+  return {
+    ...mention,
+    at,
+    epoch: Math.floor(at.getTime() / 1000),
+    length,
+    text: text.slice(mention.index, mention.index + length),
+    zone: suffix.label,
+    zoneApplied: mention.hasTime,
+  }
+}
+
+/**
  * Reads the timezone written after a clock time: a colloquial name from the table
  * (`AoE`, `PT`, `CET`) and/or an explicit offset (`(UTC-12)`, `GMT+5:30`). The explicit
  * offset wins; the returned length lets the chip cover the whole expression.
@@ -291,10 +334,12 @@ function toCandidate(
   let at = result.start.date()
   let zone: string | null = null
 
+  let zoneApplied = false
   if (hasTime && result.start.isCertain('timezoneOffset')) {
     // chrono applied the offset itself (`UTC+08:00`, `CET`, `(UTC+05:30)`): the instant
     // is already right, we only want the label so the dialog can explain it.
     zone = zoneLabelIn(value)
+    zoneApplied = zone !== null
   } else if (hasTime) {
     const suffix = matchZoneSuffix(text, index + length, locale)
     if (suffix) {
@@ -303,6 +348,7 @@ function toCandidate(
       at = new Date(at.getTime() + (localOffset - suffix.minutes) * 60_000)
       length += suffix.length
       zone = suffix.label
+      zoneApplied = true
     }
   }
 
@@ -320,6 +366,7 @@ function toCandidate(
     hasTime,
     hasDate,
     zone,
+    zoneApplied,
     score: scoreOf(result),
     order,
   }
@@ -335,7 +382,8 @@ export function findDateMentions(
   text: string,
   options: FindDateMentionsOptions = {},
 ): DateMention[] {
-  return mergeAdjacent(text, collectMentions(text, options), options)
+  const merged = mergeAdjacent(text, collectMentions(text, options), options)
+  return merged.map((mention) => absorbTrailingZone(text, mention, options))
 }
 
 /**
@@ -468,6 +516,7 @@ function collectMentions(text: string, options: FindDateMentionsOptions = {}): D
       hasTime: candidate.hasTime,
       hasDate: candidate.hasDate,
       zone: candidate.zone,
+      zoneApplied: candidate.zoneApplied,
     })
     coveredUntil = candidate.index + candidate.length
     if (picked.length >= MAX_MENTIONS) break
