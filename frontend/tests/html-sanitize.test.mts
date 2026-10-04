@@ -152,6 +152,71 @@ check('script removed', !/<script/i.test(block('<script>alert(1)</script><p>ok</
 check('onerror removed', !/onerror/i.test(block('<img src="x" onerror="alert(1)">').html))
 check('style break-out contained', !/alert/.test(block('</style><script>alert(1)</script>').html))
 
+console.log('colour-scheme media queries')
+// A mail ships both designs and WebKit resolves `prefers-color-scheme` against the OS,
+// not our `data-theme` (WebKit bug 319500) — so with macOS in Dark and the app in Light,
+// the OpenAI newsletter rendered `color:#fff` over its own white tables: invisible text.
+// The condition is rewritten to a constant instead, so only the app theme decides.
+const darkMqMail = '<style>@media (prefers-color-scheme: dark) { p { color: #ffffff } }</style><p>hi</p>'
+const darkMqLightApp = sanitizeEmailHtml(darkMqMail, { allowRemote: false, darkMode: false })
+const darkMqDarkApp = sanitizeEmailHtml(darkMqMail, { allowRemote: false, darkMode: true })
+check('light app: the OS dark design is switched off', darkMqLightApp.html.includes('(max-width: 0px)'))
+check('dark app: the OS dark design is switched on', darkMqDarkApp.html.includes('(min-width: 0px)'))
+check(
+  'the OS appearance can never decide the mail colours',
+  !/prefers-color-scheme/.test(darkMqLightApp.html + darkMqDarkApp.html),
+)
+check(
+  'light-only rules still apply in light mode',
+  block('<style>@media (prefers-color-scheme: light) { p { color: #000 } }</style>').html.includes(
+    '(min-width: 0px)',
+  ),
+)
+check(
+  'light-only rules are switched off in dark mode',
+  sanitizeEmailHtml('<style>@media (prefers-color-scheme: light) { p { color: #000 } }</style>', {
+    allowRemote: false,
+    darkMode: true,
+  }).html.includes('(max-width: 0px)'),
+)
+// The rest of a compound condition must survive: only the scheme half is replaced.
+check(
+  'compound conditions keep their other terms',
+  sanitizeEmailHtml('<style>@media screen and (prefers-color-scheme: dark) { p { color: #fff } }</style>', {
+    allowRemote: false,
+    darkMode: false,
+  }).html.includes('screen and (max-width: 0px)'),
+)
+check(
+  'colour-scheme rules inside comments cannot break the rewrite',
+  block('<style>/* @media (prefers-color-scheme: dark) {} */ p { color: #000 }</style>').html.includes(
+    'color: #000',
+  ),
+)
+// Default (no darkMode given) is the readable light design.
+check(
+  'missing darkMode falls back to the light design',
+  block(darkMqMail).html.includes('(max-width: 0px)'),
+)
+
+console.log('css-drawn images')
+// A real spam body: one `box-shadow` declaration of 127 KB, one entry per pixel. It has no
+// <img>, no url() and no attachment, so remote blocking cannot see it.
+const pixelArt =
+  '<div style="width: 1px; height: 1px; box-shadow: ' +
+  Array.from({ length: 400 }, (_, i) => `${i}px 15px #123456`).join(',') +
+  ';">x</div>'
+const pixelOut = block(pixelArt).html
+check('pixel-art shadow dropped', !/box-shadow/i.test(pixelOut))
+check('rest of the rule kept', /width:\s*1px/.test(pixelOut))
+check(
+  'ordinary shadows kept',
+  /box-shadow:\s*0 1px 2px/.test(block('<p style="box-shadow: 0 1px 2px #000">x</p>').html),
+)
+// The count drives the "drawn with CSS, likely spam" bar in the reader.
+check('pixel art is counted for the notice', block(pixelArt).cssArt === 1)
+check('normal mail reports no css art', block('<p style="color: red">hi</p>').cssArt === 0)
+
 console.log('date/time mentions')
 const mentionOptions = {
   enabled: true,

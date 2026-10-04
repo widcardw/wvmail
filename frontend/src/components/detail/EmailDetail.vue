@@ -19,6 +19,7 @@ import {
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailRemoteNotice from './EmailRemoteNotice.vue'
+import EmailCssArtNotice from './EmailCssArtNotice.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
 
@@ -50,11 +51,13 @@ const allowRemote = computed(
 // remote-content decision) instead of re-running it on every re-render.
 const sanitized = computed(() => {
   const html = detail.value?.body_html
-  if (!html) return { html: '', blockedRemote: 0 }
+  if (!html) return { html: '', blockedRemote: 0, cssArt: 0 }
   return sanitizeEmailHtml(html, sanitizeOptions())
 })
 const sanitizedBodyHtml = computed(() => sanitized.value.html)
 const blockedRemote = computed(() => sanitized.value.blockedRemote)
+/** Style declarations dropped because they were spam-grade (a picture drawn with CSS). */
+const cssArt = computed(() => sanitized.value.cssArt)
 
 /** Text-only messages: same URL + date highlighting, without the HTML pipeline. */
 const plainBodyHtml = computed(() => {
@@ -79,6 +82,9 @@ function sanitizeOptions() {
   return {
     allowRemote: allowRemote.value,
     blockedImageLabel: t.value['mail.remote.blocked_image'],
+    // The mail's own `prefers-color-scheme` blocks follow our theme, not the OS
+    // (reading it here also makes the `sanitized` computed re-run on a theme switch).
+    darkMode: isDarkMode.value,
     // Highlight dates/times in the body; the tooltip previews what a click would
     // create, so an over-eager match is visible before it is clicked.
     mentions: {
@@ -381,6 +387,11 @@ const showAttachments = computed(
             </div>
           </div>
         </div>
+
+        <EmailCssArtNotice
+          v-if="cssArt > 0 && (!detail.is_suspicious || suspiciousRevealed)"
+          :count="cssArt"
+        />
 
         <EmailRemoteNotice
           v-if="blockedRemote > 0 && (!detail.is_suspicious || suspiciousRevealed)"

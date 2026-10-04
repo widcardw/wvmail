@@ -186,6 +186,39 @@
   line-height: 2.15;
 }
 
+/* --- Mail body bar ---
+   The strip between the message header and the body: "blocked remote content" and
+   "this body is drawn with CSS (likely spam)" both use it, so the geometry and the
+   warning tint live here instead of being copy-pasted per notice. */
+.body-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  background: var(--color-warning-bg);
+  border-bottom: 1px solid var(--n-border-color);
+}
+.body-bar__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--color-warning);
+}
+.body-bar__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.body-bar__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
 /* --- Disabled controls: one look everywhere ---
    Three hooks describe the same state: Ark marks the part it owns (`data-disabled` on
    a trigger/root/control), a real input gets `disabled`, and a disabled `Field.Root`

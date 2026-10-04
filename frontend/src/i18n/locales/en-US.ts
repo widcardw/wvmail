@@ -47,6 +47,9 @@ const enUS: TranslationSchema = {
   'mail.security.body':
     'This message is flagged as suspicious (spam or Junk). Its HTML body and attachments are hidden by default.',
   'mail.security.show_all': 'Show all content',
+  'mail.cssArt.blocked':
+    'This message draws its content with CSS instead of text or images ({count} oversized style declarations blocked) — a technique common in spam and phishing mail',
+  'mail.cssArt.blocked_short': 'Body drawn with CSS (blocked) — possibly spam',
   'mail.remote.blocked':
     'Blocked {count} remote resource(s) — tracking pixels, remote images or styles',
   'mail.remote.blocked_short': 'Blocked {count} remote resource(s)',

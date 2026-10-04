@@ -48,6 +48,8 @@ export interface TranslationSchema {
   'mail.security.body': string
   'mail.security.show_all': string
   'mail.remote.blocked': string
+  'mail.cssArt.blocked': string
+  'mail.cssArt.blocked_short': string
   'mail.remote.blocked_short': string
   'mail.remote.show': string
   'mail.remote.always': string

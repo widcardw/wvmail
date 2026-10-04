@@ -169,7 +169,9 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 - 全前端**唯一**的 DOM sink 是 `EmailShadowBody.vue` 的 `shadowRoot.innerHTML`（`v-html` 全项目 0 处）。
 - 它的三个输入分别是：`sanitizeEmailHtml(body_html)`、`linkifyPlainText(body_text)`、`sanitizeEmailHtml(translatedHtml)` —— 都经过净化或由代码生成。
 - 远程内容默认拦截、CSS 已净化（见 §3.4）。
+- **CSS 画出来的「图片」**：垃圾邮件会用一个 127 KB 的 `box-shadow`（每个 `x y #color` 就是一个像素）在正文里画图 —— 没有 `<img>`、没有 URL、没有附件，所以远程拦截和 URL 过滤都看不见它（真实样本：`cy@zzbh.org` 那封，128 KB 正文里 127 KB 是这一条声明）。`sanitizeCss` 现在会丢掉**单条超过 2048 字符的声明**（计数为 `EmailSanitizeResult.cssArt`），那封正文因此从 128 KB 降到 2.6 KB、图不再渲染；正常邮件（`box-shadow: 0 1px 2px`）不受影响。丢掉之后正文基本是空的，所以阅读区顶部会显示一条告警条（`EmailCssArtNotice.vue` → `.body-bar`）：「正文用 CSS 画图显示（已拦截），可能是垃圾邮件」—— 否则用户只会看到一片空白，不知道发生过什么。
 - 正文里的日期/时间会被标成可点击的 `<span class="date-mention">`（净化**之后**的独立 pass，邮件本身伪造不出这种 chip），点击后弹确认框加入提醒事项 —— 细节见 `mail-date-reminders.md`。
+- **颜色主题归我们管**：邮件自带 `@media (prefers-color-scheme: …)` 由 OS 外观触发，与应用主题无关 —— 已在净化时按 `darkMode` 改写成常量，见 §3.5。
 
 ### 3.4 远程内容拦截与 CSS 净化
 
@@ -190,15 +192,36 @@ rehype-parse → rehypeAutoLink → rehype-sanitize(白名单)
    → rehype-stringify → 追加受信任的 THEME_LINK_CSS + BLOCKED_IMAGE_CSS
 ```
 
-CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 `@import`、`expression()`、`behavior`/`-moz-binding`；`position: fixed|sticky` 改写为 `static`；拦截模式下把远程 `url(...)` 替换为 `none`。`<style>` 与 `style=` 两处都过同一函数。
+CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 `@import`、`expression()`、`behavior`/`-moz-binding`；`position: fixed|sticky` 改写为 `static`；拦截模式下把远程 `url(...)` 替换为 `none`；`prefers-color-scheme` 按当前主题改写为常量（见 §3.5）。`<style>` 与 `style=` 两处都过同一函数。
 
 **计数语义**：`sanitizeEmailHtml()` 返回 `{ html, blockedRemote }`，`blockedRemote` 只统计**拦截模式下真正移除**的远程资源；放行模式恒为 0（否则提示条放行后会再次出现）。它驱动 `EmailRemoteNotice.vue` 的提示条：条上显示短文案「已拦截 N 个远程资源」（`mail.remote.blocked_short`），完整说明（跟踪像素/远程图片/样式）作为 `title` 提示。
 
 **踩过的坑（已加测试）**：hast 里属性名是**驼峰** `srcSet`，只写小写 `srcset` 会漏掉 `<picture><source srcset=…>` —— 实测确认这是一个真实可用的追踪向量。`URL_ATTRS` 因此同时列出两种拼写；`frontend/tests/html-sanitize.test.mts` 固化了这条回归。
 
-**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）覆盖 26 条断言：远程拦截/放行两态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」。
+**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）：`html-sanitize.test.mts` 61 条断言 + `date-mentions.test.mts` 90 条。净化侧覆盖远程拦截/放行两态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」。
 
 **仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。
+
+### 3.5 主题：邮件自带的 `prefers-color-scheme` 必须听我们的
+
+**症状**：macOS 系统外观是**深色**、应用主题切成 **Light** 时，ChatGPT/OpenAI 的营销邮件（真实样本：收件箱 uid 3780，`noreply@email.openai.com` → `xxx@foxmail.com`）在**日间模式下正文变成白色 → 看不见**；切到 Dark 反而正常。
+
+**成因（已实测确认）**：
+
+1. 那封邮件自带 4 个 `@media (prefers-color-scheme: dark)` 块，里面是 `color:#FFFFFF !important` + `-webkit-text-fill-color:#FFFFFF !important`（以及 `h1,h2,p { color:#ffffff }`）。
+2. `prefers-color-scheme` 由引擎按**操作系统外观**求值，**不受**我们写在 `:root`/`[data-theme]` 上的 `color-scheme` 影响 —— 我们设了 `color-scheme: light` 也照样命中。WebKit 自己的 tracker 记着这条（[bug 319500](https://bugs.webkit.org/show_bug.cgi?id=319500)，CSSWG 已决议要改，目前仍是 NEW），原文就是「for any website with an in-page dark mode toggle, the media query is unusable」。
+3. 同一批暗色规则里**背景**那一半没能生效：它们打在 `body` / `.wrapperMod` / `.email-shell` / `.content-td` 上，而正文是 `rehype-parse` **fragment** 模式解析的 —— `<body>` 被丢掉、那几个 class 在真实 DOM 里也不存在（实测 0 处）。于是白字留下了、白底没跟上，正好落在邮件内联的 `style="background-color:#FFFFFF"` 表格上。
+
+**所以不是我们注入的 CSS 造成的**：Light 模式我们注入的只有 `.email-auto-link`（主色）和 `.remote-blocked`（`var(--color-text-3)`，浅色下是 #999），没有白色；`html-dark-mode.ts` 的 `* { color: … !important }` 只在暗色路径注入。
+
+**修法**：`sanitizeCss` 把媒体条件本身换成常量 —— `(prefers-color-scheme: dark)` 与当前主题一致时改写为 `(min-width: 0px)`（恒真）、不一致时改写为 `(max-width: 0px)`（恒假，媒体查询按**视口**求值，窗口宽度不可能是 0）。`light` 同理取反；`screen and (…)` 这类复合条件只替换括号那一段，其余保留。于是**主题由 `data-theme` 唯一决定，OS 外观彻底出局**。
+
+- 选项：`sanitizeEmailHtml(html, { darkMode })`，`EmailDetail.vue` 的 `sanitizeOptions()` 传入 `isDarkMode.value`（读它同时也让 `sanitized` computed 在切换主题时重算）。
+- 默认值 `darkMode: false` = 走邮件自带的浅色设计：调用方漏传时得到的是**能看清**的那一版，而不是白字。
+- 前向兼容：即便 WebKit 以后按决议让 `color-scheme` 影响该媒体查询，改写后的常量仍然正确。
+- 暗色路径不变：邮件自带暗色块（如 `table.whats-new-card { background:#2F2F2F }`）会被打开，`adaptHtmlForDarkMode` 继续在其上做兜底适配。
+
+**已知遗留（未改，属暗色路径）**：`-webkit-text-fill-color` 会压过 `color`，而邮件常带 `!important` 的类选择器，`DM_RESET` 里 `* { color: … !important }` 的权重赢不了它 —— 暗色下若某封邮件在**非媒体查询**里写死 `-webkit-text-fill-color:#191919`，那行字仍可能看不见。要修得连带把 `DM_RESET`/`DM_CSS` 的权重整体抬到 ID 级（`:not(#x)` 之类），影响面是所有邮件，故未并入本次。
 
 ---
 
@@ -210,6 +233,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 字符集三级兜底（声明 → UTF-8 校验 → GB18030） | `decodeCharset`（新） | 原先 charset 缺失/未知时直接原样返回字节中文邮件变乱码 |
 | 整封兜底正文也走 `decodeBodyPart` | `RefreshEmailBody` 兜底分支 | 原先 `string(raw)` 漏掉 CTE/字符集解码 |
 | **误标 CTE 的自愈解码**：声明 7bit/8bit（或没声明）但正文明显是 quoted-printable 时先解码 | `services/emailservice.go` `tryQuotedPrintable` | 批量邮件把 QP 内容当 `8bit` 发时界面会直接显示 `style=3D"…"`、`=09`、`=E8=AE=A1`（保险措施，不是下面那条的实际成因） |
+| **超长 CSS 声明直接丢弃**（单条 > 2048 字符） | `sanitizeCss`（`dropOversizedDeclarations`） | 垃圾邮件用 `box-shadow` 逐像素画图：无 `<img>`/URL/附件，远程拦截无从下手；正常样式值远小于阈值 |
 | **QP 解码不再「全有或全无」**：出错时保留已解出的部分；decode 前剥掉尾部 NUL | `services/emailservice.go` `decodeBodyPart` | 真实案例（SZU 收的 Microsoft CMT 邮件，uid 274）：part **正确声明**了 `QUOTED-PRINTABLE`，但 section 尾部有一个 `\x00`；`mime/quotedprintable` 在它那里报错，而旧代码 `if err != nil { decoded = raw }` 把已经解好的 9123 字节全丢了，整封正文以未解码状态写进缓存 |
 | 老缓存正文同样自愈：读缓存时解码并写回 | `FetchEmail` + `repairCachedEncoding` | 修好抓取路径不够 —— 已经缓存的邮件仍会一直显示转义符 |
 | 缓存失败改用 `slog`，删除 4 处调试 `fmt.Println` | `services/emailservice.go` | `fmt.Printf/Println` 在 GUI 里无处可见（stdout 未接），且是遗留调试输出 |
@@ -219,6 +243,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 暗色转换失败回退原始 HTML | `EmailShadowBody.vue` try/catch | 原先抛错会让正文空白/残留旧内容 |
 | 取信/取文件夹/搜索/聚合失败：保留旧数据 + toast | `stores/accounts.ts` | 原先静默清空，用户误以为「没有邮件」 |
 | 取消保存对话框不再报错 | `stores/accounts.ts` `downloadAttachment` | 取消是正常操作，原先会弹错误横幅 |
+| **邮件自带的 `prefers-color-scheme` 改为跟随应用主题**（改写为 `(min-width: 0px)` / `(max-width: 0px)`） | `sanitizeCss` + `alignColorSchemeMediaQueries`，`EmailDetail.vue` 传 `darkMode` | 系统深色 + 应用 Light 时，OpenAI 那封营销邮件（uid 3780）的暗色块照旧命中：`color:#fff !important` 覆盖了它自己的内联白底表格 → 日间模式正文全白看不见。详见 §3.5 |
 | 正文净化结果用 `computed` 缓存 | `EmailDetail.vue` | 原先每次重渲染都重新解析整封 HTML |
 | 删除死文件 `composables/sanitize-html.ts` | frontend | 0 引用 |
 | **默认拦截远程内容**（`src`/`srcSet`/`poster`/`background`/CSS `url()`）并计数 | `html-sanitize.ts` | 跟踪像素原先默认加载 |

@@ -373,10 +373,62 @@ function hasRemoteRef(value: string): boolean {
  * still renders. Remote `url()` are only stripped when remote content is
  * blocked; `data:`/`cid:` (our resolved inline images) are always kept.
  */
-function sanitizeCss(css: string, allowRemote: boolean): { css: string; blocked: number } {
+/**
+ * Longest single declaration we keep. Real mail never ships a value anywhere near this;
+ * spam does — a 127 KB `box-shadow` list is one pixel per entry, which is how a message
+ * draws a picture without an `<img>`, a URL or an attachment, defeating image blocking
+ * (and URL filters) by construction. `see the spam from cy@zzbh.org` for the real one.
+ */
+const MAX_DECLARATION_LENGTH = 2048
+
+/** Drop `<property>: <absurdly long value>` declarations, keeping the rest of the rule. */
+function dropOversizedDeclarations(css: string): { css: string; dropped: number } {
+  if (css.length <= MAX_DECLARATION_LENGTH) return { css, dropped: 0 }
+  let dropped = 0
+  const next = css.replace(/([a-zA-Z-]+)\s*:\s*([^;{}]*)/g, (whole, _prop: string, value: string) => {
+    if (value.length <= MAX_DECLARATION_LENGTH) return whole
+    dropped++
+    return ''
+  })
+  return { css: next, dropped }
+}
+
+/**
+ * Make the mail's own `prefers-color-scheme` rules follow *our* theme.
+ *
+ * The engine resolves that media query against the **OS appearance**, not against the
+ * `color-scheme` we set for `data-theme` (WebKit tracks the CSSWG resolution that would
+ * change this as bug 319500, still open). With macOS in Dark and the app in Light, every
+ * `@media (prefers-color-scheme: dark)` block in a mail fired anyway — the OpenAI
+ * newsletter then painted `color:#fff !important` + `-webkit-text-fill-color:#fff` over
+ * its own inline white tables, i.e. an invisible body in light mode. Its matching dark
+ * *backgrounds* never applied either, because they target `body` / `.wrapperMod`, and
+ * the body is parsed as a fragment.
+ *
+ * Both conditions are therefore rewritten to constants the OS cannot influence:
+ * `(min-width: 0px)` is always true, `(max-width: 0px)` always false — media queries
+ * resolve against the viewport, and no window is zero pixels wide.
+ */
+const COLOR_SCHEME_MQ_RE = /\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi
+
+function alignColorSchemeMediaQueries(css: string, appDark: boolean): string {
+  return css.replace(COLOR_SCHEME_MQ_RE, (_whole, scheme: string) =>
+    (scheme.toLowerCase() === 'dark') === appDark ? '(min-width: 0px)' : '(max-width: 0px)',
+  )
+}
+
+function sanitizeCss(
+  css: string,
+  allowRemote: boolean,
+  appDark: boolean,
+): { css: string; blocked: number; cssArt: number } {
   let blocked = 0
+  let cssArt = 0
   // Comments are dropped first: they can split the tokens matched below.
   let out = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
+
+  // The sender's colour scheme must agree with the one we are rendering in.
+  out = alignColorSchemeMediaQueries(out, appDark)
 
   // @import pulls an arbitrary external stylesheet — never allowed.
   out = out.replace(/@import[^;]*;?/gi, () => {
@@ -402,7 +454,12 @@ function sanitizeCss(css: string, allowRemote: boolean): { css: string; blocked:
   out = out.replace(/expression\s*\([^)]*\)/gi, '')
   out = out.replace(/position\s*:\s*(?:fixed|sticky)/gi, 'position: static')
 
-  return { css: out, blocked }
+  // CSS-drawn "images" (a box-shadow entry per pixel) are spam payload, not styling.
+  const sized = dropOversizedDeclarations(out)
+  cssArt = sized.dropped
+  out = sized.css
+
+  return { css: out, blocked, cssArt }
 }
 
 function walkElements(node: Root | Element, visit: (el: Element) => void): void {
@@ -415,23 +472,30 @@ function walkElements(node: Root | Element, visit: (el: Element) => void): void 
 }
 
 /** Apply `sanitizeCss` to every `<style>` block and `style=` attribute. */
-function rehypeSanitizeEmailCss(options: { allowRemote: boolean; onBlocked: (n: number) => void }) {
+function rehypeSanitizeEmailCss(options: {
+  allowRemote: boolean
+  appDark: () => boolean
+  onBlocked: (n: number) => void
+  onCssArt: (n: number) => void
+}) {
   return (tree: Root) => {
     walkElements(tree, (el) => {
       if (el.tagName === 'style') {
         for (const child of el.children) {
           if (child.type !== 'text') continue
-          const result = sanitizeCss(child.value, options.allowRemote)
+          const result = sanitizeCss(child.value, options.allowRemote, options.appDark())
           child.value = result.css
           options.onBlocked(result.blocked)
+          options.onCssArt(result.cssArt)
         }
         return
       }
       const style = el.properties?.['style']
       if (typeof style !== 'string') return
-      const result = sanitizeCss(style, options.allowRemote)
+      const result = sanitizeCss(style, options.allowRemote, options.appDark())
       el.properties!['style'] = result.css
       options.onBlocked(result.blocked)
+      options.onCssArt(result.cssArt)
     })
   }
 }
@@ -541,12 +605,24 @@ export interface EmailSanitizeOptions {
   blockedImageLabel?: string
   /** Highlight detected date/time mentions (off unless `enabled`). */
   mentions?: MentionRenderOptions
+  /**
+   * The theme the body is about to be rendered in. Decides which of the mail's own
+   * `prefers-color-scheme` rules survive — the OS appearance deliberately does not.
+   * Defaults to light, so a caller that forgets gets the readable design.
+   */
+  darkMode?: boolean
 }
 
 export interface EmailSanitizeResult {
   html: string
   /** Remote resources that were removed (image sources plus CSS references). */
   blockedRemote: number
+  /**
+   * Oversized style declarations that were dropped. A message whose content is drawn by
+   * CSS (one `box-shadow` entry per pixel) has nothing else to show, so the UI warns that
+   * it is likely spam rather than silently rendering an empty body.
+   */
+  cssArt: number
 }
 
 // Two reusable pipelines (blocking / allowing remote content); building them is
@@ -555,6 +631,10 @@ const sanitizers = new Map<boolean, ReturnType<typeof createSanitizer>>()
 
 function createSanitizer(allowRemote: boolean) {
   let blockedRemote = 0
+  let cssArt = 0
+  // Whether the body will be shown on our dark canvas; a mail ships both colour
+  // schemes and we pick, so this is read per call like the label below.
+  let appDark = false
   // The counter drives the "remote content was blocked" banner, so only count in
   // blocking mode: after the user allows remote content there is nothing left to
   // offer, and a stale count would make the banner reappear.
@@ -577,7 +657,14 @@ function createSanitizer(allowRemote: boolean) {
     .use(rehypeAutoLink)
     .use(rehypeSanitize, emailSchema)
     // These run after sanitising, so they only rewrite/remove what it kept.
-    .use(rehypeSanitizeEmailCss, { allowRemote, onBlocked })
+    .use(rehypeSanitizeEmailCss, {
+      allowRemote,
+      appDark: () => appDark,
+      onBlocked,
+      onCssArt: (n: number) => {
+        cssArt += n
+      },
+    })
     .use(rehypeBlockRemoteContent, { allowRemote, onBlocked, imageLabel: () => imageLabel })
     .use(rehypeDateMentions, () => mentionOptions)
     .use(rehypeStringify)
@@ -585,6 +672,9 @@ function createSanitizer(allowRemote: boolean) {
     processor,
     setImageLabel: (label: string) => {
       imageLabel = label
+    },
+    setAppDark: (dark: boolean) => {
+      appDark = dark
     },
     setMentionOptions: (options: MentionRenderOptions) => {
       mentionOptions = options
@@ -594,6 +684,11 @@ function createSanitizer(allowRemote: boolean) {
       blockedRemote = 0
       return n
     },
+    takeCssArt: () => {
+      const n = cssArt
+      cssArt = 0
+      return n
+    },
   }
 }
 
@@ -601,6 +696,10 @@ function createSanitizer(allowRemote: boolean) {
  * Sanitize an email body: strips dangerous markup, neutralises unsafe CSS and
  * (unless `allowRemote`) removes remote images/styles and reports how many were
  * blocked, so the UI can offer to load them.
+ *
+ * The result depends on `darkMode`: the mail's own colour-scheme rules are rewritten
+ * to match the theme we are rendering in (see `alignColorSchemeMediaQueries`), so the
+ * caller must re-run this when the theme changes.
  */
 function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): EmailSanitizeResult {
   const allowRemote = options.allowRemote === true
@@ -610,6 +709,7 @@ function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): Em
     sanitizers.set(allowRemote, entry)
   }
   entry.setImageLabel(options.blockedImageLabel ?? '')
+  entry.setAppDark(options.darkMode === true)
   const mentions = options.mentions
   entry.setMentionOptions(mentions ?? { enabled: false, locale: 'en-US', now: new Date(0) })
   const result = entry.processor.processSync(html)
@@ -619,6 +719,7 @@ function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): Em
       String(result) +
       `<style>${THEME_LINK_CSS}${BLOCKED_IMAGE_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>`,
     blockedRemote,
+    cssArt: entry.takeCssArt(),
   }
 }
 
