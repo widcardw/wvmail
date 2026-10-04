@@ -58,7 +58,7 @@ function onPageCommit(details: unknown) {
       v-if="showRefresh"
       type="button"
       class="icon-btn"
-      title="refresh"
+      :title="t['mail.refresh.list']"
       :disabled="refreshing"
       @click="emit('refresh')"
     >

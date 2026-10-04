@@ -24,6 +24,10 @@ export interface TranslationSchema {
   'mail.page': string
   'mail.noEmails': string
   'mail.refreshFailed': string
+  'mail.refreshed': string
+  'mail.refresh.list': string
+  'mail.refresh.detail': string
+  'mail.refresh.aggregate': string
   'mail.link.title': string
   'mail.link.body': string
   'mail.link.open': string

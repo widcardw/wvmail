@@ -21,6 +21,11 @@ const enUS: TranslationSchema = {
   'mail.page': 'Page',
   'mail.noEmails': 'No emails found',
   'mail.refreshFailed': 'Failed to fetch emails',
+  'mail.refreshed': 'Refreshed',
+  'mail.refresh.list': 'Refresh the message list',
+  'mail.refresh.detail': 'Re-fetch this message body',
+  'mail.refresh.aggregate':
+    'This message comes from an aggregate view; open its folder under the account to re-fetch it',
   'mail.link.title': 'External Link',
   'mail.link.body': 'This link will open in your default browser:',
   'mail.link.open': 'Open Link',

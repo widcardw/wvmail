@@ -85,13 +85,15 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 1 | BodyStructure 为 nil，或走完没发现任何正文 part / 附件 | **抓整封**（`FetchItemBodySection{Peek:true}`）当纯文本，并走 `decodeBodyPart`（本次修正：原先直接 `string(raw)`，会漏掉 CTE/字符集解码） |
 | 2 | 只预取正文 part + inline(CID) 图片 part | 下载型附件**不预取**，点下载时才单独连一次 |
 | 3 | base64 解码失败 | 去掉换行/空白前后再试一次；再失败 → **用原始字节** |
-| 4 | quoted-printable 解码失败 | 用原始字节 |
-| 5 | 其它 CTE（7bit/8bit/binary） | 原样使用 |
+| 4 | quoted-printable 解码中途出错（`invalid unescaped byte`） | **保留已解出的部分**（`mime/quotedprintable` 是流式的，出错点之前的内容是好的）；只有一字未解才回退原始字节 |
+| 4b | 正文尾部有 NUL 填充字节（`…=20\r\n\x00`） | 解码前先剥掉 NUL —— 它就是上一条里那个「出错点」的常见来源 |
+| 5 | 其它 CTE（7bit/8bit/binary）或**根本没声明** CTE | 先按原样用，但**若内容明显是 quoted-printable 就先解码**（见下） |
 | 6 | 声明的 charset 未知/转换失败，且字节不是合法 UTF-8 | **依次**：声明 charset → 合法 UTF-8 则原样 → **GB18030 兜底**（本次新增，针对中文邮件常见的 GBK 无 charset 声明） |
 | 7 | 附件名为空 | `Content-Disposition.filename` → `Content-Type.name` → 生成 `attachment-N` / `inline-N` |
 | 8 | 附件/正文分类 | **`Content-Disposition: attachment` 优先判定**（本次修正：原先 `text/plain`/`text/html` 判定在前，导致带 `.txt`/`.html` 附件的邮件**把附件当正文渲染**、甚至覆盖真实正文）；其后依次是：无 disposition 的 text 正文 → 有文件名的非文本 → `disposition: inline` → 有 `Content-ID` |
 | 9 | CID 内联图解码失败 | 用原始字节直接 base64，仍生成 data URI（宁可图错也不要空图） |
 | 10 | 缓存写入失败 | `slog.Warn`，不影响返回 |
+| 11 | 缓存的正文是「被误标的 quoted-printable」 | 读缓存时发现即解码并**写回缓存**（`repairCachedEncoding`），否则老邮件会一直显示 `=E8=AE=A1` |
 
 ### 2.5 已知的获取层缺陷（尚未改）
 
@@ -103,6 +105,13 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 ---
 
 ## 3. 显示层（Vue）
+
+**误标 CTE 的判定**（`tryQuotedPrintable`，只对正文，附件不碰）必须同时过两关，避免把正常散文改坏：
+
+1. **便宜的闸门**：正文含 `=3D`（任何被编码的 HTML 都会有），或至少一个软换行 `=\n`，或至少 3 个 `=XX`；
+2. **解出来必须像文本**：QP 解码后不允许出现除 `\t`/`\n`/`\r` 之外的控制字符 —— `a=1f b=2c c=3d` 这种散文能过第 1 关，但解出来是单元分隔符，于是被拒。
+
+两道关都过才替换；解码结果照旧走 `decodeCharset` 的三级兜底（QP 解出来是 GBK 字节也能救）。
 
 ### 3.1 打开一封邮件的顺序
 
@@ -200,6 +209,9 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 附件/正文判定顺序：`Content-Disposition: attachment` 优先 | `services/emailservice.go` `hasAttachmentDisposition` + 遍历分支 | 原先带 `.txt`/`.html` 附件的邮件会把附件当正文渲染，甚至覆盖真实正文 |
 | 字符集三级兜底（声明 → UTF-8 校验 → GB18030） | `decodeCharset`（新） | 原先 charset 缺失/未知时直接原样返回字节中文邮件变乱码 |
 | 整封兜底正文也走 `decodeBodyPart` | `RefreshEmailBody` 兜底分支 | 原先 `string(raw)` 漏掉 CTE/字符集解码 |
+| **误标 CTE 的自愈解码**：声明 7bit/8bit（或没声明）但正文明显是 quoted-printable 时先解码 | `services/emailservice.go` `tryQuotedPrintable` | 批量邮件把 QP 内容当 `8bit` 发时界面会直接显示 `style=3D"…"`、`=09`、`=E8=AE=A1`（保险措施，不是下面那条的实际成因） |
+| **QP 解码不再「全有或全无」**：出错时保留已解出的部分；decode 前剥掉尾部 NUL | `services/emailservice.go` `decodeBodyPart` | 真实案例（SZU 收的 Microsoft CMT 邮件，uid 274）：part **正确声明**了 `QUOTED-PRINTABLE`，但 section 尾部有一个 `\x00`；`mime/quotedprintable` 在它那里报错，而旧代码 `if err != nil { decoded = raw }` 把已经解好的 9123 字节全丢了，整封正文以未解码状态写进缓存 |
+| 老缓存正文同样自愈：读缓存时解码并写回 | `FetchEmail` + `repairCachedEncoding` | 修好抓取路径不够 —— 已经缓存的邮件仍会一直显示转义符 |
 | 缓存失败改用 `slog`，删除 4 处调试 `fmt.Println` | `services/emailservice.go` | `fmt.Printf/Println` 在 GUI 里无处可见（stdout 未接），且是遗留调试输出 |
 | `TestConnection` 记录实际入参（host/user/provider/`has_password`）与耗时 | `services/emailservice.go` | 让「列表测试超时、编辑页测试成功」这类问题可被日志直接判定 |
 | 翻译结果纳入垃圾邮件门禁 | `EmailDetail.vue`（`handleTranslate` 早退 + 模板条件） | 原先翻译会绕过门禁把未揭示的正文渲染出来 |

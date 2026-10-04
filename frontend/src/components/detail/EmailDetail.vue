@@ -143,7 +143,7 @@ async function handleRefresh() {
   const folder = accountsStore.selectedFolder
   const uid = accountsStore.selectedEmailUid
   if (!account || !folder || uid == null) {
-    fb.info('当前邮件来自聚合视图，无法单独重拉正文；请在对应账户文件夹内重试')
+    fb.info(t.value['mail.refresh.aggregate'])
     return
   }
   await accountsStore.refreshEmailBody(account, folder, uid)
@@ -297,7 +297,9 @@ const showAttachments = computed(
 <template>
   <div class="email-detail">
     <div class="scroll">
-      <div v-if="loading" class="centerpad"><span class="spinner spinner--detail" /></div>
+      <div v-if="loading && !detail" class="centerpad">
+        <span class="spinner spinner--detail" />
+      </div>
 
       <!-- error / security / translation alerts -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
@@ -332,7 +334,7 @@ const showAttachments = computed(
               <button
                 type="button"
                 class="icon-btn"
-                title="refresh"
+                :title="t['mail.refresh.detail']"
                 :disabled="loading"
                 @click="handleRefresh"
               >
@@ -424,6 +426,8 @@ const showAttachments = computed(
         </div>
       </template>
     </div>
+
+    <div v-if="loading && detail" class="detail-progress" aria-hidden="true" />
   </div>
   <Teleport to="body">
     <EmailLinkDialog v-model:open="linkOpen" :url="pendingUrl" />
@@ -439,9 +443,40 @@ const showAttachments = computed(
 
 <style scoped>
 .email-detail {
+  position: relative;
   height: 100%;
   color: var(--n-text-color);
   background: var(--n-body-color);
+}
+/* Refreshing the message already on screen must not move it: a 2px bar slides at the top
+   of the pane. The old in-flow spinner block was ~116px tall (48px padding twice), so the
+   whole message jumped down for as long as the fetch lasted. */
+.detail-progress {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--n-primary-color) 22%, transparent);
+}
+.detail-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  background: var(--n-primary-color);
+  animation: progress-slide 1s ease-in-out infinite;
+}
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
 }
 .scroll {
   height: 100%;

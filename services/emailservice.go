@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"mime/quotedprintable"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -589,10 +591,33 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 	// Try cache first
 	cached, err := s.db.LoadEmailBody(account.ID, folder, uid)
 	if err == nil && cached != nil {
+		// Bodies cached before the quoted-printable heuristic existed still hold raw
+		// escapes; repair them here so an old message does not stay broken.
+		if repairCachedEncoding(cached) {
+			if err := s.db.SaveEmailBody(account.ID, folder, cached); err != nil {
+				slog.Warn("failed to persist repaired email body", "uid", uid, "error", err)
+			}
+		}
 		return cached, nil
 	}
 
 	return s.RefreshEmailBody(account, folder, uid)
+}
+
+// repairCachedEncoding decodes already-cached bodies that are really quoted-printable
+// (`style=3D"…"`, `=E8=AE=A1`) but were stored raw because their part advertised
+// 7bit/8bit. It reports whether anything changed, so the caller can write it back once.
+func repairCachedEncoding(detail *EmailDetail) bool {
+	changed := false
+	if decoded, ok := tryQuotedPrintable([]byte(detail.BodyHTML)); ok {
+		detail.BodyHTML = string(decoded)
+		changed = true
+	}
+	if decoded, ok := tryQuotedPrintable([]byte(detail.BodyText)); ok {
+		detail.BodyText = string(decoded)
+		changed = true
+	}
+	return changed
 }
 
 // RefreshEmailBody fetches the full email content from the IMAP server and
@@ -927,16 +952,73 @@ func isAttachmentSection(path []int, attachments []AttachmentInfo) bool {
 	return false
 }
 
+// quoted-printable escapes (`=3D`, `=E8`, `=09`) and the soft line break (`=` at the
+// end of a line) used to detect bodies whose CTE was mislabelled.
+var (
+	qpEscapeRE    = regexp.MustCompile(`(?i)=[0-9a-f]{2}`)
+	qpSoftBreakRE = regexp.MustCompile(`=(?:\r\n|\n)`)
+)
+
+// tryQuotedPrintable decodes bytes that were declared 7bit/8bit (or had no
+// Content-Transfer-Encoding at all) but are in fact quoted-printable. Senders and
+// gateways mislabel this constantly: bulk mail arrives as `8bit` while the body is full
+// of `style=3D"…"` and `=09` tabs, and the reader ends up staring at raw escapes.
+//
+// Prose must never be rewritten, so a candidate has to pass two gates:
+//  1. cheap: an encoded `=` (`=3D`, which any encoded HTML body contains), or a soft line
+//     break, or at least three `=XX` escapes;
+//  2. the decoded bytes must be *text* — no control characters beyond tab/newline/CR.
+//     `a=1f b=2c c=3d` gates in on three escapes and then fails here, because it decodes
+//     to a unit separator, while every real body decodes to printable text or CJK bytes.
+func tryQuotedPrintable(raw []byte) ([]byte, bool) {
+	sample := raw
+	if len(sample) > 8192 {
+		sample = sample[:8192]
+	}
+	if !bytes.Contains(sample, []byte("=")) {
+		return nil, false
+	}
+	escapes := len(qpEscapeRE.FindAllIndex(sample, 4))
+	encodedEquals := bytes.Contains(sample, []byte("=3D")) || bytes.Contains(sample, []byte("=3d"))
+	if escapes == 0 || !(encodedEquals || escapes >= 3 || qpSoftBreakRE.Match(sample)) {
+		return nil, false
+	}
+
+	decoded, err := io.ReadAll(quotedprintable.NewReader(bytes.NewReader(raw)))
+	if len(decoded) == 0 {
+		return nil, false
+	}
+	if err != nil {
+		// Trailing junk stops the reader part-way; keep the decoded head only when it
+		// clearly accounts for most of the input, so prose is never half-eaten.
+		if len(decoded)*2 < len(raw) {
+			return nil, false
+		}
+	}
+	for _, b := range decoded {
+		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' {
+			return nil, false
+		}
+	}
+	return decoded, true
+}
+
 // decodeBodyPart decodes raw IMAP body section bytes based on
 // Content-Transfer-Encoding and charset.
 func decodeBodyPart(raw []byte, enc, cs string) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	// Step 1: decode Content-Transfer-Encoding
+	// NUL bytes are padding some senders/gateways append to a body section; they are
+	// never part of the text and make both decoders below bail out mid-stream (a real
+	// message: `<body=\r\n></html>=20\r\n\x00`, which cost the whole body).
+	raw = bytes.ReplaceAll(raw, []byte{0}, nil)
+
+	// Step 1: decode Content-Transfer-Encoding. The value comes straight from
+	// BODYSTRUCTURE, so tolerate quoting artefacts and surrounding whitespace.
 	var decoded []byte
 	var err error
-	switch strings.ToLower(enc) {
+	switch strings.ToLower(strings.TrimSpace(enc)) {
 	case "base64":
 		decoded, err = base64.StdEncoding.DecodeString(string(raw))
 		if err != nil {
@@ -948,12 +1030,24 @@ func decodeBodyPart(raw []byte, enc, cs string) string {
 			}
 		}
 	case "quoted-printable":
-		decoded, err = io.ReadAll(quotedprintable.NewReader(strings.NewReader(string(raw))))
+		decoded, err = io.ReadAll(quotedprintable.NewReader(bytes.NewReader(raw)))
 		if err != nil {
-			decoded = raw
+			// The reader yields decoded bytes as it goes: a malformed escape near the
+			// end leaves everything before it intact, and throwing that away is what
+			// pushed raw `=E8=AE=A1` text all the way to the reader.
+			slog.Debug("quoted-printable decode stopped early",
+				"decoded", len(decoded), "raw", len(raw), "error", err)
+			if len(decoded) == 0 {
+				decoded = raw
+			}
 		}
 	default:
-		// 7bit, 8bit, binary — no decoding needed
+		// 7bit, 8bit, binary (or nothing advertised) — normally nothing to decode,
+		// but decode it anyway when it clearly is quoted-printable.
+		if healed, ok := tryQuotedPrintable(raw); ok {
+			decoded = healed
+			break
+		}
 		decoded = raw
 	}
 

@@ -279,6 +279,8 @@ export const useAccountsStore = defineStore('accounts', () => {
       emailsByFolder.value[key] = resp?.emails ?? []
       emailTotalByFolder.value[key] = total
       currentPageByFolder.value[key] = next
+      // An explicit refresh with nothing new to show used to look like a no-op.
+      feedback.success(i18n.value['mail.refreshed'])
     } catch (e) {
       reportFetchFailure('Failed to refresh emails', e)
     } finally {
@@ -370,6 +372,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     try {
       const detail = await EmailService.RefreshEmailBody(account, folder, uid)
       selectedEmailDetail.value = detail
+      feedback.success(i18n.value['mail.refreshed'])
     } catch (e) {
       detailError.value = String(e)
       console.error('Failed to refresh email body', e)
