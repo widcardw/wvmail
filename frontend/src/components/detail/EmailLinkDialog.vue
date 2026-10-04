@@ -28,6 +28,8 @@ async function openLink() {
 <template>
   <Dialog.Root
     :open="props.open"
+    lazy-mount
+    unmount-on-exit
     @open-change="
       (details: unknown) => emit('update:open', !!(details as { open?: boolean })?.open)
     "

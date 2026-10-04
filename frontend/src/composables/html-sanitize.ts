@@ -4,6 +4,9 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeStringify from 'rehype-stringify'
 import type { Schema } from 'hast-util-sanitize'
 import type { Root, Element, Text, Comment, Doctype } from 'hast'
+// Explicit `.ts` so the Node-run tests can resolve it (see tsconfig).
+import { findDateMentions } from './date-mentions.ts'
+import type { DateMention } from './date-mentions.ts'
 
 type PropertyDefinition = [string, ...(string | number | boolean | RegExp | null | undefined)[]]
 
@@ -18,8 +21,126 @@ const THEME_LINK_CSS = `
 .email-auto-link { color: var(--n-primary-color, #e11d48) !important; }
 `
 
+/** Class marking a detected date/time mention (also used to skip our own output). */
+const MENTION_CLASS = 'date-mention'
+
+/**
+ * Highlight for detected date/time mentions. The email's own CSS may style `span`
+ * broadly, so the two visual properties are forced — same reasoning as `.email-auto-link`.
+ */
+const MENTION_CSS = `
+.${MENTION_CLASS} {
+  color: var(--n-primary-color, #e11d48) !important;
+  background: color-mix(in srgb, var(--n-primary-color, #e11d48) 14%, transparent) !important;
+  border-radius: 3px;
+  padding: 0 1px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+`
+
 function rehypeAutoLink() {
   return (tree: Root) => walkAndLink(tree)
+}
+
+/** Options the date/time highlighter needs, read fresh on every sanitize call. */
+export interface MentionRenderOptions {
+  /** When false the pass is a no-op (the settings toggle). */
+  enabled: boolean
+  /** App locale, so `3/5`-style ambiguity follows the UI language. */
+  locale: string
+  /** Reference "now" for relative mentions (`明天`, `tomorrow`). */
+  now: Date
+  /** Tooltip for a mention — translated by the caller. */
+  label?: (at: Date) => string
+}
+
+/** Elements whose text is never scanned for date/time mentions. */
+const NO_MENTION_TAGS = new Set(['a', 'style', 'script', 'pre', 'code', 'noscript'])
+
+/**
+ * Wrap detected date/time mentions in a `<span class="date-mention">` carrying the
+ * resolved moment, so the mail view can offer "add to reminders" on click. Runs
+ * after sanitising (like the CSS/remote passes), so its own markup never has to
+ * survive the schema — and email markup can never fake a mention.
+ */
+function rehypeDateMentions(read: () => MentionRenderOptions) {
+  return (tree: Root) => {
+    const options = read()
+    if (!options.enabled) return
+    walkDateMentions(tree, options)
+  }
+}
+
+function walkDateMentions(node: Root | Element, options: MentionRenderOptions): void {
+  if (!('children' in node)) return
+  if (node.type === 'element' && NO_MENTION_TAGS.has(node.tagName)) return
+
+  const newChildren: (Text | Element | Comment | Doctype)[] = []
+  let changed = false
+
+  for (const child of node.children) {
+    if (child.type === 'text') {
+      const mentions = findDateMentions(child.value, {
+        now: options.now,
+        locale: options.locale,
+      })
+      if (mentions.length === 0) {
+        newChildren.push(child)
+        continue
+      }
+      newChildren.push(...mentionNodes(child.value, mentions, options))
+      changed = true
+    } else {
+      // Never re-wrap our own output (guards a second sanitize of the same tree).
+      if (child.type === 'element' && !isMentionElement(child)) {
+        walkDateMentions(child, options)
+      }
+      newChildren.push(child)
+    }
+  }
+
+  if (changed) node.children = newChildren
+}
+
+function isMentionElement(node: Element): boolean {
+  const className = node.properties?.className
+  return Array.isArray(className) && className.includes(MENTION_CLASS)
+}
+
+function mentionNodes(
+  text: string,
+  mentions: DateMention[],
+  options: MentionRenderOptions,
+): (Text | Element)[] {
+  const result: (Text | Element)[] = []
+  let cursor = 0
+
+  for (const mention of mentions) {
+    if (mention.index > cursor) {
+      result.push({ type: 'text', value: text.slice(cursor, mention.index) })
+    }
+    const properties: Record<string, string | string[]> = {
+      className: [MENTION_CLASS],
+      // Epoch seconds: what the click handler forwards to the reminder store.
+      dataRemindAt: String(mention.epoch),
+      dataRemindText: mention.text,
+    }
+    if (options.label) properties.title = options.label(mention.at)
+    result.push({
+      type: 'element',
+      tagName: 'span',
+      properties,
+      children: [{ type: 'text', value: mention.text }],
+    })
+    cursor = mention.index + mention.length
+  }
+
+  if (cursor < text.length) {
+    result.push({ type: 'text', value: text.slice(cursor) })
+  }
+  return result
 }
 
 function walkAndLink(node: Root | Element): void {
@@ -99,8 +220,8 @@ function autoLinkText(text: string): (Text | Element | Comment)[] {
   return result.length > 0 ? result : [{ type: 'text', value: text }]
 }
 
-/** Convert plain text to safe HTML with clickable URLs. */
-function linkifyPlainText(text: string): string {
+/** Convert plain text to safe HTML with clickable URLs and date/time mentions. */
+function linkifyPlainText(text: string, mentions?: MentionRenderOptions): string {
   const tree: Root = {
     type: 'root',
     children: [
@@ -113,8 +234,13 @@ function linkifyPlainText(text: string): string {
     ],
   }
 
+  if (mentions?.enabled) walkDateMentions(tree, mentions)
+
   const stringifier = unified().use(rehypeStringify)
-  return `<style>${THEME_LINK_CSS}</style>` + String(stringifier.stringify(tree))
+  return (
+    `<style>${THEME_LINK_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>` +
+    String(stringifier.stringify(tree))
+  )
 }
 
 const emailSchema: Schema = {
@@ -400,6 +526,8 @@ export interface EmailSanitizeOptions {
   allowRemote?: boolean
   /** Tooltip for blocked-image placeholders (translated by the caller). */
   blockedImageLabel?: string
+  /** Highlight detected date/time mentions (off unless `enabled`). */
+  mentions?: MentionRenderOptions
 }
 
 export interface EmailSanitizeResult {
@@ -425,18 +553,28 @@ function createSanitizer(allowRemote: boolean) {
   // The placeholder tooltip is per call (it is translated), so the cached
   // pipeline reads it through a closure instead of baking it in.
   let imageLabel = ''
+  // Same for the date/time pass: toggle, locale and clock all come per call.
+  let mentionOptions: MentionRenderOptions = {
+    enabled: false,
+    locale: 'en-US',
+    now: new Date(0),
+  }
   const processor = unified()
     .use(rehypeParse, { fragment: true })
     .use(rehypeAutoLink)
     .use(rehypeSanitize, emailSchema)
-    // Both run after sanitising, so they only rewrite/remove what it kept.
+    // These run after sanitising, so they only rewrite/remove what it kept.
     .use(rehypeSanitizeEmailCss, { allowRemote, onBlocked })
     .use(rehypeBlockRemoteContent, { allowRemote, onBlocked, imageLabel: () => imageLabel })
+    .use(rehypeDateMentions, () => mentionOptions)
     .use(rehypeStringify)
   return {
     processor,
     setImageLabel: (label: string) => {
       imageLabel = label
+    },
+    setMentionOptions: (options: MentionRenderOptions) => {
+      mentionOptions = options
     },
     takeBlocked: () => {
       const n = blockedRemote
@@ -459,10 +597,16 @@ function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): Em
     sanitizers.set(allowRemote, entry)
   }
   entry.setImageLabel(options.blockedImageLabel ?? '')
+  const mentions = options.mentions
+  entry.setMentionOptions(
+    mentions ?? { enabled: false, locale: 'en-US', now: new Date(0) },
+  )
   const result = entry.processor.processSync(html)
   const blockedRemote = entry.takeBlocked()
   return {
-    html: String(result) + `<style>${THEME_LINK_CSS}${BLOCKED_IMAGE_CSS}</style>`,
+    html:
+      String(result) +
+      `<style>${THEME_LINK_CSS}${BLOCKED_IMAGE_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>`,
     blockedRemote,
   }
 }

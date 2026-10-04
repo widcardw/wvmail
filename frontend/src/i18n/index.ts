@@ -27,6 +27,14 @@ export interface TranslationSchema {
   'mail.link.title': string
   'mail.link.body': string
   'mail.link.open': string
+  'mail.remind.title': string
+  'mail.remind.body': string
+  'mail.remind.field.title': string
+  'mail.remind.field.time': string
+  'mail.remind.add': string
+  'mail.remind.added': string
+  'mail.remind.failed': string
+  'mail.remind.hover': string
   'mail.attachment': string
   'mail.attachments': string
   'mail.inline_image': string
@@ -85,6 +93,8 @@ export interface TranslationSchema {
   'settings.common.minimizeWhenClose': string
   'settings.common.quitWhenClose': string
   'settings.common.actionOnClose': string
+  'settings.common.detectDates': string
+  'settings.common.detectDatesHint': string
   'settings.accounts': string
   'settings.accounts.add': string
   'settings.accounts.edit': string

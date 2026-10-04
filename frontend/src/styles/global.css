@@ -139,3 +139,12 @@ button {
   color: var(--n-text-color);
   border-radius: var(--radius-md);
 }
+
+/* Ark marks closed overlay parts (`Dialog.Content`, `Dialog.Backdrop`, popover/menu content)
+ * with the `hidden` attribute instead of unmounting them. The UA stylesheet's
+ * `[hidden] { display: none }` loses to *any* author rule that sets `display` — our
+ * `.dlg-card { display: flex }` did exactly that, which left a closed-but-mounted dialog
+ * painted on top of the page. State it here so `hidden` always means hidden. */
+[hidden] {
+  display: none !important;
+}

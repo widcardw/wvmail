@@ -20,6 +20,7 @@ import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailRemoteNotice from './EmailRemoteNotice.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'
+import RemindFromMailDialog from './RemindFromMailDialog.vue'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -55,11 +56,27 @@ const sanitized = computed(() => {
 const sanitizedBodyHtml = computed(() => sanitized.value.html)
 const blockedRemote = computed(() => sanitized.value.blockedRemote)
 
+/** Text-only messages: same URL + date highlighting, without the HTML pipeline. */
+const plainBodyHtml = computed(() => {
+  const text = detail.value?.body_text
+  if (!text) return ''
+  return linkifyPlainText(text, sanitizeOptions().mentions)
+})
+
 /** Shared sanitize options: blocked-image tooltips follow the UI language. */
 function sanitizeOptions() {
   return {
     allowRemote: allowRemote.value,
     blockedImageLabel: t.value['mail.remote.blocked_image'],
+    // Highlight dates/times in the body; the tooltip previews what a click would
+    // create, so an over-eager match is visible before it is clicked.
+    mentions: {
+      enabled: preferences.detectDatesInMail,
+      locale: localeStore.current,
+      now: new Date(),
+      label: (at: Date) =>
+        `${t.value['mail.remind.hover']}${formatDate(at.toISOString(), localeStore.current)}`,
+    },
   }
 }
 
@@ -77,6 +94,7 @@ watch(detail, () => {
   suspiciousRevealed.value = false
   remoteRevealed.value = false
   attachmentsOpen.value = false
+  remindOpen.value = false
 })
 
 /** Load this message's remote content once (nothing is remembered). */
@@ -208,8 +226,33 @@ function clearTranslation() {
 const linkOpen = ref(false)
 const pendingUrl = ref('')
 
+// A date/time mention clicked in the body: the epoch comes from the span the
+// sanitizer added, everything else is editable in the dialog.
+const remindOpen = ref(false)
+const remindAt = ref(0)
+const remindText = ref('')
+
+/** First element on the event path that the detector tagged as a moment. */
+function findMention(path: EventTarget[]): HTMLElement | null {
+  for (const node of path) {
+    if (node instanceof HTMLElement && node.dataset.remindAt) return node
+  }
+  return null
+}
+
 async function handleLinkClick(event: MouseEvent) {
   const path: EventTarget[] = (event as any).composedPath?.() ?? []
+  const mention = findMention(path)
+  if (mention) {
+    event.preventDefault()
+    const epoch = Number(mention.dataset.remindAt)
+    if (!Number.isFinite(epoch) || epoch <= 0) return
+    remindAt.value = epoch
+    remindText.value = mention.dataset.remindText || mention.textContent || ''
+    remindOpen.value = true
+    return
+  }
+
   const target = (path[0] ?? event.target) as HTMLElement | null
   if (!target) return
   let el: HTMLElement | null = target
@@ -345,8 +388,8 @@ const showAttachments = computed(
             :dark="isDarkMode"
           />
           <EmailShadowBody
-            v-else-if="detail.body_text"
-            :html="linkifyPlainText(detail.body_text)"
+            v-else-if="plainBodyHtml"
+            :html="plainBodyHtml"
             :dark="isDarkMode"
           />
           <div v-else class="centerpad-empty">(No content)</div>
@@ -374,6 +417,12 @@ const showAttachments = computed(
   </div>
   <Teleport to="body">
     <EmailLinkDialog v-model:open="linkOpen" :url="pendingUrl" />
+    <RemindFromMailDialog
+      v-model:open="remindOpen"
+      :at="remindAt"
+      :text="remindText"
+      :suggested-title="detail?.subject || ''"
+    />
   </Teleport>
 </template>
 

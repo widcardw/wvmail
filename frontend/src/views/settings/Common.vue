@@ -62,6 +62,10 @@ function onAllowRemoteChange(checked: boolean) {
   void preferences.setAllowRemoteContent(checked)
 }
 
+function onDetectDatesChange(checked: boolean) {
+  void preferences.setDetectDatesInMail(checked)
+}
+
 function onRemoveSender(sender: string) {
   void preferences.removeAllowedRemoteSender(sender)
 }
@@ -129,6 +133,16 @@ function onRemoveSender(sender: string) {
         />
       </Field.Root>
 
+      <UiSwitch
+        class="row"
+        label-class="row__label"
+        :checked="preferences.detectDatesInMail"
+        @update:checked="onDetectDatesChange"
+      >
+        {{ t['settings.common.detectDates'] }}
+      </UiSwitch>
+      <p class="row-hint">{{ t['settings.common.detectDatesHint'] }}</p>
+
       <div class="actions">
         <button type="button" class="btn" @click="openConfigFolder">
           {{ t['settings.common.openConfig'] }}
@@ -188,6 +202,12 @@ function onRemoveSender(sender: string) {
 }
 .row__label {
   flex-shrink: 0;
+}
+.row-hint {
+  margin: -4px 0 8px;
+  padding: 0 18px;
+  font-size: 12px;
+  color: var(--color-text-3);
 }
 .color {
   display: flex;

@@ -84,7 +84,7 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/UiPasswordInput.vue` | `PasswordInput.Root/.Control/.Input/.VisibilityTrigger` | `styles/ui.css` (`.pw*`; the two eye icons swap on `[data-state='visible']`) |
 | `components/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
 | `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
-| `.dlg-*` classes in `styles/ui.css` | `Dialog.Backdrop/.Positioner/.Content/.Title/.CloseTrigger` | shared dialog shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.dlg-actions` |
+| `.dlg-*` classes in `styles/ui.css` | `Dialog.Backdrop/.Positioner/.Content/.Title/.CloseTrigger` | shared dialog shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Always pass **`lazy-mount` + `unmount-on-exit`** |
 
 `UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
@@ -163,7 +163,13 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
   content-sized root collapses CJK text one glyph per line — plus `translate: var(--x) var(--y)`, `scale`, `z-index`,
   `height`, `opacity`). It lives in `styles/ui.css` under `[data-scope='toast'][data-part='root']`.
 - Confirmation: Dialog (`.Root` with open) or popover; replace `NPopconfirm`. Dialogs share the `.dlg-*` shell in
-  `styles/ui.css` instead of re-declaring backdrop/positioner/card CSS per component.
+  `styles/ui.css` instead of re-declaring backdrop/positioner/card CSS per component, and each one opts into Ark's
+  render strategy (`lazy-mount` + `unmount-on-exit`) so its content only exists while open.
+- **Closed overlays are hidden with the `hidden` attribute, not unmounted** (`Dialog.Content`/`Backdrop`, popover/menu
+  content). The UA `[hidden] { display: none }` loses to *any* author rule that sets `display`, and our
+  `.dlg-card { display: flex }` did exactly that — a closed-but-mounted dialog stayed painted on top of the page.
+  `global.css` therefore restates `[hidden] { display: none !important }`; keep that rule, and don't rely on a `v-if`
+  per dialog.
 
 ## Icons
 

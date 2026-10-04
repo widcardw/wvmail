@@ -160,6 +160,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 - 全前端**唯一**的 DOM sink 是 `EmailShadowBody.vue` 的 `shadowRoot.innerHTML`（`v-html` 全项目 0 处）。
 - 它的三个输入分别是：`sanitizeEmailHtml(body_html)`、`linkifyPlainText(body_text)`、`sanitizeEmailHtml(translatedHtml)` —— 都经过净化或由代码生成。
 - 远程内容默认拦截、CSS 已净化（见 §3.4）。
+- 正文里的日期/时间会被标成可点击的 `<span class="date-mention">`（净化**之后**的独立 pass，邮件本身伪造不出这种 chip），点击后弹确认框加入提醒事项 —— 细节见 `mail-date-reminders.md`。
 
 ### 3.4 远程内容拦截与 CSS 净化
 

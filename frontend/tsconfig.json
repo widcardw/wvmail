@@ -22,6 +22,11 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    /**
+     * Allows importing a module with its `.ts` extension. The test files run on bare
+     * Node (type stripping), which does not guess file extensions.
+     */
+    "allowImportingTsExtensions": true,
 
     "ignoreDeprecations": "6.0",
     "baseUrl": "./",

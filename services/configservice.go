@@ -23,13 +23,15 @@ import (
 
 // AppConfig represents the application configuration stored in YAML.
 type AppConfig struct {
-	Language               string              `yaml:"language"`
-	Theme                  string              `yaml:"theme"`
-	PrimaryColor           string              `yaml:"primary_color"`
-	DatabasePath           string              `yaml:"database_path,omitempty"`
-	LogConfig              LogConfig           `yaml:"log_config,omitempty"`
-	TranslationConfig      TranslationConfig   `yaml:"translation_config,omitempty"`
-	ScanExternalSafety     bool                `yaml:"scan_external_safety,omitempty"`
+	Language          string            `yaml:"language"`
+	Theme             string            `yaml:"theme"`
+	PrimaryColor      string            `yaml:"primary_color"`
+	DatabasePath      string            `yaml:"database_path,omitempty"`
+	LogConfig         LogConfig         `yaml:"log_config,omitempty"`
+	TranslationConfig TranslationConfig `yaml:"translation_config,omitempty"`
+	// No `omitempty` on the flags whose default is true: otherwise saving "off"
+	// would omit the key and the next read would fall back to the default.
+	ScanExternalSafety     bool                `yaml:"scan_external_safety"`
 	SearchTagDeletePresses int                 `yaml:"search_tag_delete_presses,omitempty"`
 	LLMConfigs             []LLMConfig         `yaml:"llm_configs,omitempty"`
 	EmailAccounts          []EmailAccount      `yaml:"email_accounts,omitempty"`
@@ -38,6 +40,10 @@ type AppConfig struct {
 	// quitting. The zero value quits, which is what a config written before this
 	// option existed expects.
 	MinimizeWhenClose bool `yaml:"minimize_when_close"`
+	// DetectDatesInMail highlights date/time mentions inside email bodies and lets
+	// the user turn one into a reminder. Defaults to on (see defaultConfig), hence
+	// no `omitempty` — an explicit "off" has to be written.
+	DetectDatesInMail bool `yaml:"detect_dates_in_mail"`
 }
 
 // RemoteContentConfig controls how remote content referenced by email bodies
@@ -240,6 +246,7 @@ func defaultConfig() AppConfig {
 		},
 		ScanExternalSafety:     true,
 		SearchTagDeletePresses: 2,
+		DetectDatesInMail:      true,
 		EmailAccounts:          []EmailAccount{},
 	}
 }
@@ -290,7 +297,10 @@ func readConfig() (AppConfig, error) {
 		}
 		return defaultConfig(), fmt.Errorf("failed to read config: %w", err)
 	}
-	var cfg AppConfig
+	// Start from the defaults so a key that is absent from an older config file
+	// keeps its documented default instead of the Go zero value (a missing
+	// `detect_dates_in_mail` must not silently disable the feature).
+	cfg := defaultConfig()
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return defaultConfig(), fmt.Errorf("failed to parse config: %w", err)
 	}
@@ -471,8 +481,9 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 // read-modify-write runs under configWriteMu, so two settings saved at the same
 // time cannot lose each other's update.
 // Supported fields: "language", "theme", "primary_color",
-// "scan_external_safety", "search_tag_delete_presses", "allow_remote_content"
-// and "allowed_remote_senders" (the latter as a JSON array of strings).
+// "scan_external_safety", "search_tag_delete_presses", "allow_remote_content",
+// "minimize_when_close", "detect_dates_in_mail" and "allowed_remote_senders"
+// (the latter as a JSON array of strings).
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	configWriteMu.Lock()
 	languageChanged, err := saveConfigFieldLocked(field, value)
@@ -534,6 +545,12 @@ func saveConfigFieldLocked(field, value string) (bool, error) {
 			return false, fmt.Errorf("invalid boolean value for minimize_when_close: %s", value)
 		}
 		cfg.MinimizeWhenClose = b
+	case "detect_dates_in_mail":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("invalid boolean value for detect_dates_in_mail: %s", value)
+		}
+		cfg.DetectDatesInMail = b
 	default:
 		return false, fmt.Errorf("unknown config field: %s", field)
 	}

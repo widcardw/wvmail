@@ -74,6 +74,17 @@ type CachedFolderMeta struct {
 	Total      int    `gorm:"not null"`
 }
 
+// CachedReminder represents a persisted reminder. `Time` is epoch seconds, the
+// unit the frontend (and the mail date detector) work in.
+type CachedReminder struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Title     string `gorm:"size:512"`
+	Time      int64  `gorm:"index"`
+	Done      bool   `gorm:"not null;default:false"`
+	CreatedAt int64  `gorm:"autoCreateTime"`
+	UpdatedAt int64  `gorm:"autoUpdateTime"`
+}
+
 // DBManager provides a lazily-initialized GORM database connection for
 // caching IMAP data locally.
 type DBManager struct {
@@ -120,7 +131,7 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedFolderMeta{}); err != nil {
+	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedFolderMeta{}, &CachedReminder{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
@@ -678,4 +689,44 @@ func (m *DBManager) DeleteNote(id string) error {
 		return err
 	}
 	return db.Where("id = ?", id).Delete(&CachedNote{}).Error
+}
+
+// SaveReminder creates or updates a reminder.
+func (m *DBManager) SaveReminder(reminder *CachedReminder) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Save(reminder).Error
+}
+
+// LoadReminders retrieves every reminder, soonest first.
+func (m *DBManager) LoadReminders() ([]CachedReminder, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+	var reminders []CachedReminder
+	if err := db.Order("time ASC").Find(&reminders).Error; err != nil {
+		return nil, err
+	}
+	return reminders, nil
+}
+
+// DeleteReminder removes a reminder by ID.
+func (m *DBManager) DeleteReminder(id string) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Where("id = ?", id).Delete(&CachedReminder{}).Error
+}
+
+// SetReminderDone flips the done flag of a single reminder.
+func (m *DBManager) SetReminderDone(id string, done bool) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Model(&CachedReminder{}).Where("id = ?", id).Update("done", done).Error
 }

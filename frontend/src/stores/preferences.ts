@@ -18,12 +18,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const allowedRemoteSenders = ref<string[]>([])
 
   const minimizeWhenClose = ref(false)
+  /** Highlight date/time mentions in email bodies (and offer to remind on click). */
+  const detectDatesInMail = ref(true)
 
   function loadFromConfig(config: AppConfig) {
     tagDeletePresses.value = config.SearchTagDeletePresses === 1 ? 1 : 2
     allowRemoteContent.value = config.RemoteContent?.AllowRemoteContent === true
     allowedRemoteSenders.value = [...(config.RemoteContent?.AllowedSenders ?? [])]
     minimizeWhenClose.value = config.MinimizeWhenClose
+    detectDatesInMail.value = config.DetectDatesInMail !== false
   }
 
   async function setTagDeletePresses(value: TagDeletePresses) {
@@ -41,6 +44,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
       await ConfigService.SaveConfigField('minimize_when_close', String(value))
     } catch (error) {
       console.error('Failed to save action on close preference', error)
+    }
+  }
+
+  async function setDetectDatesInMail(value: boolean) {
+    detectDatesInMail.value = value
+    try {
+      await ConfigService.SaveConfigField('detect_dates_in_mail', String(value))
+    } catch (error) {
+      console.error('Failed to save date detection preference', error)
     }
   }
 
@@ -91,6 +103,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     allowedRemoteSenders,
     minimizeWhenClose,
     setMinimizeWhenClose,
+    detectDatesInMail,
+    setDetectDatesInMail,
     loadFromConfig,
     setTagDeletePresses,
     setAllowRemoteContent,

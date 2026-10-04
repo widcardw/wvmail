@@ -12,14 +12,15 @@
     "lint:fix": "oxlint --fix",
     "typecheck": "vue-tsc --noEmit",
     "fmt": "oxfmt",
-    "test": "node tests/html-sanitize.test.mts"
+    "test": "node tests/html-sanitize.test.mts && node tests/date-mentions.test.mts"
   },
   "dependencies": {
     "@ark-ui/vue": "^5.39.1",
     "@lobehub/icons-static-avatar": "^1.11.0",
     "@lobehub/icons-static-svg": "^1.91.0",
     "@vueuse/core": "^14.3.0",
-    "@wailsio/runtime": "latest",
+    "@wailsio/runtime": "3.0.0-beta.26",
+    "chrono-node": "^2.10.2",
     "hast-util-to-text": "^4.0.2",
     "pinia": "^3.0.4",
     "rehype-parse": "^9.0.1",

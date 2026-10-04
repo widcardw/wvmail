@@ -101,5 +101,50 @@ check('script removed', !/<script/i.test(block('<script>alert(1)</script><p>ok</
 check('onerror removed', !/onerror/i.test(block('<img src="x" onerror="alert(1)">').html))
 check('style break-out contained', !/alert/.test(block('</style><script>alert(1)</script>').html))
 
+console.log('date/time mentions')
+const mentionOptions = {
+  enabled: true,
+  locale: 'zh-CN',
+  now: new Date(2026, 2, 1, 10, 0, 0),
+  label: (at: Date) => `add reminder ${at.toISOString()}`,
+}
+const mentioned = sanitizeEmailHtml('<p>3月5日下午3点 评审</p>', {
+  allowRemote: false,
+  mentions: mentionOptions,
+})
+check('mention is wrapped', /<span class="date-mention"/.test(mentioned.html))
+check('mention carries epoch seconds', /data-remind-at="\d{10}"/.test(mentioned.html))
+check('mention keeps its text', mentioned.html.includes('3月5日下午3点'))
+check('mention has a tooltip', mentioned.html.includes('add reminder'))
+check('mention css injected', mentioned.html.includes('.date-mention'))
+check(
+  'no mention markup when disabled',
+  !/<span class="date-mention"/.test(sanitizeEmailHtml('<p>3月5日下午3点</p>', { allowRemote: false }).html),
+)
+check(
+  'dates inside links are left alone',
+  !/<span class="date-mention"/.test(
+    sanitizeEmailHtml('<a href="https://x.example/3月5日">3月5日</a>', {
+      allowRemote: false,
+      mentions: mentionOptions,
+    }).html,
+  ),
+)
+check(
+  'dates inside code are left alone',
+  !/<span class="date-mention"/.test(
+    sanitizeEmailHtml('<code>3月5日</code>', { allowRemote: false, mentions: mentionOptions }).html,
+  ),
+)
+const hostileMention = sanitizeEmailHtml(
+  '<span class="date-mention" data-remind-at="0" data-remind-text="x">点击</span>',
+  { allowRemote: false },
+)
+check('email cannot fake a mention chip', !/data-remind-at/.test(hostileMention.html))
+check(
+  'email cannot fake the mention class',
+  !/<span class="date-mention"/.test(hostileMention.html),
+)
+
 console.log(`\n${pass} passed, ${fail} failed`)
 if (fail > 0) process.exit(1)

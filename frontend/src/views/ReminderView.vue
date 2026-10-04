@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import { Tabs } from '@ark-ui/vue/tabs'
 import { useI18n } from '~/i18n'
 import ReminderTimeline from '~/components/reminder/ReminderTimeline.vue'
+import { useRemindersStore } from '~/stores/reminders'
 import type { Reminder } from '~/types/reminder'
 import {
   addDays,
   endOfMonth,
-  epochSeconds,
   startOfDay,
   startOfMonth,
   startOfWeek,
@@ -25,48 +25,11 @@ const weekEnd = addDays(weekStart, 7)
 const monthStart = startOfMonth(now)
 const monthEnd = endOfMonth(now)
 
-// Local placeholder data. TODO: replace with a ReminderService store once the
-// backend provides one — the Tabs + timeline UI below already consumes a plain
-// `Reminder[]`.
-function pickDateInMonthOutsideWeek(): Date {
-  const last = addDays(monthEnd, -1)
-  for (let d = last; d >= monthStart; d = addDays(d, -1)) {
-    if (d < weekStart || d >= weekEnd) return d
-  }
-  return last
-}
+const remindersStore = useRemindersStore()
 
-const monthSpot = pickDateInMonthOutsideWeek()
-
-const reminders = ref<Reminder[]>([
-  { id: crypto.randomUUID(), title: '晨会 · 团队同步', time: epochSeconds(now, 9, 30), done: true },
-  { id: crypto.randomUUID(), title: '设计评审', time: epochSeconds(now, 14, 0), done: false },
-  { id: crypto.randomUUID(), title: '健身', time: epochSeconds(now, 19, 30), done: false },
-  {
-    id: crypto.randomUUID(),
-    title: '回复客户邮件',
-    time: epochSeconds(addDays(now, 1), 11, 0),
-    done: false,
-  },
-  {
-    id: crypto.randomUUID(),
-    title: '牙医预约',
-    time: epochSeconds(addDays(now, 2), 15, 30),
-    done: false,
-  },
-  {
-    id: crypto.randomUUID(),
-    title: '季度汇报准备',
-    time: epochSeconds(monthSpot, 9, 0),
-    done: false,
-  },
-  {
-    id: crypto.randomUUID(),
-    title: '信用卡还款',
-    time: epochSeconds(monthSpot, 18, 0),
-    done: false,
-  },
-])
+onMounted(() => {
+  void remindersStore.loadReminders()
+})
 
 function inRange(reminder: Reminder, from: Date, to: Date): boolean {
   const time = reminder.time * 1000
@@ -74,7 +37,7 @@ function inRange(reminder: Reminder, from: Date, to: Date): boolean {
 }
 
 function filterBy(from: Date, to: Date): Reminder[] {
-  return reminders.value.filter((r) => inRange(r, from, to)).sort((a, b) => a.time - b.time)
+  return remindersStore.sorted.filter((r) => inRange(r, from, to))
 }
 
 const todayItems = computed(() => filterBy(todayStart, todayEnd))
@@ -82,8 +45,7 @@ const weekItems = computed(() => filterBy(weekStart, weekEnd))
 const monthItems = computed(() => filterBy(monthStart, monthEnd))
 
 function toggle(id: string) {
-  const reminder = reminders.value.find((r) => r.id === id)
-  if (reminder) reminder.done = !reminder.done
+  void remindersStore.toggle(id)
 }
 
 const showAdd = ref(false)
@@ -103,13 +65,14 @@ function openAdd() {
   showAdd.value = true
 }
 
-function submitAdd() {
+async function submitAdd() {
   const title = newTitle.value.trim()
   if (!title || !newTime.value) return
   const time = Math.floor(new Date(newTime.value).getTime() / 1000)
   if (Number.isNaN(time)) return
-  // `filterBy` re-sorts on every render, so the new item drops into time order automatically.
-  reminders.value.push({ id: crypto.randomUUID(), title, time, done: false })
+  // `filterBy` reads the store's sorted list, so the new item lands in time order.
+  const saved = await remindersStore.add(title, time)
+  if (!saved) return
   showAdd.value = false
 }
 </script>
@@ -151,9 +114,12 @@ function submitAdd() {
       </Tabs.Root>
     </section>
 
+    <!-- Ark's render strategy replaces the old `v-if="showAdd"`: the content stays
+         unmounted until the first open and is unmounted again on close. -->
     <Dialog.Root
-      v-if="showAdd"
       :open="showAdd"
+      lazy-mount
+      unmount-on-exit
       @open-change="(details: unknown) => (showAdd = !!(details as { open?: boolean })?.open)"
     >
       <Dialog.Backdrop class="dlg-back" />
