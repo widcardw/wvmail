@@ -6,7 +6,8 @@ description: Detecting date/time expressions inside email bodies, highlighting t
 
 A message that says `3月5日下午3点 评审` or `Board call Mar 5, 2026 at 3:30 PM` renders those
 moments as clickable chips. Clicking one opens a confirmation dialog prefilled with the mail's
-subject and the resolved time; confirming stores a reminder.
+subject and the resolved time; confirming stores a reminder. When the detected moment is already in
+the past the dialog says so (that chip can still be kept as a note, but it will not fire).
 
 ```
 email body ──▶ sanitizeEmailHtml()                       ──▶ shadow body
@@ -47,17 +48,74 @@ On top of the parsers we filter, because a *highlight* is a promise that somethi
 - **Nothing glued to a bigger number.** A match may not start right after a digit, `.` or currency
   symbol, nor end right before a digit. (`1.5 小时之后` is why the `.` case exists — chrono reads it
   as `5 小时之后`.)
-- **Plausibility window.** Past matches (older than a minute) are dropped; so are matches more than
-  five years out. Relative mentions already roll forward via `forwardDate: true`.
+- **Plausibility window, measured against the message.** A moment may sit up to a year *before* the
+  message's own date and up to five years after it; only long-past context is dropped. The window is
+  deliberately wide because deadlines are routinely mentioned after the fact ("The review deadline
+  has been extended to September 28, 2026, at 23:59 AoE (UTC-12)" arrives days later), and because
+  judging "past" against the wall clock hides every timestamp in an old message — that bug is also
+  why `2026-09-25 11:28:04 UTC+08:00` used to be reduced to its `08:00` fragment: the full match
+  looked "past" while the offset tail rolled forward to tomorrow. The constant is `PAST_GRACE_MS` in
+  `composables/date-mentions.ts` if the noise ever outweighs the misses.
 - **One chip per moment.** Overlapping candidates collapse: most certain fields, then longest text,
   then the UI language's parser.
+- **Halves of one expression are glued back together.** chrono returns `by 3 Oct (23:59 PST)` as two
+  results — the bracket stops it joining the day to the clock time, and the second half even swallows
+  the stray `)` — so neighbouring *complementary* mentions (one with a day and no time, one with a
+  time and no day) separated only by punctuation/brackets/whitespace or the connectives `at`/`on` are
+  re-read as a single expression with the brackets blanked out (same length, so offsets still map).
+  The joined text must parse as exactly one day+time mention, otherwise both halves stay as they
+  were. That is also what makes `3 Oct 23:59 PST` resolve on October 3rd instead of "tomorrow", and
+  it fixes `3:30 PM on Mar 5` counting as two chips.
 
 Deliberately **out of scope** (say the word before reaching for more regex): ranges
-(`3月5-7日`), durations (`两周后`), recurrence, timezones, lunar dates. chrono-node handles a few of
+(`3月5-7日`), durations (`两周后`), recurrence, lunar dates.
+
+**Timezones are applied** (see below), because a deadline printed in another zone is off by most of a
+day if you read the clock time as local. chrono-node handles a few of
 those already, but we do not promise them.
 
+### Timezones
+
+The clock time a message prints may belong to another zone (`23:59 AoE`, `15:00 CET`, `(UTC+05:30)`).
+Left alone, that instant lands hours off — for `AoE` it is a full 20 hours in UTC+8. Two mechanisms
+cover it:
+
+- **chrono handles what it knows** (`UTC+08:00` glued to the time, `CET`, even `(UTC+05:30)`) and
+  returns the correct instant; we only read the trailing zone expression back out so the dialog can
+  label it.
+- **Everything else goes through `ZONE_OFFSETS`** — a curated table of the names chrono does not know
+  (`aoe` = UTC-12, plus PT/ET/CT/MT, JST/KST/HKT/SGT/IST, AEST/NZST … ). After chrono returns the
+  clock time read as *local*, the candidate is shifted by `localOffset - zoneOffset`.
+
+Rules that keep it predictable:
+
+- An **explicit offset in the text always wins** over the table, so `AoE (UTC-12)` works even if the
+  name were unknown.
+- **Two-letter names must be uppercase** (`ET`, not `et`): chrono otherwise reads "15:30 et al" as
+  Eastern Time, and French "15:00 et 16:00" would inherit a bogus offset. A match whose zone token is
+  a lowercase two-letter word is dropped.
+- `CST` is ambiguous on purpose-resolved: China Standard Time (+8) in a zh UI, US Central (-6)
+  otherwise (`AMBIGUOUS_ZONES`).
+- The chip covers the whole expression (`September 28, 2026, at 23:59 AoE (UTC-12)`), and the dialog
+  says *"原文写的是 AoE (UTC-12)，已换算成本地时间"* so a converted time never looks like a typo.
+
+The table is a curated shortlist rather than an exhaustive one: a wrong offset is visible in the
+dialog, but a long tail of ambiguous abbreviations would make that noise constant.
+
+**The reference moment is the message's date, not "now".** `EmailDetail.sanitizeOptions()` passes
+`detail.date` (falling back to the clock when it is missing), so relative words follow the message
+("明天" in a March mail lands on March 2nd), the plausibility window moves with it, and `forwardDate`
+resolves a bare `9:05` against that morning.
+
 `frontend/tests/date-mentions.test.mts` is table-driven with a fixed reference date
-(2026-03-01 10:00, a Sunday): **a new format is one new row**, not a new branch.
+(2026-03-01 10:00, a Sunday): **a new format is one new row**, not a new branch. To check a string
+from a real message:
+
+```bash
+cd frontend && node --input-type=module -e "
+import { findDateMentions } from './src/composables/date-mentions.ts'
+console.log(findDateMentions(process.argv[1], { locale: 'zh-CN' }))" '待测文本'
+```
 
 ## Highlighting
 
@@ -74,6 +132,11 @@ Two properties of this pass matter:
 - It runs **after** `rehypeSanitize`, like the CSS and remote-content passes. The schema therefore
   needs no `span`/`data-*` allowance, and an email cannot fake a chip: `class="date-mention"` and
   `data-remind-at` are stripped from the message's own markup (covered by the sanitizer tests).
+- The walker skips `a`, `style`, `script` and `noscript` — but **not** `pre`/`code`. The auto-link pass
+  skips those two to avoid mangling code samples; here that would have killed the feature for whole
+  senders, because plenty of real mail is plain text wrapped in a single `<pre>` (every Microsoft CMT
+  notification: `<!DOCTYPE html>…<body><pre style="font-family: monospace">…`). A chip inside a code
+  snippet is the cheaper mistake.
 - Its options (enabled / locale / reference clock / tooltip formatter) are read through a closure
   per call, exactly like the blocked-image label, because the pipeline itself is cached per
   remote-content mode.
@@ -85,6 +148,26 @@ broadly. Text-only messages get the same chips via `linkifyPlainText(text, menti
 `EmailDetail.handleLinkClick` is the single click entry point: it scans `event.composedPath()` for
 `[data-remind-at]` first (a chip inside a link still counts as a chip), then falls back to the
 existing external-link dialog.
+
+### Debugging a message that was not detected
+
+Read the cached body straight out of SQLite and run the detector on it (read-only query):
+
+```bash
+DB="$HOME/Library/Application Support/wvmail/cache.db"
+sqlite3 -readonly "$DB" "SELECT uid, subject, date, length(body_text), length(body_html) FROM cached_email_bodies WHERE subject LIKE '%<keyword>%';"
+sqlite3 -readonly "$DB" "SELECT body_html FROM cached_email_bodies WHERE uid=<uid>;" > /tmp/mail.html
+cd frontend && node --input-type=module -e "
+import { readFileSync } from 'node:fs'
+import { sanitizeEmailHtml } from './src/composables/html-sanitize.ts'
+const html = readFileSync('/tmp/mail.html', 'utf8')
+const out = sanitizeEmailHtml(html, { mentions: { enabled: true, locale: 'zh-CN', now: new Date('<mail date>') } })
+console.log(out.html.match(/<span class=\"date-mention\"[^>]*>[^<]*<\/span>/g) ?? 'no chips')
+"
+```
+
+`body_html` being plain text is normal (see the `pre` note above) — the definitive check is whether
+`findDateMentions(rawText, { now: mailDate })` finds it and `sanitizeEmailHtml` then drops it.
 
 ## Storage
 

@@ -32,6 +32,8 @@ const zhCN: TranslationSchema = {
   'mail.remind.added': '已添加到提醒事项',
   'mail.remind.failed': '添加提醒失败',
   'mail.remind.hover': '点击加入提醒事项：',
+  'mail.remind.past': '这个时间已经过去了：现在添加不会再触发提醒，可以先把上面的时间改到未来',
+  'mail.remind.zone': '原文写的是 {zone}，已换算成本地时间',
   'mail.attachment': '个附件',
   'mail.attachments': '个附件',
   'mail.inline_image': '内嵌',

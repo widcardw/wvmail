@@ -16,6 +16,8 @@ const props = defineProps<{
   at: number
   /** The text the detector matched, shown so the user can judge the guess. */
   text: string
+  /** Timezone named in that text, when the detector had to convert from it. */
+  zone: string
   /** Suggested reminder title — the mail's subject. */
   suggestedTitle: string
 }>()
@@ -50,6 +52,12 @@ watch(
 )
 
 const canSave = computed(() => title.value.trim().length > 0 && time.value.length > 0)
+
+/** The detector accepts moments around the mail's date, so a chip can point at the past. */
+const isPast = computed(() => {
+  const at = new Date(time.value).getTime()
+  return !Number.isNaN(at) && at < Date.now()
+})
 
 function close() {
   emit('update:open', false)
@@ -98,9 +106,10 @@ async function save() {
           </header>
 
           <div class="dlg-body">
-            <p class="dlg-desc">{{ t['mail.remind.body'] }}</p>
-            <p class="quote">{{ props.text }}</p>
-
+            <Field.Root class="field" :disabled="true">
+              <Field.Label class="field__label">{{ t['mail.remind.body'] }}</Field.Label>
+              <Field.Input class="ctl" :model-value="props.text" />
+            </Field.Root>
             <Field.Root class="field">
               <Field.Label class="field__label">{{ t['mail.remind.field.title'] }}</Field.Label>
               <Field.Input
@@ -111,7 +120,13 @@ async function save() {
             </Field.Root>
             <Field.Root class="field">
               <Field.Label class="field__label">{{ t['mail.remind.field.time'] }}</Field.Label>
-              <Field.Input v-model="time" class="ctl" type="datetime-local" />
+              <Field.Input v-model="time" class="ctl datetime" type="datetime-local" />
+              <Field.HelperText v-if="props.zone" class="field__hint">
+                {{ t['mail.remind.zone'].replace('{zone}', props.zone) }}
+              </Field.HelperText>
+              <Field.HelperText v-if="isPast" class="field__hint field__hint--warn">
+                {{ t['mail.remind.past'] }}
+              </Field.HelperText>
             </Field.Root>
           </div>
 
@@ -135,13 +150,7 @@ async function save() {
 .ctl {
   width: 100%;
 }
-.quote {
-  margin: 0 0 12px;
-  padding: 6px 8px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: var(--n-action-color);
-  border-radius: 6px;
-  word-break: break-all;
+.field__hint--warn {
+  color: var(--color-warning);
 }
 </style>

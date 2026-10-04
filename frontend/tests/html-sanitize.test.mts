@@ -28,12 +28,18 @@ console.log('remote images')
 const remoteImg = block('<img src="http://tracker.example/p.png" alt="a">')
 check('block: src removed', !/tracker\.example/.test(remoteImg.html))
 check('block: counted', remoteImg.blockedRemote === 1)
-check('block: becomes a styled placeholder span', /<span[^>]*class="remote-blocked"/.test(remoteImg.html))
+check(
+  'block: becomes a styled placeholder span',
+  /<span[^>]*class="remote-blocked"/.test(remoteImg.html),
+)
 check('block: marker kept for styling/tests', /data-remote-blocked/.test(remoteImg.html))
 check('block: alt text stays visible', />a<\/span>/.test(remoteImg.html))
 check('block: no broken <img> left', !/<img/.test(remoteImg.html))
 const allowedImg = allow('<img src="http://t.example/p.png">')
-check('allow: src kept and not counted', allowedImg.html.includes('t.example/p.png') && allowedImg.blockedRemote === 0)
+check(
+  'allow: src kept and not counted',
+  allowedImg.html.includes('t.example/p.png') && allowedImg.blockedRemote === 0,
+)
 
 console.log('placeholder sizing')
 const tracker = block('<img src="http://t.example/px.gif" width="1" height="1">')
@@ -55,10 +61,16 @@ const labelled = sanitizeEmailHtml('<img src="http://t.example/x.png">', {
   allowRemote: false,
   blockedImageLabel: 'Remote image blocked',
 })
-check('block: placeholder tooltip is the caller label', labelled.html.includes('title="Remote image blocked"'))
+check(
+  'block: placeholder tooltip is the caller label',
+  labelled.html.includes('title="Remote image blocked"'),
+)
 
 console.log('url-bearing attributes')
-check('block: protocol-relative blocked', block('<img src="//t.example/p.png">').blockedRemote === 1)
+check(
+  'block: protocol-relative blocked',
+  block('<img src="//t.example/p.png">').blockedRemote === 1,
+)
 const picture =
   '<picture><source srcset="http://t.example/a.png 1x"><img src="http://t.example/b.png"></picture>'
 const pictureOut = block(picture)
@@ -66,9 +78,21 @@ check(
   'block: <picture><source srcset> blocked (camel-case srcSet)',
   pictureOut.blockedRemote === 2 && !/t\.example/.test(pictureOut.html),
 )
-check('block: img srcset never survives', !/t\.example/.test(block('<img srcset="http://t.example/a.png 1x">').html))
-check('block: video/audio/iframe dropped by schema', !/t\.example/.test(block('<video src="http://t.example/v.mp4"></video><iframe src="http://t.example/f"></iframe>').html))
-check('block: data: uri untouched', block('<img src="data:image/png;base64,AAA">').blockedRemote === 0)
+check(
+  'block: img srcset never survives',
+  !/t\.example/.test(block('<img srcset="http://t.example/a.png 1x">').html),
+)
+check(
+  'block: video/audio/iframe dropped by schema',
+  !/t\.example/.test(
+    block('<video src="http://t.example/v.mp4"></video><iframe src="http://t.example/f"></iframe>')
+      .html,
+  ),
+)
+check(
+  'block: data: uri untouched',
+  block('<img src="data:image/png;base64,AAA">').blockedRemote === 0,
+)
 check('block: relative url untouched', block('<img src="/local.png">').html.includes('/local.png'))
 // Embedded (CID) images are delivered inside the message — the backend has already
 // turned them into data: URIs, so they cause no request and are deliberately kept.
@@ -77,24 +101,51 @@ check('block: cid: reference kept', block('<img src="cid:logo@example">').blocke
 
 console.log('inline style')
 const cssRemote = block('<div style="background:url(http://t.example/x.png)">x</div>')
-check('block: remote url() -> none', cssRemote.html.includes('background:none') && cssRemote.blockedRemote === 1)
-check('block: comment-split url() still blocked', block('<div style="background:url(/*x*/http://t.example/x.png)">x</div>').blockedRemote === 1)
-check('block: data: url() kept', block('<div style="background:url(data:image/png;base64,AAA)">x</div>').blockedRemote === 0)
-check('allow: remote url() kept', allow('<div style="background:url(http://t.example/x.png)">x</div>').html.includes('t.example/x.png'))
+check(
+  'block: remote url() -> none',
+  cssRemote.html.includes('background:none') && cssRemote.blockedRemote === 1,
+)
+check(
+  'block: comment-split url() still blocked',
+  block('<div style="background:url(/*x*/http://t.example/x.png)">x</div>').blockedRemote === 1,
+)
+check(
+  'block: data: url() kept',
+  block('<div style="background:url(data:image/png;base64,AAA)">x</div>').blockedRemote === 0,
+)
+check(
+  'allow: remote url() kept',
+  allow('<div style="background:url(http://t.example/x.png)">x</div>').html.includes(
+    't.example/x.png',
+  ),
+)
 
 console.log('style blocks')
-const styleBlock = block('<style>@import url(http://evil/x.css); .a{background:url(http://evil/t.gif)}</style><p>x</p>')
+const styleBlock = block(
+  '<style>@import url(http://evil/x.css); .a{background:url(http://evil/t.gif)}</style><p>x</p>',
+)
 check('block: @import + url() counted', styleBlock.blockedRemote === 2)
 check('block: no remote reference left', !/evil/.test(styleBlock.html))
-const styleAllowed = allow('<style>@import url(http://evil/x.css); .a{background:url(http://evil/t.gif)}</style>')
+const styleAllowed = allow(
+  '<style>@import url(http://evil/x.css); .a{background:url(http://evil/t.gif)}</style>',
+)
 check('allow: @import still stripped', !/@import/.test(styleAllowed.html))
 check('allow: remote background kept', styleAllowed.html.includes('evil/t.gif'))
 check('allow: no stale blocked count', styleAllowed.blockedRemote === 0)
 
 console.log('css escapes')
-check('position:fixed neutralised', block('<div style="position:fixed;top:0">x</div>').html.includes('position: static'))
-check('behavior stripped', !/behavior/i.test(block('<div style="behavior:url(x.htc)">x</div>').html))
-check('expression() stripped', !/expression/i.test(block('<div style="width:expression(alert(1))">x</div>').html))
+check(
+  'position:fixed neutralised',
+  block('<div style="position:fixed;top:0">x</div>').html.includes('position: static'),
+)
+check(
+  'behavior stripped',
+  !/behavior/i.test(block('<div style="behavior:url(x.htc)">x</div>').html),
+)
+check(
+  'expression() stripped',
+  !/expression/i.test(block('<div style="width:expression(alert(1))">x</div>').html),
+)
 
 console.log('markup attacks')
 check('script removed', !/<script/i.test(block('<script>alert(1)</script><p>ok</p>').html))
@@ -119,7 +170,9 @@ check('mention has a tooltip', mentioned.html.includes('add reminder'))
 check('mention css injected', mentioned.html.includes('.date-mention'))
 check(
   'no mention markup when disabled',
-  !/<span class="date-mention"/.test(sanitizeEmailHtml('<p>3月5日下午3点</p>', { allowRemote: false }).html),
+  !/<span class="date-mention"/.test(
+    sanitizeEmailHtml('<p>3月5日下午3点</p>', { allowRemote: false }).html,
+  ),
 )
 check(
   'dates inside links are left alone',
@@ -130,9 +183,23 @@ check(
     }).html,
   ),
 )
+// Plain-text senders wrap the whole message in a <pre>; that must still be scanned.
+const cmtStyle = sanitizeEmailHtml(
+  '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre style="font-family: monospace">The review deadline has been extended to September 28, 2026, at 23:59 AoE (UTC-12).</pre></body></html>',
+  {
+    allowRemote: false,
+    mentions: { ...mentionOptions, locale: 'en-US', now: new Date(2026, 8, 27, 15, 0) },
+  },
+)
 check(
-  'dates inside code are left alone',
-  !/<span class="date-mention"/.test(
+  'dates inside a <pre>-wrapped body are wrapped',
+  /<span class="date-mention"/.test(cmtStyle.html),
+)
+check('pre-wrapped date keeps its text', cmtStyle.html.includes('September 28, 2026, at 23:59'))
+check('chip carries the converted zone', cmtStyle.html.includes('data-remind-zone="AoE (UTC-12)"'))
+check(
+  'dates inside code are still scanned (documented tradeoff)',
+  /<span class="date-mention"/.test(
     sanitizeEmailHtml('<code>3月5日</code>', { allowRemote: false, mentions: mentionOptions }).html,
   ),
 )

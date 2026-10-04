@@ -90,6 +90,21 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
 other controls. Bind with `:checked` + `@update:checked="…"`.
 
+**Trap — `Splitter` + overlays.** Both splitters used `Splitter.createRegistry()` (its
+`hitAreaMargins` make a 1px seam easy to grab). The registry hit-tests every `pointerdown` from a
+*document-capture* listener and is meant to ignore handles that sit under a higher element, but that
+check calls `getComputedStyle()` on the `document` node, throws, and is swallowed — so an open modal
+dialog could not stop a drag (`RemindFromMailDialog`: the sidebar seam stayed draggable behind the
+backdrop). `mail-split.module.css` now draws the seam with `::before` inside a 5px transparent
+trigger (2px negative margin each side ⇒ identical layout) and no registry is passed, so the drag
+starts from a real pointerdown that the `.dlg-back` overlay blocks.
+
+**Disabled state has one recipe** (`styles/ui.css`, "Disabled controls"): the fill drops to
+`--n-body-color`, the text to `--color-text-3`, and the cursor becomes `not-allowed`. Ark gives us
+both hooks — `data-disabled` on the part it owns (`.num`, `.pw`, `.switch`, `.checkbox`,
+`.u-trigger`) and a real `disabled` on inputs — and `Field` marks its label/helper text, so a whole
+row dims together. A new wrapper must adopt it, otherwise its disabled state looks editable.
+
 `UiNumberInput` / `UiPasswordInput` contracts differ on purpose: NumberInput is **controlled** (Ark emits
 `value-change`, so the wrapper emits `value: [number]` — no DOM event), PasswordInput keeps the native
 `value` + `@input="(event: Event)"` contract so it drops into existing handlers.

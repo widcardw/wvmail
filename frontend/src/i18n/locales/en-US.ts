@@ -32,6 +32,9 @@ const enUS: TranslationSchema = {
   'mail.remind.added': 'Added to reminders',
   'mail.remind.failed': 'Could not add the reminder',
   'mail.remind.hover': 'Click to add a reminder: ',
+  'mail.remind.past':
+    'That moment is already past — a reminder added now will not fire. Adjust the time above if you need it.',
+  'mail.remind.zone': 'The message wrote {zone} — converted to your local time',
   'mail.attachment': 'attachment',
   'mail.attachments': 'attachments',
   'mail.inline_image': 'inline',
@@ -93,7 +96,8 @@ const enUS: TranslationSchema = {
   'settings.common.quitWhenClose': 'Quit app',
   'settings.common.actionOnClose': 'Action on closing main window',
   'settings.common.detectDates': 'Detect dates in mail',
-  'settings.common.detectDatesHint': 'Highlight dates and times in the body; click one to add a reminder',
+  'settings.common.detectDatesHint':
+    'Highlight dates and times in the body; click one to add a reminder',
   'settings.accounts': 'Accounts',
   'settings.accounts.add': 'Add Account',
   'settings.accounts.edit': 'Edit Account',

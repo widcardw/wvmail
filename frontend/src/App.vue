@@ -14,8 +14,6 @@ import SideBar from './components/sidebar/SideBar.vue'
 import ToastHost from './components/ToastHost.vue'
 import splitStyles from './components/mail-split.module.css'
 
-const appRegistry = Splitter.createRegistry()
-
 const theme = useThemeStore()
 const localeStore = useLocaleStore()
 const preferences = usePreferencesStore()
@@ -50,7 +48,6 @@ onMounted(async () => {
           :class="splitStyles.root"
           :panels="[{ id: 'side', minSize: 8, maxSize: 34 }, { id: 'main' }]"
           :default-size="[16, 84]"
-          :registry="appRegistry"
         >
           <Splitter.Panel :class="splitStyles.panel" id="side">
             <aside class="app-sider"><SideBar /></aside>

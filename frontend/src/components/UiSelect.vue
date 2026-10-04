@@ -94,11 +94,13 @@ function onValueChange(details: { value: string[] }) {
   text-align: left;
   font-family: inherit;
 }
-.u-trigger:hover {
+.u-trigger:hover:not([data-disabled]) {
   border-color: var(--n-primary-color);
 }
+/* Same disabled recipe as the inputs in ui.css: muted fill + muted text. */
 .u-trigger[data-disabled] {
-  opacity: 0.5;
+  color: var(--color-text-3);
+  background: var(--color-hover);
   cursor: not-allowed;
 }
 .u-value {

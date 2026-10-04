@@ -141,6 +141,41 @@
   border-color: var(--n-primary-color);
 }
 
+/* --- Native date+time field (the reminder pickers) ---
+   WKWebView's `input[type='datetime-local']` already edits date *and* time segments in
+   place, so both dialogs keep the native control; this only aligns it with our inputs
+   and makes the picker popup + calendar button follow the theme. `color-scheme` is
+   scoped to this class so the rest of the app's native widgets stay untouched. */
+.datetime {
+  color-scheme: light;
+}
+[data-theme='dark'] .datetime {
+  color-scheme: dark;
+}
+.datetime::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+}
+.datetime::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+.datetime::-webkit-datetime-edit {
+  padding: 0 2px;
+}
+.datetime::-webkit-datetime-edit-fields-wrapper {
+  gap: 1px;
+}
+.datetime::-webkit-datetime-edit-day-field:focus,
+.datetime::-webkit-datetime-edit-month-field:focus,
+.datetime::-webkit-datetime-edit-year-field:focus,
+.datetime::-webkit-datetime-edit-hour-field:focus,
+.datetime::-webkit-datetime-edit-minute-field:focus {
+  color: var(--n-text-color);
+  background: color-mix(in srgb, var(--n-primary-color) 22%, transparent);
+  border-radius: 3px;
+  outline: none;
+}
+
 /* --- Field rows & labels (two variants keep same look) --- */
 .row__label,
 .flabel {
@@ -149,6 +184,46 @@
   font-size: 13px;
   color: var(--color-text-2);
   line-height: 2.15;
+}
+
+/* --- Disabled controls: one look everywhere ---
+   Three hooks describe the same state: Ark marks the part it owns (`data-disabled` on
+   a trigger/root/control), a real input gets `disabled`, and a disabled `Field.Root`
+   also marks its label + helper text — so a whole row dims together. Without this a
+   disabled field looked exactly like an editable one.
+
+   The muted fill is the neutral overlay token, not a "muted surface" token: the latter
+   is lighter in light mode and darker in dark mode, so it would only read as disabled
+   in one of the two themes.
+
+   The last selector is a safety net for a control that never received `disabled`
+   (`Field` propagates it to Ark controls, but a hand-written `<input>` inside a
+   disabled `Field.Root` would otherwise keep looking editable); `:not(:disabled)`
+   keeps it from fading such a control twice. */
+.ctl:disabled,
+.input:disabled,
+.pw__input:disabled,
+.num[data-disabled],
+[data-scope='field'][data-part='root'][data-disabled] :is(input, textarea, select):not(:disabled) {
+  color: var(--color-text-3);
+  background: var(--color-hover);
+  cursor: not-allowed;
+}
+/* The eye toggle must not light up on hover once it is disabled. */
+.pw__toggle:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.switch[data-disabled],
+.checkbox[data-disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+[data-scope='field'][data-part='label'][data-disabled],
+[data-scope='field'][data-part='helper-text'][data-disabled],
+[data-scope='switch'][data-part='root'][data-disabled] [data-part='label'],
+[data-scope='checkbox'][data-part='root'][data-disabled] [data-part='label'] {
+  color: var(--color-text-3);
 }
 
 /* --- Stacked field (dialog / narrow forms): label above control --- */
@@ -186,9 +261,6 @@
 .switch[data-focus-visible] {
   outline: 2px solid var(--n-primary-color);
   outline-offset: 2px;
-}
-.switch[data-disabled] {
-  opacity: 0.5;
 }
 .switch__thumb {
   width: 18px;
@@ -493,9 +565,6 @@ button.model-tag:hover {
 .num[data-focus] {
   border-color: var(--n-primary-color);
 }
-.num[data-disabled] {
-  opacity: 0.55;
-}
 .num__input {
   flex: 1 1 auto;
   min-width: 0;
@@ -532,11 +601,10 @@ button.model-tag:hover {
 .num__btn + .num__btn {
   border-top: 1px solid var(--n-border-color);
 }
-.num__btn:hover {
+.num__btn:hover:not(:disabled) {
   color: var(--n-text-color);
   background: var(--n-sidebar-hover);
 }
 .num__btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  cursor: not-allowed; /* the control's disabled opacity fades the steppers with it */
 }

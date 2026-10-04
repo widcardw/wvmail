@@ -63,6 +63,17 @@ const plainBodyHtml = computed(() => {
   return linkifyPlainText(text, sanitizeOptions().mentions)
 })
 
+/**
+ * Reference for date detection: when the message was sent, not the clock. A mail
+ * from last month saying "明天" must resolve to the day after *that* day, and its
+ * own timestamps must not look like history just because we read it later.
+ */
+function mailReferenceDate(): Date {
+  const raw = detail.value?.date
+  const sent = raw ? new Date(raw) : null
+  return sent && !Number.isNaN(sent.getTime()) ? sent : new Date()
+}
+
 /** Shared sanitize options: blocked-image tooltips follow the UI language. */
 function sanitizeOptions() {
   return {
@@ -73,7 +84,7 @@ function sanitizeOptions() {
     mentions: {
       enabled: preferences.detectDatesInMail,
       locale: localeStore.current,
-      now: new Date(),
+      now: mailReferenceDate(),
       label: (at: Date) =>
         `${t.value['mail.remind.hover']}${formatDate(at.toISOString(), localeStore.current)}`,
     },
@@ -231,6 +242,8 @@ const pendingUrl = ref('')
 const remindOpen = ref(false)
 const remindAt = ref(0)
 const remindText = ref('')
+/** Timezone the sentence named, when the detector converted from it. */
+const remindZone = ref('')
 
 /** First element on the event path that the detector tagged as a moment. */
 function findMention(path: EventTarget[]): HTMLElement | null {
@@ -249,6 +262,7 @@ async function handleLinkClick(event: MouseEvent) {
     if (!Number.isFinite(epoch) || epoch <= 0) return
     remindAt.value = epoch
     remindText.value = mention.dataset.remindText || mention.textContent || ''
+    remindZone.value = mention.dataset.remindZone || ''
     remindOpen.value = true
     return
   }
@@ -387,11 +401,7 @@ const showAttachments = computed(
             :html="sanitizedBodyHtml"
             :dark="isDarkMode"
           />
-          <EmailShadowBody
-            v-else-if="plainBodyHtml"
-            :html="plainBodyHtml"
-            :dark="isDarkMode"
-          />
+          <EmailShadowBody v-else-if="plainBodyHtml" :html="plainBodyHtml" :dark="isDarkMode" />
           <div v-else class="centerpad-empty">(No content)</div>
         </div>
 
@@ -421,6 +431,7 @@ const showAttachments = computed(
       v-model:open="remindOpen"
       :at="remindAt"
       :text="remindText"
+      :zone="remindZone"
       :suggested-title="detail?.subject || ''"
     />
   </Teleport>

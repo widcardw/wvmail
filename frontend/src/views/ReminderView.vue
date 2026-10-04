@@ -138,7 +138,7 @@ async function submitAdd() {
           </Field.Root>
           <Field.Root class="d-field">
             <Field.Label class="d-label">{{ t['reminders.field.time'] }}</Field.Label>
-            <Field.Input v-model="newTime" class="input d-input" type="datetime-local" />
+            <Field.Input v-model="newTime" class="input d-input datetime" type="datetime-local" />
           </Field.Root>
           <div class="dlg-actions">
             <button type="button" class="btn" @click="showAdd = false">

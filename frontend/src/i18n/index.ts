@@ -35,6 +35,8 @@ export interface TranslationSchema {
   'mail.remind.added': string
   'mail.remind.failed': string
   'mail.remind.hover': string
+  'mail.remind.past': string
+  'mail.remind.zone': string
   'mail.attachment': string
   'mail.attachments': string
   'mail.inline_image': string

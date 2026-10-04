@@ -56,14 +56,24 @@ export interface MentionRenderOptions {
   label?: (at: Date) => string
 }
 
-/** Elements whose text is never scanned for date/time mentions. */
-const NO_MENTION_TAGS = new Set(['a', 'style', 'script', 'pre', 'code', 'noscript'])
+/**
+ * Elements whose text is never scanned for date/time mentions.
+ *
+ * `pre`/`code` are deliberately NOT here (unlike the auto-link pass): plenty of real
+ * mail — every Microsoft CMT notification, for one — is plain text wrapped in a
+ * single `<pre>`, so skipping it silently disabled the feature for whole senders.
+ * A chip inside a code snippet is harmless noise next to that.
+ */
+const NO_MENTION_TAGS = new Set(['a', 'style', 'script', 'noscript'])
 
 /**
  * Wrap detected date/time mentions in a `<span class="date-mention">` carrying the
  * resolved moment, so the mail view can offer "add to reminders" on click. Runs
  * after sanitising (like the CSS/remote passes), so its own markup never has to
  * survive the schema — and email markup can never fake a mention.
+ *
+ * Note this runs on `body_html` even when that is really plain text (CMT and friends
+ * ship `<pre>`-wrapped text): the parser turns it into text nodes like any other body.
  */
 function rehypeDateMentions(read: () => MentionRenderOptions) {
   return (tree: Root) => {
@@ -127,6 +137,9 @@ function mentionNodes(
       dataRemindAt: String(mention.epoch),
       dataRemindText: mention.text,
     }
+    // Only set when the text named a timezone we converted from — the dialog then
+    // explains why the time it shows differs from the sentence.
+    if (mention.zone) properties.dataRemindZone = mention.zone
     if (options.label) properties.title = options.label(mention.at)
     result.push({
       type: 'element',
@@ -598,9 +611,7 @@ function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): Em
   }
   entry.setImageLabel(options.blockedImageLabel ?? '')
   const mentions = options.mentions
-  entry.setMentionOptions(
-    mentions ?? { enabled: false, locale: 'en-US', now: new Date(0) },
-  )
+  entry.setMentionOptions(mentions ?? { enabled: false, locale: 'en-US', now: new Date(0) })
   const result = entry.processor.processSync(html)
   const blockedRemote = entry.takeBlocked()
   return {

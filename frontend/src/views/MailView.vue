@@ -6,8 +6,6 @@ import EmailList from '~/components/list/EmailList.vue'
 import EmailDetail from '~/components/detail/EmailDetail.vue'
 import styles from '~/components/mail-split.module.css'
 
-const registry = Splitter.createRegistry()
-
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
 
@@ -22,7 +20,6 @@ const active = () =>
       :class="styles.root"
       :panels="[{ id: 'list', minSize: 18, maxSize: 55 }, { id: 'detail' }]"
       :default-size="[28, 72]"
-      :registry="registry"
     >
       <Splitter.Panel :class="styles.panel" id="list">
         <EmailList />

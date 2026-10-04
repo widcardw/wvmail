@@ -12,32 +12,51 @@
 }
 
 /*
- The split seam is the ResizeTrigger itself: it is the single 1px that sits between
- the two (fully opaque, adjacent) panels. So content — including any edge accent —
- is flush with the seam on both sides: there is no extra gutter column to the right
- of the line. The visible affordance is a small center knob that floats on the line
- (it does not affect layout / spacing).
- Dedicated grab width is widened invisibly by Ark's registry hitAreaMargins (both
- splitters pass `Splitter.createRegistry()`), so a 1px line is still easily grabbed.
+ The visible seam is a 1px line drawn by ::before, centred in a slightly wider
+ transparent hit area — that is what makes the line easy to grab without a gutter.
+
+ The hit area is the trigger element itself, NOT Ark's `registry`
+ (`Splitter.createRegistry()`): the registry hit-tests every pointerdown from a
+ document-capture listener and is supposed to ignore handles that sit under a
+ stacking-order-wise higher element, but that guard calls
+ `getComputedStyle()` on the `document` node, throws, and is swallowed — so an open
+ modal dialog could NOT stop a drag. With the registry gone a drag starts from a real
+ pointerdown on this element, which a fixed overlay (`.dlg-back`) intercepts.
+
+ Layout is unchanged: 5px of box minus 2px negative margin each side = the same +1px
+ the old 1px trigger took, so panel sizes and panel content are untouched.
 */
 .trigger {
   position: relative;
-  width: 1px;
-  flex: 0 0 1px; /* keep the layout as exactly +1px; no detonate column */
+  z-index: 1;
+  width: 5px;
+  flex: 0 0 5px;
+  margin: 0 -2px;
   align-self: stretch;
-  background: var(--n-border-color);
+  background: transparent;
   cursor: col-resize;
   border: none;
-  margin: 0;
   padding: 0;
   outline: none;
   touch-action: none;
 }
 
+/* the seam line itself, centred in the (invisible) grab area */
+.trigger::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--n-border-color);
+}
+
 /* small, but clearly visible, center drag knob centred on the seam */
 .indicator {
   position: absolute;
-  left: 0;
+  left: 50%;
   top: 50%;
   width: 5px;
   height: 34px;
