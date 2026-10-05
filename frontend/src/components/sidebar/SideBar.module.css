@@ -76,6 +76,10 @@
 }
 
 .folderText {
+  /* `flex: 1` + `min-width: 0` so a long folder name ellipsises instead of pushing the
+     unread badge out of the row (the badge is `flex: none` and keeps its size). */
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 13px;

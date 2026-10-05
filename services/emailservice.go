@@ -286,6 +286,75 @@ func (s *EmailService) UnseenCount(account EmailAccount, folder string) (int, er
 	return int(*data.NumUnseen), nil
 }
 
+// isSelectableMailbox reports whether a mailbox can be opened, and therefore STATUSed.
+// A \Noselect / \NonExistent branch only exists to hold child folders: it has no
+// messages of its own, and asking for its status is an error rather than a zero.
+func isSelectableMailbox(attrs []string) bool {
+	for _, a := range attrs {
+		lower := strings.ToLower(a)
+		if strings.Contains(lower, "noselect") || strings.Contains(lower, "nonexistent") {
+			return false
+		}
+	}
+	return true
+}
+
+// FolderUnread returns the unseen count per folder (STATUS … UNSEEN) so the sidebar can
+// badge every folder, not just the inbox the tray badge follows.
+//
+// The count cannot come from the local cache: only the pages the UI happened to load are
+// stored, so anything derived from it would quietly undercount a large mailbox. One
+// connection is opened and every STATUS is issued before any is awaited, so the whole
+// folder list costs a single round trip instead of one per folder (go-imap pipelines
+// commands on one connection).
+//
+// Folders that are not selectable, or that the server refuses to answer for, are simply
+// absent from the map — the caller reads a missing key as "nothing to badge".
+func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error) {
+	folders, err := s.db.LoadFolders(account.ID)
+	if err != nil || len(folders) == 0 {
+		// No folder list yet; the sidebar asks again once it has one.
+		return map[string]int{}, nil
+	}
+
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	type statusJob struct {
+		name string
+		cmd  *imapclient.StatusCommand
+	}
+	jobs := make([]statusJob, 0, len(folders))
+	for _, f := range folders {
+		if !isSelectableMailbox(f.Attrs) {
+			continue
+		}
+		jobs = append(jobs, statusJob{
+			name: f.Name,
+			cmd:  client.Status(f.Name, &imap.StatusOptions{NumUnseen: true}),
+		})
+	}
+
+	counts := make(map[string]int, len(jobs))
+	for _, job := range jobs {
+		data, err := job.cmd.Wait()
+		if err != nil {
+			// One mailbox the server will not talk about must not cost the others
+			// their badges.
+			slog.Debug("folder unseen count failed",
+				"account", account.ID, "folder", job.name, "error", err)
+			continue
+		}
+		if data.NumUnseen != nil && *data.NumUnseen > 0 {
+			counts[job.name] = int(*data.NumUnseen)
+		}
+	}
+	return counts, nil
+}
+
 // MarkEmailRead flags one message as seen, in the local cache and on the server.
 // Opening a message must not leave it unread forever: the list styling and the
 // tray badge both follow this state, and providers that answer STATUS UNSEEN keep
@@ -585,12 +654,40 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	}, nil
 }
 
+// isSuspiciousMail reports whether a message has to stay behind the spam gate: it was
+// listed from a spam/Junk folder, or the server itself flagged it \Junk.
+//
+// This is derived state and deliberately not part of the stored body: the cache holds the
+// flags, so the rule must be applied on the cache path as well (see FetchEmail). Applying
+// it on the fetch path only meant a spam message passed the gate on every open after the
+// first — the first open caches the body, and the cached detail had IsSuspicious false.
+func isSuspiciousMail(folder string, flags []string) bool {
+	folderLower := strings.ToLower(folder)
+	if strings.Contains(folderLower, "spam") ||
+		strings.Contains(folderLower, "junk") ||
+		strings.Contains(folderLower, "垃圾") {
+		return true
+	}
+	for _, f := range flags {
+		if strings.EqualFold(f, `\junk`) {
+			return true
+		}
+	}
+	return false
+}
+
 // FetchEmail retrieves the full content of a single email by its UID.
 // Returns cached data if available.
 func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint32) (*EmailDetail, error) {
 	// Try cache first
 	cached, err := s.db.LoadEmailBody(account.ID, folder, uid)
 	if err == nil && cached != nil {
+		// The stored row has the flags but not the verdict, so recompute it here:
+		// without this a spam message looked harmless as soon as its body was cached.
+		cached.IsSuspicious = isSuspiciousMail(folder, cached.Flags)
+		// Rows cached before inline parts were hidden still list them (see
+		// visibleAttachments); the body they came with already shows them inline.
+		cached.Attachments = visibleAttachments(cached.Attachments, nil)
 		// Bodies cached before the quoted-printable heuristic existed still hold raw
 		// escapes; repair them here so an old message does not stay broken.
 		if repairCachedEncoding(cached) {
@@ -673,18 +770,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	}
 
 	// Detect suspicious (spam/junk) email
-	folderLower := strings.ToLower(folder)
-	isSpamFolder := strings.Contains(folderLower, "spam") ||
-		strings.Contains(folderLower, "junk") ||
-		strings.Contains(folderLower, "垃圾")
-	hasJunkFlag := false
-	for _, f := range detail.Flags {
-		if strings.ToLower(f) == "\\junk" {
-			hasJunkFlag = true
-			break
-		}
-	}
-	detail.IsSuspicious = isSpamFolder || hasJunkFlag
+	detail.IsSuspicious = isSuspiciousMail(folder, detail.Flags)
 
 	// Build sender name + address from envelope
 	for _, addr := range buf.Envelope.From {
@@ -782,6 +868,10 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 						MimeType: mt,
 						Size:     p.Size,
 						PartPath: path,
+						// Inline by disposition. Whether it also stays in the list
+						// depends on the body actually showing it (see
+						// visibleAttachments).
+						IsInline: true,
 					})
 				} else if cid := p.ID; cid != "" && !strings.HasPrefix(mt, "text/") {
 					// No disposition but has Content-ID — CID-referenced inline image
@@ -814,6 +904,12 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 
 	// --- Pass 2: Fetch the discovered body sections ---
 	var sections []*imap.FetchItemBodySection
+	// Part paths whose bytes were substituted into the body as `data:` URIs; the body
+	// shows those, so they must not also sit in the attachment list. Empty (not nil) means
+	// "nothing was inlined", which keeps every inline part listed — nil is reserved for
+	// rows read back from an old cache, where the answer is unknown (see
+	// visibleAttachments).
+	renderedInline := make([][]int, 0, len(inlineImgs))
 	if len(parts) == 0 && len(attachments) == 0 {
 		sections = append(sections, &imap.FetchItemBodySection{Peek: true})
 	}
@@ -903,11 +999,28 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 					}
 				}
 				for cid, dataURI := range cidMap {
-					detail.BodyHTML = strings.ReplaceAll(detail.BodyHTML, "cid:"+cid, dataURI)
+					marker := "cid:" + cid
+					if !strings.Contains(detail.BodyHTML, marker) {
+						// Nothing in the body references this part, so the body does not
+						// show it: leave it in the attachment list (see below).
+						continue
+					}
+					detail.BodyHTML = strings.ReplaceAll(detail.BodyHTML, marker, dataURI)
+					for _, img := range inlineImgs {
+						if img.cid == cid {
+							renderedInline = append(renderedInline, img.path)
+							break
+						}
+					}
 				}
 			}
 		}
 	}
+
+	// Inline parts are rendered by the body itself; listing them as downloadable
+	// attachments as well was noise (and inflated the "N attachments" header). Parts the
+	// body never referenced stay listed, or they would be invisible everywhere.
+	detail.Attachments = visibleAttachments(attachments, renderedInline)
 
 	// Update cache (best-effort)
 	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
@@ -950,6 +1063,50 @@ func isAttachmentSection(path []int, attachments []AttachmentInfo) bool {
 		}
 	}
 	return false
+}
+
+// visibleAttachments drops the inline parts the body already renders.
+//
+// Only images count as body content: plenty of clients put a Content-ID on every part, so
+// a `.log`, `.zip` or `.pdf` can look "inline" in the structure while being a real file the
+// user has to be able to download (measured on a real sent mail whose 25 MB `.log` part
+// carries a Content-ID).
+//
+// Such an image is dropped when it is also among `rendered` — the paths whose bytes were
+// substituted into the HTML. An inline image nothing references (no `cid:` in the body)
+// stays, otherwise it would be invisible in the body *and* missing from the list.
+//
+// `rendered` is nil for rows loaded from an older cache: the substitution already happened
+// before they were stored, so the body no longer records which CIDs it consumed. There,
+// an inline image in the list is one the body shows, so all of them are dropped. An empty
+// (non-nil) slice is the opposite, known case: nothing was inlined at all — a plain-text
+// message has no body to show images in — so every inline image stays downloadable.
+func visibleAttachments(attachments []AttachmentInfo, rendered [][]int) []AttachmentInfo {
+	visible := make([]AttachmentInfo, 0, len(attachments))
+	for _, a := range attachments {
+		if a.IsInline && isImageMime(a.MimeType) {
+			if rendered == nil {
+				continue
+			}
+			shown := false
+			for _, path := range rendered {
+				if sectionPathEqual(path, a.PartPath) {
+					shown = true
+					break
+				}
+			}
+			if shown {
+				continue
+			}
+		}
+		visible = append(visible, a)
+	}
+	return visible
+}
+
+// isImageMime reports whether a part is an image, i.e. something a body can display.
+func isImageMime(mimeType string) bool {
+	return strings.HasPrefix(strings.ToLower(mimeType), "image/")
 }
 
 // quoted-printable escapes (`=3D`, `=E8`, `=09`) and the soft line break (`=` at the

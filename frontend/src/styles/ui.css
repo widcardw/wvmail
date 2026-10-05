@@ -187,9 +187,12 @@
 }
 
 /* --- Mail body bar ---
-   The strip between the message header and the body: "blocked remote content" and
-   "this body is drawn with CSS (likely spam)" both use it, so the geometry and the
-   warning tint live here instead of being copy-pasted per notice. */
+   The strip between the message header and the body: the spam gate, "blocked remote
+   content" and "this body is drawn with CSS (likely spam)" all use it, so the geometry
+   and the warning tint live here instead of being copy-pasted per notice.
+
+   The label never wraps: `white-space: nowrap` is what keeps a CJK title from breaking
+   between two characters (e.g. 不安 / 全) when the reading pane is narrow. */
 .body-bar {
   display: flex;
   align-items: center;
@@ -217,6 +220,20 @@
   display: flex;
   flex-shrink: 0;
   gap: 6px;
+}
+/* A bar with buttons gives up its second row before it gives up the label: with an
+   auto basis (and a `min-content` floor) a short label keeps its full text and the
+   buttons drop to their own line, right-aligned. Bars whose label is long and has no
+   buttons keep the cheaper ellipsis behaviour above. */
+.body-bar--with-actions {
+  flex-wrap: wrap;
+}
+.body-bar--with-actions .body-bar__text {
+  flex: 1 1 auto;
+  min-width: min-content;
+}
+.body-bar--with-actions .body-bar__actions {
+  margin-left: auto;
 }
 
 /* --- Disabled controls: one look everywhere ---
@@ -305,6 +322,28 @@
 }
 .switch[data-state='checked'] .switch__thumb {
   transform: translateX(16px);
+}
+
+/* --- Count badge (`UiBadge.vue`) ---
+   Ark UI has no Badge, so this is ours. Counts sit on the primary colour like
+   `.btn--primary` so they stay legible over every sidebar selection state, and the pill
+   is sized around 11px text; `UiBadge` renders nothing at all for a zero count, so the
+   empty case never reaches CSS. */
+.badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--n-primary-color);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Small tag/chip --- */

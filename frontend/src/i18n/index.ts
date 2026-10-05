@@ -19,7 +19,10 @@ export interface TranslationSchema {
   'sidebar.all_inbox': string
   'sidebar.all_sent': string
   'sidebar.all_drafts': string
+  'sidebar.unread': string
   'mail.selectFolder': string
+  'mail.noSubject': string
+  'mail.noContent': string
   'mail.loading': string
   'mail.page': string
   'mail.noEmails': string
@@ -59,6 +62,7 @@ export interface TranslationSchema {
   'mail.translation.translate': string
   'mail.translation.close': string
   'mail.translation.empty': string
+  'mail.translation.cancel': string
   'notes.title': string
   'notes.empty': string
   'notes.placeholder': string

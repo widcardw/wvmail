@@ -16,7 +16,10 @@
   color-scheme: light;
 
   /* --- palette (approximate Naive UI light defaults to preserve current look) --- */
-  --primary-base: e11d48;
+  /* The `#` matters: without it `--n-primary-color` is not a valid color, so every
+   * `var(--n-primary-color)` use (`.btn--primary`, `.badge`) is dropped until
+   * stores/theme.ts writes the user's own value on <html> after the config loads. */
+  --primary-base: #e11d48;
   --n-body-color: #ffffff;
   --n-text-color: #000000; /* naive textColor (base) */
   --n-action-color: #f5f6fa;

@@ -33,6 +33,16 @@ export const useAccountsStore = defineStore('accounts', () => {
   const refreshing = ref(false) // force-refresh loading state
   const testingId = ref<string | null>(null)
   const foldersByAccount = ref<Record<string, FolderInfo[]>>({})
+  /**
+   * Unseen messages per folder, from the server (STATUS UNSEEN), keyed account → folder.
+   * Only folders with something to badge are present, so a missing key means zero. (The
+   * generated binding types the values as optional, hence `| undefined`: a count is never
+   * absent and undefined at once.)
+   *
+   * It is deliberately not derived from `emailsByFolder`: only the pages the UI has
+   * loaded are cached, so that would undercount every mailbox bigger than one page.
+   */
+  const unreadByFolder = ref<Record<string, Record<string, number | undefined>>>({})
   const emailsByFolder = ref<Record<string, EmailSummary[]>>({})
   const emailTotalByFolder = ref<Record<string, number>>({})
   const currentPageByFolder = ref<Record<string, number>>({})
@@ -171,11 +181,51 @@ export const useAccountsStore = defineStore('accounts', () => {
     try {
       const folders = await EmailService.ListFolders(account)
       foldersByAccount.value[account.ID] = folders
+      // Badges are per folder, so they are only worth fetching once the folder list is
+      // known (the backend STATUSes exactly the folders it has cached).
+      void loadFolderUnread(account)
     } catch (e) {
       // Keep whatever was already loaded: emptying the list made a transient
       // failure look like "this account has no folders".
       reportFetchFailure('Failed to load folders', e)
     }
+  }
+
+  /** Unread count of one folder, 0 when there is nothing to badge. */
+  function folderUnread(accountId: string, folder: string): number {
+    return unreadByFolder.value[accountId]?.[folder] ?? 0
+  }
+
+  // One IMAP connection per refresh, so sync ticks and folder clicks must not stack up.
+  const unreadInflight = new Set<string>()
+  const unreadFetchedAt: Record<string, number> = {}
+  const UNREAD_MIN_INTERVAL_MS = 30_000
+
+  /**
+   * Refresh the per-folder unread counts from the server. Failures are logged only:
+   * badges are decoration, and the previous counts are still the best guess.
+   */
+  async function loadFolderUnread(account: EmailAccount, force = false) {
+    if (unreadInflight.has(account.ID)) return
+    if (!force && Date.now() - (unreadFetchedAt[account.ID] ?? 0) < UNREAD_MIN_INTERVAL_MS) return
+    unreadInflight.add(account.ID)
+    try {
+      const counts = await EmailService.FolderUnread(account)
+      unreadByFolder.value[account.ID] = counts ?? {}
+      unreadFetchedAt[account.ID] = Date.now()
+    } catch (e) {
+      console.error('Failed to load folder unread counts', e)
+    } finally {
+      unreadInflight.delete(account.ID)
+    }
+  }
+
+  /** Optimistic ±1 for one folder, clamped at zero (used while flagging read). */
+  function adjustUnread(accountId: string, folder: string, delta: number) {
+    const counts = unreadByFolder.value[accountId] ?? {}
+    const current = counts[folder] ?? 0
+    if (current === 0 && delta < 0) return
+    unreadByFolder.value[accountId] = { ...counts, [folder]: Math.max(0, current + delta) }
   }
 
   async function loadEmails(account: EmailAccount, folder: string, page = 1, ps = pageSize) {
@@ -293,6 +343,10 @@ export const useAccountsStore = defineStore('accounts', () => {
   onMounted(() => {
     unlisten = Events.On('emails-synced', (event) => {
       const syncedAccountId = event.data as string
+      // New mail lands in the folders too: refresh that account's badges (throttled,
+      // and one connection for the whole folder list).
+      const synced = accounts.value.find((a) => a.ID === syncedAccountId)
+      if (synced) void loadFolderUnread(synced)
       // If the synced account is currently selected, refresh the current folder
       if (syncedAccountId === selectedAccountId.value && selectedFolder.value) {
         const account = selectedAccount.value
@@ -358,10 +412,17 @@ export const useAccountsStore = defineStore('accounts', () => {
     )
     if (summary?.is_read) return // already read, nothing to do
     if (summary) summary.is_read = true
+    // Adjust the badge only when the message came from the loaded page: a search or
+    // aggregate hit is not in `emailsByFolder` at all, so its read state is unknown and
+    // guessing would take a count off a folder that may never have had it. The next
+    // throttled refresh settles it.
+    const knownUnread = summary !== undefined
+    if (knownUnread) adjustUnread(account.ID, folder, -1)
     try {
       await EmailService.MarkEmailRead(account, folder, uid)
     } catch (e) {
       if (summary) summary.is_read = false
+      if (knownUnread) adjustUnread(account.ID, folder, 1)
       console.error('Failed to mark email as read', e)
     }
   }
@@ -426,6 +487,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     if (account) {
       currentPageByFolder.value[`${accountId}:${folderName}`] = 1
       loadEmails(account, folderName)
+      // Opening a folder is a good moment to re-read the badges (throttled).
+      void loadFolderUnread(account)
     }
   }
 
@@ -542,6 +605,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     refreshing,
     testingId,
     foldersByAccount,
+    unreadByFolder,
+    folderUnread,
+    loadFolderUnread,
     emailsByFolder,
     emailTotalByFolder,
     selectedAccountId,

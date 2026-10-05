@@ -48,8 +48,14 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `FetchEmail` | **是** | — | 命中 `LoadEmailBody` 直接返回 |
 | `RefreshEmailBody` | 否 | 60s | 两趟抓取：先 BodyStructure，再正文/inline 段 |
 | `DownloadAttachment` | 否 | 60s | 独立连接，只抓指定 part |
+| `UnseenCount` | 否 | 60s | 单个文件夹的 `STATUS UNSEEN`（托盘红点用） |
+| `FolderUnread` | **否（必须问服务器）** | 60s | 一次连接、**流水线**发出全部 `STATUS UNSEEN`，返回 `map[文件夹]未读数`；侧边栏每个文件夹的未读 badge 用它 |
 
 **缓存策略要点**：`SaveEmails` 按 UID 合并、不删旧行，所以翻到更早的页不会丢掉已缓存的邮件；`RefreshEmails` 的返回页可能来自「服务器新抓的页 + 缓存旧行」合并结果（page 1 总是如此）。
+
+**未读计数不能来自缓存**：`cached_emails.is_read` 只覆盖 UI 已经翻到过的那些页，用它统计会让任何大于一页的邮箱**少算**，所以侧边栏 badge 走 `FolderUnread`（服务器 `STATUS UNSEEN`）。成本控制：只连一次、把所有 `STATUS` 先发出去再逐个 `Wait`（go-imap 在同一连接上流水线化命令，见其 `Client` 文档），因此整个文件夹列表是**一个 RTT**而不是每文件夹一个。`\Noselect`/`\NonExistent` 的容器文件夹跳过（`STATUS` 对它们是报错而不是 0），服务器拒绝回答的文件夹**不出现在 map 里** —— 前端把「缺键」读作「没有要 badge 的」。服务端返回 0 的也不入 map。
+
+触发时机（前端 `stores/accounts.ts`）：文件夹列表加载后、切换文件夹时、后台 `emails-synced` 事件到达时；每个账号 **30s 内只刷新一次**并有 in-flight 去重，避免同步 tick 与点击堆叠成多个 IMAP 连接。打开一封未读邮件时**乐观地**把该文件夹计数 −1（失败回滚 +1）；只在「这封邮件确实来自当前已加载页且未读」时这么做 —— 搜索/聚合视图里点开的邮件不在 `emailsByFolder` 里，读状态未知，不猜，等下一次刷新。
 
 ### 2.2 连接阶段：`dialIMAP` 的 fallback 阶梯
 
@@ -92,8 +98,19 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 7 | 附件名为空 | `Content-Disposition.filename` → `Content-Type.name` → 生成 `attachment-N` / `inline-N` |
 | 8 | 附件/正文分类 | **`Content-Disposition: attachment` 优先判定**（本次修正：原先 `text/plain`/`text/html` 判定在前，导致带 `.txt`/`.html` 附件的邮件**把附件当正文渲染**、甚至覆盖真实正文）；其后依次是：无 disposition 的 text 正文 → 有文件名的非文本 → `disposition: inline` → 有 `Content-ID` |
 | 9 | CID 内联图解码失败 | 用原始字节直接 base64，仍生成 data URI（宁可图错也不要空图） |
+| 9b | 内联图片（正文已经用 data URI 显示出来） | **不再进附件列表**（`visibleAttachments`）：正文里已经看得见的东西不需要再当附件列一遍，附件数也随之变准。只对**图片**生效——真实病例：一封已发送邮件里 25 MB 的 `andromeld.log`（`application/octet-stream`）也带 `Content-ID`，按「inline 就不列」会把它藏掉，用户再也下载不到。判据是「inline **且** 是图片 **且** 字节真的被替换进 HTML（`rendered`）」；正文没引用到的内联图仍然列出（否则它在正文和列表里都消失）。 |
 | 10 | 缓存写入失败 | `slog.Warn`，不影响返回 |
 | 11 | 缓存的正文是「被误标的 quoted-printable」 | 读缓存时发现即解码并**写回缓存**（`repairCachedEncoding`），否则老邮件会一直显示 `=E8=AE=A1` |
+| 12 | 命中正文缓存（`FetchEmail` 早退） | `IsSuspicious` 是**派生**值、不落库，必须在缓存路径重算 `isSuspiciousMail(folder, cached.Flags)` —— 否则第一次打开有垃圾邮件门禁，之后每次（含重启后）都悄悄没了 |
+
+### 2.4b 派生字段与缓存的坑（`is_suspicious`）
+
+垃圾邮件门禁是 `EmailDetail.IsSuspicious`，它**不存**在 `cached_email_bodies` 里，规则是「文件夹名含 spam/junk/垃圾 **或** 服务端打了 `\Junk` 标记」（`isSuspiciousMail`）。存进缓存的是 `flags`，所以规则必须在两条路径上都跑：
+
+- 首次打开 → `RefreshEmailBody`（IMAP）→ 算一次；
+- 之后打开 → `FetchEmail` 命中缓存 → **也要算一次**。
+
+原先只在 IMAP 路径算，后果是**第一次打开有门禁、第二次就没有了**：正文直接渲染、附件直接列出，只剩「已拦截 N 个远程资源」那条 bar（用户就是这样发现的：SZU 的 Junk 邮件只剩拦截资源提示）。`EmailDetail` 的其它字段都进库了，只有这个派生值没有，属于单点疏漏。
 
 ### 2.5 已知的获取层缺陷（尚未改）
 
@@ -172,6 +189,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 - **CSS 画出来的「图片」**：垃圾邮件会用一个 127 KB 的 `box-shadow`（每个 `x y #color` 就是一个像素）在正文里画图 —— 没有 `<img>`、没有 URL、没有附件，所以远程拦截和 URL 过滤都看不见它（真实样本：`cy@zzbh.org` 那封，128 KB 正文里 127 KB 是这一条声明）。`sanitizeCss` 现在会丢掉**单条超过 2048 字符的声明**（计数为 `EmailSanitizeResult.cssArt`），那封正文因此从 128 KB 降到 2.6 KB、图不再渲染；正常邮件（`box-shadow: 0 1px 2px`）不受影响。丢掉之后正文基本是空的，所以阅读区顶部会显示一条告警条（`EmailCssArtNotice.vue` → `.body-bar`）：「正文用 CSS 画图显示（已拦截），可能是垃圾邮件」—— 否则用户只会看到一片空白，不知道发生过什么。
 - 正文里的日期/时间会被标成可点击的 `<span class="date-mention">`（净化**之后**的独立 pass，邮件本身伪造不出这种 chip），点击后弹确认框加入提醒事项 —— 细节见 `mail-date-reminders.md`。
 - **颜色主题归我们管**：邮件自带 `@media (prefers-color-scheme: …)` 由 OS 外观触发，与应用主题无关 —— 已在净化时按 `darkMode` 改写成常量，见 §3.5。
+- **正文区顶部只有一条 bar 栈**（`styles/ui.css` 的 `.body-bar*`，位于 `EmailShadowBody` 之前）：垃圾邮件门禁 `EmailSecurityNotice.vue`（`title` 是完整说明 + 「显示所有内容」按钮）、`EmailCssArtNotice.vue`、`EmailRemoteNotice.vue` 共用同一套壳，不再各写一份 CSS。标签一律 `white-space: nowrap` —— 否则 CJK 标题会在任意两字之间折行（窄窗时「不安 / 全」）；带按钮的 bar 用 `.body-bar--with-actions`：`flex-wrap` + 标签 `min-width: min-content`，空间不够时**按钮换到第二行**（右对齐），而不是把标题截成省略号。
 
 ### 3.4 远程内容拦截与 CSS 净化
 
@@ -243,6 +261,9 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 暗色转换失败回退原始 HTML | `EmailShadowBody.vue` try/catch | 原先抛错会让正文空白/残留旧内容 |
 | 取信/取文件夹/搜索/聚合失败：保留旧数据 + toast | `stores/accounts.ts` | 原先静默清空，用户误以为「没有邮件」 |
 | 取消保存对话框不再报错 | `stores/accounts.ts` `downloadAttachment` | 取消是正常操作，原先会弹错误横幅 |
+| **垃圾邮件门禁改为正文区 bar**（从滚动区最顶端的 `.alert--warn` 移到 `EmailShadowBody` 上方，与「已拦截远程资源」同一条栈） | 新 `EmailSecurityNotice.vue` + `EmailDetail.vue`，`.body-bar--with-actions`（`ui.css`） | 顶端那条横幅里 CJK 标题在窄窗会在「安全」中间折行；bar 的 `nowrap` + 按钮换行既解决折行、又和另外两条告警位置统一。顺手删掉已无引用的 `.alert--warn` |
+| **内联图片不再出现在附件列表** | `services/emailservice.go` `visibleAttachments`（`RefreshEmailBody` 结尾 + `FetchEmail` 缓存路径），测试 `emailservice_attachments_test.go` | 正文已经用 data URI 显示过的内容，再列一遍是噪音、还把「N 个附件」的计数撑大。实测缓存里 9 封邮件 60 条附件记录 → 只剩 1 条（就是那个 `.log`），Proton 那几封的 11 个页脚/社交图标全部消失 |
+| **`is_suspicious` 在缓存命中路径上重算**（抽出 `isSuspiciousMail`） | `services/emailservice.go` `FetchEmail` + `RefreshEmailBody`，测试 `emailservice_spam_test.go` | 派生值不落库，原先只在 IMAP 路径算：**第一次打开有门禁、之后每次都没有**，垃圾邮件直接渲染正文+附件，只剩拦截资源提示（见 §2.4b） |
 | **邮件自带的 `prefers-color-scheme` 改为跟随应用主题**（改写为 `(min-width: 0px)` / `(max-width: 0px)`） | `sanitizeCss` + `alignColorSchemeMediaQueries`，`EmailDetail.vue` 传 `darkMode` | 系统深色 + 应用 Light 时，OpenAI 那封营销邮件（uid 3780）的暗色块照旧命中：`color:#fff !important` 覆盖了它自己的内联白底表格 → 日间模式正文全白看不见。详见 §3.5 |
 | 正文净化结果用 `computed` 缓存 | `EmailDetail.vue` | 原先每次重渲染都重新解析整封 HTML |
 | 删除死文件 `composables/sanitize-html.ts` | frontend | 0 引用 |

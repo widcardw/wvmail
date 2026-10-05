@@ -15,7 +15,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="body-bar">
+  <div class="body-bar body-bar--with-actions">
     <i class="i-ri:shield-keyhole-line body-bar__icon" aria-hidden="true" />
     <span
       class="body-bar__text"

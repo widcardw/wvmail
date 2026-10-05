@@ -12,6 +12,7 @@ import { compareFolders, getFolderDisplay } from '~/types/email'
 import type { EmailAccount } from '~/types/email'
 import styles from './SideBar.module.css'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
+import UiBadge from '~/components/UiBadge.vue'
 
 const { t, locale } = useI18n()
 const store = useAccountsStore()
@@ -23,6 +24,8 @@ interface SideNode {
   kind: 'account' | 'folder'
   iconClass?: string
   childrenCount?: number
+  /** Unseen messages in this folder; 0/absent renders no badge. */
+  unread?: number
   children?: SideNode[]
 }
 
@@ -64,6 +67,9 @@ function accountNode(account: EmailAccount): SideNode {
         name: d.label,
         kind: 'folder',
         iconClass: `i-${d.icon}`,
+        // Server-side unseen count; the row's badge reads it straight from the store,
+        // so a count update re-renders without a tree rebuild.
+        unread: store.folderUnread(account.ID, f.name),
       })
     }
   }
@@ -243,6 +249,10 @@ watch(() => router.currentRoute.value.path, syncSelected)
                         <TreeView.ItemText :class="styles.folderText">{{
                           folder.name
                         }}</TreeView.ItemText>
+                        <UiBadge
+                          :count="folder.unread ?? 0"
+                          :label="t['sidebar.unread'].replace('{count}', String(folder.unread ?? 0))"
+                        />
                       </TreeView.Item>
                     </TreeView.NodeProvider>
                   </template>

@@ -20,6 +20,7 @@ import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailRemoteNotice from './EmailRemoteNotice.vue'
 import EmailCssArtNotice from './EmailCssArtNotice.vue'
+import EmailSecurityNotice from './EmailSecurityNotice.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
 
@@ -307,19 +308,11 @@ const showAttachments = computed(
         <span class="spinner spinner--detail" />
       </div>
 
-      <!-- error / security / translation alerts -->
+      <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
         <span>{{ accountsStore.detailError }}</span>
         <button type="button" class="x" aria-label="close" @click="closeError()">
           <i class="i-ri:close-line" />
-        </button>
-      </div>
-
-      <div v-if="detail?.is_suspicious && !suspiciousRevealed" class="alert alert--warn">
-        <p style="margin: 0">{{ t['mail.security.title'] }}</p>
-        <p style="margin: 0">{{ t['mail.security.body'] }}</p>
-        <button type="button" class="btn btn--sm btn--subtle" @click="suspiciousRevealed = true">
-          {{ t['mail.security.show_all'] }}
         </button>
       </div>
 
@@ -351,7 +344,7 @@ const showAttachments = computed(
                 class="icon-btn"
                 :title="
                   translating
-                    ? '取消翻译'
+                    ? t['mail.translation.cancel']
                     : translatedText || translatedHtml
                       ? t['mail.translation.close']
                       : t['mail.translation.translate']
@@ -374,7 +367,7 @@ const showAttachments = computed(
             </div>
           </div>
 
-          <h2 class="subject">{{ detail.subject || '(No Subject)' }}</h2>
+          <h2 class="subject">{{ detail.subject || t['mail.noSubject'] }}</h2>
 
           <div class="meta">
             <div class="mrow">
@@ -387,6 +380,12 @@ const showAttachments = computed(
             </div>
           </div>
         </div>
+
+        <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
+        <EmailSecurityNotice
+          v-if="detail.is_suspicious && !suspiciousRevealed"
+          @reveal="suspiciousRevealed = true"
+        />
 
         <EmailCssArtNotice
           v-if="cssArt > 0 && (!detail.is_suspicious || suspiciousRevealed)"
@@ -415,7 +414,7 @@ const showAttachments = computed(
             :dark="isDarkMode"
           />
           <EmailShadowBody v-else-if="plainBodyHtml" :html="plainBodyHtml" :dark="isDarkMode" />
-          <div v-else class="centerpad-empty">(No content)</div>
+          <div v-else class="centerpad-empty">{{ t['mail.noContent'] }}</div>
         </div>
 
         <div
@@ -534,10 +533,6 @@ const showAttachments = computed(
 .alert--err {
   background: var(--color-danger-bg);
   border-color: var(--color-danger);
-}
-.alert--warn {
-  background: var(--color-warning-bg);
-  border-color: var(--color-warning);
 }
 .x {
   border: none;
