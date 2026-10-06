@@ -12,7 +12,7 @@
     "lint:fix": "oxlint --fix",
     "typecheck": "vue-tsc --noEmit",
     "fmt": "oxfmt",
-    "test": "node tests/html-sanitize.test.mts && node tests/date-mentions.test.mts && node tests/badge.test.mts"
+    "test": "node tests/html-sanitize.test.mts && node tests/date-mentions.test.mts && node tests/badge.test.mts && node tests/connection.test.mts"
   },
   "dependencies": {
     "@ark-ui/vue": "^5.39.1",

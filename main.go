@@ -82,6 +82,8 @@ func main() {
 			application.NewService(services.NewNotesService()),
 			application.NewService(services.NewRemindersService()),
 			application.NewService(&services.TranslationService{}),
+			// Backs the title-bar connection meter; see services/networkservice.go.
+			application.NewService(&services.NetworkService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

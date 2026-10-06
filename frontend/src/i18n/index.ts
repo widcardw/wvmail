@@ -20,6 +20,14 @@ export interface TranslationSchema {
   'sidebar.all_sent': string
   'sidebar.all_drafts': string
   'sidebar.unread': string
+  'connection.high': string
+  'connection.medium': string
+  'connection.low': string
+  'connection.off': string
+  'connection.checking': string
+  'connection.retried': string
+  'connection.checked': string
+  'connection.recheck': string
   'mail.selectFolder': string
   'mail.noSubject': string
   'mail.noContent': string

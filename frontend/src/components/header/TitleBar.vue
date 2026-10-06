@@ -5,6 +5,7 @@ import { OsService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useThemeStore, type ThemeMode } from '~/stores/theme'
 import SearchBar from './SearchBar.vue'
+import ConnectionStatus from '~/components/icon/ConnectionStatus.vue'
 
 const { t } = useI18n()
 const themeStore = useThemeStore()
@@ -47,9 +48,10 @@ onMounted(() => {
     </div>
 
     <div class="titlebar-right">
+      <ConnectionStatus />
       <Menu.Root :positioning="{ placement: 'bottom-end', gutter: 8 }" lazy-mount unmount-on-exit>
         <Menu.Trigger
-          class="theme-menu-trigger"
+          class="icon-btn theme-menu-trigger"
           :aria-label="activeTheme.label"
           :title="activeTheme.label"
         >
@@ -113,30 +115,18 @@ onMounted(() => {
   gap: 8px;
 }
 
+/* Base geometry comes from the shared .icon-btn (styles/ui.css); only the deltas
+   live here: the open menu keeps the hover background, plus the padding reset the
+   fixed 26px box wants. */
 .theme-menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
   padding: 0;
-  color: var(--n-text-color);
-  background: transparent;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
 }
-.theme-menu-trigger:hover,
 .theme-menu-trigger[data-state='open'] {
   background: var(--n-sidebar-hover);
 }
 .theme-menu-trigger:focus-visible {
   outline: 2px solid var(--n-primary-color);
   outline-offset: 1px;
-}
-.theme-menu-trigger i {
-  font-size: 16px;
-  line-height: 1;
 }
 
 .theme-menu-positioner {

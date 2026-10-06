@@ -38,6 +38,7 @@ export default defineConfig({
     // shell / chrome
     'i-ri:sun-line',
     'i-ri:moon-clear-line',
+    'i-ri:computer-line',
     'i-ri:inbox-archive-line',
     'i-ri:notification-2-line',
     'i-ri:pen-nib-line',
