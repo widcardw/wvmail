@@ -125,7 +125,7 @@ console.log(findDateMentions(process.argv[1], { locale: 'zh-CN' }))" '待测文�
 
 ## Highlighting
 
-`rehypeDateMentions` in `frontend/src/composables/html-sanitize.ts` walks text nodes (skipping
+`rehypeDateMentions` in `frontend/src/composables/html/sanitize.ts` walks text nodes (skipping
 `a`/`code`/`pre`/`style`/`script`, and never re-wrapping its own output) and replaces each match with:
 
 ```html
@@ -165,7 +165,7 @@ sqlite3 -readonly "$DB" "SELECT uid, subject, date, length(body_text), length(bo
 sqlite3 -readonly "$DB" "SELECT body_html FROM cached_email_bodies WHERE uid=<uid>;" > /tmp/mail.html
 cd frontend && node --input-type=module -e "
 import { readFileSync } from 'node:fs'
-import { sanitizeEmailHtml } from './src/composables/html-sanitize.ts'
+import { sanitizeEmailHtml } from './src/composables/html/sanitize.ts'
 const html = readFileSync('/tmp/mail.html', 'utf8')
 const out = sanitizeEmailHtml(html, { mentions: { enabled: true, locale: 'zh-CN', now: new Date('<mail date>') } })
 console.log(out.html.match(/<span class=\"date-mention\"[^>]*>[^<]*<\/span>/g) ?? 'no chips')

@@ -6,7 +6,7 @@
  * Coverage: remote-content blocking + counting, the allowRemote escape hatch,
  * CSS sanitising (remote url(), @import, layout escapes) and markup attacks.
  */
-import { sanitizeEmailHtml } from '../src/composables/html-sanitize.ts'
+import { sanitizeEmailHtml } from '../src/composables/html/sanitize.ts'
 
 let pass = 0
 let fail = 0
@@ -157,11 +157,18 @@ console.log('colour-scheme media queries')
 // not our `data-theme` (WebKit bug 319500) — so with macOS in Dark and the app in Light,
 // the OpenAI newsletter rendered `color:#fff` over its own white tables: invisible text.
 // The condition is rewritten to a constant instead, so only the app theme decides.
-const darkMqMail = '<style>@media (prefers-color-scheme: dark) { p { color: #ffffff } }</style><p>hi</p>'
+const darkMqMail =
+  '<style>@media (prefers-color-scheme: dark) { p { color: #ffffff } }</style><p>hi</p>'
 const darkMqLightApp = sanitizeEmailHtml(darkMqMail, { allowRemote: false, darkMode: false })
 const darkMqDarkApp = sanitizeEmailHtml(darkMqMail, { allowRemote: false, darkMode: true })
-check('light app: the OS dark design is switched off', darkMqLightApp.html.includes('(max-width: 0px)'))
-check('dark app: the OS dark design is switched on', darkMqDarkApp.html.includes('(min-width: 0px)'))
+check(
+  'light app: the OS dark design is switched off',
+  darkMqLightApp.html.includes('(max-width: 0px)'),
+)
+check(
+  'dark app: the OS dark design is switched on',
+  darkMqDarkApp.html.includes('(min-width: 0px)'),
+)
 check(
   'the OS appearance can never decide the mail colours',
   !/prefers-color-scheme/.test(darkMqLightApp.html + darkMqDarkApp.html),
@@ -182,16 +189,19 @@ check(
 // The rest of a compound condition must survive: only the scheme half is replaced.
 check(
   'compound conditions keep their other terms',
-  sanitizeEmailHtml('<style>@media screen and (prefers-color-scheme: dark) { p { color: #fff } }</style>', {
-    allowRemote: false,
-    darkMode: false,
-  }).html.includes('screen and (max-width: 0px)'),
+  sanitizeEmailHtml(
+    '<style>@media screen and (prefers-color-scheme: dark) { p { color: #fff } }</style>',
+    {
+      allowRemote: false,
+      darkMode: false,
+    },
+  ).html.includes('screen and (max-width: 0px)'),
 )
 check(
   'colour-scheme rules inside comments cannot break the rewrite',
-  block('<style>/* @media (prefers-color-scheme: dark) {} */ p { color: #000 }</style>').html.includes(
-    'color: #000',
-  ),
+  block(
+    '<style>/* @media (prefers-color-scheme: dark) {} */ p { color: #000 }</style>',
+  ).html.includes('color: #000'),
 )
 // Default (no darkMode given) is the readable light design.
 check(

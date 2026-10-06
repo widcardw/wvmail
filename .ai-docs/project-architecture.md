@@ -21,16 +21,23 @@ wvmail is a cross-platform desktop email client built with **Wails3 (Go)** + **V
 
 ### Entry Point
 
-- `main.go` — application setup, window creation, event emission
-- Registers a `GreetService` and emits a `time` event every second
+- `main.go` — application setup, window/tray wiring, the single quit path (`requestQuit`) and the
+  close hook; see `.ai-docs/window-tray-and-close.md`
 
 ### Services
 
-- `services/greetservice.go` — `GreetService` with single `Greet(name string) string` method
-- `services/configservice.go` — `ConfigService` for reading/writing YAML config with AES-256-GCM encrypted API keys
-- `services/osservice.go` — `OsService` for OS-level operations (open files, folders, detect OS)
-- All Go services live under `services/` as package `services`
-- Services are registered via `application.NewService(&services.XxxService{})` in `main.go` and auto-exposed to the frontend
+All Go services live under `services/` as package `services` and are registered via
+`application.NewService(...)` in `main.go`, which auto-exposes their exported methods to the frontend.
+
+| File(s) | Service | Concern |
+|---|---|---|
+| `services/configservice.go` / `configstore.go` / `configllm.go` | `ConfigService` | YAML config, AES-256-GCM secrets, LLM connection test + model list |
+| `services/emailservice.go` / `emailfolders.go` / `emailbody.go` / `emailattachments.go` / `emailsearch.go` / `emaildecode.go` / `imapdial.go` | `EmailService` | IMAP fetch, decode, cache-first paging; see `.ai-docs/email-fetch-and-display.md` |
+| `services/database.go` / `databaseemail.go` / `databasebody.go` / `databasenotes.go` / `databasereminders.go` | (cache) | SQLite (GORM) cache behind `EmailService` |
+| `services/emailsyncservice.go` | `EmailSyncService` | background sync per account + the tray unread badge |
+| `services/networkservice.go` | `NetworkService` | reachability + latency probe behind the title-bar meter |
+| `services/osservice.go` | `OsService` | open file/folder/URL, native save dialog, `QuitApp` |
+| `services/notesservice.go`, `reminderservice.go`, `translationservice.go`, `logger.go` | | notes, reminders, LLM translation, file logging |
 
 ### Build Configuration
 
@@ -59,7 +66,7 @@ wvmail is a cross-platform desktop email client built with **Wails3 (Go)** + **V
 
 ### ConfigService
 
-Location: `services/configservice.go`
+Location: `services/configservice.go` (typed API) + `configstore.go` (storage) + `configllm.go` (provider HTTP)
 
 The config file is stored at `<os.UserConfigDir>/wvmail/config.yaml` as YAML.
 API keys are encrypted with AES-256-GCM (master key in `<configDir>/.master.key`).
@@ -128,34 +135,44 @@ Config directory resolves to:
 ```
 frontend/
 ├── src/
-│   ├── main.ts              # App entry: createApp + Pinia + mount
-│   ├── App.vue              # Root: Naive UI NConfigProvider wrapper
-│   ├── vite-env.d.ts        # Vite + .vue module type declarations
-│   ├── components/
-│   │   └── HelloWorld.vue   # Sample component (Wails bridge demo)
-│   ├── router/
-│   │   └── index.ts         # Vue Router setup (currently empty)
-│   └── stores/
-│       └── theme.ts         # Pinia store: Naive UI dark/light theme toggle
-├── package.json
-├── vite.config.js           # Vite config: Vue plugin, Wails plugin, @ alias
-├── tsconfig.json            # TypeScript config (ESNext, bundler resolution)
-├── .oxlintrc.json           # Linter rules
-└── .oxfmtrc.json            # Formatter config (no semicolons, single quotes)
+│   ├── main.ts              # App entry: createApp + Pinia + global styles
+│   ├── App.vue              # Root layout (title bar + sidebar + routed view)
+│   ├── components/          # one directory per area
+│   │   ├── ui/              # UiSelect / UiSwitch / UiBadge / … + BusyButton (design system)
+│   │   ├── detail/ header/ icon/ list/ reminder/ settings/ sidebar/
+│   │   └── ToastHost.vue    # app-level singleton (mounted once in App.vue)
+│   ├── composables/
+│   │   ├── html/            # mail-body HTML pipeline (index.ts is the barrel)
+│   │   ├── icons/           # provider/brand/attachment icon helpers
+│   │   └── *.ts             # small pure helpers (badge, connection, formats, date-mentions…)
+│   ├── i18n/                # typed dictionary (index.ts is the source of truth for keys)
+│   ├── router/              # Vue Router: mail, notes, reminder, settings
+│   ├── stores/              # Pinia: accounts, theme, locale, preferences, notes, reminders, connection
+│   ├── styles/              # global.css (tokens) + ui.css (shared recipes: .btn, .icon-btn, .dlg-*)
+│   ├── types/               # TS mirrors of the bound Go models
+│   └── views/               # page-level components (+ views/settings/)
+├── tests/                   # node tests/*.test.mts (pnpm test)
+├── index.html               # hashed entry; title + favicon
+├── vite.config.js           # Vue plugin, Wails plugin, `~` → src, `#` → bindings
+├── tsconfig.json            # strict TS
+└── .oxlintrc.json / .oxfmtrc.json
 ```
 
 ### Wails3 ↔ Frontend Bridge
 
-1. **Service Calls** (Go → JS): Go services are imported as ES modules from auto-generated `bindings/`:
+1. **Service Calls** (Go → JS): Go services are imported as ES modules from the generated
+   `bindings/` directory, through the `#` alias (`#` → `bindings`):
    ```ts
-   import { GreetService } from '../../bindings/wvmail'
-   GreetService.Greet(name).then(result => ...)
+   import { NetworkService } from '#/wvmail/services'
+
+   const result = await NetworkService.ProbeConnection('imap.qq.com', 993, true)
    ```
 
-2. **Event System** (Go → JS): Go emits events via `app.Event.Emit(name, data)`. Frontend subscribes:
+2. **Event System** (Go → JS): Go emits events via `app.Event.Emit(name, data)`. Events with a typed
+   payload are declared in `main.go`'s `init()`; the frontend subscribes through the runtime:
    ```ts
    import { Events } from '@wailsio/runtime'
-   Events.On('time', (timeValue) => { ... })
+   Events.On('emails-synced', (accountID: string) => { ... })
    ```
 
 3. **Vite Plugin**: `@wailsio/runtime/plugins/vite` processes the bindings directory and sets up dev-mode proxying.
@@ -168,8 +185,10 @@ under both modes; runtime primary-color writes `--color-primary*`. See `.ai-docs
 
 ### Icons
 
-All icons go through `components/AppIcon.vue` (wraps `@iconify/vue` `<Icon>`, plus lobehub avatars & local `<img>`
-sources). No naive `NIcon` involvement.
+All icons go through `components/icon/AppIcon.vue`: offline UnoCSS preset icons (`.i-<name>`, bundled
+at build time — never a runtime/CDN fetch), `@lobehub/icons-static-avatar` WebPs for LLM providers, and plain
+`<img>` for local paths. Provider helpers live in `composables/icons/providers.ts`, brand/local mapping in
+`composables/icons/mapping.ts`.
 
 ### Coding Conventions
 

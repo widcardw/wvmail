@@ -6,8 +6,9 @@ Cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeSc
 
 ## Key Conventions
 
-- **Go services** go in `services/` with `package services`
-- **Vue components** use Composition API (`<script setup lang="ts">`)
+- **Go services** go in `services/` with `package services` — one file per concern, not one file per service: `emailservice.go` (list path) / `emailfolders.go` / `emailbody.go` / `emailattachments.go` / `emailsearch.go` / `emaildecode.go` / `imapdial.go`, and `configservice.go` / `configstore.go` / `configllm.go`. Tests sit next to what they cover (`*_test.go`).
+- **Vue components** use Composition API (`<script setup lang="ts">`) and live in `src/components/<area>/` (one directory per area: `detail/ header/ icon/ list/ reminder/ settings/ sidebar/`); the reusable design-system primitives are `src/components/ui/` (`Ui*.vue`, `BusyButton.vue`), and only app-level singletons (`ToastHost.vue`) sit at the root.
+- **Composables** in `src/composables/`: the mail-body HTML pipeline is grouped in `html/` (import the `html/index.ts` barrel, not its files), icon helpers in `icons/`; small pure helpers stay flat at the root.
 - **State management** uses Pinia stores in `src/stores/`
 - **Routes** are defined in `src/router/index.ts`
 - **Ark UI** (headless, per-component compound components like `<Slider.Root>`) is used for behavior; **all visual styling is explicit** — utility classes via **UnoCSS**, per-component CSS Modules / SFC `scoped`, plus global token variables in `src/styles/global.css`. There is **no baked-in theme**, so components are unstyled until we add CSS (see `.ai-docs/ark-ui-guide.md`).
@@ -23,7 +24,7 @@ Cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeSc
 | `wails3 task build` | Production build for current OS |
 | `go vet ./...` | Check Go code compiles |
 | `cd frontend && pnpm typecheck` | Type-check `.vue` + `.ts` with vue-tsc. **Run it after touching components**: `oxlint` and `vite build` do not type-check |
-| `cd frontend && pnpm test` | Sanitizer + date-detection regression tests (`tests/*.test.mts`) |
+| `cd frontend && pnpm test` | Node regression tests (`tests/*.test.mts`: sanitizer, date detection, badges, connection meter) |
 | `cd frontend && pnpm lint` | oxlint |
 
 ## Documentation References

@@ -5,8 +5,8 @@ import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
 import { usePreferencesStore } from '~/stores/preferences'
 import { ConfigService, OsService } from '#/wvmail/services'
-import UiSelect from '~/components/UiSelect.vue'
-import UiSwitch from '~/components/UiSwitch.vue'
+import UiSelect from '~/components/ui/UiSelect.vue'
+import UiSwitch from '~/components/ui/UiSwitch.vue'
 import QuitConfirmDialog from '~/components/settings/QuitConfirmDialog.vue'
 
 const { t, locale, setLocale } = useI18n()

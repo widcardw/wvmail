@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Avatar } from '@ark-ui/vue/avatar'
-import { ICON_MAPPING_SMALL as ICON_MAPPING } from '~/composables/icon-mapping'
+import { ICON_MAPPING_SMALL as ICON_MAPPING } from '~/composables/icons/mapping'
 import { useAccountsStore } from '~/stores/accounts'
 import { ConfigService } from '#/wvmail/services'
 

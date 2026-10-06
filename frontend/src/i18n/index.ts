@@ -228,10 +228,6 @@ export interface TranslationSchema {
   'settings.translation.llm_config': string
   'settings.translation.llm_model': string
   'settings.translation.saved': string
-  'demo.prompt': string
-  'demo.greet': string
-  'demo.learnMore': string
-  'demo.listening': string
   cancel: string
 }
 

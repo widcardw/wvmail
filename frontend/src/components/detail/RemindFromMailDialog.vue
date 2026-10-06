@@ -5,7 +5,7 @@ import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useRemindersStore } from '~/stores/reminders'
 import { useFeedbackStore } from '~/stores/feedback'
-import BusyButton from '~/components/BusyButton.vue'
+import BusyButton from '~/components/ui/BusyButton.vue'
 
 // Confirmation step for a date/time detected inside an email body. The detector is
 // allowed to be approximate precisely because this dialog exists: the moment can be

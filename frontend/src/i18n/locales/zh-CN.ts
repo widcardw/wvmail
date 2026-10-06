@@ -231,10 +231,6 @@ const zhCN: TranslationSchema = {
   'settings.translation.llm_config': 'LLM 配置',
   'settings.translation.llm_model': '模型',
   'settings.translation.saved': '翻译设置已保存',
-  'demo.prompt': '请在下方输入您的名字',
-  'demo.greet': '问候',
-  'demo.learnMore': '点击 Wails 图标了解更多',
-  'demo.listening': '正在监听 Time 事件...',
   cancel: '取消',
 }
 

@@ -4,7 +4,7 @@ import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useFeedbackStore } from '~/stores/feedback'
 import type { AttachmentInfo } from '~/types/email'
-import { getAttachmentIcon } from '~/composables/attachment-icons'
+import { getAttachmentIcon } from '~/composables/icons/attachments'
 import { Format } from '@ark-ui/vue/format'
 
 const props = defineProps<{

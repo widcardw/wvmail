@@ -33,7 +33,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 
 ---
 
-## 2. 获取层（Go / `services/emailservice.go`）
+## 2. 获取层（Go / `services/email*.go`、`imapdial.go`）
 
 ### 2.1 入口一览
 
@@ -151,8 +151,8 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 位置 | 触发 | 行为 | 判定 |
 |---|---|---|---|
 | `EmailDetail.vue` 翻译分支 | 垃圾邮件 + 点翻译 | **翻译结果原先绕过门禁**直接渲染整段 HTML | 已修（见 §4） |
-| `html-sanitize.ts` schema | 始终 | 允许 `<style>` 与**所有元素**的 `style` 属性 → CSS 未净化（`url()`/`@import`/`position:fixed` 都保留） | **已修**（见 §3.4） |
-| `html-sanitize.ts` schema | 始终 | 远程 `img src` 的 `http(s)` 保留 → **跟踪像素默认会加载**；没有「拦截远程内容」开关 | **已修**（默认拦截 + 白名单，见 §3.4） |
+| `html/sanitize.ts` schema | 始终 | 允许 `<style>` 与**所有元素**的 `style` 属性 → CSS 未净化（`url()`/`@import`/`position:fixed` 都保留） | **已修**（见 §3.4） |
+| `html/sanitize.ts` schema | 始终 | 远程 `img src` 的 `http(s)` 保留 → **跟踪像素默认会加载**；没有「拦截远程内容」开关 | **已修**（默认拦截 + 白名单，见 §3.4） |
 | `EmailShadowBody.vue` | 暗色转换抛错 | 原先无 try/catch → `innerHTML` 不赋值，正文空白/残留 | 已修 |
 | `EmailDetail.vue` 纯文本分支 | 垃圾邮件 | 纯文本正文仍会渲染（安全，但原先与「已拦截 N 个」横幅措辞不符） | 已修（措辞改为准确描述） |
 | 纯文本兜底 `linkifyPlainText` | 始终 | 转义正确（`<` → `&#x3C;`，autolink 正则排除引号/尖括号） | 合理 |
@@ -161,9 +161,9 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 
 | 位置 | 触发 | 行为 | 判定 |
 |---|---|---|---|
-| `html-translation.ts` 分隔符数量不匹配 | LLM 改动 `————` | 返回 `[]`/`''` → 原先**静默无反应**，按钮回弹 | 已修（报错提示） |
+| `html/translation.ts` 分隔符数量不匹配 | LLM 改动 `————` | 返回 `[]`/`''` → 原先**静默无反应**，按钮回弹 | 已修（报错提示） |
 | `EmailDetail.vue` 翻译目标语言缺省 | 配置为空 | 静默用 `zh-CN`；引擎静默用 `llm`；指定 LLM 配置缺失则静默用第一个 | 记录 |
-| `html-translation.ts` 无文本节点 | 无可用文本 | 返回 `null` → 静默降级为纯文本翻译（**布局丢失**） | 合理但无提示 |
+| `html/translation.ts` 无文本节点 | 无可用文本 | 返回 `null` → 静默降级为纯文本翻译（**布局丢失**） | 合理但无提示 |
 | `stores/accounts.ts` 搜索失败 | `SearchEmails` 抛错 | 原先仅 console → 空结果，与「确实没有」无法区分 | 已修（toast） |
 | `stores/accounts.ts` 聚合视图失败 | smart folder 抛错 | 原先清空聚合列表 | 已修（保留旧数据 + toast） |
 | `stores/accounts.ts` 同步后重取失败 | 后台事件 | 原先 `.catch(() => {})` 完全吞掉 | 已修（记日志，不弹 toast 以免刷屏） |
@@ -179,7 +179,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 - `formats.ts` 的 `senderDisplay` 与 `EmailDetail.vue` 的 `senderDisplay` 是**两套不同实现**（前者剥掉域名，后者保留完整地址）。
 - 主题为空有两处 `"(No Subject)"`；i18n 里没有任何对应 key（另有 7 处硬编码英文兜底串）。
 - `EmailDetail.vue` 原先在模板表达式里 `sanitizeHtml(...)`，每次重渲染都重新解析整封 HTML → 本次改为 `computed` 缓存。
-- 已删除死代码 `composables/sanitize-html.ts`（`export { sanitizeHtmlRehype as sanitizeHtml }`，全项目 0 引用；真正在用的是 `html-sanitize.ts` / `html-utils.ts`）。
+- 已删除死代码 `composables/sanitize-html.ts`（`export { sanitizeHtmlRehype as sanitizeHtml }`，全项目 0 引用；真正在用的是 `html/sanitize.ts` / `html/index.ts`）。
 
 ### 3.3 DOM 与安全边界
 
@@ -201,7 +201,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 按发件人 | 邮件横幅 → 「总是允许此发件人」 | `config.yaml: remote_content.allowed_senders`（地址小写；`@domain` 匹配整域） |
 | 单封邮件 | 邮件横幅 → 「显示远程内容」 | 不持久化，切换邮件即复位 |
 
-**净化管道**（`composables/html-sanitize.ts`）：
+**净化管道**（`composables/html/sanitize.ts`）：
 
 ```
 rehype-parse → rehypeAutoLink → rehype-sanitize(白名单)
@@ -230,7 +230,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 2. `prefers-color-scheme` 由引擎按**操作系统外观**求值，**不受**我们写在 `:root`/`[data-theme]` 上的 `color-scheme` 影响 —— 我们设了 `color-scheme: light` 也照样命中。WebKit 自己的 tracker 记着这条（[bug 319500](https://bugs.webkit.org/show_bug.cgi?id=319500)，CSSWG 已决议要改，目前仍是 NEW），原文就是「for any website with an in-page dark mode toggle, the media query is unusable」。
 3. 同一批暗色规则里**背景**那一半没能生效：它们打在 `body` / `.wrapperMod` / `.email-shell` / `.content-td` 上，而正文是 `rehype-parse` **fragment** 模式解析的 —— `<body>` 被丢掉、那几个 class 在真实 DOM 里也不存在（实测 0 处）。于是白字留下了、白底没跟上，正好落在邮件内联的 `style="background-color:#FFFFFF"` 表格上。
 
-**所以不是我们注入的 CSS 造成的**：Light 模式我们注入的只有 `.email-auto-link`（主色）和 `.remote-blocked`（`var(--color-text-3)`，浅色下是 #999），没有白色；`html-dark-mode.ts` 的 `* { color: … !important }` 只在暗色路径注入。
+**所以不是我们注入的 CSS 造成的**：Light 模式我们注入的只有 `.email-auto-link`（主色）和 `.remote-blocked`（`var(--color-text-3)`，浅色下是 #999），没有白色；`html/dark-mode.ts` 的 `* { color: … !important }` 只在暗色路径注入。
 
 **修法**：`sanitizeCss` 把媒体条件本身换成常量 —— `(prefers-color-scheme: dark)` 与当前主题一致时改写为 `(min-width: 0px)`（恒真）、不一致时改写为 `(max-width: 0px)`（恒假，媒体查询按**视口**求值，窗口宽度不可能是 0）。`light` 同理取反；`screen and (…)` 这类复合条件只替换括号那一段，其余保留。于是**主题由 `data-theme` 唯一决定，OS 外观彻底出局**。
 
@@ -247,33 +247,33 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 
 | 改动 | 位置 | 原因 |
 |---|---|---|
-| 附件/正文判定顺序：`Content-Disposition: attachment` 优先 | `services/emailservice.go` `hasAttachmentDisposition` + 遍历分支 | 原先带 `.txt`/`.html` 附件的邮件会把附件当正文渲染，甚至覆盖真实正文 |
+| 附件/正文判定顺序：`Content-Disposition: attachment` 优先 | `services/emailattachments.go` `hasAttachmentDisposition` + 遍历分支 | 原先带 `.txt`/`.html` 附件的邮件会把附件当正文渲染，甚至覆盖真实正文 |
 | 字符集三级兜底（声明 → UTF-8 校验 → GB18030） | `decodeCharset`（新） | 原先 charset 缺失/未知时直接原样返回字节中文邮件变乱码 |
 | 整封兜底正文也走 `decodeBodyPart` | `RefreshEmailBody` 兜底分支 | 原先 `string(raw)` 漏掉 CTE/字符集解码 |
-| **误标 CTE 的自愈解码**：声明 7bit/8bit（或没声明）但正文明显是 quoted-printable 时先解码 | `services/emailservice.go` `tryQuotedPrintable` | 批量邮件把 QP 内容当 `8bit` 发时界面会直接显示 `style=3D"…"`、`=09`、`=E8=AE=A1`（保险措施，不是下面那条的实际成因） |
+| **误标 CTE 的自愈解码**：声明 7bit/8bit（或没声明）但正文明显是 quoted-printable 时先解码 | `services/emaildecode.go` `tryQuotedPrintable` | 批量邮件把 QP 内容当 `8bit` 发时界面会直接显示 `style=3D"…"`、`=09`、`=E8=AE=A1`（保险措施，不是下面那条的实际成因） |
 | **超长 CSS 声明直接丢弃**（单条 > 2048 字符） | `sanitizeCss`（`dropOversizedDeclarations`） | 垃圾邮件用 `box-shadow` 逐像素画图：无 `<img>`/URL/附件，远程拦截无从下手；正常样式值远小于阈值 |
-| **QP 解码不再「全有或全无」**：出错时保留已解出的部分；decode 前剥掉尾部 NUL | `services/emailservice.go` `decodeBodyPart` | 真实案例（SZU 收的 Microsoft CMT 邮件，uid 274）：part **正确声明**了 `QUOTED-PRINTABLE`，但 section 尾部有一个 `\x00`；`mime/quotedprintable` 在它那里报错，而旧代码 `if err != nil { decoded = raw }` 把已经解好的 9123 字节全丢了，整封正文以未解码状态写进缓存 |
+| **QP 解码不再「全有或全无」**：出错时保留已解出的部分；decode 前剥掉尾部 NUL | `services/emaildecode.go` `decodeBodyPart` | 真实案例（SZU 收的 Microsoft CMT 邮件，uid 274）：part **正确声明**了 `QUOTED-PRINTABLE`，但 section 尾部有一个 `\x00`；`mime/quotedprintable` 在它那里报错，而旧代码 `if err != nil { decoded = raw }` 把已经解好的 9123 字节全丢了，整封正文以未解码状态写进缓存 |
 | 老缓存正文同样自愈：读缓存时解码并写回 | `FetchEmail` + `repairCachedEncoding` | 修好抓取路径不够 —— 已经缓存的邮件仍会一直显示转义符 |
-| 缓存失败改用 `slog`，删除 4 处调试 `fmt.Println` | `services/emailservice.go` | `fmt.Printf/Println` 在 GUI 里无处可见（stdout 未接），且是遗留调试输出 |
-| `TestConnection` 记录实际入参（host/user/provider/`has_password`）与耗时 | `services/emailservice.go` | 让「列表测试超时、编辑页测试成功」这类问题可被日志直接判定 |
+| 缓存失败改用 `slog`，删除 4 处调试 `fmt.Println` | `services/emailservice.go`（现拆为 `emailbody.go` 等） | `fmt.Printf/Println` 在 GUI 里无处可见（stdout 未接），且是遗留调试输出 |
+| `TestConnection` 记录实际入参（host/user/provider/`has_password`）与耗时 | `services/imapdial.go` | 让「列表测试超时、编辑页测试成功」这类问题可被日志直接判定 |
 | 翻译结果纳入垃圾邮件门禁 | `EmailDetail.vue`（`handleTranslate` 早退 + 模板条件） | 原先翻译会绕过门禁把未揭示的正文渲染出来 |
 | 翻译返回空内容时报错而非静默 | `EmailDetail.vue`（新增 i18n key `mail.translation.empty`） | 分隔符不匹配导致「点了翻译没反应」 |
 | 暗色转换失败回退原始 HTML | `EmailShadowBody.vue` try/catch | 原先抛错会让正文空白/残留旧内容 |
 | 取信/取文件夹/搜索/聚合失败：保留旧数据 + toast | `stores/accounts.ts` | 原先静默清空，用户误以为「没有邮件」 |
 | 取消保存对话框不再报错 | `stores/accounts.ts` `downloadAttachment` | 取消是正常操作，原先会弹错误横幅 |
 | **垃圾邮件门禁改为正文区 bar**（从滚动区最顶端的 `.alert--warn` 移到 `EmailShadowBody` 上方，与「已拦截远程资源」同一条栈） | 新 `EmailSecurityNotice.vue` + `EmailDetail.vue`，`.body-bar--with-actions`（`ui.css`） | 顶端那条横幅里 CJK 标题在窄窗会在「安全」中间折行；bar 的 `nowrap` + 按钮换行既解决折行、又和另外两条告警位置统一。顺手删掉已无引用的 `.alert--warn` |
-| **内联图片不再出现在附件列表** | `services/emailservice.go` `visibleAttachments`（`RefreshEmailBody` 结尾 + `FetchEmail` 缓存路径），测试 `emailservice_attachments_test.go` | 正文已经用 data URI 显示过的内容，再列一遍是噪音、还把「N 个附件」的计数撑大。实测缓存里 9 封邮件 60 条附件记录 → 只剩 1 条（就是那个 `.log`），Proton 那几封的 11 个页脚/社交图标全部消失 |
-| **`is_suspicious` 在缓存命中路径上重算**（抽出 `isSuspiciousMail`） | `services/emailservice.go` `FetchEmail` + `RefreshEmailBody`，测试 `emailservice_spam_test.go` | 派生值不落库，原先只在 IMAP 路径算：**第一次打开有门禁、之后每次都没有**，垃圾邮件直接渲染正文+附件，只剩拦截资源提示（见 §2.4b） |
+| **内联图片不再出现在附件列表** | `services/emailattachments.go` `visibleAttachments`（`RefreshEmailBody` 结尾 + `FetchEmail` 缓存路径），测试 `emailservice_attachments_test.go` | 正文已经用 data URI 显示过的内容，再列一遍是噪音、还把「N 个附件」的计数撑大。实测缓存里 9 封邮件 60 条附件记录 → 只剩 1 条（就是那个 `.log`），Proton 那几封的 11 个页脚/社交图标全部消失 |
+| **`is_suspicious` 在缓存命中路径上重算**（抽出 `isSuspiciousMail`） | `services/emailbody.go` `FetchEmail` + `RefreshEmailBody`，测试 `emailservice_spam_test.go` | 派生值不落库，原先只在 IMAP 路径算：**第一次打开有门禁、之后每次都没有**，垃圾邮件直接渲染正文+附件，只剩拦截资源提示（见 §2.4b） |
 | **邮件自带的 `prefers-color-scheme` 改为跟随应用主题**（改写为 `(min-width: 0px)` / `(max-width: 0px)`） | `sanitizeCss` + `alignColorSchemeMediaQueries`，`EmailDetail.vue` 传 `darkMode` | 系统深色 + 应用 Light 时，OpenAI 那封营销邮件（uid 3780）的暗色块照旧命中：`color:#fff !important` 覆盖了它自己的内联白底表格 → 日间模式正文全白看不见。详见 §3.5 |
 | 正文净化结果用 `computed` 缓存 | `EmailDetail.vue` | 原先每次重渲染都重新解析整封 HTML |
 | 删除死文件 `composables/sanitize-html.ts` | frontend | 0 引用 |
-| **默认拦截远程内容**（`src`/`srcSet`/`poster`/`background`/CSS `url()`）并计数 | `html-sanitize.ts` | 跟踪像素原先默认加载 |
-| **CSS 净化**：`@import`/`expression()`/`behavior` 永久剥离；拦截模式下远程 `url()` → `none`；`position:fixed\|sticky` → `static` | `html-sanitize.ts` | 原先 `<style>` 与 `style=` 原样放行：可外连、可覆盖应用 UI |
+| **默认拦截远程内容**（`src`/`srcSet`/`poster`/`background`/CSS `url()`）并计数 | `html/sanitize.ts` | 跟踪像素原先默认加载 |
+| **CSS 净化**：`@import`/`expression()`/`behavior` 永久剥离；拦截模式下远程 `url()` → `none`；`position:fixed\|sticky` → `static` | `html/sanitize.ts` | 原先 `<style>` 与 `style=` 原样放行：可外连、可覆盖应用 UI |
 | **放行入口**：全局开关 / 按发件人白名单 / 单封邮件 | `stores/preferences.ts`、`EmailDetail.vue`、`views/settings/Common.vue` + Go `RemoteContentConfig` | 拦截必须有出路，否则用户看不了图 |
 | **横幅措辞改为准确描述**，并新增「已拦截 N 个远程资源」横幅与放行按钮 | `EmailDetail.vue` + i18n | 原「已拦截 {count} 个附件/资源」的 count 是「附件数 + 有 HTML ? 1 : 0」，与实际隐藏内容不符 |
 | **提示条从正文上方移到附件折叠栏那条带子上**：`EmailRemoteNotice.vue` 与 `.attach-head` 同几何（8px 16px、13px/600、`border-bottom`），底色用新增 token `--color-warning-bg`，左侧图标用 `--color-warning`；警告/错误 alert 也改为复用 token（原先硬编码 `rgba(240,160,32,.14)`/`#f0a020`） | `components/detail/EmailRemoteNotice.vue`（新）、`EmailDetail.vue`、`styles/global.css` | 顶部不再堆叠一块大警告框；拦截提示与附件同为「可操作条」，位置靠近它所影响的正文 |
 | **附件列表默认折叠** | `EmailDetail.vue`（`attachmentsOpen = ref(false)`，切邮件时也重置为 `false`） | 长附件列表不再默认占满正文上方 |
-| **打开邮件即标记已读**：写服务器 `\Seen`（UID `STORE +FLAGS.SILENT`，读-写 `SELECT`）+ 更新本地缓存 `is_read`，并在同一条连接上重读 `STATUS UNSEEN` | `services/emailservice.go` `MarkEmailRead`、`services/database.go` `MarkEmailRead`、`stores/accounts.ts` `markEmailRead` | 之前从不写 `\Seen`：列表的未读样式与托盘徽标永远不会因为在这里读信而更新；失败只回滚列表项，不影响正文展示 |
+| **打开邮件即标记已读**：写服务器 `\Seen`（UID `STORE +FLAGS.SILENT`，读-写 `SELECT`）+ 更新本地缓存 `is_read`，并在同一条连接上重读 `STATUS UNSEEN` | `services/emailfolders.go` `MarkEmailRead`、`services/databaseemail.go` `MarkEmailRead`、`stores/accounts.ts` `markEmailRead` | 之前从不写 `\Seen`：列表的未读样式与托盘徽标永远不会因为在这里读信而更新；失败只回滚列表项，不影响正文展示 |
 | **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
 
 ---

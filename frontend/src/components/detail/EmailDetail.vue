@@ -15,7 +15,7 @@ import {
   getTranslationMaxChars,
   translateHtmlWithLayout,
   translatePlainText,
-} from '~/composables/html-utils'
+} from '~/composables/html'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailRemoteNotice from './EmailRemoteNotice.vue'

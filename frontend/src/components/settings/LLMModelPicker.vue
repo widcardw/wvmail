@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useVirtualList } from '@vueuse/core'
 import { ConfigService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
-import UiCheckbox from '~/components/UiCheckbox.vue'
+import UiCheckbox from '~/components/ui/UiCheckbox.vue'
 import type { LLMConfig } from '~/types/config'
 
 const props = defineProps<{

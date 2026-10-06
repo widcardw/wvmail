@@ -5,8 +5,8 @@ import rehypeStringify from 'rehype-stringify'
 import type { Schema } from 'hast-util-sanitize'
 import type { Root, Element, Text, Comment, Doctype } from 'hast'
 // Explicit `.ts` so the Node-run tests can resolve it (see tsconfig).
-import { findDateMentions } from './date-mentions.ts'
-import type { DateMention } from './date-mentions.ts'
+import { findDateMentions } from '../date-mentions.ts'
+import type { DateMention } from '../date-mentions.ts'
 
 type PropertyDefinition = [string, ...(string | number | boolean | RegExp | null | undefined)[]]
 
@@ -385,11 +385,14 @@ const MAX_DECLARATION_LENGTH = 2048
 function dropOversizedDeclarations(css: string): { css: string; dropped: number } {
   if (css.length <= MAX_DECLARATION_LENGTH) return { css, dropped: 0 }
   let dropped = 0
-  const next = css.replace(/([a-zA-Z-]+)\s*:\s*([^;{}]*)/g, (whole, _prop: string, value: string) => {
-    if (value.length <= MAX_DECLARATION_LENGTH) return whole
-    dropped++
-    return ''
-  })
+  const next = css.replace(
+    /([a-zA-Z-]+)\s*:\s*([^;{}]*)/g,
+    (whole, _prop: string, value: string) => {
+      if (value.length <= MAX_DECLARATION_LENGTH) return whole
+      dropped++
+      return ''
+    },
+  )
   return { css: next, dropped }
 }
 

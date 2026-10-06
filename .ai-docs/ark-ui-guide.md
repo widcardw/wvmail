@@ -77,13 +77,13 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 
 | Primitive | Wraps | Visuals live in |
 |---|---|---|
-| `components/UiSwitch.vue` | `Switch.Root/.Label/.Control/.Thumb/.HiddenInput` | `styles/ui.css` (`.switch`, `.switch__thumb`, driven by `[data-state='checked']`) |
-| `components/UiCheckbox.vue` | `Checkbox.Root/.Control/.Indicator/.Label/.HiddenInput` | `styles/ui.css` (`.checkbox`, `.checkbox__indicator`) |
-| `components/UiSelect.vue` | native `<select>` styling | component |
-| `components/UiNumberInput.vue` | `NumberInput.Root/.Control/.Input/.IncrementTrigger/.DecrementTrigger` | `styles/ui.css` (`.num*`); the **control** is the visible box, so a caller `class` (`.input--sm`, `.numsel`) sizes the box and the steppers stay in flow next to the input |
-| `components/UiPasswordInput.vue` | `PasswordInput.Root/.Control/.Input/.VisibilityTrigger` | `styles/ui.css` (`.pw*`; the two eye icons swap on `[data-state='visible']`) |
-| `components/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
-| `components/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
+| `components/ui/UiSwitch.vue` | `Switch.Root/.Label/.Control/.Thumb/.HiddenInput` | `styles/ui.css` (`.switch`, `.switch__thumb`, driven by `[data-state='checked']`) |
+| `components/ui/UiCheckbox.vue` | `Checkbox.Root/.Control/.Indicator/.Label/.HiddenInput` | `styles/ui.css` (`.checkbox`, `.checkbox__indicator`) |
+| `components/ui/UiSelect.vue` | native `<select>` styling | component |
+| `components/ui/UiNumberInput.vue` | `NumberInput.Root/.Control/.Input/.IncrementTrigger/.DecrementTrigger` | `styles/ui.css` (`.num*`); the **control** is the visible box, so a caller `class` (`.input--sm`, `.numsel`) sizes the box and the steppers stay in flow next to the input |
+| `components/ui/UiPasswordInput.vue` | `PasswordInput.Root/.Control/.Input/.VisibilityTrigger` | `styles/ui.css` (`.pw*`; the two eye icons swap on `[data-state='visible']`) |
+| `components/ui/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
+| `components/ui/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
 | `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
 | `.dlg-*` classes in `styles/ui.css` | `Dialog.Backdrop/.Positioner/.Content/.Title/.CloseTrigger` | shared dialog shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Always pass **`lazy-mount` + `unmount-on-exit`** |
 

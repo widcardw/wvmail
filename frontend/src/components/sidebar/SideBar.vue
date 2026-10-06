@@ -12,7 +12,7 @@ import { compareFolders, getFolderDisplay } from '~/types/email'
 import type { EmailAccount } from '~/types/email'
 import styles from './SideBar.module.css'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
-import UiBadge from '~/components/UiBadge.vue'
+import UiBadge from '~/components/ui/UiBadge.vue'
 
 const { t, locale } = useI18n()
 const store = useAccountsStore()
@@ -251,7 +251,9 @@ watch(() => router.currentRoute.value.path, syncSelected)
                         }}</TreeView.ItemText>
                         <UiBadge
                           :count="folder.unread ?? 0"
-                          :label="t['sidebar.unread'].replace('{count}', String(folder.unread ?? 0))"
+                          :label="
+                            t['sidebar.unread'].replace('{count}', String(folder.unread ?? 0))
+                          "
                         />
                       </TreeView.Item>
                     </TreeView.NodeProvider>

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
-import UiSelect from '~/components/UiSelect.vue'
+import UiSelect from '~/components/ui/UiSelect.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'

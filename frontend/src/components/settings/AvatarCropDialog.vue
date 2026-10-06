@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { Dialog } from '@ark-ui/vue/dialog'
 import { ImageCropper, useImageCropper } from '@ark-ui/vue/image-cropper'
 import { useI18n } from '~/i18n'
-import BusyButton from '~/components/BusyButton.vue'
+import BusyButton from '~/components/ui/BusyButton.vue'
 import { useFeedbackStore } from '~/stores/feedback'
 
 const props = defineProps<{

@@ -236,10 +236,6 @@ const enUS: TranslationSchema = {
   'settings.translation.llm_config': 'LLM Config',
   'settings.translation.llm_model': 'Model',
   'settings.translation.saved': 'Translation settings saved',
-  'demo.prompt': 'Please enter your name below',
-  'demo.greet': 'Greet',
-  'demo.learnMore': 'Click on the Wails logo to learn more',
-  'demo.listening': 'Listening for Time event...',
   cancel: 'Cancel',
 }
 

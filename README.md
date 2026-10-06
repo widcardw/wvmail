@@ -1,9 +1,9 @@
 # WVMail
 
-A cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeScript)** + **Naive UI**.
+A cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (TypeScript)** + **Ark UI** (headless) + **UnoCSS**.
 
 ![Tech Stack](https://img.shields.io/badge/Go-1.25-blue?logo=go)
-![Wails](https://img.shields.io/badge/Wails-3.0.0--alpha.84-purple)
+![Wails](https://img.shields.io/badge/Wails-3.0.0--beta.25-purple)
 ![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vue.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript)
 
@@ -16,30 +16,31 @@ A cross-platform desktop email client built with **Wails3 (Go)** + **Vue 3 (Type
 - **⏰ Reminders** — Quick reminder management
 - **⚙️ Full Settings** — Theme, language, accounts, LLM provider configuration
 - **🤖 LLM Integration** — Configure multiple LLM providers for AI-assisted features
-- **🌐 i18n** — Multi-language support via Naive UI's locale system
-- **🎨 Naive UI** — Polished component library with dark/light theme toggle
+- **🌐 i18n** — Typed zh-CN / en-US dictionary (`src/i18n`)
+- **🎨 Theming** — light/dark/system + custom primary colour, driven by CSS custom properties
 
 ## Architecture
 
 ```
 wvmail/
-├── main.go                 # Application entry point (Go + Wails3)
-├── services/               # Go backend services
-│   ├── configservice.go    # Config with AES-256-GCM encrypted API keys
-│   ├── emailservice.go     # IMAP email handling
-│   ├── notesservice.go     # Notes CRUD
-│   ├── osservice.go        # OS operations (open files/folders, detect OS)
-│   ├── greetservice.go     # Sample service
-│   └── database.go         # SQLite database setup (GORM)
-├── frontend/               # Vue 3 TypeScript frontend
+├── main.go                 # Entry point: window, tray, close behaviour, the one quit path
+├── services/               # Go backend services (one package, one file per concern)
+│   ├── configservice.go    # Config API (models, typed savers, accounts) + configstore.go + configllm.go
+│   ├── emailservice.go     # IMAP: folders, bodies, attachments, search, decode, dial
+│   ├── emailsyncservice.go # Background sync + tray unread badge
+│   ├── networkservice.go   # Connection quality probe (title-bar meter)
+│   ├── osservice.go        # Open files/folders/URLs, save dialog, QuitApp
+│   ├── database*.go        # SQLite cache (GORM): mail, bodies, notes, reminders
+│   └── notes/reminder/translation/logger services
+├── frontend/               # Vue 3 + TypeScript frontend
 │   └── src/
-│       ├── App.vue         # Root: Naive UI layout with sidebar + title bar
+│       ├── App.vue         # Root layout (title bar + sidebar + routed view)
+│       ├── components/     # ui/ (design system) + one directory per area
+│       ├── composables/    # html/ (mail body pipeline), icons/, small pure helpers
 │       ├── router/         # Vue Router (mail, notes, reminder, settings)
-│       ├── stores/         # Pinia (theme, locale, accounts, notes)
+│       ├── stores/         # Pinia (accounts, theme, locale, preferences, connection, …)
 │       ├── views/          # Page components
-│       ├── components/     # Reusable components (SideBar, TitleBar, EmailList, etc.)
-│       ├── types/          # TypeScript interfaces
-│       ├── composables/    # Vue composables (icons)
+│       ├── types/          # TypeScript mirrors of the bound Go models
 │       └── i18n/           # Locale definitions
 ├── build/                  # OS-specific build configs (macOS, Windows, Linux)
 ├── Taskfile.yml            # Build task definitions (Taskfile.dev)
@@ -53,8 +54,10 @@ wvmail/
 | `ConfigService` | Read/write YAML config with encrypted API keys (AES-256-GCM) |
 | `EmailService` | IMAP email operations (connect, list folders, fetch messages) |
 | `NotesService` | Persist and retrieve notes |
-| `OsService` | Open files/folders, detect OS, path stat |
-| `GreetService` | Demo service |
+| `OsService` | Open files/folders/URLs, save dialog, quit the app |
+| `NetworkService` | Reachability + latency probe for the title-bar connection meter |
+| `EmailSyncService` | Background sync loop + tray unread badge |
+| `NotesService` / `RemindersService` / `TranslationService` | Notes, reminders, LLM translation |
 
 ### Frontend Pages
 
@@ -138,15 +141,16 @@ pnpm build          # Production build
 
 | Layer | Technology |
 |---|---|
-| **Desktop Framework** | [Wails3](https://v3.wails.io/) (v3.0.0-alpha.84) |
+| **Desktop Framework** | [Wails3](https://v3.wails.io/) (v3.0.0-beta.25) |
 | **Go Libraries** | go-imap, go-message, GORM + SQLite, go-yaml |
 | **UI Framework** | Vue 3 (Composition API, `<script setup>`) |
-| **Component Library** | [Naive UI](https://www.naiveui.com/) |
+| **Component Library** | [Ark UI](https://ark-ui.com/) (headless) + our own wrappers in `components/ui/` |
+| **Styling** | UnoCSS + CSS Modules + design tokens (`styles/global.css`) |
 | **State Management** | [Pinia](https://pinia.vuejs.org/) |
 | **Router** | [Vue Router](https://router.vuejs.org/) |
 | **Utilities** | [@vueuse/core](https://vueuse.org/) |
 | **Rich Text** | [TipTap](https://tiptap.dev/) (Notes) |
-| **Icons** | Iconify, LobeHub Icons |
+| **Icons** | offline UnoCSS preset icons (`@iconify-json/*`), LobeHub avatars |
 | **Linter** | oxlint |
 | **Formatter** | oxfmt |
 | **Package Manager** | pnpm |

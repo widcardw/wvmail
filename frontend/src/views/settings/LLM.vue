@@ -6,8 +6,8 @@ import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
 import AppIcon from '~/components/icon/AppIcon.vue'
-import BusyButton from '~/components/BusyButton.vue'
-import { getProviderIconConfig } from '~/composables/provider-icons'
+import BusyButton from '~/components/ui/BusyButton.vue'
+import { getProviderIconConfig } from '~/composables/icons/providers'
 import LLMEditorDialog from '~/components/settings/LLMEditorDialog.vue'
 
 const { t } = useI18n()

@@ -4,9 +4,9 @@ import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
-import UiSelect from '~/components/UiSelect.vue'
-import UiNumberInput from '~/components/UiNumberInput.vue'
-import UiSwitch from '~/components/UiSwitch.vue'
+import UiSelect from '~/components/ui/UiSelect.vue'
+import UiNumberInput from '~/components/ui/UiNumberInput.vue'
+import UiSwitch from '~/components/ui/UiSwitch.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
 const { t } = useI18n()

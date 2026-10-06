@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
-import BusyButton from '~/components/BusyButton.vue'
+import BusyButton from '~/components/ui/BusyButton.vue'
 import { EMAIL_PROVIDER_LABELS } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 

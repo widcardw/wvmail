@@ -1,0 +1,193 @@
+package services
+
+import (
+	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
+)
+
+// Folder listing and per-folder state: the mailbox tree, unseen counts (the
+// sidebar badges and the tray badge), and the read/unread flag writes.
+
+// ListFolders retrieves all available IMAP mailboxes/folders.
+// Returns cached data if available and no force refresh requested.
+func (s *EmailService) ListFolders(account EmailAccount) ([]FolderInfo, error) {
+	// Try cache first
+	cached, err := s.db.LoadFolders(account.ID)
+	if err == nil && len(cached) > 0 {
+		return cached, nil
+	}
+
+	return s.RefreshFolders(account)
+}
+
+// RefreshFolders fetches folders from the IMAP server and updates the cache.
+func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error) {
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	listCmd := client.List("", "*", nil)
+	defer listCmd.Close()
+
+	listData, err := listCmd.Collect()
+	if err != nil {
+		return nil, fmt.Errorf("list failed: %w", err)
+	}
+
+	folders := make([]FolderInfo, 0, len(listData))
+	for _, ld := range listData {
+		attrs := make([]string, len(ld.Attrs))
+		for i, a := range ld.Attrs {
+			attrs[i] = string(a)
+		}
+		folders = append(folders, FolderInfo{
+			Name:  ld.Mailbox,
+			Delim: string(ld.Delim),
+			Attrs: attrs,
+		})
+	}
+
+	// Update cache
+	if err := s.db.SaveFolders(account.ID, folders); err != nil {
+		// Log but don't fail — cache is best-effort
+		slog.Warn("failed to cache folders", "account", account.ID, "error", err)
+	}
+
+	return folders, nil
+}
+
+// UnseenCount asks the server how many messages in folder are still unseen
+// (STATUS … UNSEEN). The tray badge must be right while the window is hidden, so
+// it cannot be derived from whichever page the UI happens to have loaded; a
+// STATUS round trip is one cheap command that does not fetch any message.
+func (s *EmailService) UnseenCount(account EmailAccount, folder string) (int, error) {
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return 0, fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	data, err := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
+	if err != nil {
+		return 0, fmt.Errorf("status failed: %w", err)
+	}
+	if data.NumUnseen == nil {
+		// A server that answers without UNSEEN is treated as "nothing to badge".
+		return 0, nil
+	}
+	return int(*data.NumUnseen), nil
+}
+
+// isSelectableMailbox reports whether a mailbox can be opened, and therefore STATUSed.
+// A \Noselect / \NonExistent branch only exists to hold child folders: it has no
+// messages of its own, and asking for its status is an error rather than a zero.
+func isSelectableMailbox(attrs []string) bool {
+	for _, a := range attrs {
+		lower := strings.ToLower(a)
+		if strings.Contains(lower, "noselect") || strings.Contains(lower, "nonexistent") {
+			return false
+		}
+	}
+	return true
+}
+
+// FolderUnread returns the unseen count per folder (STATUS … UNSEEN) so the sidebar can
+// badge every folder, not just the inbox the tray badge follows.
+//
+// The count cannot come from the local cache: only the pages the UI happened to load are
+// stored, so anything derived from it would quietly undercount a large mailbox. One
+// connection is opened and every STATUS is issued before any is awaited, so the whole
+// folder list costs a single round trip instead of one per folder (go-imap pipelines
+// commands on one connection).
+//
+// Folders that are not selectable, or that the server refuses to answer for, are simply
+// absent from the map — the caller reads a missing key as "nothing to badge".
+func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error) {
+	folders, err := s.db.LoadFolders(account.ID)
+	if err != nil || len(folders) == 0 {
+		// No folder list yet; the sidebar asks again once it has one.
+		return map[string]int{}, nil
+	}
+
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	type statusJob struct {
+		name string
+		cmd  *imapclient.StatusCommand
+	}
+	jobs := make([]statusJob, 0, len(folders))
+	for _, f := range folders {
+		if !isSelectableMailbox(f.Attrs) {
+			continue
+		}
+		jobs = append(jobs, statusJob{
+			name: f.Name,
+			cmd:  client.Status(f.Name, &imap.StatusOptions{NumUnseen: true}),
+		})
+	}
+
+	counts := make(map[string]int, len(jobs))
+	for _, job := range jobs {
+		data, err := job.cmd.Wait()
+		if err != nil {
+			// One mailbox the server will not talk about must not cost the others
+			// their badges.
+			slog.Debug("folder unseen count failed",
+				"account", account.ID, "folder", job.name, "error", err)
+			continue
+		}
+		if data.NumUnseen != nil && *data.NumUnseen > 0 {
+			counts[job.name] = int(*data.NumUnseen)
+		}
+	}
+	return counts, nil
+}
+
+// MarkEmailRead flags one message as seen, in the local cache and on the server.
+// Opening a message must not leave it unread forever: the list styling and the
+// tray badge both follow this state, and providers that answer STATUS UNSEEN keep
+// reporting the message until the flag is actually stored.
+//
+// The cache is updated first so the UI is right even if the server call fails; the
+// error return then tells the caller whether the server agreed.
+func (s *EmailService) MarkEmailRead(account EmailAccount, folder string, uid uint32) error {
+	if err := s.db.MarkEmailRead(account.ID, folder, uid); err != nil {
+		slog.Warn("failed to mark email read in cache",
+			"account", account.ID, "folder", folder, "uid", uid, "error", err)
+	}
+
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	// STORE needs the mailbox opened read-write.
+	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
+		return wrapIMAPError("select folder failed", err)
+	}
+	store := &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}
+	if err := client.Store(imap.UIDSetNum(imap.UID(uid)), store, nil).Close(); err != nil {
+		return wrapIMAPError("marking the message read failed", err)
+	}
+
+	// Keep the tray badge honest without waiting for the next inbox fetch: the
+	// connection is already open, so one STATUS is enough.
+	if isInbox(folder) {
+		if status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait(); statusErr == nil && status.NumUnseen != nil {
+			s.reportUnseen(account.ID, int(*status.NumUnseen))
+		}
+	}
+	return nil
+}

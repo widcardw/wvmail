@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
 import { Field } from '@ark-ui/vue/field'
-import BusyButton from '~/components/BusyButton.vue'
-import UiSelect from '~/components/UiSelect.vue'
-import UiPasswordInput from '~/components/UiPasswordInput.vue'
-import UiNumberInput from '~/components/UiNumberInput.vue'
-import UiSwitch from '~/components/UiSwitch.vue'
+import BusyButton from '~/components/ui/BusyButton.vue'
+import UiSelect from '~/components/ui/UiSelect.vue'
+import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
+import UiNumberInput from '~/components/ui/UiNumberInput.vue'
+import UiSwitch from '~/components/ui/UiSwitch.vue'
 import { EMAIL_PROVIDER_DEFAULTS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 

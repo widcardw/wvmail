@@ -34,19 +34,15 @@ var trayIconEmpty []byte
 var trayIconUnread []byte
 
 func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
-	application.RegisterEvent[string]("time")
+	// Register the custom events whose payload is a string, so the binding
+	// generator emits a typed JS/TS API for them. Events carrying anything else
+	// (or nothing) are declared by the callers that emit them.
 	application.RegisterEvent[string]("emails-synced")
 	// Emitted by ConfigService when the UI language changes, so the system tray can
 	// rebuild its labels without a restart.
 	application.RegisterEvent[string]("language-changed")
 }
 
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
 // quitOnce guards the teardown started by requestQuit.
 var quitOnce atomic.Bool
 
@@ -78,6 +74,9 @@ func requestQuit() {
 	}()
 }
 
+// main is the application's entry point: it builds the services and the window,
+// wires up the tray, the close behaviour and the single quit path, and then blocks
+// in app.Run() until the process ends.
 func main() {
 
 	// macOS 26 "Tahoe" rounds window corners far more aggressively than earlier
@@ -104,10 +103,9 @@ func main() {
 
 	app := application.New(application.Options{
 		Name:        "wvmail",
-		Description: "A demo of using raw HTML & CSS",
+		Description: "A cross-platform desktop mail client",
 		Services: []application.Service{
 			application.NewService(services.NewOsService(requestQuit)),
-			application.NewService(&services.GreetService{}),
 			application.NewService(cfgSvc),
 			application.NewService(emailSvc),
 			application.NewService(services.NewNotesService()),
@@ -279,21 +277,8 @@ func main() {
 		window.EmitEvent("navigate:settings", nil)
 	})
 
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	go func() {
-		for {
-			now := time.Now().Format(time.RFC1123)
-			app.Event.Emit("time", now)
-			time.Sleep(time.Second)
-		}
-	}()
-
 	// Run the application. This blocks until the application has been exited.
-	err := app.Run()
-
-	// If an error occurred while running the application, log it and exit.
-	if err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
