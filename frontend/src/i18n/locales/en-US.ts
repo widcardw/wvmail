@@ -1,6 +1,12 @@
 import type { TranslationSchema } from '../index'
 
 const enUS: TranslationSchema = {
+  quitApp: 'Quit App',
+  'quitApp.title': 'Quit wvmail?',
+  'quitApp.body':
+    'Mail sync stops and the tray icon goes away. Unread mail is synced again the next time you open it.',
+  'quitApp.confirm': 'Quit',
+  'quitApp.failed': 'Quit failed, please try again',
   'app.brand': 'wvmail',
   'search.placeholder': 'Search emails...',
   'search.from': 'From',

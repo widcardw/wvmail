@@ -4,6 +4,11 @@ import { useLocaleStore } from '../stores/locale'
 export type Locale = 'zh-CN' | 'en-US'
 
 export interface TranslationSchema {
+  quitApp: string
+  'quitApp.title': string
+  'quitApp.body': string
+  'quitApp.confirm': string
+  'quitApp.failed': string
   'app.brand': string
   'search.placeholder': string
   'search.from': string

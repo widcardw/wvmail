@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
@@ -7,10 +7,14 @@ import { usePreferencesStore } from '~/stores/preferences'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/UiSelect.vue'
 import UiSwitch from '~/components/UiSwitch.vue'
+import QuitConfirmDialog from '~/components/settings/QuitConfirmDialog.vue'
 
 const { t, locale, setLocale } = useI18n()
 const theme = useThemeStore()
 const preferences = usePreferencesStore()
+
+/** Quitting ends the process, so the button only opens the confirmation. */
+const showQuitDialog = ref(false)
 
 const PRESETS = ['#18a058', '#2080f0', '#f0a020', '#d03050', '#8a2be2', '#e11d48']
 const localeOptions = [
@@ -147,6 +151,9 @@ function onRemoveSender(sender: string) {
         <button type="button" class="btn" @click="openConfigFolder">
           {{ t['settings.common.openConfig'] }}
         </button>
+        <button type="button" class="btn btn--danger" @click="showQuitDialog = true">
+          {{ t['quitApp'] }}
+        </button>
       </div>
     </section>
 
@@ -185,6 +192,8 @@ function onRemoveSender(sender: string) {
         </div>
       </div>
     </section>
+
+    <QuitConfirmDialog v-model:open="showQuitDialog" />
   </div>
 </template>
 
@@ -240,6 +249,7 @@ function onRemoveSender(sender: string) {
 }
 .actions {
   padding: 6px 18px 16px;
+  --at-apply: space-x-2;
 }
 .surface--spaced {
   margin-top: 14px;

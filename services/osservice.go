@@ -9,7 +9,34 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-type OsService struct{}
+// OsService exposes OS-level actions to the frontend: opening files, folders and
+// URLs, the native save dialog, and quitting the app.
+type OsService struct {
+	// quit is the app's guarded quit path (main.requestQuit). Injecting it keeps a
+	// quit from the UI on exactly the same route as the tray item and a window
+	// close: the flag inside it must be set *before* the request, otherwise the
+	// window-close hook reads the teardown as a user close and hides the window
+	// instead of letting the app go.
+	quit func()
+}
+
+func NewOsService(quit func()) *OsService {
+	return &OsService{quit: quit}
+}
+
+// QuitApp quits the process, after the frontend's confirmation dialog.
+//
+// In practice this call does not come back: the process ends inside the teardown
+// that quit starts, so the UI treats it as a one-way action and leaves the dialog
+// up while the app goes away. It returns an error only when nothing was wired to
+// quit, which would otherwise be a silent no-op for a button labelled "Quit".
+func (o *OsService) QuitApp() error {
+	if o.quit == nil {
+		return fmt.Errorf("quit is not available")
+	}
+	o.quit()
+	return nil
+}
 
 func (o *OsService) GetOs() string {
 	return sysruntime.GOOS

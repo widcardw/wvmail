@@ -1,8 +1,8 @@
 # Window Close Behaviour & System Tray
 
 How "closing the window hides the app to the tray" is implemented, why it needs a
-Wails *hook* rather than a listener, and what the tray menu does. Applies to Wails3
-`v3.0.0-beta.25`.
+Wails *hook* rather than a listener, and how the app quits (tray menu, Settings →
+退出应用, or a plain close). Applies to Wails3 `v3.0.0-beta.25`.
 
 ## The setting
 
@@ -50,15 +50,68 @@ Three details make this work:
 3. **`ApplicationShouldTerminateAfterLastWindowClosed` is `false`** (and Windows
    mirrors it with `DisableQuitOnLastWindowClosed`): the app's lifetime must not
    depend on its window existing, so no close path can terminate the process on its
-   own. With the flag off the hook raises the quit itself (`app.Quit()`, off the
-   close event's call stack because AppKit ignores a terminate raised while it is
-   still unwinding that close; a delayed `os.Exit(0)` catches the case where even
-   that is swallowed). If a close ever slips past the hook the window is gone but
-   the app stays in the tray, and `Show()` re-runs the window — never a dead app.
+   own. With the flag off the hook asks `requestQuit()` for the quit (see below). If
+   a close ever slips past the hook the window is gone but the app stays in the tray,
+   and `Show()` re-runs the window — never a dead app.
 
-`App.Quit()` (tray → Quit, Cmd+Q, the macOS app menu) does **not** go through
-`WindowClosing` — it calls the native app teardown — so the hook can never block a
-real quit.
+## Quitting: one path for three callers (main.go `requestQuit`)
+
+```go
+var quitOnce atomic.Bool
+
+func requestQuit() {
+    if !quitOnce.CompareAndSwap(false, true) { return }
+    go func() {                       // off the caller's stack: AppKit ignores a
+        application.Get().Quit()      // terminate raised while a close unwinds
+        time.Sleep(5 * time.Second)   // still alive => the request was dropped
+        os.Exit(0)
+    }()
+}
+```
+
+| Caller | How it gets there |
+|---|---|
+| tray menu → 退出 wvmail | `menu.Add(labels.quit).OnClick(...)` → `requestQuit()` |
+| Settings → 通用 → 退出应用 | button → `QuitConfirmDialog` → `OsService.QuitApp()` → the injected `requestQuit` |
+| close with 隐藏到系统托盘 **off** | `closeRequest` hook → `requestQuit()` |
+
+Two details are load-bearing:
+
+1. **The flag is set before the request.** `app.Quit()` tears the windows down and
+   that close comes back through the hook above; unguarded, the hook would read it
+   as a *user* close and — with "hide to tray" on — cancel it and hide the window,
+   i.e. Quit would silently do nothing but hide. So the hook returns early whenever
+   `quitOnce` is set, and `closeRequest` never re-enters the hide branch during a
+   teardown. The same flag keeps the two close events (platform + common) from
+   starting the teardown twice.
+2. **The 5 s `os.Exit(0)` fallback.** `app.Quit()` blocks until AppKit's termination
+   sequence finishes; reaching the next line means the request was dropped, and a
+   windowless process that ignores "quit" is worse than a slightly abrupt exit.
+   Config and cache are written per operation, so nothing is lost.
+
+`OsService` does **not** call `application.Get().Quit()` itself: `NewOsService(quit)`
+takes the guarded path as a parameter (`main.go` passes `requestQuit`), so the button
+cannot bypass the flag. With no hook injected, `QuitApp()` returns an error instead
+of silently doing nothing (`services/osservice_test.go`).
+
+`Cmd+Q` and the macOS app menu never come through here — they call the native
+teardown, which the hook cannot block (it can only cancel a *window close*), so a
+real quit is always a real quit.
+
+## Settings → 退出应用 (the confirm dialog)
+
+`frontend/src/components/settings/QuitConfirmDialog.vue` is an Ark `Dialog.Root` with
+`role="alertdialog"` (a destructive confirm, so the destructive button sits on the
+right), and `Common.vue` keeps only the `showQuitDialog` ref and the button:
+
+```
+button (btn btn--danger) → showQuitDialog = true → dialog → QuitApp()
+```
+
+The button latches while the request is in flight; the dialog deliberately stays up
+because the process ends inside the call, so there is nothing to return to. If the
+binding rejects (unwired service), the latch resets and a toast (`quitApp.failed`)
+explains why nothing happened.
 
 ## Tray
 
@@ -139,6 +192,10 @@ shows one `inbox unseen count` line per account at launch, plus a
 4. Switch the setting back to 退出应用, close the window → the app quits on the
    next close (no restart needed, the flag is read per close).
 5. Tray → 退出 wvmail quits while the window is hidden.
+6. **With 隐藏到系统托盘 selected**, Settings → 通用 → 退出应用 → confirm: the process
+   must actually exit (no window, no tray icon left, no `wvmail` in `ps`). This is the
+   case the `quitOnce` guard in the hook exists for — without it the teardown's window
+   close is re-read as a user close and the app hides instead.
 
 ## Cross-platform notes
 

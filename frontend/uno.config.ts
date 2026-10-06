@@ -1,4 +1,4 @@
-import { defineConfig, presetUno, presetIcons } from 'unocss'
+import { defineConfig, presetUno, presetIcons, transformerDirectives } from 'unocss'
 
 // UnoCSS config (wvmail)
 // - presetIcons: build-time, offline icons from installed `@iconify-json/*` sets.
@@ -30,6 +30,9 @@ export default defineConfig({
         'vertical-align': 'middle',
       },
     }),
+  ],
+  transformers: [
+    transformerDirectives(),
   ],
   // Iconify names that only exist as runtime strings (map-driven icons, attachment
   // types, provider fallbacks, avatars) must still be emitted offline, so list them

@@ -47,6 +47,37 @@ func init() {
 // main function serves as the application's entry point. It initializes the application, creates a window,
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
+// quitOnce guards the teardown started by requestQuit.
+var quitOnce atomic.Bool
+
+// requestQuit is the app's single "quit for real" path: the tray's Quit item,
+// Settings → Quit (OsService.QuitApp), and a window close with "hide to tray" off
+// all end here.
+//
+// The flag is set *before* the request on purpose. app.Quit() tears the windows
+// down and that close comes back through the WindowClosing hook below; with "hide
+// to tray" on, an unguarded hook would cancel the close and hide the window,
+// leaving a process that ignores its own Quit command. The flag also keeps the
+// teardown from starting twice, since the platform and the common close event can
+// both report one user close.
+func requestQuit() {
+	if !quitOnce.CompareAndSwap(false, true) {
+		return
+	}
+	// Raised off the caller's stack: AppKit ignores a terminate request while it is
+	// still handling the window close that triggered it (see the hook below).
+	go func() {
+		application.Get().Quit()
+		// Quit blocks until AppKit's termination sequence finishes, so reaching this
+		// line means the request was dropped. Never leave the user with a windowless
+		// process that ignores "quit": exit for real a moment later. Config and cache
+		// are written per operation, so nothing is lost by skipping the last
+		// teardown steps.
+		time.Sleep(5 * time.Second)
+		os.Exit(0)
+	}()
+}
+
 func main() {
 
 	// macOS 26 "Tahoe" rounds window corners far more aggressively than earlier
@@ -75,7 +106,7 @@ func main() {
 		Name:        "wvmail",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(&services.OsService{}),
+			application.NewService(services.NewOsService(requestQuit)),
 			application.NewService(&services.GreetService{}),
 			application.NewService(cfgSvc),
 			application.NewService(emailSvc),
@@ -183,7 +214,7 @@ func main() {
 		})
 		menu.AddSeparator()
 		menu.Add(labels.quit).OnClick(func(ctx *application.Context) {
-			app.Quit()
+			requestQuit()
 		})
 		return menu
 	}
@@ -206,11 +237,14 @@ func main() {
 	// the manager. Cancelling the event skips that listener, and hiding the window
 	// leaves the session (sync, tray, webview) alive. The flag is read on every
 	// close, so flipping the switch in Settings applies to the next close.
-	//
-	// quitting guards the teardown started by app.Quit: window closes arriving while
-	// the app is going away must not re-enter the branch below.
-	var quitting atomic.Bool
 	closeRequest := func(event *application.WindowEvent) {
+		if quitOnce.Load() {
+			// A quit is already under way (tray item, Settings → Quit, or a close
+			// with the flag off); this close is part of that teardown. Let it
+			// through — cancelling it here would hide the window and leave a process
+			// that has been told to quit.
+			return
+		}
 		if cfgSvc.MinimizeWhenClose() {
 			// Flag on: cancel the close (which skips Wails' built-in WindowClosing
 			// listener that destroys the window) and hide it instead, so the
@@ -220,23 +254,8 @@ func main() {
 			return
 		}
 		// Flag off: "closing the window quits the app". The close itself is left to
-		// Wails, and the terminate request is raised off this event's call stack:
-		// AppKit ignores a terminate while it is still handling the window's close,
-		// which would leave the app running with its window gone. Both the platform
-		// and the common event can arrive for one user close, hence the CAS.
-		if quitting.CompareAndSwap(false, true) {
-			go func() {
-				app.Quit()
-				// app.Quit blocks until AppKit's termination sequence finishes, so
-				// reaching this line means the request was ignored (AppKit drops a
-				// terminate raised while a window close is still unwinding). Never
-				// leave the user with a windowless process that ignores "closing
-				// quits": exit for real a moment later. Config and cache are written
-				// per operation, so nothing is lost by skipping the last teardown steps.
-				time.Sleep(5 * time.Second)
-				os.Exit(0)
-			}()
-		}
+		// Wails; requestQuit raises the terminate request off this event's call stack.
+		requestQuit()
 	}
 	// Common.WindowClosing covers programmatic Close() and the other platforms.
 	win.RegisterHook(events.Common.WindowClosing, closeRequest)

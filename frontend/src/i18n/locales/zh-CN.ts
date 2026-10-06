@@ -1,6 +1,11 @@
 import type { TranslationSchema } from '../index'
 
 const zhCN: TranslationSchema = {
+  quitApp: '退出应用',
+  'quitApp.title': '退出 wvmail？',
+  'quitApp.body': '邮件同步会停止，托盘图标也会消失。下次打开时未读邮件会重新同步。',
+  'quitApp.confirm': '退出',
+  'quitApp.failed': '退出失败，请重试',
   'app.brand': 'wvmail',
   'search.placeholder': '搜索邮件...',
   'search.from': '发件人',
