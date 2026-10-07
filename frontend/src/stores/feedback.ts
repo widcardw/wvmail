@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { createToaster } from '@ark-ui/vue/toast'
+import { useI18n } from '~/i18n'
 
 export type ToastKind = 'info' | 'success' | 'error' | 'warn'
 
@@ -32,3 +33,15 @@ export const useFeedbackStore = defineStore('feedback', {
     },
   },
 })
+
+/**
+ * Report a failed fetch the way the whole app does: the reason in the console and a
+ * toast, because a silent failure looks exactly like "there was nothing to show".
+ * Shared by the accounts and search stores.
+ */
+export function reportFetchFailure(action: string, e: unknown) {
+  const { t } = useI18n()
+  console.error(action, e)
+  const detail = e instanceof Error ? e.message : String(e)
+  toaster.create({ title: `${t.value['mail.refreshFailed']}: ${detail}`, type: 'error' })
+}

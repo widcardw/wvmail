@@ -22,7 +22,7 @@ email body ──▶ sanitizeEmailHtml()                       ──▶ shadow 
 
 ## Parsing: chrono-node, not a hand-rolled grammar
 
-`frontend/src/composables/date-mentions.ts` answers "what moments are in this text?" by running
+`frontend/src/composables/date-mentions/index.ts` answers "what moments are in this text?" by running
 **both** the Chinese and the English `chrono-node` parsers (`chrono.zh.casual`, `chrono.en.casual`)
 and keeping the strongest match where they overlap. Both always run — mail mixes languages
 regardless of the UI language — and the app locale only breaks exact ties.
@@ -55,7 +55,7 @@ On top of the parsers we filter, because a *highlight* is a promise that somethi
   judging "past" against the wall clock hides every timestamp in an old message — that bug is also
   why `2026-09-25 11:28:04 UTC+08:00` used to be reduced to its `08:00` fragment: the full match
   looked "past" while the offset tail rolled forward to tomorrow. The constant is `PAST_GRACE_MS` in
-  `composables/date-mentions.ts` if the noise ever outweighs the misses.
+  `composables/date-mentions/index.ts` if the noise ever outweighs the misses.
 - **One chip per moment.** Overlapping candidates collapse: most certain fields, then longest text,
   then the UI language's parser.
 - **Halves of one expression are glued back together.** chrono returns `by 3 Oct (23:59 PST)` as two
@@ -119,7 +119,7 @@ from a real message:
 
 ```bash
 cd frontend && node --input-type=module -e "
-import { findDateMentions } from './src/composables/date-mentions.ts'
+import { findDateMentions } from './src/composables/date-mentions/index.ts'
 console.log(findDateMentions(process.argv[1], { locale: 'zh-CN' }))" '待测文本'
 ```
 

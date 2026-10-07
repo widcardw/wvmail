@@ -6,8 +6,8 @@
  * The reference "now" is fixed so relative expressions stay deterministic:
  * 2026-03-01 10:00 local time — a Sunday.
  */
-import { findDateMentions } from '../src/composables/date-mentions.ts'
-import type { FindDateMentionsOptions } from '../src/composables/date-mentions.ts'
+import { findDateMentions } from '../src/composables/date-mentions/index.ts'
+import type { FindDateMentionsOptions } from '../src/composables/date-mentions/index.ts'
 
 let pass = 0
 let fail = 0

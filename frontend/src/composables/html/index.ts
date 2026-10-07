@@ -1,9 +1,9 @@
-export { sanitizeHtmlRehype, sanitizeEmailHtml, linkifyPlainText } from './sanitize'
-export type { EmailSanitizeOptions, EmailSanitizeResult } from './sanitize'
+export { sanitizeHtmlRehype, sanitizeEmailHtml, linkifyPlainText } from './sanitize.ts'
+export type { EmailSanitizeOptions, EmailSanitizeResult } from './sanitize.ts'
 export {
   extractTextForTranslation,
   getTranslationMaxChars,
   translateHtmlWithLayout,
   translatePlainText,
-} from './translation'
-export { adaptHtmlForDarkMode } from './dark-mode'
+} from './translation.ts'
+export { adaptHtmlForDarkMode } from './dark-mode.ts'

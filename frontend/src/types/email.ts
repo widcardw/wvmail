@@ -20,6 +20,9 @@
 
 export { EmailAccount } from '#/wvmail/services'
 
+/** Messages per page, shared by the mail list and the search results. */
+export const PAGE_SIZE = 20
+
 export interface EmailSummary {
   uid: number
   subject: string

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AppConfig, ConfigService, TranslationService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useThemeStore } from '~/stores/theme'
@@ -8,15 +7,11 @@ import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
 import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
-import {
-  sanitizeEmailHtml,
-  linkifyPlainText,
-  extractTextForTranslation,
-  getTranslationMaxChars,
-  translateHtmlWithLayout,
-  translatePlainText,
-} from '~/composables/html'
+import { sanitizeEmailHtml, linkifyPlainText } from '~/composables/html'
+import { useMailTranslation } from '~/composables/mail-translation'
 import EmailShadowBody from './EmailShadowBody.vue'
+import EmailHeader from './EmailHeader.vue'
+import EmailTranslatedBody from './EmailTranslatedBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailRemoteNotice from './EmailRemoteNotice.vue'
 import EmailCssArtNotice from './EmailCssArtNotice.vue'
@@ -98,17 +93,25 @@ function sanitizeOptions() {
   }
 }
 
-const translating = ref(false)
-const translatedText = ref<string | null>(null)
-const translationError = ref<string | null>(null)
-const translatedHtml = ref<string | null>(null)
-// bump to invalidate an in-flight translation when cancelled / re-clicked
-let translateToken = 0
+// Translation state machine (spam-gated, with the engine/model from Settings); the
+// reading pane only wires it to the header button and the result panels.
+const {
+  translating,
+  translatedText,
+  translatedHtml,
+  error: translationError,
+  hasTranslation,
+  hasOutput: hasTranslationOutput,
+  clear: clearTranslation,
+  toggle: toggleTranslation,
+} = useMailTranslation({
+  detail,
+  sanitize: (html) => sanitizeEmailHtml(html, sanitizeOptions()).html,
+  blocked: () => Boolean(detail.value?.is_suspicious) && !suspiciousRevealed.value,
+})
 
 watch(detail, () => {
-  translatedText.value = null
-  translatedHtml.value = null
-  translationError.value = null
+  clearTranslation()
   suspiciousRevealed.value = false
   remoteRevealed.value = false
   attachmentsOpen.value = false
@@ -128,24 +131,9 @@ async function alwaysAllowSender() {
   fb.success(t.value['mail.remote.allowed'])
 }
 
-function senderDisplay(detail: { from_name?: string; from_addr?: string; from?: string }): {
-  name: string | null
-  addr: string | null
-  fallback: string | null
-} {
-  if (detail.from_name && detail.from_addr)
-    return { name: detail.from_name, addr: detail.from_addr, fallback: null }
-  if (detail.from_name) return { name: null, addr: null, fallback: detail.from_name }
-  if (detail.from_addr) return { name: null, addr: null, fallback: detail.from_addr }
-  if (detail.from) return { name: null, addr: null, fallback: detail.from }
-  return { name: null, addr: null, fallback: 'Unknown' }
-}
-
 async function handleRefresh() {
-  // drop stale translation/rstate so a re-fetch is always actionable
-  translatedText.value = null
-  translatedHtml.value = null
-  translationError.value = null
+  // Drop the stale translation so a re-fetch is always actionable.
+  clearTranslation()
   const account = accountsStore.selectedAccount
   const folder = accountsStore.selectedFolder
   const uid = accountsStore.selectedEmailUid
@@ -154,91 +142,6 @@ async function handleRefresh() {
     return
   }
   await accountsStore.refreshEmailBody(account, folder, uid)
-}
-
-function cancelTranslation() {
-  translateToken++
-  translating.value = false
-  translatedText.value = null
-  translatedHtml.value = null
-  translationError.value = null
-}
-
-async function handleTranslate() {
-  if (!detail.value) return
-  // A suspicious (spam/Junk) email stays behind the reveal gate: translating it
-  // must not render a body the user has not chosen to reveal.
-  if (detail.value.is_suspicious && !suspiciousRevealed.value) return
-  const gen = ++translateToken
-  translating.value = true
-  translationError.value = null
-  try {
-    const cfg: AppConfig = await ConfigService.GetConfig()
-    const tCfg = cfg.TranslationConfig || {}
-    const targetLang = tCfg.DefaultTargetLang || 'zh-CN'
-    const engine = tCfg.DefaultEngine || 'llm'
-    const cfgName = tCfg.LLMConfigName
-    let llmCfg = null
-    if (engine === 'llm' && cfg.LLMConfigs && cfg.LLMConfigs.length > 0) {
-      const picked = cfgName ? cfg.LLMConfigs.find((c) => c.Name === cfgName) : undefined
-      const chosen = picked ?? cfg.LLMConfigs[0]
-      // Translate with the model picked in the translation settings; a config that
-      // never picked one keeps its own default. Mutating the fetched config keeps
-      // it a real LLMConfig: the typed helpers below take a narrow shape and
-      // reject object literals that carry extra keys.
-      if (tCfg.LLMModel) chosen.Model = tCfg.LLMModel
-      llmCfg = chosen
-    }
-    const maxTranslationChars = engine === 'llm' ? getTranslationMaxChars(llmCfg) : undefined
-    const translateFn = (text: string) =>
-      TranslationService.TranslateText(text, targetLang, engine, llmCfg, tCfg.DeepLAuthKey || '')
-
-    if (detail.value.body_html) {
-      const htmlResult = await translateHtmlWithLayout(
-        detail.value.body_html,
-        translateFn,
-        maxTranslationChars,
-      )
-      if (gen !== translateToken) return
-      if (htmlResult) {
-        translatedText.value = null
-        translatedHtml.value = sanitizeEmailHtml(htmlResult, sanitizeOptions()).html
-        return
-      }
-    }
-
-    const textToTranslate = detail.value.body_text
-      ? detail.value.body_text
-      : detail.value.body_html
-        ? extractTextForTranslation(detail.value.body_html)
-        : ''
-    if (!textToTranslate) {
-      if (gen === translateToken) translationError.value = 'No email content to translate'
-      return
-    }
-    const result = await translatePlainText(textToTranslate, translateFn, maxTranslationChars)
-    if (gen !== translateToken) return
-    if (!result) {
-      // A separator/paragraph-count mismatch makes the translator return
-      // nothing: report it instead of leaving the UI as if the click was lost.
-      translatedText.value = null
-      translatedHtml.value = null
-      translationError.value = t.value['mail.translation.empty']
-      return
-    }
-    translatedText.value = result
-    translatedHtml.value = null
-  } catch (e) {
-    if (gen === translateToken) translationError.value = String(e)
-  } finally {
-    if (gen === translateToken) translating.value = false
-  }
-}
-
-function clearTranslation() {
-  translatedText.value = null
-  translatedHtml.value = null
-  translationError.value = null
 }
 
 const linkOpen = ref(false)
@@ -319,67 +222,14 @@ const showAttachments = computed(
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
 
       <template v-if="detail">
-        <div class="detail-header">
-          <div class="head-row">
-            <div class="sender">
-              <span v-if="senderDisplay(detail).name" class="from">
-                <strong>{{ senderDisplay(detail).name }}</strong>
-                <span class="addr">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
-              </span>
-              <span v-else class="from">{{ senderDisplay(detail).fallback }}</span>
-              <span class="ddate">{{ formatDate(detail.date, localeStore.current) }}</span>
-            </div>
-            <div class="head-actions">
-              <button
-                type="button"
-                class="icon-btn"
-                :title="t['mail.refresh.detail']"
-                :disabled="loading"
-                @click="handleRefresh"
-              >
-                <i class="i-ri:refresh-line" :class="{ rot: loading }" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                class="icon-btn"
-                :title="
-                  translating
-                    ? t['mail.translation.cancel']
-                    : translatedText || translatedHtml
-                      ? t['mail.translation.close']
-                      : t['mail.translation.translate']
-                "
-                @click="
-                  translating
-                    ? cancelTranslation()
-                    : translatedText || translatedHtml
-                      ? clearTranslation()
-                      : handleTranslate()
-                "
-              >
-                <span v-if="translating" class="ic-spin" />
-                <i
-                  v-else
-                  :class="translatedText || translatedHtml ? 'i-ri:close-line' : 'i-ri:translate-2'"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <h2 class="subject">{{ detail.subject || t['mail.noSubject'] }}</h2>
-
-          <div class="meta">
-            <div class="mrow">
-              <span class="mlabel">{{ t['search.to'] }}</span>
-              <span>{{ (detail.to || []).join(', ') }}</span>
-            </div>
-            <div v-if="detail.cc && detail.cc.length > 0" class="mrow">
-              <span class="mlabel">Cc:</span>
-              <span>{{ detail.cc.join(', ') }}</span>
-            </div>
-          </div>
-        </div>
+        <EmailHeader
+          :detail="detail"
+          :loading="loading"
+          :translating="translating"
+          :has-translation="hasTranslation"
+          @refresh="handleRefresh"
+          @toggle-translation="toggleTranslation"
+        />
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
         <EmailSecurityNotice
@@ -417,23 +267,14 @@ const showAttachments = computed(
           <div v-else class="centerpad-empty">{{ t['mail.noContent'] }}</div>
         </div>
 
-        <div
-          v-if="translatedHtml && (!detail.is_suspicious || suspiciousRevealed)"
-          class="detail-body"
-        >
-          <div class="td">{{ t['mail.translation.label'] }}</div>
-          <EmailShadowBody :html="translatedHtml" :dark="isDarkMode" />
-        </div>
-        <div v-if="translatedText" class="detail-body">
-          <div class="td">{{ t['mail.translation.label'] }}</div>
-          <div class="body-text">{{ translatedText }}</div>
-        </div>
-        <div v-if="translationError" class="alert alert--err with-x" style="margin: 12px">
-          <span>{{ translationError }}</span>
-          <button type="button" class="x" aria-label="close" @click="translationError = null">
-            <i class="i-ri:close-line" />
-          </button>
-        </div>
+        <EmailTranslatedBody
+          v-if="hasTranslationOutput && (!detail.is_suspicious || suspiciousRevealed)"
+          :html="translatedHtml"
+          :text="translatedText"
+          :error="translationError"
+          :dark="isDarkMode"
+          @dismiss-error="translationError = null"
+        />
       </template>
     </div>
 
@@ -510,14 +351,6 @@ const showAttachments = computed(
   width: 20px;
   height: 20px;
 }
-.rot {
-  animation: rot360 0.8s linear infinite;
-}
-@keyframes rot360 {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 .alert {
   display: flex;
@@ -548,90 +381,10 @@ const showAttachments = computed(
   align-items: center;
 }
 
-.detail-header {
-  padding: 18px 22px 14px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.head-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.sender {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.from {
-  font-size: 14px;
-  font-weight: 600;
-}
-.addr {
-  font-size: 13px;
-  font-weight: 400;
-  opacity: 0.65;
-  margin-left: 4px;
-}
-.ddate {
-  font-size: 12px;
-  opacity: 0.6;
-}
-.head-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* Top-of-detail actions become themed, visible buttons (not faint icons) */
-.detail-header .ic-spin {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--n-border-color);
-  border-top-color: var(--n-primary-color);
-  border-radius: 50%;
-  animation: rot360 0.8s linear infinite;
-}
-.subject {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 12px 0 8px;
-  line-height: 1.3;
-  word-break: break-word;
-}
-.meta {
-  font-size: 12px;
-  opacity: 0.75;
-}
-.mrow {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-.mlabel {
-  font-weight: 600;
-  min-width: 26px;
-  opacity: 0.6;
-}
-
 .detail-body {
   padding: 18px 22px;
   line-height: 1.6;
   font-size: 14px;
   word-break: break-word;
-}
-.body-text {
-  font-family: inherit;
-  white-space: pre-wrap;
-}
-.td {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.5;
-  margin-bottom: 8px;
 }
 </style>

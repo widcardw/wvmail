@@ -2,16 +2,18 @@
 import { computed } from 'vue'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
+import { useSearchStore } from '~/stores/search'
 import { getFolderDisplay } from '~/types/email'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
+const searchStore = useSearchStore()
 
 const loading = computed(() =>
-  accountsStore.searchActive
-    ? accountsStore.searchLoading
+  searchStore.searchActive
+    ? searchStore.searchLoading
     : accountsStore.isSmartFolder
       ? accountsStore.smartFolderLoading
       : accountsStore.loading,
@@ -28,17 +30,17 @@ const folderDisplay = computed(() => {
   if (accountsStore.isSmartFolder) return { label: String(accountsStore.smartFolder) }
   if (accountsStore.selectedFolder)
     return getFolderDisplay(accountsStore.selectedFolder, locale.value)
-  if (accountsStore.searchActive) return { label: t.value['search.results'] }
+  if (searchStore.searchActive) return { label: t.value['search.results'] }
   return { label: '', icon: '', rank: 99 }
 })
 
 const showHeader = computed(
-  () => !!accountsStore.selectedFolder || accountsStore.isSmartFolder || accountsStore.searchActive,
+  () => !!accountsStore.selectedFolder || accountsStore.isSmartFolder || searchStore.searchActive,
 )
 
 function handleClick(email: { uid: number; account_id?: string; folder_name?: string }) {
   const smartF = accountsStore.smartFolder
-  if ((smartF || accountsStore.searchActive) && email.account_id && email.folder_name) {
+  if ((smartF || searchStore.searchActive) && email.account_id && email.folder_name) {
     const account = accountsStore.accounts.find((a) => a.ID === email.account_id)
     if (account) accountsStore.selectEmail(account, email.folder_name, email.uid)
     return
@@ -56,7 +58,7 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
       v-if="showHeader"
       :label="folderDisplay.label"
       :title="accountsStore.selectedFolder || folderDisplay.label"
-      :show-refresh="!accountsStore.isSmartFolder && !accountsStore.searchActive"
+      :show-refresh="!accountsStore.isSmartFolder && !searchStore.searchActive"
       :refreshing="accountsStore.refreshing"
       :page-count="pageCount"
       :total="accountsStore.currentTotal"

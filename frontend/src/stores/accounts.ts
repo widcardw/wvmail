@@ -7,25 +7,16 @@ import type {
   EmailDetail,
   AttachmentInfo,
   EmailPageResponse,
-  EmailSearchFilter,
 } from '~/types/email'
 import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/services'
-import { useFeedbackStore } from '~/stores/feedback'
+import { reportFetchFailure, useFeedbackStore } from '~/stores/feedback'
+import { useSearchStore } from '~/stores/search'
 import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const feedback = useFeedbackStore()
   const { t: i18n } = useI18n()
-
-  // Fetch failures used to be console.error only, so a timed-out IMAP connect
-  // looked like "nothing happened" for a minute and then silently kept stale
-  // mail. Surface the reason to the user as well.
-  function reportFetchFailure(action: string, e: unknown) {
-    console.error(action, e)
-    const detail = e instanceof Error ? e.message : String(e)
-    feedback.error(`${i18n.value['mail.refreshFailed']}: ${detail}`)
-  }
 
   const accounts = ref<EmailAccount[]>([])
   const avatarRevision = ref<Record<string, number>>({})
@@ -50,17 +41,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   const selectedAccountId = ref<string | null>(null)
   const selectedFolder = ref<string | null>(null)
 
-  // Global cached-email search state. Search results carry account/folder
-  // metadata so they can be opened from the aggregate result list.
-  const searchActive = ref(false)
-  const searchResults = ref<EmailSummary[]>([])
-  const searchTotal = ref(0)
-  const searchPage = ref(1)
-  const searchLoading = ref(false)
-  const searchQuery = ref<EmailSearchFilter[]>([])
-  const searchAccountId = ref('')
-  const searchFolderName = ref('')
-  let searchRequestId = 0
+  // Search lives in its own store (stores/search.ts); the list reads it below.
+  const searchStore = useSearchStore()
 
   // Smart folder (aggregate view across all accounts)
   const smartFolder = ref<string | null>(null)
@@ -88,7 +70,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   const currentEmails = computed(() => {
-    if (searchActive.value) return searchResults.value
+    if (searchStore.searchActive) return searchStore.searchResults
     if (smartFolder.value) {
       const start = (smartCurrentPage.value - 1) * pageSize
       return smartEmails.value.slice(start, start + pageSize)
@@ -98,14 +80,14 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   const currentTotal = computed(() => {
-    if (searchActive.value) return searchTotal.value
+    if (searchStore.searchActive) return searchStore.searchTotal
     if (smartFolder.value) return smartEmails.value.length
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailTotalByFolder.value[key] ?? 0
   })
 
   const currentPage = computed(() => {
-    if (searchActive.value) return searchPage.value
+    if (searchStore.searchActive) return searchStore.searchPage
     if (smartFolder.value) return smartCurrentPage.value
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return currentPageByFolder.value[key] ?? 1
@@ -251,58 +233,6 @@ export const useAccountsStore = defineStore('accounts', () => {
     } finally {
       loading.value = false
     }
-  }
-
-  async function searchEmails(filters: EmailSearchFilter[], accountId = '', folderName = '') {
-    const normalized = filters
-      .map((filter) => ({ field: filter.field, value: filter.value.trim() }))
-      .filter((filter) => filter.value.length > 0)
-    if (normalized.length === 0) {
-      clearSearch()
-      return
-    }
-
-    const requestId = ++searchRequestId
-    searchActive.value = true
-    searchLoading.value = true
-    searchPage.value = 1
-    searchQuery.value = normalized
-    searchAccountId.value = accountId
-    searchFolderName.value = folderName
-    try {
-      const resp: EmailPageResponse | null = await EmailService.SearchEmails(
-        { account_id: accountId, folder_name: folderName, filters: normalized },
-        1,
-        pageSize,
-      )
-      if (requestId !== searchRequestId) return
-      searchResults.value = (resp?.emails ?? []).map((email) => ({
-        ...email,
-        account_id: email.account_id,
-        folder_name: email.folder_name,
-      }))
-      searchTotal.value = resp?.total ?? 0
-    } catch (e) {
-      if (requestId !== searchRequestId) return
-      // Without feedback an empty result was indistinguishable from a failure.
-      reportFetchFailure('Failed to search emails', e)
-      searchResults.value = []
-      searchTotal.value = 0
-    } finally {
-      if (requestId === searchRequestId) searchLoading.value = false
-    }
-  }
-
-  function clearSearch() {
-    searchRequestId++
-    searchActive.value = false
-    searchResults.value = []
-    searchTotal.value = 0
-    searchPage.value = 1
-    searchQuery.value = []
-    searchAccountId.value = ''
-    searchFolderName.value = ''
-    searchLoading.value = false
   }
 
   /** Force-refresh from the IMAP server, bypassing cache. Keeps your current page
@@ -493,30 +423,9 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   function goToPage(page: number) {
-    if (searchActive.value) {
-      const requestId = ++searchRequestId
-      searchPage.value = page
-      searchLoading.value = true
-      EmailService.SearchEmails(
-        {
-          account_id: searchAccountId.value,
-          folder_name: searchFolderName.value,
-          filters: searchQuery.value,
-        },
-        page,
-        pageSize,
-      )
-        .then((resp: EmailPageResponse | null) => {
-          if (requestId !== searchRequestId) return
-          searchResults.value = resp?.emails ?? []
-          searchTotal.value = resp?.total ?? 0
-        })
-        .catch((e) => {
-          if (requestId === searchRequestId) console.error('Failed to load search page', e)
-        })
-        .finally(() => {
-          if (requestId === searchRequestId) searchLoading.value = false
-        })
+    // A search on screen owns its own paging: the same store the list reads above.
+    if (searchStore.searchActive) {
+      searchStore.goToPage(page)
       return
     }
     if (smartFolder.value) {
@@ -621,8 +530,6 @@ export const useAccountsStore = defineStore('accounts', () => {
     currentEmails,
     currentTotal,
     currentPage,
-    searchActive,
-    searchLoading,
     pageSize,
     smartFolder,
     smartEmails,
@@ -639,8 +546,6 @@ export const useAccountsStore = defineStore('accounts', () => {
     testConnection,
     loadFolders,
     loadEmails,
-    searchEmails,
-    clearSearch,
     forceRefreshEmails,
     goToPage,
     selectEmail,

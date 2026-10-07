@@ -2,15 +2,17 @@
 import { Splitter } from '@ark-ui/vue/splitter'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
+import { useSearchStore } from '~/stores/search'
 import EmailList from '~/components/list/EmailList.vue'
 import EmailDetail from '~/components/detail/EmailDetail.vue'
 import styles from '~/components/mail-split.module.css'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
+const searchStore = useSearchStore()
 
 const active = () =>
-  Boolean(accountsStore.selectedFolder || accountsStore.isSmartFolder || accountsStore.searchActive)
+  Boolean(accountsStore.selectedFolder || accountsStore.isSmartFolder || searchStore.searchActive)
 </script>
 
 <template>

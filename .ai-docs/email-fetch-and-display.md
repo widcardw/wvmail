@@ -150,7 +150,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 
 | 位置 | 触发 | 行为 | 判定 |
 |---|---|---|---|
-| `EmailDetail.vue` 翻译分支 | 垃圾邮件 + 点翻译 | **翻译结果原先绕过门禁**直接渲染整段 HTML | 已修（见 §4） |
+| `EmailDetail.vue` + `EmailTranslatedBody.vue` 翻译分支 | 垃圾邮件 + 点翻译 | **翻译结果原先绕过门禁**直接渲染整段 HTML | 已修（见 §4） |
 | `html/sanitize.ts` schema | 始终 | 允许 `<style>` 与**所有元素**的 `style` 属性 → CSS 未净化（`url()`/`@import`/`position:fixed` 都保留） | **已修**（见 §3.4） |
 | `html/sanitize.ts` schema | 始终 | 远程 `img src` 的 `http(s)` 保留 → **跟踪像素默认会加载**；没有「拦截远程内容」开关 | **已修**（默认拦截 + 白名单，见 §3.4） |
 | `EmailShadowBody.vue` | 暗色转换抛错 | 原先无 try/catch → `innerHTML` 不赋值，正文空白/残留 | 已修 |
@@ -162,9 +162,9 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 位置 | 触发 | 行为 | 判定 |
 |---|---|---|---|
 | `html/translation.ts` 分隔符数量不匹配 | LLM 改动 `————` | 返回 `[]`/`''` → 原先**静默无反应**，按钮回弹 | 已修（报错提示） |
-| `EmailDetail.vue` 翻译目标语言缺省 | 配置为空 | 静默用 `zh-CN`；引擎静默用 `llm`；指定 LLM 配置缺失则静默用第一个 | 记录 |
+| `composables/mail-translation.ts` 翻译目标语言缺省 | 配置为空 | 静默用 `zh-CN`；引擎静默用 `llm`；指定 LLM 配置缺失则静默用第一个 | 记录 |
 | `html/translation.ts` 无文本节点 | 无可用文本 | 返回 `null` → 静默降级为纯文本翻译（**布局丢失**） | 合理但无提示 |
-| `stores/accounts.ts` 搜索失败 | `SearchEmails` 抛错 | 原先仅 console → 空结果，与「确实没有」无法区分 | 已修（toast） |
+| `stores/search.ts` 搜索失败 | `SearchEmails` 抛错 | 原先仅 console → 空结果，与「确实没有」无法区分 | 已修（toast） |
 | `stores/accounts.ts` 聚合视图失败 | smart folder 抛错 | 原先清空聚合列表 | 已修（保留旧数据 + toast） |
 | `stores/accounts.ts` 同步后重取失败 | 后台事件 | 原先 `.catch(() => {})` 完全吞掉 | 已修（记日志，不弹 toast 以免刷屏） |
 | `stores/accounts.ts` 取信/取文件夹失败 | 列表加载抛错 | 原先把 `emailsByFolder`/`foldersByAccount` **清空**，与后端「保留旧列表」的意图相反 | 已修（保留旧数据 + toast） |
@@ -172,7 +172,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `EmailList.vue` 聚合邮件缺 account/folder | 点击 | 回落到当前选中账号+文件夹；都没有则**点击无任何反应** | 记录（缺用户反馈） |
 | `formats.ts` 日期不可解析 | 脏数据 | 渲染字面量 `"Invalid Date"` | 记录 |
 | `formats.ts` 文件大小 | ≥1TB / 负数 / NaN | `"1 undefined"` / `"NaN undefined"`（未 clamp） | 记录 |
-| `EmailDetail.vue` 翻译无可译内容 | 空正文 | 硬编码英文错误串（未走 i18n） | 记录 |
+| `composables/mail-translation.ts` 翻译无可译内容 | 空正文 | 硬编码英文错误串（未走 i18n） | 记录 |
 
 **重复 / 冗余**
 
@@ -256,8 +256,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 老缓存正文同样自愈：读缓存时解码并写回 | `FetchEmail` + `repairCachedEncoding` | 修好抓取路径不够 —— 已经缓存的邮件仍会一直显示转义符 |
 | 缓存失败改用 `slog`，删除 4 处调试 `fmt.Println` | `services/emailservice.go`（现拆为 `emailbody.go` 等） | `fmt.Printf/Println` 在 GUI 里无处可见（stdout 未接），且是遗留调试输出 |
 | `TestConnection` 记录实际入参（host/user/provider/`has_password`）与耗时 | `services/imapdial.go` | 让「列表测试超时、编辑页测试成功」这类问题可被日志直接判定 |
-| 翻译结果纳入垃圾邮件门禁 | `EmailDetail.vue`（`handleTranslate` 早退 + 模板条件） | 原先翻译会绕过门禁把未揭示的正文渲染出来 |
-| 翻译返回空内容时报错而非静默 | `EmailDetail.vue`（新增 i18n key `mail.translation.empty`） | 分隔符不匹配导致「点了翻译没反应」 |
+| 翻译结果纳入垃圾邮件门禁 | `composables/mail-translation.ts`（`start` 早退）+ `EmailDetail.vue` 模板条件 | 原先翻译会绕过门禁把未揭示的正文渲染出来 |
+| 翻译返回空内容时报错而非静默 | `composables/mail-translation.ts`（i18n key `mail.translation.empty`） | 分隔符不匹配导致「点了翻译没反应」 |
 | 暗色转换失败回退原始 HTML | `EmailShadowBody.vue` try/catch | 原先抛错会让正文空白/残留旧内容 |
 | 取信/取文件夹/搜索/聚合失败：保留旧数据 + toast | `stores/accounts.ts` | 原先静默清空，用户误以为「没有邮件」 |
 | 取消保存对话框不再报错 | `stores/accounts.ts` `downloadAttachment` | 取消是正常操作，原先会弹错误横幅 |

@@ -1,260 +1,60 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from '~/i18n'
-import { useAccountsStore } from '~/stores/accounts'
-import { useFeedbackStore } from '~/stores/feedback'
-import { usePreferencesStore } from '~/stores/preferences'
-import type { EmailSearchField, EmailSearchFilter } from '~/types/email'
-import { EmailService } from '#/wvmail/services'
+import { useMailSearch } from '~/composables/use-mail-search'
+import type { EmailSearchField } from '~/types/email'
 
-type SearchTag = EmailSearchFilter & { locked?: boolean }
-interface CachedContactSuggestion {
-  address: string
-  name: string
-}
-const DEFAULT_SEARCH_FIELD: EmailSearchField = 'content'
-const COMPLETE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
+// The widget: the input element, focus, and keyboard navigation. The query syntax
+// and the tag state machine live in composables/use-mail-search.ts; the rules behind
+// them in composables/search-query.ts.
 const { t } = useI18n()
-const accountsStore = useAccountsStore()
-const feedback = useFeedbackStore()
-const preferences = usePreferencesStore()
-const input = ref('')
+
 const inputRef = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
-const suggestionIndex = ref(-1)
-const tags = ref<SearchTag[]>([])
-const defaultFilterDismissed = ref(false)
-const pendingDeleteKey = ref<string | null>(null)
-const contactSuggestions = ref<CachedContactSuggestion[]>([])
-let contactRequestId = 0
-let contactTimer: ReturnType<typeof setTimeout> | undefined
-let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined
 
-const fieldLabels = computed<Record<EmailSearchField, string>>(() => ({
-  from: t.value['search.from'],
-  to: t.value['search.to'],
-  content: t.value['search.content'],
-}))
-
-const contextualDefaultFilter = computed<SearchTag | null>(() => {
-  const account = accountsStore.selectedAccount
-  const folder = accountsStore.selectedFolder
-  const email = account?.Email?.trim() || ''
-  if (accountsStore.isSmartFolder || !email || !folder) return null
-
-  const field: EmailSearchField | null = accountsStore.folderMatchesType(folder, 'sent')
-    ? 'from'
-    : accountsStore.folderMatchesType(folder, 'inbox')
-      ? 'to'
-      : null
-  if (field && tags.value.some((tag) => tag.field === field)) return null
-  return field ? { field, value: email, locked: true } : null
-})
-const defaultFilter = computed<SearchTag | null>(() =>
-  defaultFilterDismissed.value ? null : contextualDefaultFilter.value,
-)
-const displayedTags = computed<SearchTag[]>(() => {
-  return defaultFilter.value ? [defaultFilter.value, ...tags.value] : tags.value
-})
-
-const parsedInput = computed(() => {
-  const match = input.value.match(/^\s*(from|to|content)\s*:\s*(.*)$/i)
-  // Unknown or missing prefixes are plain content searches by default.
-  if (!match) return { field: DEFAULT_SEARCH_FIELD, value: input.value.trim() }
-  return { field: match[1].toLowerCase() as EmailSearchField, value: match[2] }
-})
-
-const accountSuggestions = computed(() => {
-  const { field, value } = parsedInput.value
-  if ((field !== 'from' && field !== 'to') || input.value.trim() === '') return []
-  if (defaultFilter.value?.field === field) return []
-  const needle = value.trim().toLowerCase()
-  return accountsStore.accounts
-    .filter((account) => {
-      if (!needle) return true
-      return [account.Email, account.Name, account.IMAPUser].some((part) =>
-        String(part || '')
-          .toLowerCase()
-          .includes(needle),
-      )
-    })
-    .slice(0, 6)
-})
-
-const suggestionAccounts = computed(() => {
-  const configuredEmails = new Set(
-    accountSuggestions.value.map((account) => account.Email.toLowerCase()),
-  )
-  const cachedSuggestions = contactSuggestions.value
-    .filter((contact) => !configuredEmails.has(contact.address.toLowerCase()))
-    .map((contact) => ({
-      ID: `cached:${contact.address}`,
-      Email: contact.address,
-      Name: contact.name,
-      Provider: t.value['search.history'],
-    }))
-  return [...accountSuggestions.value, ...cachedSuggestions].slice(0, 6)
-})
-
-const fieldSuggestions = computed(() => {
-  if (/^\s*(from|to|content)\s*:/i.test(input.value)) return []
-  const needle = input.value.trim().toLowerCase()
-  const fields = (Object.keys(fieldLabels.value) as EmailSearchField[]).filter((field) => {
-    if (defaultFilter.value?.field === field) return false
-    if (!needle) return true
-    return field.startsWith(needle) || fieldLabels.value[field].toLowerCase().startsWith(needle)
-  })
-  return fields.map((field) => ({
-    field,
-    label: `${field[0].toUpperCase()}${field.slice(1)}:`,
-  }))
+const {
+  input,
+  displayedTags,
+  parsedInput,
+  fieldLabels,
+  suggestionAccounts,
+  fieldSuggestions,
+  activeSuggestionIndex,
+  addTag,
+  removeTag,
+  removeLastTag,
+  chooseField: chooseFieldAndFocus,
+  fillSuggestion: fillSuggestionAndFocus,
+  isCompleteEmail,
+} = useMailSearch({
+  focusInput: () => inputRef.value?.focus(),
 })
 
 const showSuggestions = computed(
   () => focused.value && (suggestionAccounts.value.length > 0 || fieldSuggestions.value.length > 0),
 )
 
-function scopeAccountId() {
-  return accountsStore.isSmartFolder ? '' : accountsStore.selectedAccount?.ID || ''
-}
-
-function scopeFolderName() {
-  return accountsStore.isSmartFolder ? '' : accountsStore.selectedFolder || ''
-}
-
-async function loadContactSuggestions() {
-  const requestId = ++contactRequestId
-  const { field, value } = parsedInput.value
-  contactSuggestions.value = []
-  if (
-    (field !== 'from' && field !== 'to') ||
-    !value.trim() ||
-    defaultFilter.value?.field === field
-  ) {
-    return
-  }
-
-  try {
-    const result = await EmailService.SuggestEmailContacts(field, value.trim(), scopeAccountId(), 6)
-    if (requestId === contactRequestId) {
-      contactSuggestions.value = (result || []) as CachedContactSuggestion[]
-    }
-  } catch (error) {
-    if (requestId === contactRequestId) {
-      console.error('Failed to load email contact suggestions', error)
-    }
-  }
-}
-
-function effectiveFilters() {
-  return displayedTags.value.map(({ field, value }) => ({ field, value })) as EmailSearchFilter[]
-}
-
-async function runSearch() {
-  if (tags.value.length === 0) {
-    accountsStore.clearSearch()
-    return
-  }
-  await accountsStore.searchEmails(effectiveFilters(), scopeAccountId(), scopeFolderName())
-}
-
-async function addTag(value = parsedInput.value.value) {
-  const field = parsedInput.value.field
-  const normalized = value.trim()
-  if (!normalized) return
-
-  if (field === 'from') {
-    tags.value = tags.value.filter((tag) => tag.field !== 'from')
-  }
-  if (field === 'to' && tags.value.some((tag) => tag.field === 'to' && tag.value === normalized)) {
-    input.value = ''
-    return
-  }
-  tags.value.push({ field, value: normalized })
-  clearPendingDelete()
-  input.value = ''
-  suggestionIndex.value = -1
-  await runSearch()
+function chooseField(field: EmailSearchField) {
+  chooseFieldAndFocus(field)
 }
 
 function fillSuggestion(email: string) {
-  input.value = `${parsedInput.value.field}: ${email}`
-  suggestionIndex.value = -1
-  void nextTick(() => inputRef.value?.focus())
-}
-
-function isCompleteEmail(value: string) {
-  return COMPLETE_EMAIL_PATTERN.test(value.trim())
-}
-
-function chooseField(field: EmailSearchField) {
-  // Keep the query syntax stable across locales; labels remain localized in
-  // the suggestion menu and generated tags.
-  input.value = `${field[0].toUpperCase()}${field.slice(1)}: `
-  suggestionIndex.value = -1
-  void nextTick(() => inputRef.value?.focus())
-}
-
-function removeTag(index: number) {
-  if (displayedTags.value[index]?.locked) {
-    defaultFilterDismissed.value = true
-    clearPendingDelete()
-    void runSearch()
-    return
-  }
-  const removableIndex = index - (defaultFilter.value ? 1 : 0)
-  if (removableIndex >= 0) {
-    tags.value.splice(removableIndex, 1)
-    clearPendingDelete()
-    void runSearch()
-  }
-}
-
-function clearPendingDelete() {
-  pendingDeleteKey.value = null
-  if (pendingDeleteTimer) {
-    clearTimeout(pendingDeleteTimer)
-    pendingDeleteTimer = undefined
-  }
-}
-
-function removeLastTag() {
-  const lastTag = tags.value.length > 0 ? tags.value[tags.value.length - 1] : defaultFilter.value
-  const deleteKey = lastTag ? `${lastTag.field}:${lastTag.value}` : null
-  if (!deleteKey) return
-
-  if (preferences.tagDeletePresses === 2 && pendingDeleteKey.value !== deleteKey) {
-    pendingDeleteKey.value = deleteKey
-    if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer)
-    pendingDeleteTimer = setTimeout(() => {
-      clearPendingDelete()
-    }, 2500)
-    feedback.warn(t.value['search.deleteAgain'])
-    return
-  }
-
-  clearPendingDelete()
-  if (lastTag?.locked) {
-    defaultFilterDismissed.value = true
-  } else {
-    tags.value.pop()
-  }
-  void runSearch()
+  fillSuggestionAndFocus(email)
 }
 
 function onKeydown(event: KeyboardEvent) {
   const suggestions = suggestionAccounts.value
   const fields = fieldSuggestions.value
+
   if (event.key === 'ArrowDown' && (suggestions.length > 0 || fields.length > 0)) {
     event.preventDefault()
     const count = suggestions.length || fields.length
-    suggestionIndex.value = Math.min(suggestionIndex.value + 1, count - 1)
+    activeSuggestionIndex.value = Math.min(activeSuggestionIndex.value + 1, count - 1)
     return
   }
   if (event.key === 'ArrowUp' && (suggestions.length > 0 || fields.length > 0)) {
     event.preventDefault()
-    suggestionIndex.value = Math.max(suggestionIndex.value - 1, 0)
+    activeSuggestionIndex.value = Math.max(activeSuggestionIndex.value - 1, 0)
     return
   }
   if (event.key === 'Escape') {
@@ -270,15 +70,18 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Tab' && suggestions.length === 0 && fields.length === 0) return
 
   event.preventDefault()
+  // A field name wins over an address: the user is still typing the prefix.
   if (fields.length > 0) {
-    if (suggestionIndex.value >= 0 && fields[suggestionIndex.value]) {
-      chooseField(fields[suggestionIndex.value].field)
+    if (activeSuggestionIndex.value >= 0 && fields[activeSuggestionIndex.value]) {
+      chooseField(fields[activeSuggestionIndex.value].field)
     } else if (fields.length === 1) {
       chooseField(fields[0].field)
     }
     return
   }
   const typedValue = parsedInput.value.value.trim()
+  // A complete address in a from:/to: query is committed as-is; anything else falls
+  // through to the highlighted (or first) suggestion.
   if (
     (parsedInput.value.field === 'from' || parsedInput.value.field === 'to') &&
     isCompleteEmail(typedValue)
@@ -289,62 +92,16 @@ function onKeydown(event: KeyboardEvent) {
   const exactSuggestion = suggestions.some(
     (account) => account.Email.toLowerCase() === typedValue.toLowerCase(),
   )
-  if (suggestions.length > 0 && suggestionIndex.value < 0 && !exactSuggestion) {
+  if (suggestions.length > 0 && activeSuggestionIndex.value < 0 && !exactSuggestion) {
     fillSuggestion(suggestions[0].Email)
     return
   }
-  if (suggestionIndex.value >= 0 && suggestions[suggestionIndex.value]) {
-    fillSuggestion(suggestions[suggestionIndex.value].Email)
+  if (activeSuggestionIndex.value >= 0 && suggestions[activeSuggestionIndex.value]) {
+    fillSuggestion(suggestions[activeSuggestionIndex.value].Email)
     return
   }
   void addTag()
 }
-
-watch(
-  () => [
-    accountsStore.selectedAccount?.ID,
-    accountsStore.selectedFolder,
-    accountsStore.isSmartFolder,
-  ],
-  () => {
-    defaultFilterDismissed.value = false
-    clearPendingDelete()
-    if (accountsStore.isSmartFolder) {
-      tags.value = []
-      input.value = ''
-      suggestionIndex.value = -1
-      accountsStore.clearSearch()
-      return
-    }
-    if (tags.value.length > 0) void runSearch()
-  },
-)
-
-watch(
-  () => input.value,
-  () => {
-    clearPendingDelete()
-  },
-)
-
-watch(
-  () => [
-    input.value,
-    accountsStore.selectedAccount?.ID,
-    accountsStore.selectedFolder,
-    accountsStore.isSmartFolder,
-    defaultFilter.value?.field,
-  ],
-  () => {
-    if (contactTimer) clearTimeout(contactTimer)
-    contactTimer = setTimeout(() => void loadContactSuggestions(), 120)
-  },
-)
-
-onBeforeUnmount(() => {
-  if (contactTimer) clearTimeout(contactTimer)
-  clearPendingDelete()
-})
 </script>
 
 <template>
@@ -385,7 +142,7 @@ onBeforeUnmount(() => {
         :key="suggestion.ID"
         type="button"
         class="search-suggestion"
-        :class="{ highlighted: suggestionIndex === index }"
+        :class="{ highlighted: activeSuggestionIndex === index }"
         @mousedown.prevent="addTag(suggestion.Email)"
       >
         <span>{{ suggestion.Email }}</span>
