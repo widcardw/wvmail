@@ -14,16 +14,19 @@ export const useNotesStore = defineStore('notes', () => {
   const notes = ref<Note[]>([])
   const loading = ref(false)
   const selectedId = ref<string | null>(null)
-  const currentContent = ref('')
 
   const selectedNote = computed(() => {
     if (!selectedId.value) return null
     return notes.value.find((n) => n.id === selectedId.value) ?? null
   })
 
-  const sortedNotes = computed(() => {
-    return [...notes.value].sort((a, b) => b.updated_at - a.updated_at)
-  })
+  const sortedNotes = computed(() =>
+    // Stable tiebreak: several saves can land in the same second, and without it the
+    // sidebar order would shuffle between reloads.
+    [...notes.value].sort((a, b) =>
+      b.updated_at === a.updated_at ? a.id.localeCompare(b.id) : b.updated_at - a.updated_at,
+    ),
+  )
 
   async function loadNotes() {
     loading.value = true
@@ -37,10 +40,8 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function selectNote(id: string) {
+  function selectNote(id: string) {
     selectedId.value = id
-    const note = notes.value.find((n) => n.id === id)
-    currentContent.value = note?.content ?? ''
   }
 
   async function createNote(): Promise<string | null> {
@@ -55,7 +56,6 @@ export const useNotesStore = defineStore('notes', () => {
       })
       await loadNotes()
       selectedId.value = id
-      currentContent.value = ''
       return id
     } catch (e) {
       console.error('Failed to create note', e)
@@ -63,19 +63,16 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function saveCurrentNote(title: string, content: string) {
-    if (!selectedId.value) return
+  /**
+   * Save one note by id. The id is explicit — never "the selected note" — because the
+   * editor flushes a pending edit while switching away, when `selectedId` already
+   * points at the next note.
+   */
+  async function saveNote(id: string, title: string, content: string) {
     const now = Math.floor(Date.now() / 1000)
     try {
-      await NotesService.SaveNote({
-        id: selectedId.value,
-        title,
-        content,
-        created_at: 0,
-        updated_at: now,
-      })
-      // Update local state
-      const idx = notes.value.findIndex((n) => n.id === selectedId.value)
+      await NotesService.SaveNote({ id, title, content, created_at: 0, updated_at: now })
+      const idx = notes.value.findIndex((n) => n.id === id)
       if (idx !== -1) {
         notes.value[idx] = { ...notes.value[idx], title, content, updated_at: now }
       }
@@ -87,10 +84,7 @@ export const useNotesStore = defineStore('notes', () => {
   async function deleteNote(id: string) {
     try {
       await NotesService.DeleteNote(id)
-      if (selectedId.value === id) {
-        selectedId.value = null
-        currentContent.value = ''
-      }
+      if (selectedId.value === id) selectedId.value = null
       await loadNotes()
     } catch (e) {
       console.error('Failed to delete note', e)
@@ -101,13 +95,12 @@ export const useNotesStore = defineStore('notes', () => {
     notes,
     loading,
     selectedId,
-    currentContent,
     selectedNote,
     sortedNotes,
     loadNotes,
     selectNote,
     createNote,
-    saveCurrentNote,
+    saveNote,
     deleteNote,
   }
 })

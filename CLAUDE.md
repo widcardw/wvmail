@@ -39,6 +39,7 @@ Additional docs are in `.ai-docs/`:
 - `dev-debugging.md` — running the app, logging, macOS devtools/WebKit pitfalls
 - `build-assets-and-icons.md` — app icon pipeline, `Assets.car` vs `icons.icns` precedence, actool/Xcode-license trap, `build/` vs CLI templates
 - `window-tray-and-close.md` — window-close interception (`minimize_when_close`), tray menu semantics, and why it needs a Wails hook
+- `notes.md` — the notes view: one TipTap editor per note (and why `setContent` makes that necessary), the autosave/flush rules, note HTML → text
 - `config-store.md` — what `config.yaml` holds, secret encryption, atomic + serialized writes, and why it stays a single file
 - `connection-indicator.md` — the title-bar connection meter: what the Go probe measures, its latency thresholds and polling schedule, and why it is not `dialIMAP`
 

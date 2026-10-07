@@ -78,11 +78,24 @@ export interface TranslationSchema {
   'mail.translation.cancel': string
   'notes.title': string
   'notes.empty': string
-  'notes.placeholder': string
+  'notes.clearSearch': string
   'notes.search': string
   'notes.new': string
   'notes.delete': string
   'notes.untitled': string
+  'notes.bold': string
+  'notes.italic': string
+  'notes.strike': string
+  'notes.heading': string
+  'notes.bulletList': string
+  'notes.orderedList': string
+  'notes.quote': string
+  'notes.codeBlock': string
+  'notes.undo': string
+  'notes.redo': string
+  'notes.saving': string
+  'notes.unsaved': string
+  'notes.noMatch': string
   'reminders.title': string
   'reminders.empty': string
   'reminders.tab.today': string

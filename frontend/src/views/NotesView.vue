@@ -1,122 +1,37 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
-import { useEditor, EditorContent } from '@tiptap/vue-3'
-import StarterKit from '@tiptap/starter-kit'
+import { formatNoteDate, noteHtmlToText, notePreviewText } from '~/composables/note-text'
+import NoteEditor from '~/components/notes/NoteEditor.vue'
 
+// The list half of Notes. Everything about editing a single note (editor instance,
+// toolbar, autosave) lives in components/notes/NoteEditor.vue, which this view mounts
+// with `:key="note.id"` so each note gets its own editor — and its own undo history.
 const { t } = useI18n()
 const notesStore = useNotesStore()
 
-const saving = ref(false)
-const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-const title = ref('')
-const dirty = ref(false)
-const loadingContent = ref(false) // prevents dirty flag during setContent
+const filter = ref('')
 const confirmingDelete = ref<string | null>(null)
+const editorRef = ref<{ flush: () => Promise<void>; discard: () => void } | null>(null)
 
-// Extract title from first line of HTML content
-function extractTitle(html: string): string {
-  const text = html
-    .slice(0, 400)
-    .replace(/<[^>]+>/g, '\n')
-    .trim()
-  const lines = text.split('\n').filter(Boolean)
-  const firstLine = lines[0] || 'Untitled'
-  return firstLine.slice(0, 15) || t.value['notes.untitled']
-}
-
-// Build plain text preview (strip HTML) for sidebar
-function textPreview(html: string, maxLen = 60): string {
-  const text = html.replace(/<[^>]+>/g, '').trim()
-  return text.length > maxLen ? text.slice(0, maxLen) + '…' : text || t.value['notes.empty']
-}
-
-function formatDate(ts: number): string {
-  if (!ts) return ''
-  // GORM stores timestamps in seconds; JS Date() expects milliseconds
-  const date = new Date(ts * 1000)
-  const now = new Date()
-  const isToday = date.toDateString() === now.toDateString()
-  if (isToday) {
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-  }
-  const isThisYear = date.getFullYear() === now.getFullYear()
-  if (isThisYear) {
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-  }
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-const editor = useEditor({
-  content: '',
-  extensions: [
-    StarterKit.configure({
-      heading: { levels: [1, 2, 3] },
-    }),
-  ],
-  onUpdate: ({ editor: ed }) => {
-    if (loadingContent.value) return
-    const html = ed.getHTML()
-    notesStore.currentContent = html
-    title.value = extractTitle(html)
-    dirty.value = true
-    scheduleSave()
-  },
+/** Client-side filter over the loaded notes (the backend has no note search). */
+const visibleNotes = computed(() => {
+  const needle = filter.value.trim().toLowerCase()
+  if (!needle) return notesStore.sortedNotes
+  return notesStore.sortedNotes.filter((note) => {
+    const text = `${note.title} ${noteHtmlToText(note.content, ' ')}`.toLowerCase()
+    return text.includes(needle)
+  })
 })
 
-function scheduleSave() {
-  if (!notesStore.selectedId) return
-  if (saveTimer.value) clearTimeout(saveTimer.value)
-  saveTimer.value = setTimeout(doSave, 2000)
-}
-
-async function doSave() {
-  if (!notesStore.selectedId) return
-  saving.value = true
-  try {
-    await notesStore.saveCurrentNote(title.value, notesStore.currentContent)
-    dirty.value = false
-  } finally {
-    saving.value = false
-  }
-}
-
-function loadContentIntoEditor(html: string) {
-  loadingContent.value = true
-  editor.value?.commands.setContent(html || '')
-  loadingContent.value = false
-}
-
-watch(
-  () => notesStore.selectedId,
-  (newId) => {
-    if (!newId) {
-      title.value = ''
-      editor.value?.commands.setContent('')
-      return
-    }
-    const note = notesStore.notes.find((n) => n.id === newId)
-    if (note) {
-      title.value = extractTitle(note.content || '')
-      setTimeout(() => {
-        loadContentIntoEditor(note.content || '')
-        dirty.value = false
-      }, 0)
-    }
-  },
-)
-
 async function handleNewNote() {
-  const id = await notesStore.createNote()
-  if (id) {
-    title.value = ''
-    editor.value?.commands.setContent('')
-  }
+  await notesStore.createNote()
 }
 
 async function confirmAndDelete(id: string) {
   if (confirmingDelete.value !== id) {
+    // Two-press delete: the first press arms, the second acts.
     confirmingDelete.value = id
     setTimeout(() => {
       if (confirmingDelete.value === id) confirmingDelete.value = null
@@ -124,43 +39,21 @@ async function confirmAndDelete(id: string) {
     return
   }
   confirmingDelete.value = null
-  if (notesStore.selectedId === id) {
-    editor.value?.commands.setContent('')
-    title.value = ''
-  }
+  // The editor may be holding an unsaved edit for this note; discarding it stops the
+  // unmount flush from writing the note back right after it was deleted.
+  if (notesStore.selectedId === id) editorRef.value?.discard()
   await notesStore.deleteNote(id)
 }
 
-async function switchNote(id: string) {
-  if (dirty.value && saveTimer.value) {
-    clearTimeout(saveTimer.value)
-    saveTimer.value = null
-    await doSave()
-  }
+function switchNote(id: string) {
   confirmingDelete.value = null
   notesStore.selectNote(id)
 }
 
-onMounted(async () => {
-  await notesStore.loadNotes()
-  if (notesStore.selectedId) {
-    const note = notesStore.notes.find((n) => n.id === notesStore.selectedId)
-    if (note) {
-      title.value = extractTitle(note.content || '')
-      setTimeout(() => {
-        loadContentIntoEditor(note.content || '')
-        dirty.value = false
-      }, 0)
-    }
-  }
-})
-
-onUnmounted(() => {
-  if (saveTimer.value) clearTimeout(saveTimer.value)
-  editor.value?.destroy()
+onMounted(() => {
+  void notesStore.loadNotes()
 })
 </script>
-
 <template>
   <div class="notes-view">
     <!-- Sidebar -->
@@ -172,12 +65,32 @@ onUnmounted(() => {
           {{ t['notes.new'] }}
         </button>
       </div>
+      <div class="sidebar-filter">
+        <i class="i-ri:search-line filter-icon" aria-hidden="true" />
+        <input
+          v-model="filter"
+          class="note-filter"
+          type="search"
+          spellcheck="false"
+          :placeholder="t['notes.search']"
+          :aria-label="t['notes.search']"
+        />
+        <button
+          v-if="filter"
+          type="button"
+          class="filter-clear"
+          :aria-label="t['notes.clearSearch']"
+          @click="filter = ''"
+        >
+          <i class="i-ri:close-line" aria-hidden="true" />
+        </button>
+      </div>
       <div class="scroll">
-        <p v-if="notesStore.sortedNotes.length === 0" class="empty-pad">
-          {{ t['notes.empty'] }}
+        <p v-if="visibleNotes.length === 0" class="empty-pad">
+          {{ filter.trim() ? t['notes.noMatch'] : t['notes.empty'] }}
         </p>
         <button
-          v-for="note in notesStore.sortedNotes"
+          v-for="note in visibleNotes"
           :key="note.id"
           type="button"
           class="note-item"
@@ -185,8 +98,8 @@ onUnmounted(() => {
           @click="switchNote(note.id)"
         >
           <span class="note-item-content">
-            <span class="note-title">{{ textPreview(note.content) }}</span>
-            <span class="note-date">{{ formatDate(note.updated_at) }}</span>
+            <span class="note-title">{{ notePreviewText(note.content, t['notes.untitled']) }}</span>
+            <span class="note-date">{{ formatNoteDate(note.updated_at) }}</span>
           </span>
           <span
             class="delete-btn"
@@ -206,101 +119,16 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Editor -->
-    <div class="notes-editor">
-      <div class="editor-toolbar" v-if="notesStore.selectedId">
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('bold') }"
-          title="Bold"
-          @click="editor?.chain().focus().toggleBold().run()"
-        >
-          <i class="i-ri:bold" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('italic') }"
-          title="Italic"
-          @click="editor?.chain().focus().toggleItalic().run()"
-        >
-          <i class="i-ri:italic" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('strike') }"
-          title="Strike"
-          @click="editor?.chain().focus().toggleStrike().run()"
-        >
-          <i class="i-ri:strikethrough" aria-hidden="true" />
-        </button>
-        <span class="toolbar-sep" />
-        <button
-          v-for="lvl in [1, 2, 3] as const"
-          :key="lvl"
-          type="button"
-          class="tb tb--text select-none"
-          :class="{ active: editor?.isActive('heading', { level: lvl }) }"
-          title="Heading H{{ lvl }}"
-          @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
-        >
-          H{{ lvl }}
-        </button>
-        <span class="toolbar-sep" />
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('bulletList') }"
-          title="Bullet list"
-          @click="editor?.chain().focus().toggleBulletList().run()"
-        >
-          <i class="i-ri:list-unordered" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('orderedList') }"
-          title="Numbered list"
-          @click="editor?.chain().focus().toggleOrderedList().run()"
-        >
-          <i class="i-ri:list-ordered" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('blockquote') }"
-          title="Quote"
-          @click="editor?.chain().focus().toggleBlockquote().run()"
-        >
-          <i class="i-ri:double-quotes-l" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="tb"
-          :class="{ active: editor?.isActive('codeBlock') }"
-          title="Code block"
-          @click="editor?.chain().focus().toggleCodeBlock().run()"
-        >
-          <i class="i-ri:code-box-line" aria-hidden="true" />
-        </button>
-        <span class="toolbar-sep" />
-        <button type="button" class="tb" title="Undo" @click="editor?.chain().focus().undo().run()">
-          <i class="i-ri:arrow-go-back-line" aria-hidden="true" />
-        </button>
-        <button type="button" class="tb" title="Redo" @click="editor?.chain().focus().redo().run()">
-          <i class="i-ri:arrow-go-forward-line" aria-hidden="true" />
-        </button>
-      </div>
+    <!-- Editor: one instance per note (see NoteEditor.vue for why the key matters) -->
+    <NoteEditor
+      v-if="notesStore.selectedNote"
+      :key="notesStore.selectedNote.id"
+      ref="editorRef"
+      :note="notesStore.selectedNote"
+    />
 
-      <div class="editor-content-wrapper" v-if="notesStore.selectedId">
-        <EditorContent :editor="editor" class="editor-content" />
-      </div>
-
-      <div v-else class="editor-placeholder">
-        <p class="empty-pad">{{ t['notes.empty'] }}</p>
-      </div>
+    <div v-else class="editor-placeholder">
+      <p class="empty-pad">{{ t['notes.empty'] }}</p>
     </div>
   </div>
 </template>
@@ -313,6 +141,72 @@ onUnmounted(() => {
   color: var(--n-text-color);
 }
 
+/* A bare row, full width, closed by a divider: no box, no radius — the sidebar itself
+   provides the frame (`.input`'s recipe and `type="search"`'s native chrome both made
+   it look like a form control dropped into the list). The wrapper owns the row and the
+   input is transparent inside it. */
+.sidebar-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  color: var(--color-text-3);
+  border-bottom: 1px solid var(--n-border-color);
+}
+.sidebar-filter:focus-within {
+  color: var(--n-text-color);
+  /* Thickens the existing divider instead of adding/removing a border, so focusing
+     the field cannot shift the list by a pixel. */
+  box-shadow: inset 0 -1px 0 var(--n-primary-color);
+}
+.filter-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+.note-filter {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  font-size: 12.5px;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  appearance: none;
+}
+/* Without this WebKit keeps the native rounded field look and its inline clear
+   button, which ignores our box (and shifts the placeholder). */
+.note-filter::-webkit-search-cancel-button,
+.note-filter::-webkit-search-decoration {
+  appearance: none;
+}
+.note-filter::placeholder {
+  color: var(--color-text-3);
+}
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.filter-clear:hover {
+  color: var(--n-text-color);
+  background: var(--n-sidebar-hover);
+}
+.filter-clear i {
+  font-size: 14px;
+}
 .notes-sidebar {
   width: 260px;
   height: 100%;
@@ -365,10 +259,12 @@ onUnmounted(() => {
   align-items: center;
   width: 100%;
   border: none;
-  background: transparent;
-  margin: 2px 0;
-  padding: 0;
+  /* Divider between rows (the row is a <button>, so `border: none` above has to come
+     first). */
+  border-bottom: 1px solid var(--n-border-color);
   border-left: 2px solid transparent;
+  background: transparent;
+  padding: 0;
   text-align: left;
   cursor: pointer;
   color: inherit;
@@ -418,115 +314,6 @@ onUnmounted(() => {
   background: rgba(208, 48, 80, 0.15);
 }
 
-.notes-editor {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: 100%;
-}
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--n-border-color);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
-.tb {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--n-text-color);
-}
-.tb:hover {
-  background: var(--n-sidebar-hover);
-}
-.tb--text {
-  width: auto;
-  padding: 0 6px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.tb i {
-  font-size: 16px;
-}
-.tb.active {
-  color: var(--n-primary-color);
-  background: var(--n-sidebar-active);
-}
-.toolbar-sep {
-  width: 1px;
-  height: 18px;
-  background: var(--n-border-color);
-  margin: 0 3px;
-  flex-shrink: 0;
-}
-
-.editor-content-wrapper {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-.editor-content {
-  padding: 20px 24px;
-  outline: none;
-  color: var(--n-text-color);
-}
-.editor-content :deep(.ProseMirror) {
-  outline: none;
-  min-height: 200px;
-  line-height: 1.7;
-  font-size: 14px;
-}
-.editor-content :deep(.ProseMirror p) {
-  margin: 0 0 6px;
-}
-.editor-content :deep(.ProseMirror h1) {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 16px 0 8px;
-}
-.editor-content :deep(.ProseMirror h2) {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 12px 0 6px;
-}
-.editor-content :deep(.ProseMirror h3) {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 10px 0 4px;
-}
-.editor-content :deep(.ProseMirror ul),
-.editor-content :deep(.ProseMirror ol) {
-  padding-left: 24px;
-  margin: 4px 0;
-}
-.editor-content :deep(.ProseMirror blockquote) {
-  margin: 8px 0;
-  padding: 0 0 0 12px;
-  border-left: 3px solid var(--n-border-color);
-  opacity: 0.85;
-}
-.editor-content :deep(.ProseMirror pre) {
-  background: var(--n-action-color);
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 8px 0;
-}
-.editor-content :deep(.ProseMirror code) {
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
 .editor-placeholder {
   flex: 1;
   display: flex;
