@@ -70,7 +70,7 @@ func (s *NetworkService) ProbeConnection(host string, port int, useTLS bool) Net
 		if err == nil {
 			res.Ok = true
 			res.LatencyMS = int(elapsed.Milliseconds())
-			slog.Debug("network probe ok",
+			slog.Debug("network: probe ok",
 				"host", host, "port", port, "attempt", attempt, "latency_ms", res.LatencyMS)
 			return res
 		}
@@ -85,7 +85,7 @@ func (s *NetworkService) ProbeConnection(host string, port int, useTLS bool) Net
 	// Debug, not Error: an offline machine would otherwise write an error line
 	// every few seconds for as long as the window stays open, burying the errors
 	// the sync path logs once per real failure.
-	slog.Debug("network probe failed",
+	slog.Debug("network: probe failed",
 		"host", host, "port", port, "attempts", res.Attempts, "error", res.Error)
 	return res
 }

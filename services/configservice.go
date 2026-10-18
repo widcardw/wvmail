@@ -55,9 +55,13 @@ type RemoteContentConfig struct {
 
 // LogConfig controls the application's file logging behaviour.
 type LogConfig struct {
-	Level         string `yaml:"level"`          // debug, info, warn, error
-	RetentionDays int    `yaml:"retention_days"` // days to keep old log files
-	MaxSizeMB     int    `yaml:"max_size_mb"`    // max size per log file before rotation
+	Level string `yaml:"level"` // debug, info, warn, error
+	// RetentionDays is how long old log files are kept, restricted to the
+	// Settings → About options (7, 30, 60, 90, 180, 365). 0 keeps expired
+	// logs forever (expiry disabled).
+	RetentionDays int `yaml:"retention_days"`
+	// MaxSizeMB is the size at which app.log is rotated.
+	MaxSizeMB int `yaml:"max_size_mb"`
 }
 
 // TranslationConfig controls the email translation feature.
@@ -118,8 +122,9 @@ func defaultConfig() AppConfig {
 		DatabasePath:      "",
 		MinimizeWhenClose: false,
 		LogConfig: LogConfig{
-			Level:         "info",
-			RetentionDays: 30,
+			Level: "info",
+			// 0 = never remove expired logs (the default option).
+			RetentionDays: 0,
 			MaxSizeMB:     10,
 		},
 		TranslationConfig: TranslationConfig{
@@ -156,8 +161,10 @@ func notifyLanguageChanged(language string) {
 	app.Event.Emit("language-changed", language)
 }
 
-// SaveLogConfig updates the log settings in the config file.
+// SaveLogConfig updates the log settings in the config file. The retention
+// value is normalized onto the allowed options (0 = never remove expired logs).
 func (s *ConfigService) SaveLogConfig(cfg LogConfig) error {
+	cfg.RetentionDays = normalizeRetentionDays(cfg.RetentionDays)
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 	appCfg, err := readConfig()

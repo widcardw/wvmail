@@ -54,7 +54,7 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 		// escapes; repair them here so an old message does not stay broken.
 		if repairCachedEncoding(cached) {
 			if err := s.db.SaveEmailBody(account.ID, folder, cached); err != nil {
-				slog.Warn("failed to persist repaired email body", "uid", uid, "error", err)
+				slog.Warn("body: failed to persist repaired email body", "uid", uid, "error", err)
 			}
 		}
 		return cached, nil
@@ -386,7 +386,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 
 	// Update cache (best-effort)
 	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
-		slog.Warn("failed to cache email body",
+		slog.Warn("body: failed to cache email body",
 			"account", account.ID, "folder", folder, "uid", uid, "error", err)
 	}
 

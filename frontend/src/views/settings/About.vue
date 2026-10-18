@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
@@ -14,7 +14,7 @@ const fb = useFeedbackStore()
 
 const logConfig = ref({
   Level: 'info',
-  RetentionDays: 30,
+  RetentionDays: 0,
   MaxSizeMB: 10,
 })
 const logDir = ref('')
@@ -27,6 +27,20 @@ const levelOptions = [
   { label: t.value['settings.about.log.level.warn'], value: 'warn' },
   { label: t.value['settings.about.log.level.error'], value: 'error' },
 ]
+
+// Retention options offered in Settings → About. UiSelect is string-valued,
+// so days travel as strings and are parsed on change. '0' = never remove
+// expired logs, and is the default.
+const retentionOptions = computed(() => [
+  { label: t.value['settings.about.log.retention.7'], value: '7' },
+  { label: t.value['settings.about.log.retention.30'], value: '30' },
+  { label: t.value['settings.about.log.retention.60'], value: '60' },
+  { label: t.value['settings.about.log.retention.90'], value: '90' },
+  { label: t.value['settings.about.log.retention.180'], value: '180' },
+  { label: t.value['settings.about.log.retention.365'], value: '365' },
+  { label: t.value['settings.about.log.retention.never'], value: '0' },
+])
+const retentionValue = computed(() => String(logConfig.value.RetentionDays))
 
 onMounted(async () => {
   try {
@@ -48,8 +62,8 @@ function changeLevel(value: string) {
   schedule('log')
 }
 
-function changeRetention(value: number) {
-  logConfig.value.RetentionDays = value
+function changeRetention(value: string) {
+  logConfig.value.RetentionDays = Number(value)
   schedule('log')
 }
 
@@ -59,9 +73,9 @@ function changeMax(value: number) {
 }
 
 async function saveLog() {
+  // Auto-persisted: saving silently is the norm, so only failures toast.
   try {
     await ConfigService.SaveLogConfig(logConfig.value)
-    fb.success(t.value['settings.about.log.saved'])
   } catch (e) {
     fb.error(String(e))
   }
@@ -120,12 +134,10 @@ async function handleOpenLogFolder() {
       </Field.Root>
       <Field.Root class="row">
         <Field.Label class="row__label">{{ t['settings.about.log.retention'] }}</Field.Label>
-        <UiNumberInput
-          class="numsel"
-          :value="logConfig.RetentionDays"
-          :min="1"
-          :max="365"
-          @value="changeRetention($event)"
+        <UiSelect
+          :options="retentionOptions"
+          :model-value="retentionValue"
+          @update:model-value="changeRetention"
         />
       </Field.Root>
       <Field.Root class="row">

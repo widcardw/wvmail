@@ -57,7 +57,7 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 	// Update cache
 	if err := s.db.SaveFolders(account.ID, folders); err != nil {
 		// Log but don't fail — cache is best-effort
-		slog.Warn("failed to cache folders", "account", account.ID, "error", err)
+		slog.Warn("cache: failed to cache folders", "account", account.ID, "error", err)
 	}
 
 	return folders, nil
@@ -143,7 +143,7 @@ func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error
 		if err != nil {
 			// One mailbox the server will not talk about must not cost the others
 			// their badges.
-			slog.Debug("folder unseen count failed",
+			slog.Debug("sync: folder unseen count failed",
 				"account", account.ID, "folder", job.name, "error", err)
 			continue
 		}
@@ -163,7 +163,7 @@ func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error
 // error return then tells the caller whether the server agreed.
 func (s *EmailService) MarkEmailRead(account EmailAccount, folder string, uid uint32) error {
 	if err := s.db.MarkEmailRead(account.ID, folder, uid); err != nil {
-		slog.Warn("failed to mark email read in cache",
+		slog.Warn("cache: failed to mark email read in cache",
 			"account", account.ID, "folder", folder, "uid", uid, "error", err)
 	}
 

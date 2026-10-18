@@ -113,7 +113,7 @@ func (s *EmailSyncService) refreshUnread(account EmailAccount, inbox string) {
 			"account", account.ID, "error", err)
 		return
 	}
-	slog.Info("tray: inbox unseen count", "account", account.Name, "unseen", unseen)
+	slog.Info("tray: inbox unseen count", "account", account.ID, "name", account.Name, "unseen", unseen)
 	s.publishUnread(s.unread.observe(account.ID, unseen))
 }
 
@@ -219,7 +219,7 @@ func isInbox(folder string) bool {
 func (s *EmailSyncService) syncLoop() {
 	accounts, err := s.config.GetAccounts()
 	if err != nil {
-		slog.Error("background sync: loading accounts failed", "error", err)
+		slog.Error("sync: loading accounts failed", "error", err)
 		return
 	}
 
@@ -253,7 +253,7 @@ func (s *EmailSyncService) syncLoop() {
 func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 	folders, err := s.email.ListFolders(acct)
 	if err != nil {
-		slog.Error("background sync: listing folders failed", "account", acct.ID, "error", err)
+		slog.Error("sync: listing folders failed", "account", acct.ID, "error", err)
 		return
 	}
 
@@ -267,7 +267,7 @@ func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 		if err != nil {
 			// Without this the whole background sync failed silently: the
 			// UI keeps showing stale mail with no hint of why.
-			slog.Error("background sync: refreshing inbox failed",
+			slog.Error("sync: refreshing inbox failed",
 				"account", acct.ID, "folder", f.Name, "error", err)
 			return
 		}

@@ -188,9 +188,15 @@ export interface TranslationSchema {
   'settings.about.log.level.warn': string
   'settings.about.log.level.error': string
   'settings.about.log.retention': string
+  'settings.about.log.retention.7': string
+  'settings.about.log.retention.30': string
+  'settings.about.log.retention.60': string
+  'settings.about.log.retention.90': string
+  'settings.about.log.retention.180': string
+  'settings.about.log.retention.365': string
+  'settings.about.log.retention.never': string
   'settings.about.log.max_size': string
   'settings.about.log.open_folder': string
-  'settings.about.log.saved': string
   'settings.about.security': string
   'settings.about.scan_safety': string
   'settings.llm': string
@@ -240,7 +246,6 @@ export interface TranslationSchema {
   'settings.translation.deepl_key': string
   'settings.translation.llm_config': string
   'settings.translation.llm_model': string
-  'settings.translation.saved': string
   cancel: string
 }
 

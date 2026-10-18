@@ -233,9 +233,10 @@ func readConfig() (AppConfig, error) {
 	if cfg.LogConfig.Level == "" {
 		cfg.LogConfig.Level = "info"
 	}
-	if cfg.LogConfig.RetentionDays == 0 {
-		cfg.LogConfig.RetentionDays = 30
-	}
+	// RetentionDays is one of the Settings → About options; 0 means "never
+	// remove expired logs" and is the default, anything off-list snaps back
+	// to 30 days.
+	cfg.LogConfig.RetentionDays = normalizeRetentionDays(cfg.LogConfig.RetentionDays)
 	if cfg.LogConfig.MaxSizeMB == 0 {
 		cfg.LogConfig.MaxSizeMB = 10
 	}

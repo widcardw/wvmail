@@ -77,6 +77,7 @@ function persistNow() {
   persist.schedule('translation', () => doPersist(), 250)
 }
 async function doPersist() {
+  // Debounced auto-save: only failures toast, success is the visible norm.
   try {
     await ConfigService.SaveTranslationConfig({
       DefaultTargetLang: form.value.DefaultTargetLang,
@@ -85,7 +86,6 @@ async function doPersist() {
       LLMModel: form.value.LLMModel,
       DeepLAuthKey: form.value.DeepLAuthKey,
     })
-    fb.success(t.value['settings.translation.saved'])
   } catch (e) {
     fb.error(String(e))
   }

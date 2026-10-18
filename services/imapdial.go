@@ -47,7 +47,7 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 	// the same account object, so log the exact inputs and timing: if the two
 	// buttons ever disagree, the log shows which server/user/password state each
 	// one actually used instead of leaving it to guesswork.
-	slog.Info("testing IMAP connection",
+	slog.Info("imap: testing connection",
 		"account", account.ID,
 		"host", account.IMAPHost,
 		"port", account.IMAPPort,
@@ -59,14 +59,14 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 	start := time.Now()
 	client, err := dialIMAP(account, 15*time.Second)
 	if err != nil {
-		slog.Error("IMAP connection test failed",
+		slog.Error("imap: connection test failed",
 			"account", account.ID, "host", account.IMAPHost,
 			"elapsed", time.Since(start).Round(time.Millisecond), "error", err)
 		return false, fmt.Sprintf("Connection failed: %v", err)
 	}
 	defer client.Logout()
 
-	slog.Info("IMAP connection test succeeded",
+	slog.Info("imap: connection test succeeded",
 		"account", account.ID, "host", account.IMAPHost,
 		"elapsed", time.Since(start).Round(time.Millisecond))
 	return true, fmt.Sprintf("Successfully connected to %s as %s", account.IMAPHost, account.IMAPUser)

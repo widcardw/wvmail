@@ -125,7 +125,7 @@ func decodeBodyPart(raw []byte, enc, cs string) string {
 			// The reader yields decoded bytes as it goes: a malformed escape near the
 			// end leaves everything before it intact, and throwing that away is what
 			// pushed raw `=E8=AE=A1` text all the way to the reader.
-			slog.Debug("quoted-printable decode stopped early",
+			slog.Debug("decode: quoted-printable decode stopped early",
 				"decoded", len(decoded), "raw", len(raw), "error", err)
 			if len(decoded) == 0 {
 				decoded = raw

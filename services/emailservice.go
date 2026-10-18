@@ -207,7 +207,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
 		switch {
 		case statusErr != nil:
-			slog.Warn("unseen count failed", "account", account.ID, "folder", folder, "error", statusErr)
+			slog.Warn("sync: unseen count failed", "account", account.ID, "folder", folder, "error", statusErr)
 		case status.NumUnseen != nil:
 			s.reportUnseen(account.ID, int(*status.NumUnseen))
 		}
@@ -260,7 +260,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	if err != nil {
 		// Some servers (e.g. Tencent WeCom) return malformed ENVELOPE data.
 		// Retry without Envelope and use default values for subject/from/date.
-		slog.Warn("envelope fetch failed (malformed server response), retrying without envelope",
+		slog.Warn("sync: envelope fetch failed, retrying without envelope",
 			"account", account.ID, "folder", folder, "error", err)
 		fetchCmd.Close()
 		fetchCmd = client.Fetch(seqSet, &imap.FetchOptions{
@@ -338,10 +338,10 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
 	// removing older rows, so paging to an earlier page keeps those in the cache.
 	if err := s.db.SaveFolderMeta(account.ID, folder, total); err != nil {
-		slog.Warn("failed to cache folder meta", "account", account.ID, "folder", folder, "error", err)
+		slog.Warn("cache: failed to cache folder meta", "account", account.ID, "folder", folder, "error", err)
 	}
 	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
-		slog.Warn("failed to cache emails", "account", account.ID, "folder", folder, "error", err)
+		slog.Warn("cache: failed to cache emails", "account", account.ID, "folder", folder, "error", err)
 	}
 
 	// The IMAP request above only fetched the requested page. Return the page
