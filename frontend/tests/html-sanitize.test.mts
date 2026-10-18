@@ -297,5 +297,51 @@ check(
   !/<span class="date-mention"/.test(hostileMention.html),
 )
 
+console.log('oversized content')
+// Sanitiser wraps every <table> in a horizontally-scrollable <div>, so wide tables
+// grow inside their own wrapper instead of the reading pane.
+const wideTable = block(
+  '<table width="800"><tr><td>wide</td></tr></table><p>after</p>',
+)
+check(
+  'wide table is wrapped in email-table-scroll',
+  /<div class="email-table-scroll"><table/.test(wideTable.html),
+)
+check(
+  'table siblings stay outside the wrapper',
+  wideTable.html.includes('<p>after</p>') &&
+    wideTable.html.indexOf('<p>after</p>') > wideTable.html.indexOf('</div>'),
+)
+// Nested tables: each one gets its own wrapper, none are double-wrapped.
+const nestedTable = block(
+  '<table width="600"><tr><td><table width="400"><tr><td>nested</td></tr></table></td></tr></table>',
+)
+const wrapperCount = (nestedTable.html.match(/class="email-table-scroll"/g) ?? []).length
+check(
+  'outer and nested table each get exactly one wrapper',
+  wrapperCount === 2 &&
+    !/email-table-scroll"><div class="email-table-scroll"/.test(nestedTable.html),
+)
+check(
+  'table-free bodies do not get an empty wrapper',
+  !/<div class="email-table-scroll"/.test(block('<p>just text</p>').html),
+)
+// Content-fit CSS is always injected, regardless of options, so a stray oversized
+// image declared with width="1200" or any inline-styled <img> shrinks to fit.
+const fitCss = block('<p>x</p>').html
+check(
+  'content-fit img rule is injected',
+  fitCss.includes('max-width: 100%') && fitCss.includes('height: auto'),
+)
+check(
+  'content-fit table-scroll rule is injected',
+  fitCss.includes('.email-table-scroll') && fitCss.includes('overflow-x: auto'),
+)
+const { linkifyPlainText } = await import('../src/composables/html/mentions.ts' as string)
+check(
+  'plain-text body also gets the fit rules',
+  linkifyPlainText('hi').includes('email-table-scroll'),
+)
+
 console.log(`\n${pass} passed, ${fail} failed`)
 if (fail > 0) process.exit(1)

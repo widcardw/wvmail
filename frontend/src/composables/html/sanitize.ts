@@ -13,10 +13,13 @@ import {
 } from './mentions.ts'
 import { BLOCKED_IMAGE_CSS, rehypeBlockRemoteContent } from './remote.ts'
 import { emailSchema } from './schema.ts'
+import { rehypeWrapTables } from './wrap-tables.ts'
+import { CONTENT_FIT_CSS } from './content-fit.ts'
 
-// The pipeline: parse → sanitize (schema.ts) → CSS (css.ts) → remote content
-// (remote.ts) → mentions (mentions.ts) → stringify, with a per-mode sanitizer cached
-// because the pipeline is expensive to rebuild on every message.
+// The pipeline: parse → sanitize (schema.ts) → CSS (css.ts) → wrap tables
+// (wrap-tables.ts) → remote content (remote.ts) → mentions (mentions.ts) →
+// stringify, with a per-mode sanitizer cached because the pipeline is
+// expensive to rebuild on every message.
 
 export interface EmailSanitizeOptions {
   /** Load remote images/fonts/imported CSS. Default false — remote content is blocked. */
@@ -85,6 +88,7 @@ function createSanitizer(allowRemote: boolean) {
         cssArt += n
       },
     })
+    .use(rehypeWrapTables)
     .use(rehypeBlockRemoteContent, { allowRemote, onBlocked, imageLabel: () => imageLabel })
     .use(rehypeDateMentions, () => mentionOptions)
     .use(rehypeStringify)
@@ -138,7 +142,7 @@ function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): Em
   return {
     html:
       String(result) +
-      `<style>${THEME_LINK_CSS}${BLOCKED_IMAGE_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>`,
+      `<style>${THEME_LINK_CSS}${BLOCKED_IMAGE_CSS}${CONTENT_FIT_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>`,
     blockedRemote,
     cssArt: entry.takeCssArt(),
   }

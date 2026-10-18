@@ -17,6 +17,10 @@ export const emailSchema: Schema = {
       ...(defaultSchema.attributes?.a ?? []),
       ['className', 'email-auto-link'] as PropertyDefinition,
     ],
+    div: [
+      ...(defaultSchema.attributes?.div ?? []),
+      ['className', 'email-table-scroll'] as PropertyDefinition,
+    ],
   },
   protocols: {
     ...defaultSchema.protocols,

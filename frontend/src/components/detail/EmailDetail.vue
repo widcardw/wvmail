@@ -207,10 +207,6 @@ const showAttachments = computed(
 <template>
   <div class="email-detail">
     <div class="scroll">
-      <div v-if="loading && !detail" class="centerpad">
-        <span class="spinner spinner--detail" />
-      </div>
-
       <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
         <span>{{ accountsStore.detailError }}</span>
@@ -278,7 +274,7 @@ const showAttachments = computed(
       </template>
     </div>
 
-    <div v-if="loading && detail" class="detail-progress" aria-hidden="true" />
+    <div v-if="loading" class="detail-progress" aria-hidden="true" />
   </div>
   <Teleport to="body">
     <EmailLinkDialog v-model:open="linkOpen" :url="pendingUrl" />
@@ -346,10 +342,6 @@ const showAttachments = computed(
 .empty {
   color: var(--color-text-3);
   font-size: 13px;
-}
-.spinner--detail {
-  width: 20px;
-  height: 20px;
 }
 
 .alert {

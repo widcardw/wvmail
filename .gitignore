@@ -17,3 +17,4 @@ frontend/bindings/
 # go build . output
 /wvmail
 .gocache
+.workbuddy-ai/

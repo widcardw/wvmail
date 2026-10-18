@@ -4,6 +4,7 @@ import type { Root, Element, Text, Comment, Doctype } from 'hast'
 // Explicit `.ts` so the Node-run tests can resolve it (see tsconfig).
 import { findDateMentions } from '../date-mentions/index.ts'
 import type { DateMention } from '../date-mentions/index.ts'
+import { CONTENT_FIT_CSS } from './content-fit.ts'
 
 // Turning text into links and date/time chips: the rehype passes for auto-linking
 // and for highlighting detected moments, plus the plain-text entry point.
@@ -29,13 +30,16 @@ const MENTION_CLASS = 'date-mention'
 
 export const MENTION_CSS = `
 .${MENTION_CLASS} {
-  color: var(--n-primary-color, #e11d48) !important;
-  background: color-mix(in srgb, var(--n-primary-color, #e11d48) 14%, transparent) !important;
-  border-radius: 3px;
   padding: 0 1px;
   cursor: pointer;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
+  transition: background 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.${MENTION_CLASS}:hover {
+  color: var(--n-primary-color, #e11d48) !important;
+  background: color-mix(in srgb, var(--n-primary-color, #e11d48) 14%, transparent) !important;
+  border-radius: 3px;
 }
 `
 
@@ -252,7 +256,7 @@ export function linkifyPlainText(text: string, mentions?: MentionRenderOptions):
 
   const stringifier = unified().use(rehypeStringify)
   return (
-    `<style>${THEME_LINK_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>` +
+    `<style>${THEME_LINK_CSS}${CONTENT_FIT_CSS}${mentions?.enabled ? MENTION_CSS : ''}</style>` +
     String(stringifier.stringify(tree))
   )
 }
