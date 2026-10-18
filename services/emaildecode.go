@@ -10,6 +10,7 @@ import (
 	"mime/quotedprintable"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/emersion/go-message/charset"
@@ -45,9 +46,8 @@ func decodeMimeHeader(s string) string {
 // quoted-printable escapes (`=3D`, `=E8`, `=09`) and the soft line break (`=` at the
 // end of a line) used to detect bodies whose CTE was mislabelled.
 var (
-	qpEscapeRE        = regexp.MustCompile(`(?i)=[0-9a-f]{2}`)
-	qpSoftBreakRE     = regexp.MustCompile(`=(?:\r\n|\n)`)
-	utf8HTMLCharsetRE = regexp.MustCompile(`(?is)<meta\b[^>]*\bcharset\s*=\s*["']?\s*utf-?8\b`)
+	qpEscapeRE    = regexp.MustCompile(`(?i)=[0-9a-f]{2}`)
+	qpSoftBreakRE = regexp.MustCompile(`=(?:\r\n|\n)`)
 )
 
 // tryQuotedPrintable decodes bytes that were declared 7bit/8bit (or had no
@@ -55,12 +55,18 @@ var (
 // gateways mislabel this constantly: bulk mail arrives as `8bit` while the body is full
 // of `style=3D"…"` and `=09` tabs, and the reader ends up staring at raw escapes.
 //
-// Prose must never be rewritten, so a candidate has to pass two gates:
-//  1. cheap: an encoded `=` (`=3D`, which any encoded HTML body contains), or a soft line
-//     break, or at least three `=XX` escapes;
-//  2. the decoded bytes must be *text* — no control characters beyond tab/newline/CR.
-//     `a=1f b=2c c=3d` gates in on three escapes and then fails here, because it decodes
-//     to a unit separator, while every real body decodes to printable text or CJK bytes.
+// Prose must never be rewritten, so a candidate has to pass three gates:
+//  1. cheap: the body contains `=`, and at least one escape;
+//  2. a *strong* signal — an encoded `=`, a soft line break, or a dense run of escapes.
+//     Counting escapes alone is not enough: real HTML is full of `=` followed by two
+//     hex digits by accident (`content="IE=edge"`, `?LinkID=271181`), and a OneDrive
+//     notice with four such tokens in 8 KiB used to be "healed" into `0xED` bytes. A
+//     quoted-printable body, by contrast, either escapes its `=` (every HTML body has
+//     `style=3D`), wraps its long lines with a soft break, or spends roughly one escape
+//     per three bytes on CJK text;
+//  3. the decoded bytes must be *text* — no control characters beyond tab/newline/CR.
+//     `a=1f b=2c c=3d` gates in on density and then fails here, because it decodes to a
+//     unit separator, while every real body decodes to printable text or CJK bytes.
 func tryQuotedPrintable(raw []byte) ([]byte, bool) {
 	sample := raw
 	if len(sample) > 8192 {
@@ -69,9 +75,13 @@ func tryQuotedPrintable(raw []byte) ([]byte, bool) {
 	if !bytes.Contains(sample, []byte("=")) {
 		return nil, false
 	}
-	escapes := len(qpEscapeRE.FindAllIndex(sample, 4))
+	escapes := len(qpEscapeRE.FindAllIndex(sample, -1))
+	if escapes == 0 {
+		return nil, false
+	}
 	encodedEquals := bytes.Contains(sample, []byte("=3D")) || bytes.Contains(sample, []byte("=3d"))
-	if escapes == 0 || !(encodedEquals || escapes >= 3 || qpSoftBreakRE.Match(sample)) {
+	dense := escapes*32 >= len(sample)
+	if !encodedEquals && !dense && !qpSoftBreakRE.Match(sample) {
 		return nil, false
 	}
 
@@ -134,10 +144,13 @@ func decodeBodyPart(raw []byte, enc, cs string) string {
 		}
 	default:
 		// 7bit, 8bit, binary (or nothing advertised) — normally nothing to decode,
-		// but decode it anyway when it clearly is quoted-printable.
+		// but decode it anyway when it clearly is quoted-printable. The healed bytes
+		// only win when they read at least as cleanly as the untouched ones: a
+		// mis-gated "repair" is itself the corruption.
 		if healed, ok := tryQuotedPrintable(raw); ok {
-			decoded = healed
-			break
+			if text, ok := preferCleanerDecode(healed, raw, cs); ok {
+				return text
+			}
 		}
 		decoded = raw
 	}
@@ -150,42 +163,159 @@ func decodeBodyPart(raw []byte, enc, cs string) string {
 	return string(decoded)
 }
 
-func htmlDeclaresUTF8(raw []byte) bool {
-	if len(raw) > 8192 {
-		raw = raw[:8192]
+// preferCleanerDecode reports whether the quoted-printable-healed bytes decode with no
+// more replacement glyphs than the untouched bytes do, and returns that text. A body
+// with `content="IE=edge"` heals into a stray 0xED, which no charset can read; without
+// this check the damage looks like a charset problem and the body renders as mojibake.
+func preferCleanerDecode(healed, raw []byte, cs string) (string, bool) {
+	healedText, ok := decodeCharset(healed, cs)
+	if !ok {
+		return "", false
 	}
-	return utf8HTMLCharsetRE.Match(raw)
+	rawText, ok := decodeCharset(raw, cs)
+	if !ok {
+		return healedText, true
+	}
+	if strings.Count(healedText, "\uFFFD") > strings.Count(rawText, "\uFFFD") {
+		return "", false
+	}
+	return healedText, true
 }
 
-// decodeCharset converts body bytes to UTF-8 using the MIME charset. A valid
-// UTF-8 HTML body that explicitly declares UTF-8 wins over a contradictory MIME
-// charset; otherwise the MIME declaration remains authoritative.
+// repairGBKMojibake rewrites runs of Han characters that are really UTF-8 bytes that
+// were decoded as GBK back into the text they were meant to be — "灏嗗湪鏂囦欢" becomes
+// "将在文件". It reports whether anything was rewritten.
 //
-// Fallback ladder:
-//  1. honor an explicit UTF-8 declaration in valid UTF-8 HTML;
-//  2. decode the declared charset;
-//  3. keep already-valid UTF-8 when the declared charset is unknown or missing;
-//  4. try GB18030 for invalid UTF-8 bytes when no charset decoder applied.
-func decodeCharset(raw []byte, cs string) (string, bool) {
-	cs = strings.TrimSpace(cs)
-	// OneDrive and other HTML mail can carry valid UTF-8 bytes plus a contradictory
-	// charset in BODYSTRUCTURE. When the HTML itself declares UTF-8, trust that
-	// declaration over a stale/misreported legacy charset to avoid UTF-8→GBK mojibake.
-	if utf8.Valid(raw) && htmlDeclaresUTF8(raw) {
-		return string(raw), true
+// The test for a run is reversible: encode it as GBK and see whether those bytes are
+// valid UTF-8 that reads as different Chinese. Genuine Chinese fails that test, because
+// its GBK bytes are not a well-formed UTF-8 sequence. Runs shorter than six characters
+// are left alone — they are too easy to match by accident.
+func repairGBKMojibake(text string) (string, bool) {
+	if text == "" {
+		return text, false
 	}
-	if cs != "" && !strings.EqualFold(cs, "utf-8") && !strings.EqualFold(cs, "us-ascii") {
-		if reader, err := charset.Reader(cs, strings.NewReader(string(raw))); err == nil {
-			if utf8bytes, err := io.ReadAll(reader); err == nil {
-				return string(utf8bytes), true
+	runes := []rune(text)
+	var out strings.Builder
+	out.Grow(len(text))
+	changed := false
+	for i := 0; i < len(runes); {
+		if !unicode.Is(unicode.Han, runes[i]) {
+			out.WriteRune(runes[i])
+			i++
+			continue
+		}
+		j := i + 1
+		for j < len(runes) && unicode.Is(unicode.Han, runes[j]) {
+			j++
+		}
+		run := runes[i:j]
+		if j-i >= 6 {
+			if fixed, consumed, ok := decodeGBKMojibakeRun(run); ok {
+				out.WriteString(fixed)
+				// The bytes of a split character at the end of the run cannot be
+				// recovered; keep those characters as they are rather than lose them.
+				out.WriteString(string(run[consumed:]))
+				changed = true
+				i = j
+				continue
 			}
 		}
+		out.WriteString(string(run))
+		i = j
+	}
+	if !changed {
+		return text, false
+	}
+	return out.String(), true
+}
+
+// decodeGBKMojibakeRun reverses one mojibake run. It returns the recovered text and how
+// many of the run's characters it accounts for; the rest is left to the caller.
+//
+// The run's GBK bytes are the original UTF-8 bytes, so the longest valid UTF-8 prefix is
+// the recovered text. A trailing partial character is tolerated (the run may have been
+// cut by a tag, a space or a replacement glyph), which is why the last one or two bytes
+// are trimmed and retried.
+func decodeGBKMojibakeRun(run []rune) (string, int, bool) {
+	offsets := make([]int, len(run)+1) // byte offset of each character in `encoded`
+	var encoded []byte
+	for i, r := range run {
+		offsets[i] = len(encoded)
+		b, err := simplifiedchinese.GBK.NewEncoder().Bytes([]byte(string(r)))
+		if err != nil {
+			return "", 0, false
+		}
+		encoded = append(encoded, b...)
+	}
+	offsets[len(run)] = len(encoded)
+
+	for trim := 0; trim <= 2 && trim < len(encoded); trim++ {
+		n := len(encoded) - trim
+		if !utf8.Valid(encoded[:n]) {
+			continue
+		}
+		recovered := string(encoded[:n])
+		if recovered == string(run) {
+			continue
+		}
+		hanCount := 0
+		for _, r := range recovered {
+			if unicode.Is(unicode.Han, r) {
+				hanCount++
+			}
+		}
+		if hanCount < 4 {
+			continue
+		}
+		consumed := 0
+		for consumed < len(run) && offsets[consumed] < n {
+			consumed++
+		}
+		return recovered, consumed, true
+	}
+	return "", 0, false
+}
+
+// decodeCharset converts body bytes to UTF-8. The order of authority is:
+//
+//  1. the bytes themselves — a well-formed UTF-8 sequence is not something a legacy
+//     charset produces, so valid UTF-8 wins even when BODYSTRUCTURE claims gbk or
+//     us-ascii (Outlook and OneDrive mislabel UTF-8 constantly, and trusting the header
+//     over the bytes is what turns a readable mail into mojibake);
+//  2. the declared charset, when the bytes are not UTF-8;
+//  3. GB18030 — a superset of GBK/GB2312 — for the CJK mail that declares nothing.
+//
+// Steps 2 and 3 are scored by how many bytes each decoder fails to map (U+FFFD), so a
+// stale declaration loses to the decoder that actually fits the bytes.
+func decodeCharset(raw []byte, cs string) (string, bool) {
+	if len(raw) == 0 {
+		return "", true
 	}
 	if utf8.Valid(raw) {
 		return string(raw), true
 	}
-	if converted, err := io.ReadAll(simplifiedchinese.GB18030.NewDecoder().Reader(strings.NewReader(string(raw)))); err == nil {
-		return string(converted), true
+
+	best, bestScore := "", -1
+	for _, name := range []string{strings.TrimSpace(cs), "gb18030"} {
+		if name == "" || strings.EqualFold(name, "utf-8") || strings.EqualFold(name, "utf8") {
+			continue
+		}
+		reader, err := charset.Reader(name, bytes.NewReader(raw))
+		if err != nil {
+			continue
+		}
+		decoded, err := io.ReadAll(reader)
+		if err != nil || len(decoded) == 0 {
+			continue
+		}
+		text := string(decoded)
+		score := strings.Count(text, "\uFFFD")
+		if bestScore < 0 || score < bestScore {
+			best, bestScore = text, score
+		}
 	}
-	return "", false
+	if bestScore < 0 {
+		return "", false
+	}
+	return best, true
 }

@@ -58,14 +58,15 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 			}
 		}
 		if cachedHTMLHasCharsetCorruption(cached) {
-			slog.Warn("body: cached HTML declares UTF-8 but contains replacement characters; refetching original body",
+			slog.Warn("body: cached HTML looks like UTF-8 decoded as GBK; refetching original body",
 				"account", account.ID, "folder", folder, "uid", uid)
 			refreshed, refreshErr := s.RefreshEmailBody(account, folder, uid)
-			if refreshErr == nil {
-				return refreshed, nil
+			if refreshErr != nil {
+				slog.Warn("body: failed to repair cached charset by refetching; showing cached body as fallback",
+					"account", account.ID, "folder", folder, "uid", uid, "error", refreshErr)
+				return cached, nil
 			}
-			slog.Warn("body: failed to repair cached charset by refetching", "account", account.ID,
-				"folder", folder, "uid", uid, "error", refreshErr)
+			return refreshed, nil
 		}
 		return cached, nil
 	}
@@ -79,18 +80,26 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 func repairCachedEncoding(detail *EmailDetail) bool {
 	changed := false
 	if decoded, ok := tryQuotedPrintable([]byte(detail.BodyHTML)); ok {
-		detail.BodyHTML = string(decoded)
-		changed = true
+		if text, ok := preferCleanerDecode(decoded, []byte(detail.BodyHTML), "utf-8"); ok {
+			detail.BodyHTML = text
+			changed = true
+		}
 	}
 	if decoded, ok := tryQuotedPrintable([]byte(detail.BodyText)); ok {
-		detail.BodyText = string(decoded)
-		changed = true
+		if text, ok := preferCleanerDecode(decoded, []byte(detail.BodyText), "utf-8"); ok {
+			detail.BodyText = text
+			changed = true
+		}
 	}
 	return changed
 }
 
+// cachedHTMLHasCharsetCorruption reports whether a stored body still reads as UTF-8
+// text that was decoded as GBK. The rewrite needs the original bytes to be safe, and a
+// stored row no longer has them, so the caller refetches once instead of guessing.
 func cachedHTMLHasCharsetCorruption(detail *EmailDetail) bool {
-	return htmlDeclaresUTF8([]byte(detail.BodyHTML)) && strings.Count(detail.BodyHTML, "\uFFFD") >= 3
+	_, corrupt := repairGBKMojibake(detail.BodyHTML)
+	return corrupt
 }
 
 // RefreshEmailBody fetches the full email content from the IMAP server and
@@ -397,6 +406,21 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	// attachments as well was noise (and inflated the "N attachments" header). Parts the
 	// body never referenced stay listed, or they would be invisible everywhere.
 	detail.Attachments = visibleAttachments(attachments, renderedInline)
+
+	// Bodies that were double-encoded upstream (UTF-8 bytes decoded as GBK by a
+	// gateway, or by an older build of this decoder) can be reversed here: the
+	// rewrite only touches runs whose GBK encoding is itself valid UTF-8, so a
+	// correctly decoded body is left byte-for-byte alone.
+	for _, field := range []struct {
+		name string
+		body *string
+	}{{"html", &detail.BodyHTML}, {"text", &detail.BodyText}} {
+		if repaired, ok := repairGBKMojibake(*field.body); ok {
+			slog.Warn("body: repaired UTF-8-as-GBK mojibake",
+				"account", account.ID, "folder", folder, "uid", uid, "part", field.name)
+			*field.body = repaired
+		}
+	}
 
 	// Update cache (best-effort)
 	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
