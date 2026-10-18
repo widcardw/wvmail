@@ -107,13 +107,18 @@ func isSelectableMailbox(attrs []string) bool {
 // folder list costs a single round trip instead of one per folder (go-imap pipelines
 // commands on one connection).
 //
+// When no folder list is cached yet (a fresh account, or the startup tray seed has not
+// finished), the list is fetched first so the caller's request still answers with real
+// counts instead of an empty map.
+//
 // Folders that are not selectable, or that the server refuses to answer for, are simply
 // absent from the map — the caller reads a missing key as "nothing to badge".
 func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error) {
 	folders, err := s.db.LoadFolders(account.ID)
 	if err != nil || len(folders) == 0 {
-		// No folder list yet; the sidebar asks again once it has one.
-		return map[string]int{}, nil
+		if folders, err = s.RefreshFolders(account); err != nil {
+			return map[string]int{}, nil
+		}
 	}
 
 	client, err := dialIMAP(account, 60*time.Second)

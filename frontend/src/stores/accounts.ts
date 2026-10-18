@@ -100,6 +100,11 @@ export const useAccountsStore = defineStore('accounts', () => {
       console.error('Failed to load accounts', e)
       accounts.value = []
     }
+    // Seed the badges at startup so the sidebar shows unread counts before any
+    // account branch is expanded. The backend STATUSes every cached folder over
+    // one connection (FolderUnread); failures are logged there, and the normal
+    // triggers (expand, emails-synced) re-fetch later if this fires too early.
+    for (const account of accounts.value) void loadFolderUnread(account)
   }
 
   async function addAccount(account: EmailAccount) {
@@ -176,6 +181,20 @@ export const useAccountsStore = defineStore('accounts', () => {
   /** Unread count of one folder, 0 when there is nothing to badge. */
   function folderUnread(accountId: string, folder: string): number {
     return unreadByFolder.value[accountId]?.[folder] ?? 0
+  }
+
+  /**
+   * Total unread across every folder of one account — the badge on the account
+   * row. Sums the same server-side counts the folder badges read, so the two
+   * always agree; 0 until the account's first per-folder fetch lands (the
+   * startup seed or the first expand).
+   */
+  function accountUnread(accountId: string): number {
+    const counts = unreadByFolder.value[accountId]
+    if (!counts) return 0
+    let total = 0
+    for (const n of Object.values(counts)) total += n ?? 0
+    return total
   }
 
   // One IMAP connection per refresh, so sync ticks and folder clicks must not stack up.
@@ -516,6 +535,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     foldersByAccount,
     unreadByFolder,
     folderUnread,
+    accountUnread,
     loadFolderUnread,
     emailsByFolder,
     emailTotalByFolder,

@@ -236,6 +236,14 @@ watch(() => router.currentRoute.value.path, syncSelected)
                     <AccountAvatar :account-id="account.ID" :size="18" />
                     <span class="acc-name">{{ account.Name || account.Email }}</span>
                   </TreeView.BranchText>
+                  <!-- Account badge: total unread across the account's folders (the
+                       same server-side counts the folder badges read). Shows as soon
+                       as the startup per-account fetch lands, no expand needed. -->
+                  <UiBadge
+                    class="acc-badge"
+                    :count="store.accountUnread(account.ID)"
+                    :label="t['sidebar.unread'].replace('{count}', String(store.accountUnread(account.ID)))"
+                  />
                 </TreeView.BranchControl>
 
                 <TreeView.BranchContent v-if="isOpen(account.ID)" :class="styles.folders">
@@ -341,6 +349,11 @@ watch(() => router.currentRoute.value.path, syncSelected)
 .acc-name {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.acc-badge {
+  margin-left: auto;
+  flex: none;
+  margin-right: 6px;
 }
 .f-icon {
   flex: 0 0 16px;
