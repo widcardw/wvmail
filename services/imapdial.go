@@ -53,6 +53,7 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 		"port", account.IMAPPort,
 		"user", account.IMAPUser,
 		"provider", account.Provider,
+		"auth_type", account.AuthType,
 		"use_tls", account.UseTLS,
 		"has_password", account.IMAPPass != "")
 
@@ -149,13 +150,19 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 	}
 
 	// Login with timeout — use a goroutine + select so login itself can't hang
-	// beyond the configured timeout.
+	// beyond the configured timeout. OAuth2 accounts authenticate with SASL
+	// XOAUTH2 instead of LOGIN: the password field is empty, and the refresh
+	// token is exchanged (and cached) right here on the connection path.
 	type loginResult struct {
 		err error
 	}
 	loginStart := time.Now()
 	done := make(chan loginResult, 1)
 	go func() {
+		if account.AuthType == "oauth2" {
+			done <- loginResult{err: oauthIMAPLogin(client, account)}
+			return
+		}
 		cmd := client.Login(account.IMAPUser, account.IMAPPass)
 		err := cmd.Wait()
 		done <- loginResult{err}
@@ -198,6 +205,17 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 			"timeout", timeout)
 		return nil, fmt.Errorf("login timed out after %v", timeout)
 	}
+}
+
+// oauthIMAPLogin authenticates an already-connected IMAP client with SASL
+// XOAUTH2, fetching (and caching) a fresh access token first. Microsoft requires
+// the mechanism's SOH (0x01) delimiters; xoauth2Client builds that payload.
+func oauthIMAPLogin(client *imapclient.Client, account EmailAccount) error {
+	token, err := oauthAccessToken(account)
+	if err != nil {
+		return fmt.Errorf("oauth token: %w", err)
+	}
+	return client.Authenticate(xoauth2Client{username: account.IMAPUser, token: token})
 }
 
 // wrapIMAPError wraps common IMAP errors with user-friendly context.

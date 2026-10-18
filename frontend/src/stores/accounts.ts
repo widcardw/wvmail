@@ -52,8 +52,11 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   const isSmartFolder = computed(() => smartFolder.value !== null)
 
-  // Email detail state
+  // Email detail state. Keep the source mailbox with the selected message so
+  // actions also work from search and aggregate views.
   const selectedEmailUid = ref<number | null>(null)
+  const selectedEmailAccountId = ref<string | null>(null)
+  const selectedEmailFolder = ref<string | null>(null)
   const selectedEmailDetail = ref<EmailDetail | null>(null)
   const loadingDetail = ref(false)
   const detailError = ref<string | null>(null)
@@ -63,6 +66,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     if (smartFolder.value) return null
     return accounts.value.find((a) => a.ID === selectedAccountId.value) ?? null
   })
+  const selectedEmailAccount = computed(() =>
+    accounts.value.find((a) => a.ID === selectedEmailAccountId.value) ?? null,
+  )
 
   const currentFolders = computed(() => {
     if (!selectedAccountId.value) return []
@@ -124,6 +130,14 @@ export const useAccountsStore = defineStore('accounts', () => {
         selectedAccountId.value = null
         selectedFolder.value = null
         selectedEmailUid.value = null
+        selectedEmailAccountId.value = null
+        selectedEmailFolder.value = null
+        selectedEmailDetail.value = null
+      }
+      if (selectedEmailAccountId.value === id) {
+        selectedEmailUid.value = null
+        selectedEmailAccountId.value = null
+        selectedEmailFolder.value = null
         selectedEmailDetail.value = null
       }
       delete foldersByAccount.value[id]
@@ -334,6 +348,8 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   async function selectEmail(account: EmailAccount, folder: string, uid: number) {
     selectedEmailUid.value = uid
+    selectedEmailAccountId.value = account.ID
+    selectedEmailFolder.value = folder
     selectedEmailDetail.value = null
     loadingDetail.value = true
     detailError.value = null
@@ -419,6 +435,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedAccountId.value = id
     selectedFolder.value = null
     selectedEmailUid.value = null
+    selectedEmailAccountId.value = null
+    selectedEmailFolder.value = null
     selectedEmailDetail.value = null
     const account = accounts.value.find((a) => a.ID === id)
     if (account && !foldersByAccount.value[id]) {
@@ -431,6 +449,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedFolder.value = folderName
     smartFolder.value = null // clear smart folder selection
     selectedEmailUid.value = null
+    selectedEmailAccountId.value = null
+    selectedEmailFolder.value = null
     selectedEmailDetail.value = null
     const account = accounts.value.find((a) => a.ID === accountId)
     if (account) {
@@ -481,6 +501,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedAccountId.value = null
     selectedFolder.value = null
     selectedEmailUid.value = null
+    selectedEmailAccountId.value = null
+    selectedEmailFolder.value = null
     selectedEmailDetail.value = null
     smartFolderLoading.value = true
 
@@ -542,6 +564,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedAccountId,
     selectedFolder,
     selectedEmailUid,
+    selectedEmailAccount,
+    selectedEmailAccountId,
+    selectedEmailFolder,
     selectedEmailDetail,
     loadingDetail,
     detailError,

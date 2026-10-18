@@ -46,6 +46,10 @@ const emptyForm = (): EmailAccount => ({
   SMTPUser: '',
   SMTPPass: '',
   UseTLS: true,
+  AuthType: 'password',
+  OAuthProvider: '',
+  OAuthClientID: '',
+  OAuthRefreshToken: '',
   SyncInterval: 0,
   Avatar: '',
 })
@@ -181,7 +185,13 @@ function validateForm(): string[] {
   if (!form.Email.trim()) errors.push(t.value['settings.accounts.email'])
   if (!form.IMAPHost.trim()) errors.push(t.value['settings.accounts.imap_host'])
   if (!form.IMAPPort) errors.push(t.value['settings.accounts.imap_port'])
-  if (!form.IMAPPass) errors.push(t.value['settings.accounts.imap_pass'])
+  // OAuth accounts authenticate with a stored refresh token: there is no
+  // password to require, but the verification itself must have succeeded.
+  if (form.AuthType === 'oauth2') {
+    if (!form.OAuthRefreshToken) errors.push(t.value['settings.accounts.oauth.not_verified'])
+  } else if (!form.IMAPPass) {
+    errors.push(t.value['settings.accounts.imap_pass'])
+  }
   if (!form.SMTPHost.trim()) errors.push(t.value['settings.accounts.smtp_host'])
   if (!form.SMTPPort) errors.push(t.value['settings.accounts.smtp_port'])
   return errors

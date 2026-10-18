@@ -44,6 +44,11 @@ export interface TranslationSchema {
   'mail.refresh.list': string
   'mail.refresh.detail': string
   'mail.refresh.aggregate': string
+  'mail.export.original': string
+  'mail.export.dialog': string
+  'mail.export.aggregate': string
+  'mail.export.saved': string
+  'mail.export.failed': string
   'mail.link.title': string
   'mail.link.body': string
   'mail.link.open': string
@@ -137,6 +142,7 @@ export interface TranslationSchema {
   'settings.accounts.add': string
   'settings.accounts.edit': string
   'settings.accounts.name': string
+  'settings.accounts.alias': string
   'settings.accounts.email': string
   'settings.accounts.provider': string
   'settings.accounts.imap_host': string
@@ -148,6 +154,23 @@ export interface TranslationSchema {
   'settings.accounts.smtp_user': string
   'settings.accounts.smtp_pass': string
   'settings.accounts.use_tls': string
+  'settings.accounts.tab.manual': string
+  'settings.accounts.tab.oauth': string
+  'settings.accounts.oauth.provider': string
+  'settings.accounts.oauth.microsoft': string
+  'settings.accounts.oauth.google': string
+  'settings.accounts.oauth.client_id': string
+  'settings.accounts.oauth.client_id_placeholder': string
+  'settings.accounts.oauth.email_pending': string
+  'settings.accounts.oauth.hint': string
+  'settings.accounts.oauth.google_note': string
+  'settings.accounts.oauth.begin': string
+  'settings.accounts.oauth.waiting': string
+  'settings.accounts.oauth.success': string
+  'settings.accounts.oauth.empty_email': string
+  'settings.accounts.oauth.not_verified': string
+  'settings.accounts.oauth.is_oauth': string
+  'settings.accounts.oauth.gmail_app_password_hint': string
   'settings.accounts.sync': string
   'settings.accounts.auto_sync': string
   'settings.accounts.sync_minutes': string

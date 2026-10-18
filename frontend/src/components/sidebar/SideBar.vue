@@ -1,32 +1,28 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  TreeView,
-  createTreeCollection,
-  type TreeViewSelectionChangeDetails,
-} from '@ark-ui/vue/tree-view'
+import { TreeView, createTreeCollection } from '@ark-ui/vue/tree-view'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
-import { compareFolders, getFolderDisplay } from '~/types/email'
+import { buildFolderTree } from '~/composables/folder-tree'
+import { getFolderDisplay } from '~/types/email'
+import type { FolderTreeNode } from '~/composables/folder-tree'
 import type { EmailAccount } from '~/types/email'
 import styles from './SideBar.module.css'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
+import FolderTreeNodeView from './FolderTreeNode.vue'
 import UiBadge from '~/components/ui/UiBadge.vue'
 
 const { t, locale } = useI18n()
 const store = useAccountsStore()
 const router = useRouter()
 
-interface SideNode {
+interface SideNode extends FolderTreeNode {
   id: string
   name: string
   kind: 'account' | 'folder'
-  iconClass?: string
   childrenCount?: number
-  /** Unseen messages in this folder; 0/absent renders no badge. */
-  unread?: number
-  children?: SideNode[]
+  children: SideNode[]
 }
 
 const smartRows = [
@@ -50,38 +46,41 @@ function fkey(id: string, f: string) {
   return `${id}\u200b${f}`
 }
 
+function folderSideNode(accountId: string, folder: FolderTreeNode): SideNode {
+  return {
+    ...folder,
+    id: fkey(accountId, folder.fullName),
+    name: folder.label,
+    kind: 'folder',
+    // Read the store at render time so unread changes update badges without
+    // rebuilding the folder hierarchy.
+    unread: store.folderUnread(accountId, folder.fullName),
+    children: folder.children.map((child) => folderSideNode(accountId, child)),
+  }
+}
+
 /** Build an account node: folders become its children only once cached in the store. */
 function accountNode(account: EmailAccount): SideNode {
   const cached = store.foldersByAccount[account.ID]
-  const children: SideNode[] = []
-  if (cached) {
-    const list =
-      cached.filter(
-        (f) => !f.attrs.some((a) => a.includes('NoSelect') || a.includes('NonExistent')),
-      ) ?? []
-    const sorted = [...list].sort((a, b) => compareFolders(a, b, locale.value))
-    for (const f of sorted) {
-      const d = getFolderDisplay(f.name, locale.value)
-      children.push({
-        id: fkey(account.ID, f.name),
-        name: d.label,
-        kind: 'folder',
-        iconClass: `i-${d.icon}`,
-        // Server-side unseen count; the row's badge reads it straight from the store,
-        // so a count update re-renders without a tree rebuild.
-        unread: store.folderUnread(account.ID, f.name),
-      })
-    }
-  }
-  const node: SideNode = {
+  const children = cached
+    ? buildFolderTree(cached, (segment) => getFolderDisplay(segment, locale.value)).map((folder) =>
+        folderSideNode(account.ID, folder),
+      )
+    : []
+  return {
     id: account.ID,
+    fullName: '',
+    label: account.Name || account.Email,
     name: account.Name || account.Email,
+    icon: '',
+    rank: 0,
+    selectable: false,
+    unread: 0,
     kind: 'account',
     children,
-    // childrenCount keeps it an expandable branch (Ark) even when folders not loaded yet
+    // childrenCount keeps it an expandable branch (Ark) even when folders not loaded yet.
     childrenCount: cached ? children.length : 0,
   }
-  return node
 }
 
 const collection = ref<ReturnType<typeof createTreeCollection<SideNode>> | null>(null)
@@ -91,7 +90,18 @@ function rebuild() {
     nodeToValue: (n) => n.id,
     nodeToString: (n) => n.name,
     isNodeDisabled: (n) => n.kind !== 'folder',
-    rootNode: { id: 'ROOT', name: '', kind: 'folder', children: store.accounts.map(accountNode) },
+    rootNode: {
+      id: 'ROOT',
+      name: '',
+      fullName: '',
+      label: '',
+      icon: '',
+      rank: 0,
+      selectable: false,
+      unread: 0,
+      kind: 'folder',
+      children: store.accounts.map(accountNode),
+    },
   })
 }
 // Ark's same-name types resolve differently across pkg boundaries in some setups;
@@ -104,16 +114,17 @@ watch(
   () => store.accounts.map((a) => a.ID),
   () => rebuild(),
 )
-// Rebuild when folder cache changes (folder list just loaded), which adds the leaf nodes.
+// Rebuild when folder cache changes (folder list loaded/refreshed), updating the hierarchy.
 watch(
   () =>
     store.accounts
-      .map((a) => (store.foldersByAccount[a.ID] ? store.foldersByAccount[a.ID].length : -1))
-      .join(','),
+      .map((a) => JSON.stringify(store.foldersByAccount[a.ID] ?? null))
+      .join('|'),
   () => rebuild(),
 )
 
 const expanded = ref<string[]>([])
+const expandedFolders = ref<string[]>([])
 const selected = ref<string[]>([])
 const inflight = new Set<string>()
 
@@ -137,13 +148,14 @@ watch(expanded, (vals) => {
   }
 })
 
-function onSelectionChange(details: TreeViewSelectionChangeDetails) {
-  const v = details.selectedValue?.[0]
-  if (!v) return
-  const sep = v.indexOf('\u200b')
-  if (sep < 0) return
-  const accountId = v.slice(0, sep)
-  const folderName = v.slice(sep + 1)
+function toggleFolder(accountId: string, folderName: string) {
+  const key = fkey(accountId, folderName)
+  expandedFolders.value = expandedFolders.value.includes(key)
+    ? expandedFolders.value.filter((value) => value !== key)
+    : [...expandedFolders.value, key]
+}
+
+function selectFolder(accountId: string, folderName: string) {
   store.selectFolder(accountId, folderName)
   router.push('/')
 }
@@ -153,6 +165,7 @@ async function onSmart(key: string) {
   // first so an earlier selection/expansion state doesn't linger visually.
   selected.value = []
   expanded.value = []
+  expandedFolders.value = []
   await store.selectSmartFolder(key)
   router.push('/')
 }
@@ -183,7 +196,8 @@ function syncSelected() {
   // view. On settings/notes/reminder the folder row must lose its highlight:
   // otherwise it still looks selected, and re-clicking it emits no
   // selection-change (the value is unchanged), so the click never navigates
-  // back to the folder.
+  // back to the folder. The nested folder button remains a normal button, so
+  // clicking it can always re-select the current mailbox.
   if (onMailView() && !store.isSmartFolder && store.selectedAccountId && store.selectedFolder) {
     selected.value = [fkey(store.selectedAccountId, store.selectedFolder)]
   } else {
@@ -218,11 +232,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
       <TreeView.Root
         v-else-if="collection"
         :collection="treeCol()"
-        selection-mode="single"
-        expand-on-click
-        v-model:selected-value="selected"
         v-model:expanded-value="expanded"
-        @selection-change="onSelectionChange"
       >
         <TreeView.Tree :class="styles.tree">
           <template v-for="(account, ai) in store.accounts" :key="account.ID">
@@ -247,25 +257,17 @@ watch(() => router.currentRoute.value.path, syncSelected)
                 </TreeView.BranchControl>
 
                 <TreeView.BranchContent v-if="isOpen(account.ID)" :class="styles.folders">
-                  <template
-                    v-for="(folder, fi) in accountNode(account).children ?? []"
+                  <FolderTreeNodeView
+                    v-for="folder in accountNode(account).children"
                     :key="folder.id"
-                  >
-                    <TreeView.NodeProvider :node="folder" :indexPath="[ai, fi]">
-                      <TreeView.Item :class="styles.folder">
-                        <i :class="folder.iconClass" class="f-icon" aria-hidden="true" />
-                        <TreeView.ItemText :class="styles.folderText">{{
-                          folder.name
-                        }}</TreeView.ItemText>
-                        <UiBadge
-                          :count="folder.unread ?? 0"
-                          :label="
-                            t['sidebar.unread'].replace('{count}', String(folder.unread ?? 0))
-                          "
-                        />
-                      </TreeView.Item>
-                    </TreeView.NodeProvider>
-                  </template>
+                    :node="folder"
+                    :account-id="account.ID"
+                    :depth="0"
+                    :expanded-folders="expandedFolders"
+                    :selected-folder-key="selected[0] ?? ''"
+                    @toggle="toggleFolder(account.ID, $event)"
+                    @select="selectFolder(account.ID, $event)"
+                  />
                 </TreeView.BranchContent>
               </TreeView.Branch>
             </TreeView.NodeProvider>

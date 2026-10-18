@@ -115,3 +115,21 @@ func (o *OsService) SaveFileDialog(suggestedFilename string) (string, error) {
 	}
 	return path, nil
 }
+
+// SaveEmailDialog prompts for a destination path for an original RFC 822 email.
+func (o *OsService) SaveEmailDialog(title, suggestedFilename string) (string, error) {
+	app := application.Get()
+	path, err := app.Dialog.SaveFile().
+		SetMessage(title).
+		SetFilename(originalEmailFilename(suggestedFilename)).
+		AddFilter("Email message", "*.eml").
+		AttachToWindow(app.Window.Current()).
+		PromptForSingleSelection()
+	if err != nil {
+		return "", fmt.Errorf("save dialog failed: %w", err)
+	}
+	if path == "" {
+		return "", fmt.Errorf("user cancelled")
+	}
+	return path, nil
+}

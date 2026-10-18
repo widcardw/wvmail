@@ -57,6 +57,16 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 				slog.Warn("body: failed to persist repaired email body", "uid", uid, "error", err)
 			}
 		}
+		if cachedHTMLHasCharsetCorruption(cached) {
+			slog.Warn("body: cached HTML declares UTF-8 but contains replacement characters; refetching original body",
+				"account", account.ID, "folder", folder, "uid", uid)
+			refreshed, refreshErr := s.RefreshEmailBody(account, folder, uid)
+			if refreshErr == nil {
+				return refreshed, nil
+			}
+			slog.Warn("body: failed to repair cached charset by refetching", "account", account.ID,
+				"folder", folder, "uid", uid, "error", refreshErr)
+		}
 		return cached, nil
 	}
 
@@ -77,6 +87,10 @@ func repairCachedEncoding(detail *EmailDetail) bool {
 		changed = true
 	}
 	return changed
+}
+
+func cachedHTMLHasCharsetCorruption(detail *EmailDetail) bool {
+	return htmlDeclaresUTF8([]byte(detail.BodyHTML)) && strings.Count(detail.BodyHTML, "\uFFFD") >= 3
 }
 
 // RefreshEmailBody fetches the full email content from the IMAP server and

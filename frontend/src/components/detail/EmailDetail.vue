@@ -9,6 +9,7 @@ import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import { sanitizeEmailHtml, linkifyPlainText } from '~/composables/html'
 import { useMailTranslation } from '~/composables/mail-translation'
+import { EmailService, OsService } from '#/wvmail/services'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailHeader from './EmailHeader.vue'
 import EmailTranslatedBody from './EmailTranslatedBody.vue'
@@ -29,6 +30,7 @@ const localeStore = useLocaleStore()
 const isDarkMode = computed(() => themeStore.effectiveTheme === 'dark')
 const detail = computed(() => accountsStore.selectedEmailDetail)
 const loading = computed(() => accountsStore.loadingDetail)
+const exportingOriginal = ref(false)
 
 const suspiciousRevealed = ref(false)
 const attachmentsOpen = ref(false)
@@ -134,14 +136,38 @@ async function alwaysAllowSender() {
 async function handleRefresh() {
   // Drop the stale translation so a re-fetch is always actionable.
   clearTranslation()
-  const account = accountsStore.selectedAccount
-  const folder = accountsStore.selectedFolder
+  const account = accountsStore.selectedEmailAccount
+  const folder = accountsStore.selectedEmailFolder
   const uid = accountsStore.selectedEmailUid
   if (!account || !folder || uid == null) {
     fb.info(t.value['mail.refresh.aggregate'])
     return
   }
   await accountsStore.refreshEmailBody(account, folder, uid)
+}
+
+async function handleExportOriginal() {
+  const account = accountsStore.selectedEmailAccount
+  const folder = accountsStore.selectedEmailFolder
+  const uid = accountsStore.selectedEmailUid
+  if (!account || !folder || uid == null) {
+    fb.info(t.value['mail.export.aggregate'])
+    return
+  }
+
+  exportingOriginal.value = true
+  try {
+    const filename = `${detail.value?.subject || 'email'}.eml`
+    const savePath = await OsService.SaveEmailDialog(t.value['mail.export.dialog'], filename)
+    await EmailService.ExportOriginalMessage(account, folder, uid, savePath)
+    fb.success(t.value['mail.export.saved'])
+  } catch (e) {
+    if (String(e).toLowerCase().includes('cancel')) return
+    fb.error(t.value['mail.export.failed'])
+    console.error('Failed to export original email', e)
+  } finally {
+    exportingOriginal.value = false
+  }
 }
 
 const linkOpen = ref(false)
@@ -221,9 +247,11 @@ const showAttachments = computed(
         <EmailHeader
           :detail="detail"
           :loading="loading"
+          :exporting-original="exportingOriginal"
           :translating="translating"
           :has-translation="hasTranslation"
           @refresh="handleRefresh"
+          @export-original="handleExportOriginal"
           @toggle-translation="toggleTranslation"
         />
 

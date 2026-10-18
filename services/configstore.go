@@ -217,6 +217,12 @@ func readConfig() (AppConfig, error) {
 				cfg.EmailAccounts[i].SMTPPass = decrypted
 			}
 		}
+		if cfg.EmailAccounts[i].OAuthRefreshToken != "" {
+			decrypted, err := decrypt(cfg.EmailAccounts[i].OAuthRefreshToken)
+			if err == nil {
+				cfg.EmailAccounts[i].OAuthRefreshToken = decrypted
+			}
+		}
 	}
 	if cfg.Language == "" {
 		cfg.Language = "en-US"
@@ -302,6 +308,13 @@ func writeConfig(cfg AppConfig) error {
 				return fmt.Errorf("failed to encrypt SMTP password for %q: %w", cfg.EmailAccounts[i].Email, err)
 			}
 			cfg.EmailAccounts[i].SMTPPass = encrypted
+		}
+		if cfg.EmailAccounts[i].OAuthRefreshToken != "" {
+			encrypted, err := encrypt(cfg.EmailAccounts[i].OAuthRefreshToken)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt OAuth refresh token for %q: %w", cfg.EmailAccounts[i].Email, err)
+			}
+			cfg.EmailAccounts[i].OAuthRefreshToken = encrypted
 		}
 	}
 	data, err := yaml.Marshal(&cfg)

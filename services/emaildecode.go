@@ -45,8 +45,9 @@ func decodeMimeHeader(s string) string {
 // quoted-printable escapes (`=3D`, `=E8`, `=09`) and the soft line break (`=` at the
 // end of a line) used to detect bodies whose CTE was mislabelled.
 var (
-	qpEscapeRE    = regexp.MustCompile(`(?i)=[0-9a-f]{2}`)
-	qpSoftBreakRE = regexp.MustCompile(`=(?:\r\n|\n)`)
+	qpEscapeRE        = regexp.MustCompile(`(?i)=[0-9a-f]{2}`)
+	qpSoftBreakRE     = regexp.MustCompile(`=(?:\r\n|\n)`)
+	utf8HTMLCharsetRE = regexp.MustCompile(`(?is)<meta\b[^>]*\bcharset\s*=\s*["']?\s*utf-?8\b`)
 )
 
 // tryQuotedPrintable decodes bytes that were declared 7bit/8bit (or had no
@@ -149,19 +150,30 @@ func decodeBodyPart(raw []byte, enc, cs string) string {
 	return string(decoded)
 }
 
-// decodeCharset converts body bytes to UTF-8 using the charset declared in the
-// MIME part. It reports false when nothing could be applied.
+func htmlDeclaresUTF8(raw []byte) bool {
+	if len(raw) > 8192 {
+		raw = raw[:8192]
+	}
+	return utf8HTMLCharsetRE.Match(raw)
+}
+
+// decodeCharset converts body bytes to UTF-8 using the MIME charset. A valid
+// UTF-8 HTML body that explicitly declares UTF-8 wins over a contradictory MIME
+// charset; otherwise the MIME declaration remains authoritative.
 //
-// Fallback ladder, each step only running when the previous one did not apply:
-//  1. the declared charset, through the charset table (UTF-8/US-ASCII pass
-//     through untouched);
-//  2. bytes that are already valid UTF-8 are kept as they are, even when the
-//     declared charset is unknown or missing;
-//  3. GB18030 as a last resort for bytes that are not valid UTF-8: Chinese mail
-//     routinely arrives as GBK/GB2312 with a missing or wrong charset
-//     parameter, and replacement characters are worse than this heuristic.
+// Fallback ladder:
+//  1. honor an explicit UTF-8 declaration in valid UTF-8 HTML;
+//  2. decode the declared charset;
+//  3. keep already-valid UTF-8 when the declared charset is unknown or missing;
+//  4. try GB18030 for invalid UTF-8 bytes when no charset decoder applied.
 func decodeCharset(raw []byte, cs string) (string, bool) {
 	cs = strings.TrimSpace(cs)
+	// OneDrive and other HTML mail can carry valid UTF-8 bytes plus a contradictory
+	// charset in BODYSTRUCTURE. When the HTML itself declares UTF-8, trust that
+	// declaration over a stale/misreported legacy charset to avoid UTF-8→GBK mojibake.
+	if utf8.Valid(raw) && htmlDeclaresUTF8(raw) {
+		return string(raw), true
+	}
 	if cs != "" && !strings.EqualFold(cs, "utf-8") && !strings.EqualFold(cs, "us-ascii") {
 		if reader, err := charset.Reader(cs, strings.NewReader(string(raw))); err == nil {
 			if utf8bytes, err := io.ReadAll(reader); err == nil {

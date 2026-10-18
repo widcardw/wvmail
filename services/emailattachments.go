@@ -3,8 +3,10 @@ package services
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/emersion/go-imap/v2"
 )
@@ -120,4 +122,79 @@ func (s *EmailService) DownloadAttachment(account EmailAccount, folder string, u
 	}
 
 	return nil
+}
+
+// ExportOriginalMessage fetches BODY.PEEK[] and writes the untouched RFC 822
+// bytes to disk. Unlike FetchEmail, this path does not decode MIME or charset.
+func (s *EmailService) ExportOriginalMessage(account EmailAccount, folder string, uid uint32, savePath string) error {
+	if strings.TrimSpace(savePath) == "" {
+		return fmt.Errorf("save path is empty")
+	}
+
+	client, err := dialIMAP(account, 60*time.Second)
+	if err != nil {
+		return fmt.Errorf("connection failed: %w", err)
+	}
+	defer client.Logout()
+
+	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
+		return wrapIMAPError("select folder failed", err)
+	}
+
+	var uidSet imap.UIDSet
+	uidSet.AddNum(imap.UID(uid))
+	section := &imap.FetchItemBodySection{Peek: true}
+	fetchCmd := client.Fetch(uidSet, &imap.FetchOptions{
+		UID:         true,
+		BodySection: []*imap.FetchItemBodySection{section},
+	})
+	defer fetchCmd.Close()
+
+	messages, err := fetchCmd.Collect()
+	if err != nil {
+		return fmt.Errorf("fetch original email failed: %w", err)
+	}
+	for _, message := range messages {
+		if uint32(message.UID) != uid {
+			continue
+		}
+		raw := message.FindBodySection(section)
+		if len(raw) == 0 {
+			return fmt.Errorf("original email content was not returned")
+		}
+		return writeOriginalEmail(savePath, raw)
+	}
+	return fmt.Errorf("email not found: uid=%d", uid)
+}
+
+func writeOriginalEmail(savePath string, raw []byte) error {
+	if strings.TrimSpace(savePath) == "" {
+		return fmt.Errorf("save path is empty")
+	}
+	if len(raw) == 0 {
+		return fmt.Errorf("original email is empty")
+	}
+	if err := os.WriteFile(savePath, raw, 0600); err != nil {
+		return fmt.Errorf("write original email: %w", err)
+	}
+	return nil
+}
+
+// originalEmailFilename produces a safe suggested .eml filename from a subject.
+func originalEmailFilename(subject string) string {
+	name := strings.TrimSpace(subject)
+	name = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || strings.ContainsRune(`/\\:*?\"<>|`, r) {
+			return '_'
+		}
+		return r
+	}, name)
+	name = strings.TrimRight(name, ". ")
+	if name == "" || name == "." || name == ".." {
+		name = "email"
+	}
+	if !strings.EqualFold(filepath.Ext(name), ".eml") {
+		name += ".eml"
+	}
+	return name
 }

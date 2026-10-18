@@ -105,6 +105,14 @@ type EmailAccount struct {
 	SMTPUser string `yaml:"smtp_user"`
 	SMTPPass string `yaml:"smtp_pass"` // AES-256-GCM encrypted on disk
 	UseTLS   bool   `yaml:"use_tls"`
+	// OAuth2 online verification (Gmail / Microsoft). AuthType is "password"
+	// (default, IMAPPass) or "oauth2" (OAuthRefreshToken exchanged for
+	// short-lived access tokens, SASL XOAUTH2). OAuthClientID is the client the
+	// refresh token was issued to and must be replayed on every refresh.
+	AuthType          string `yaml:"auth_type,omitempty"`          // "password" | "oauth2"
+	OAuthProvider     string `yaml:"oauth_provider,omitempty"`     // google | microsoft
+	OAuthClientID     string `yaml:"oauth_client_id,omitempty"`    // client the token was issued to
+	OAuthRefreshToken string `yaml:"oauth_refresh_token,omitempty"` // AES-256-GCM encrypted on disk
 	// Sync settings
 	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
 	Avatar       string `yaml:"avatar"`        // Avatar filename (relative to avatar dir)

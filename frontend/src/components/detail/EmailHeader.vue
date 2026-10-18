@@ -5,18 +5,19 @@ import { formatDate } from '~/composables/formats'
 import type { EmailDetail } from '~/types/email'
 
 // The header of the reading pane: who sent it, when, the subject, the recipients,
-// and the two actions that act on the message as a whole (re-fetch, translate).
-// The translate button's label/icon is the whole translation state machine, so the
-// three flags come in as props rather than the translation state itself.
+// and the actions that act on the message as a whole (refresh, export, translate).
+// The translate and export buttons receive their state as props rather than owning it.
 const props = defineProps<{
   detail: EmailDetail
   loading: boolean
+  exportingOriginal: boolean
   translating: boolean
   hasTranslation: boolean
 }>()
 
 const emit = defineEmits<{
   refresh: []
+  'export-original': []
   'toggle-translation': []
 }>()
 
@@ -70,6 +71,16 @@ function translationTitle(): string {
           @click="emit('refresh')"
         >
           <i class="i-ri:refresh-line" :class="{ rot: loading }" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="icon-btn"
+          :title="t['mail.export.original']"
+          :disabled="loading || exportingOriginal"
+          @click="emit('export-original')"
+        >
+          <span v-if="exportingOriginal" class="ic-spin" />
+          <i v-else class="i-ri:download-2-line" aria-hidden="true" />
         </button>
         <button
           type="button"
