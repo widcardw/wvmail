@@ -84,6 +84,17 @@ function sanitizeCss(
   out = out.replace(/expression\s*\([^)]*\)/gi, '')
   out = out.replace(/position\s*:\s*(?:fixed|sticky)/gi, 'position: static')
 
+  // A frozen `white-space: pre` / `nowrap` keeps a line on one row and pushes
+  // past the reading-pane edge. Rewrite to a wrap-friendly value so it cannot
+  // blow out the layout. `pre-wrap` / `pre-line` (which already wrap) are left
+  // untouched — the `(?![-\w])` lookahead skips them. This is targeted at the
+  // declaration itself, so normal body layout (default `normal`, or any table /
+  // div the sender did not freeze) is never touched — unlike a global
+  // `white-space: pre-wrap` rule, which would preserve every structural newline
+  // in the source and inflate the whole message with blank rows.
+  out = out.replace(/(white-space\s*:\s*)pre(?![-\w])/gi, '$1pre-wrap')
+  out = out.replace(/(white-space\s*:\s*)nowrap(?![-\w])/gi, '$1normal')
+
   // CSS-drawn "images" (a box-shadow entry per pixel) are spam payload, not styling.
   const sized = dropOversizedDeclarations(out)
   cssArt = sized.dropped

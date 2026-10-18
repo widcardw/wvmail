@@ -147,6 +147,32 @@ check(
   !/expression/i.test(block('<div style="width:expression(alert(1))">x</div>').html),
 )
 
+console.log('white-space escapes')
+// A frozen `pre` / `nowrap` keeps a line on one row and pushes past the reading
+// pane; rewrite to a wrap-friendly value so it cannot blow out the layout. The
+// UA-default <pre> tag is handled separately in content-fit, not here.
+check(
+  'white-space: pre rewritten to pre-wrap',
+  /white-space:\s*pre-wrap/.test(block('<div style="white-space: pre">x</div>').html),
+)
+const nowrapOut = block('<div style="white-space: nowrap">x</div>').html
+check(
+  'white-space: nowrap rewritten to normal',
+  nowrapOut.includes('white-space: normal') && !/white-space:\s*nowrap/.test(nowrapOut),
+)
+check(
+  'white-space: pre-wrap left untouched',
+  block('<div style="white-space: pre-wrap">x</div>').html.includes('white-space: pre-wrap'),
+)
+check(
+  'white-space: pre-line left untouched',
+  block('<div style="white-space: pre-line">x</div>').html.includes('white-space: pre-line'),
+)
+check(
+  'white-space inside a <style> block is also rewritten',
+  /white-space:\s*pre-wrap/.test(block('<style>p{white-space: pre}</style>').html),
+)
+
 console.log('markup attacks')
 check('script removed', !/<script/i.test(block('<script>alert(1)</script><p>ok</p>').html))
 check('onerror removed', !/onerror/i.test(block('<img src="x" onerror="alert(1)">').html))
@@ -336,6 +362,28 @@ check(
 check(
   'content-fit table-scroll rule is injected',
   fitCss.includes('.email-table-scroll') && fitCss.includes('overflow-x: auto'),
+)
+// The wrapped table must NOT be forced to max-content — that would stop a
+// width="100%" layout table (Vercel-style transactional mail) from wrapping
+// its text and drag it into one over-wide row inside the scroll wrapper.
+check('content-fit does not force table max-content', !fitCss.includes('max-content'))
+// content-fit must NOT force a global `white-space: pre-wrap` — that inflated
+// Vercel-style layout tables with blank rows (every structural newline became
+// visible). Frozen pre/nowrap lines are handled in css.ts instead; here we only
+// demote the <pre> tag (whose white-space comes from the UA, not the sender).
+check('content-fit does not force a global white-space rule', !/\*\{[^}]*white-space/.test(fitCss))
+check(
+  'content-fit still demotes the <pre> tag to pre-wrap',
+  fitCss.includes('pre {') && fitCss.includes('white-space: pre-wrap'),
+)
+// A layout table keeps filling the pane and wrapping its text — it is wrapped
+// but does not become over-wide itself.
+const layoutTable = block(
+  '<table width="100%"><tr><td>a fairly long sentence that should wrap inside the pane</td></tr></table>',
+)
+check(
+  'width=100% layout table stays wrapped without max-content',
+  /<div class="email-table-scroll"><table/.test(layoutTable.html),
 )
 const { linkifyPlainText } = await import('../src/composables/html/mentions.ts' as string)
 check(
