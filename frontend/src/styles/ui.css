@@ -536,8 +536,18 @@ button.model-tag:hover {
 .dlg-close:hover {
   opacity: 1;
 }
+/* The card caps its own height (`max-height: 100%`) and clips (`overflow: hidden`),
+   so the body has to be the scroll area: without `overflow` here the body keeps its
+   full content height, the card silently cuts it off at the cap, and the footer —
+   the last child — is the first thing to disappear (the LLM editor lost its save
+   button as soon as the model picker added 300px). `min-height: 0` is what lets a
+   flex item shrink below its content size at all. */
 .dlg-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .dlg-foot {
   display: flex;

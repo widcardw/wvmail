@@ -217,6 +217,16 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
   the global `.field__hint--warn` (0,1,0) from `ui.css`. Declare `.field__hint--warn` *after* the local hint rule in
   that component's `<style scoped>`.
 - Validation is still manual (no `createForm`); `Field.Root` accepts `invalid` / `required` / `disabled` when we need it.
+- **One control per `Field.Root` — a list of controls gets its own container.** Every Ark form control inside a field
+  inherits `ids.control` from the field context, so two of them end up with the *same* `id` (and the field's
+  `label[for]` resolves to whichever comes first in the tree). This is what silently broke the model picker: its 17
+  checkboxes and the “add model” text input all carried one id, so clicking a row activated the text input and no
+  checkbox ever toggled. Rule of thumb: a `Field.Root` wraps exactly one control (plus its label/helper text); panels,
+  lists and repeated rows are rendered as siblings of the field, not inside it. Check with
+  `document.querySelectorAll('[id="…"]').length` while debugging — it must be 1.
+- The same collision is harmless-but-invalid in the auto-sync row (`AccountForm.vue`: switch + number input in one
+  `Field.Root`). The switch is first in tree order, so `label[for]` still hits it and the row behaves correctly; don't
+  copy that shape into new code.
 
 ## Feedback / confirmation
 
@@ -234,6 +244,11 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
   `.dlg-card { display: flex }` did exactly that — a closed-but-mounted dialog stayed painted on top of the page.
   `global.css` therefore restates `[hidden] { display: none !important }`; keep that rule, and don't rely on a `v-if`
   per dialog.
+- **`.dlg-body` is the scroll area, and it has to stay that way.** `.dlg-card` caps itself (`max-height: 100%`) and
+  clips (`overflow: hidden`), so if the body keeps its natural height the card cuts the overflow off and the footer —
+  the last child — is the first thing to vanish. Hence `.dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto }`:
+  `min-height: 0` is what lets a flex item shrink below its content at all. Symptom to remember: “the save button is
+  gone once <some panel> opens”. Don't put `overflow: hidden` or a fixed height on a dialog body.
 
 ## Icons
 

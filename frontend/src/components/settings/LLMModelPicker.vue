@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useVirtualList } from '@vueuse/core'
 import { ConfigService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
@@ -42,6 +42,17 @@ async function load() {
 }
 onMounted(load)
 
+// The panel opens near the bottom of a scrolling dialog and is ~350px tall once
+// the catalog lands, so without this its list and confirm button stay below the
+// fold. Scrolling on the `loading` transition (rather than on mount) means the
+// height is final when we ask for it.
+const root = ref<HTMLElement | null>(null)
+watch(loading, async (busy) => {
+  if (busy) return
+  await nextTick()
+  root.value?.scrollIntoView({ block: 'nearest' })
+})
+
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
   return q ? available.value.filter((model) => model.toLowerCase().includes(q)) : available.value
@@ -75,7 +86,7 @@ function clearAll() {
 </script>
 
 <template>
-  <div class="picker">
+  <div ref="root" class="picker">
     <div class="picker__bar">
       <input
         v-model="query"
@@ -139,7 +150,9 @@ function clearAll() {
 
 <style scoped>
 .picker {
-  margin-top: 8px;
+  /* Sibling of the models field, not a child of it (see LLMEditorDialog): the
+     field's own bottom margin supplies the gap above, this one the gap below. */
+  margin: 0 0 12px;
   border: 1px solid var(--n-border-color);
   border-radius: var(--radius-md);
   background: var(--color-surface-2);

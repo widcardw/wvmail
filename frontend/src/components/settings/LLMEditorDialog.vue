@@ -291,14 +291,21 @@ watch(
                   </button>
                 </span>
               </div>
-              <LLMModelPicker
-                v-if="pickerOpen"
-                :config="form"
-                :selected="selectedModels"
-                @confirm="onModelsPicked"
-                @cancel="pickerOpen = false"
-              />
             </Field.Root>
+
+            <!-- Deliberately OUTSIDE the Field.Root above. Every Ark form control
+                 inside one Field.Root inherits that field's `ids.control`, so the
+                 checkbox list and the "add model" input all ended up with the same
+                 id; `label[for]` then resolves to the *first* of them (the text
+                 input) and clicking a model row toggled nothing. One control per
+                 Field.Root is the rule — a list of controls gets its own container. -->
+            <LLMModelPicker
+              v-if="pickerOpen"
+              :config="form"
+              :selected="selectedModels"
+              @confirm="onModelsPicked"
+              @cancel="pickerOpen = false"
+            />
 
             <Field.Root class="field">
               <Field.Label class="field__label">{{ t['settings.llm.test_model'] }}</Field.Label>
