@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,6 +117,24 @@ type EmailAccount struct {
 	// Sync settings
 	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
 	Avatar       string `yaml:"avatar"`        // Avatar filename (relative to avatar dir)
+}
+
+// LogValue makes an account readable in the log. Pass the account itself to slog
+// ("account", account) and appHandler flattens the group into
+//
+//	account.email=2300…@email.szu.edu.cn account.name=SZU
+//
+// instead of the UUID config.yaml keys it by, which is what a human reading
+// app.log is actually looking for.
+//
+// It also keeps the secrets out: an EmailAccount carries IMAPPass, SMTPPass and
+// OAuthRefreshToken, and logging the struct by value would print them.
+func (a EmailAccount) LogValue() slog.Value {
+	attrs := []slog.Attr{slog.String("email", a.Email)}
+	if a.Name != "" {
+		attrs = append(attrs, slog.String("name", a.Name))
+	}
+	return slog.GroupValue(attrs...)
 }
 
 // ConfigService provides methods for reading, writing, and managing

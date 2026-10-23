@@ -100,6 +100,11 @@ func main() {
 
 	emailSvc := services.NewEmailService()
 	syncSvc := services.NewEmailSyncService(cfgSvc, emailSvc)
+	// Real-time arrival (IMAP IDLE) for accounts with auto-sync on. It feeds the
+	// same "new mail" path as the interval sync, which stays as the fallback.
+	idleSvc := services.NewEmailIdleService(cfgSvc, emailSvc)
+	idleSvc.SetMailHandler(syncSvc.OnMailArrived)
+	syncSvc.SetIdleWatcher(idleSvc)
 
 	app := application.New(application.Options{
 		Name:        "wvmail",
@@ -270,6 +275,10 @@ func main() {
 	// Start the background email sync service
 	syncSvc.Start()
 	defer syncSvc.Stop()
+
+	// Start the IDLE watchers (no-op for accounts with auto-sync off)
+	idleSvc.Start()
+	defer idleSvc.Stop()
 
 	// Register keyboard shortcuts
 	// Cmd+, (macOS) / Ctrl+, (other) — navigate to settings

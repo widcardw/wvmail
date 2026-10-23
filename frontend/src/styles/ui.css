@@ -293,6 +293,32 @@
   color: var(--color-text-3);
 }
 
+/* --- Ark's visually-hidden inputs --------------------------------------------
+   `Switch.HiddenInput` and `Checkbox.HiddenInput` (the only two this app renders)
+   ship an inline `position: absolute` with *auto* offsets — a 1px box with
+   `clip: rect(0 0 0 0)`. With no positioned ancestor anywhere above them they
+   resolve against the initial containing block, and their static position lands at
+   the end of the document, outside every app scroll container.
+
+   That is not cosmetic. In the account form those stray 1px boxes sat ~200px past
+   the end of the app and extended the document's scrollable height from 680 to
+   882. The first time one of them took focus — clicking the auto-sync switch — the
+   browser scrolled the document to reveal it, so the whole window jumped up and,
+   because `html/body` carry `overflow: hidden`, the wheel could not bring it back:
+   the page was left showing a blank strip under the form.
+
+   Making the root a positioned ancestor keeps the hidden box inside its own
+   control, which is where the browser looks when it scrolls it into view. */
+[data-scope='switch'][data-part='root'],
+[data-scope='checkbox'][data-part='root'] {
+  position: relative;
+}
+[data-scope='switch'][data-part='hidden-input'],
+[data-scope='checkbox'][data-part='hidden-input'] {
+  top: 0;
+  left: 0;
+}
+
 /* --- Switch (the Ark `Switch.Control` / `Switch.Thumb` parts) --- */
 .switch {
   display: inline-flex;

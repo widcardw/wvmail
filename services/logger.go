@@ -6,8 +6,11 @@ package services
 //     prefixed with the subsystem ("imap: login failed"). Prefixes in use:
 //     imap:, sync:, tray:, cache:, body:, decode:, network:, logger:.
 //   - Attributes: snake_case keys, always the same word for the same thing —
-//     "account" (account ID), "folder", "uid", "component" (UI area), and
-//     "error" for the wrapped error (always last).
+//     "account", "folder", "uid", "component" (UI area), and "error" for the
+//     wrapped error (always last).
+//   - "account" takes the EmailAccount itself, not its ID: EmailAccount.LogValue
+//     renders it as account.email / account.name, so a line names the mailbox a
+//     human recognises (and never its passwords).
 //   - Levels: Debug for per-message internals, Info for state changes the
 //     user can act on, Warn for recoverable failures, Error for lost work.
 //   - Never log secrets (passwords, API keys) or full mail bodies.

@@ -36,6 +36,7 @@ const zhCN: TranslationSchema = {
   'mail.loading': '正在加载邮件...',
   'mail.page': '页码',
   'mail.noEmails': '暂无邮件',
+  'mail.noEmailSelected': '没有选中的邮件',
   'mail.refreshFailed': '获取邮件失败',
   'mail.refreshed': '已刷新',
   'mail.refresh.list': '刷新邮件列表',
@@ -173,10 +174,12 @@ const zhCN: TranslationSchema = {
   'settings.accounts.oauth.is_oauth': '此账户通过在线验证登录，无需填写密码。',
   'settings.accounts.oauth.gmail_app_password_hint':
     'Gmail 需要开启两步验证，并使用「应用专用密码」（myaccount.google.com/apppasswords）代替常规密码。',
-  'settings.accounts.sync': '自动同步',
+  'settings.accounts.sync': '同步',
   'settings.accounts.auto_sync': '自动同步',
   'settings.accounts.sync_minutes': '分钟',
   'settings.accounts.sync_disabled': '已关闭',
+  'settings.accounts.sync_hint':
+    '开启后由服务器实时推送新邮件；上面的分钟数只在连接中断时作为兜底轮询。',
   'settings.accounts.test': '测试连接',
   'settings.accounts.test_success': '连接成功',
   'settings.accounts.test_fail': '连接失败',

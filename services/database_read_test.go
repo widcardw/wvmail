@@ -66,3 +66,44 @@ func TestMarkEmailReadIsScopedToFolder(t *testing.T) {
 		t.Errorf("Archive copy must stay unread, got %+v", archive)
 	}
 }
+
+// UIDNEXT has to survive the cache round trip: the frontend compares it against a
+// later STATUS to decide whether opening a folder needs a fetch at all, so a value
+// that resets to 0 on restart would make every folder open dial IMAP once more.
+func TestFolderMetaKeepsUIDNext(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	db := NewDBManager()
+	if err := db.SaveFolderMeta("acct", "INBOX", FolderMeta{Total: 42, UIDNext: 1087}); err != nil {
+		t.Fatalf("SaveFolderMeta: %v", err)
+	}
+
+	meta, err := db.LoadFolderMeta("acct", "INBOX")
+	if err != nil {
+		t.Fatalf("LoadFolderMeta: %v", err)
+	}
+	if meta.Total != 42 || meta.UIDNext != 1087 {
+		t.Errorf("got %+v, want {Total:42 UIDNext:1087}", meta)
+	}
+
+	// A second fetch replaces the row rather than stacking a new one.
+	if err := db.SaveFolderMeta("acct", "INBOX", FolderMeta{Total: 43, UIDNext: 1088}); err != nil {
+		t.Fatalf("SaveFolderMeta (2nd): %v", err)
+	}
+	meta, err = db.LoadFolderMeta("acct", "INBOX")
+	if err != nil {
+		t.Fatalf("LoadFolderMeta (2nd): %v", err)
+	}
+	if meta.Total != 43 || meta.UIDNext != 1088 {
+		t.Errorf("got %+v, want {Total:43 UIDNext:1088}", meta)
+	}
+
+	// Nothing cached yet reads as the zero value, which callers treat as "unknown".
+	empty, err := db.LoadFolderMeta("acct", "Archive")
+	if err != nil {
+		t.Fatalf("LoadFolderMeta (missing): %v", err)
+	}
+	if empty != (FolderMeta{}) {
+		t.Errorf("missing folder must read as zero meta, got %+v", empty)
+	}
+}

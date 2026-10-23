@@ -146,6 +146,38 @@ func TestAppHandlerFormat(t *testing.T) {
 	}
 }
 
+// An account logged by value must read as the mailbox, not as the UUID that keys
+// config.yaml — and it must never print the credentials it carries.
+func TestAppHandlerAccountValue(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(newAppHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	account := EmailAccount{
+		ID:       "0f3a1c2e-uuid",
+		Name:     "SZU",
+		Email:    "2300271084@email.szu.edu.cn",
+		IMAPPass: "super-secret",
+		SMTPPass: "also-secret",
+	}
+	logger.Info("idle: watching inbox", "account", account, "folder", "INBOX")
+
+	line := buf.String()
+	if !strings.Contains(line, "account.email=2300271084@email.szu.edu.cn") {
+		t.Errorf("email address missing from line: %q", line)
+	}
+	if !strings.Contains(line, "account.name=SZU") {
+		t.Errorf("display name missing from line: %q", line)
+	}
+	if strings.Contains(line, account.ID) {
+		t.Errorf("account ID leaked into line: %q", line)
+	}
+	for _, secret := range []string{account.IMAPPass, account.SMTPPass} {
+		if strings.Contains(line, secret) {
+			t.Errorf("secret %q leaked into line: %q", secret, line)
+		}
+	}
+}
+
 func TestCleanOnceRespectsNeverRemove(t *testing.T) {
 	dir := t.TempDir()
 	old := time.Now().AddDate(0, 0, -60)

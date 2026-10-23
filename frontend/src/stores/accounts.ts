@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type {
   // EmailAccount,
   FolderInfo,
+  FolderStatus,
   EmailSummary,
   EmailDetail,
   AttachmentInfo,
@@ -21,19 +22,27 @@ export const useAccountsStore = defineStore('accounts', () => {
   const accounts = ref<EmailAccount[]>([])
   const avatarRevision = ref<Record<string, number>>({})
   const loading = ref(false)
-  const refreshing = ref(false) // force-refresh loading state
+  /**
+   * Folder fetches running right now, keyed `account:folder`.
+   *
+   * Per folder rather than one global flag: an open-folder revalidation of an
+   * account you are not looking at must not spin the refresh icon of the folder
+   * on screen, which is what a global counter did.
+   */
+  const refreshingKeys = ref<Record<string, boolean>>({})
   const testingId = ref<string | null>(null)
   const foldersByAccount = ref<Record<string, FolderInfo[]>>({})
   /**
-   * Unseen messages per folder, from the server (STATUS UNSEEN), keyed account → folder.
-   * Only folders with something to badge are present, so a missing key means zero. (The
-   * generated binding types the values as optional, hence `| undefined`: a count is never
-   * absent and undefined at once.)
+   * Per-folder counters as the server last reported them (STATUS MESSAGES UIDNEXT
+   * UNSEEN), keyed account → folder. Two readers: the sidebar badges read
+   * `unseen`, and opening a folder compares `messages`/`uid_next` against what the
+   * last fetch saw to decide whether anything needs fetching at all (see
+   * revalidateOpenFolder). A folder the server would not answer for is absent.
    *
    * It is deliberately not derived from `emailsByFolder`: only the pages the UI has
    * loaded are cached, so that would undercount every mailbox bigger than one page.
    */
-  const unreadByFolder = ref<Record<string, Record<string, number | undefined>>>({})
+  const folderStatusByAccount = ref<Record<string, Record<string, FolderStatus | undefined>>>({})
   const emailsByFolder = ref<Record<string, EmailSummary[]>>({})
   const emailTotalByFolder = ref<Record<string, number>>({})
   const currentPageByFolder = ref<Record<string, number>>({})
@@ -52,6 +61,12 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   const isSmartFolder = computed(() => smartFolder.value !== null)
 
+  /** True while the folder on screen is being fetched — the list header's spinner. */
+  const refreshingOpenFolder = computed(() => {
+    if (!selectedAccountId.value || !selectedFolder.value) return false
+    return refreshingKeys.value[`${selectedAccountId.value}:${selectedFolder.value}`] === true
+  })
+
   // Email detail state. Keep the source mailbox with the selected message so
   // actions also work from search and aggregate views.
   const selectedEmailUid = ref<number | null>(null)
@@ -66,8 +81,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     if (smartFolder.value) return null
     return accounts.value.find((a) => a.ID === selectedAccountId.value) ?? null
   })
-  const selectedEmailAccount = computed(() =>
-    accounts.value.find((a) => a.ID === selectedEmailAccountId.value) ?? null,
+  const selectedEmailAccount = computed(
+    () => accounts.value.find((a) => a.ID === selectedEmailAccountId.value) ?? null,
   )
 
   const currentFolders = computed(() => {
@@ -108,9 +123,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
     // Seed the badges at startup so the sidebar shows unread counts before any
     // account branch is expanded. The backend STATUSes every cached folder over
-    // one connection (FolderUnread); failures are logged there, and the normal
+    // one connection (FolderStatuses); failures are logged there, and the normal
     // triggers (expand, emails-synced) re-fetch later if this fires too early.
-    for (const account of accounts.value) void loadFolderUnread(account)
+    for (const account of accounts.value) void loadFolderStatuses(account)
   }
 
   async function addAccount(account: EmailAccount) {
@@ -184,7 +199,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       foldersByAccount.value[account.ID] = folders
       // Badges are per folder, so they are only worth fetching once the folder list is
       // known (the backend STATUSes exactly the folders it has cached).
-      void loadFolderUnread(account)
+      void loadFolderStatuses(account)
     } catch (e) {
       // Keep whatever was already loaded: emptying the list made a transient
       // failure look like "this account has no folders".
@@ -194,56 +209,118 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   /** Unread count of one folder, 0 when there is nothing to badge. */
   function folderUnread(accountId: string, folder: string): number {
-    return unreadByFolder.value[accountId]?.[folder] ?? 0
+    return folderStatusByAccount.value[accountId]?.[folder]?.unseen ?? 0
   }
 
   /**
    * Total unread across every folder of one account — the badge on the account
    * row. Sums the same server-side counts the folder badges read, so the two
-   * always agree; 0 until the account's first per-folder fetch lands (the
-   * startup seed or the first expand).
+   * always agree; 0 until the account's first STATUS sweep lands (the startup
+   * seed or the first expand).
    */
   function accountUnread(accountId: string): number {
-    const counts = unreadByFolder.value[accountId]
-    if (!counts) return 0
+    const statuses = folderStatusByAccount.value[accountId]
+    if (!statuses) return 0
     let total = 0
-    for (const n of Object.values(counts)) total += n ?? 0
+    for (const status of Object.values(statuses)) total += status?.unseen ?? 0
     return total
   }
 
-  // One IMAP connection per refresh, so sync ticks and folder clicks must not stack up.
-  const unreadInflight = new Set<string>()
-  const unreadFetchedAt: Record<string, number> = {}
-  const UNREAD_MIN_INTERVAL_MS = 30_000
+  // One IMAP connection per STATUS sweep, so sync ticks and folder clicks must not
+  // stack up. The sweep answers for every folder of an account at once, so it is
+  // shared by two callers with different tolerances: badges are happy with numbers
+  // half a minute old, while the open-folder check wants something recent before it
+  // trusts "nothing changed".
+  const statusInflight = new Map<string, Promise<void>>()
+  const statusFetchedAt: Record<string, number> = {}
+  const STATUS_BADGE_MAX_AGE_MS = 30_000
+  const STATUS_FRESH_MAX_AGE_MS = 5_000
+
+  // At most one list fetch per folder at a time, and a folder fetched a moment ago
+  // is not fetched again just because it was clicked. Each fetch costs a connect +
+  // login + SELECT + FETCH, so clicking back and forth between two folders must not
+  // dial IMAP on every click.
+  const fetchInflight = new Set<string>()
+  /** account:folder → when its rows last came off the server. */
+  const folderFetchedAt: Record<string, number> = {}
+  const FOLDER_OPEN_REFRESH_MIN_MS = 20_000
 
   /**
-   * Refresh the per-folder unread counts from the server. Failures are logged only:
-   * badges are decoration, and the previous counts are still the best guess.
+   * account:folder → the mailbox's counters as of the last fetch that actually
+   * talked to the server. Comparing it with a fresh STATUS is how opening a folder
+   * avoids fetching a mailbox that has not moved (see revalidateOpenFolder).
+   *
+   * Seeded from `EmailPageResponse.uid_next`, which the backend also fills in for a
+   * cached page (it is persisted with the folder meta), so a restart does not cost
+   * one pointless fetch per folder.
    */
-  async function loadFolderUnread(account: EmailAccount, force = false) {
-    if (unreadInflight.has(account.ID)) return
-    if (!force && Date.now() - (unreadFetchedAt[account.ID] ?? 0) < UNREAD_MIN_INTERVAL_MS) return
-    unreadInflight.add(account.ID)
-    try {
-      const counts = await EmailService.FolderUnread(account)
-      unreadByFolder.value[account.ID] = counts ?? {}
-      unreadFetchedAt[account.ID] = Date.now()
-    } catch (e) {
-      console.error('Failed to load folder unread counts', e)
-    } finally {
-      unreadInflight.delete(account.ID)
-    }
+  const fetchSnapshot: Record<string, { uidNext: number; messages: number }> = {}
+
+  /** Remember what the server said about a folder, when it actually said anything. */
+  function recordSnapshot(key: string, resp: EmailPageResponse | null) {
+    const uidNext = resp?.uid_next ?? 0
+    if (!resp || uidNext === 0) return
+    fetchSnapshot[key] = { uidNext, messages: resp.total ?? 0 }
+  }
+
+  /**
+   * Refresh the per-folder counters from the server (STATUS … MESSAGES UIDNEXT
+   * UNSEEN, one connection for the whole folder list). Failures are logged only:
+   * badges are decoration, and the previous counts are still the best guess.
+   *
+   * `maxAgeMs` is how stale the caller will accept without a round trip; a sweep
+   * already running is joined instead of started twice, so callers that need the
+   * answer (the open-folder check) can simply await it.
+   */
+  function loadFolderStatuses(
+    account: EmailAccount,
+    maxAgeMs = STATUS_BADGE_MAX_AGE_MS,
+  ): Promise<void> {
+    const id = account.ID
+    const running = statusInflight.get(id)
+    if (running) return running
+    if (Date.now() - (statusFetchedAt[id] ?? 0) < maxAgeMs) return Promise.resolve()
+
+    const job = (async () => {
+      try {
+        const statuses = await EmailService.FolderStatuses(account)
+        if (statuses) {
+          folderStatusByAccount.value[id] = statuses
+          statusFetchedAt[id] = Date.now()
+        }
+      } catch (e) {
+        console.error('Failed to load folder statuses', e)
+      }
+    })()
+    statusInflight.set(id, job)
+    void job.then(() => {
+      if (statusInflight.get(id) === job) statusInflight.delete(id)
+    })
+    return job
   }
 
   /** Optimistic ±1 for one folder, clamped at zero (used while flagging read). */
   function adjustUnread(accountId: string, folder: string, delta: number) {
-    const counts = unreadByFolder.value[accountId] ?? {}
-    const current = counts[folder] ?? 0
+    const status = folderStatusByAccount.value[accountId]?.[folder]
+    // No counter for this folder yet: nothing is badged, so there is nothing to
+    // adjust and the next sweep will report the truth anyway.
+    if (!status) return
+    const current = status.unseen ?? 0
     if (current === 0 && delta < 0) return
-    unreadByFolder.value[accountId] = { ...counts, [folder]: Math.max(0, current + delta) }
+    status.unseen = Math.max(0, current + delta)
   }
 
-  async function loadEmails(account: EmailAccount, folder: string, page = 1, ps = pageSize) {
+  /**
+   * Load one page of a folder. Serves the local cache when it can, and reports
+   * whether it did: the caller uses `false` as "this page is already fresh from the
+   * server" so opening a folder does not fetch the same mailbox twice.
+   */
+  async function loadEmails(
+    account: EmailAccount,
+    folder: string,
+    page = 1,
+    ps = pageSize,
+  ): Promise<boolean> {
     const key = `${account.ID}:${folder}`
     loading.value = true
     try {
@@ -258,26 +335,47 @@ export const useAccountsStore = defineStore('accounts', () => {
       if (page === 1) {
         currentPageByFolder.value[key] = 1
       }
+      const fromCache = resp?.from_cache ?? false
+      // A page the backend had to fetch is fresh; remember when, so the
+      // open-folder revalidation below does not dial the same mailbox again.
+      if (!fromCache) folderFetchedAt[key] = Date.now()
+      recordSnapshot(key, resp)
+      return fromCache
     } catch (e) {
       // Keep the previously loaded page: the backend deliberately returns an
       // error instead of an empty list when a refresh looks wrong, and blanking
       // the list here threw that protection away.
       reportFetchFailure('Failed to load emails', e)
+      return false
     } finally {
       loading.value = false
     }
   }
 
-  /** Force-refresh from the IMAP server, bypassing cache. Keeps your current page
-   *  instead of hard-resetting to page 1 (previously: any email you were reading on a
-   *  later page appeared to drop away after a refresh / background sync). */
-  async function forceRefreshEmails() {
-    const account = selectedAccount.value
-    const folder = selectedFolder.value
-    if (!account || !folder) return
-
+  /**
+   * Fetch one folder from the server, keeping the page the user is on instead of
+   * hard-resetting to page 1 (previously: any email you were reading on a later
+   * page appeared to drop away after a refresh / background sync).
+   *
+   * `announce` is what separates the callers: an explicit refresh reports success
+   * and failure to the user, the open-folder revalidation stays quiet — a toast on
+   * every folder click would be noise, and the cached list it painted is still on
+   * screen.
+   *
+   * The header spinner is raised only for the folder on screen (refreshingKeys),
+   * so a revalidation running for another folder no longer animates it.
+   */
+  async function refreshFolder(
+    account: EmailAccount,
+    folder: string,
+    { announce }: { announce: boolean },
+  ) {
     const key = `${account.ID}:${folder}`
-    refreshing.value = true
+    // One connection per folder at a time: a click landing while a background
+    // fetch is running must not open a second IMAP session on the same mailbox.
+    if (fetchInflight.has(key)) return
+    fetchInflight.add(key)
+    refreshingKeys.value[key] = true
     try {
       const cur = currentPageByFolder.value[key] || 1
       const resp: EmailPageResponse | null = await EmailService.RefreshEmails(
@@ -292,13 +390,64 @@ export const useAccountsStore = defineStore('accounts', () => {
       emailsByFolder.value[key] = resp?.emails ?? []
       emailTotalByFolder.value[key] = total
       currentPageByFolder.value[key] = next
-      // An explicit refresh with nothing new to show used to look like a no-op.
-      feedback.success(i18n.value['mail.refreshed'])
+      folderFetchedAt[key] = Date.now()
+      recordSnapshot(key, resp)
+      if (announce) feedback.success(i18n.value['mail.refreshed'])
+      // New mail moves the sidebar badges too. loadFolderStatuses is throttled
+      // (30s), so the background path normally costs nothing extra.
+      void loadFolderStatuses(account)
     } catch (e) {
-      reportFetchFailure('Failed to refresh emails', e)
+      if (announce) reportFetchFailure('Failed to refresh emails', e)
+      else console.error('Failed to refresh folder in the background', e)
     } finally {
-      refreshing.value = false
+      fetchInflight.delete(key)
+      delete refreshingKeys.value[key]
     }
+  }
+
+  /** Force-refresh the open folder from the IMAP server, bypassing the cache. */
+  async function forceRefreshEmails() {
+    const account = selectedAccount.value
+    const folder = selectedFolder.value
+    if (!account || !folder) return
+    await refreshFolder(account, folder, { announce: true })
+  }
+
+  /**
+   * Revalidate a folder the user just opened — but only if it actually moved.
+   *
+   * Opening a folder used to stop at whatever the cache held, so new mail only
+   * appeared after pressing the refresh button in the list header — the one
+   * gesture a mail client should not require. The cached page is still painted
+   * first (that is what makes switching folders feel instant) and the check runs
+   * behind it, so the list never blanks out.
+   *
+   * The check is a STATUS, not a FETCH: the backend answers for every folder over
+   * one connection, and UIDNEXT only grows, so a folder whose UIDNEXT and message
+   * count still match what the last fetch saw cannot hold anything the list is
+   * missing. Fetching it anyway would re-download 20 envelopes to paint the same
+   * rows and spin the refresh icon for nothing — which is what clicking through
+   * folders used to do on every single click.
+   *
+   * When there is no reference point (a folder never fetched in this profile, or a
+   * server that omits UIDNEXT) the old age window still applies: refresh if the
+   * rows are older than FOLDER_OPEN_REFRESH_MIN_MS.
+   */
+  async function revalidateOpenFolder(account: EmailAccount, folder: string) {
+    const key = `${account.ID}:${folder}`
+    const seen = fetchSnapshot[key]
+    if (!seen) {
+      if (Date.now() - (folderFetchedAt[key] ?? 0) < FOLDER_OPEN_REFRESH_MIN_MS) return
+      await refreshFolder(account, folder, { announce: false })
+      return
+    }
+
+    await loadFolderStatuses(account, STATUS_FRESH_MAX_AGE_MS)
+    const now = folderStatusByAccount.value[account.ID]?.[folder]
+    // `now` is absent when the server refused the STATUS: we cannot prove the list
+    // is current, so fall back to fetching it.
+    if (now && now.uid_next === seen.uidNext && now.messages === seen.messages) return
+    await refreshFolder(account, folder, { announce: false })
   }
 
   // Listen for background sync events to refresh the UI automatically
@@ -309,7 +458,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       // New mail lands in the folders too: refresh that account's badges (throttled,
       // and one connection for the whole folder list).
       const synced = accounts.value.find((a) => a.ID === syncedAccountId)
-      if (synced) void loadFolderUnread(synced)
+      if (synced) void loadFolderStatuses(synced)
       // If the synced account is currently selected, refresh the current folder
       if (syncedAccountId === selectedAccountId.value && selectedFolder.value) {
         const account = selectedAccount.value
@@ -319,6 +468,10 @@ export const useAccountsStore = defineStore('accounts', () => {
           const want = currentPageByFolder.value[key] || 1
           EmailService.ListEmails(account, folder, want, pageSize)
             .then((resp: EmailPageResponse | null) => {
+              // The sync just fetched this folder on the server, so a click on it
+              // must not trigger another dial straight away.
+              folderFetchedAt[key] = Date.now()
+              recordSnapshot(key, resp)
               const total = resp?.total ?? 0
               const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
               const page = Math.min(Math.max(1, want), maxPages)
@@ -332,6 +485,7 @@ export const useAccountsStore = defineStore('accounts', () => {
                   emailsByFolder.value[key] = p2?.emails ?? []
                   emailTotalByFolder.value[key] = p2?.total ?? 0
                   currentPageByFolder.value[key] = page
+                  recordSnapshot(key, p2)
                 })
               }
             })
@@ -412,7 +566,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     const folder = selectedFolder.value
     const uid = selectedEmailUid.value
     if (!account || !folder || !uid) {
-      detailError.value = 'No email selected'
+      detailError.value = i18n.value['mail.noEmailSelected']
       return null
     }
 
@@ -455,9 +609,14 @@ export const useAccountsStore = defineStore('accounts', () => {
     const account = accounts.value.find((a) => a.ID === accountId)
     if (account) {
       currentPageByFolder.value[`${accountId}:${folderName}`] = 1
-      loadEmails(account, folderName)
+      // Paint the cached page first, then revalidate it if the backend served it
+      // from cache — opening a folder is the moment the user expects to see new
+      // mail, and it used to require pressing the refresh button.
+      void loadEmails(account, folderName).then((fromCache) => {
+        if (fromCache) revalidateOpenFolder(account, folderName)
+      })
       // Opening a folder is a good moment to re-read the badges (throttled).
-      void loadFolderUnread(account)
+      void loadFolderStatuses(account)
     }
   }
 
@@ -488,7 +647,15 @@ export const useAccountsStore = defineStore('accounts', () => {
       case 'inbox':
         return matches(['inbox', '收件箱'])
       case 'sent':
-        return matches(['sent', 'sent mail', 'sent messages', 'sent items', '已发送', '已发送邮件'])
+        return matches([
+          'sent',
+          'sent mail',
+          'sent messages',
+          'sent items',
+          '已发送',
+          '已发送邮件',
+          '已发邮件',
+        ])
       case 'drafts':
         return lower === 'drafts' || lower.includes('draft')
       default:
@@ -552,13 +719,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     accounts,
     avatarRevision,
     loading,
-    refreshing,
+    refreshingOpenFolder,
     testingId,
     foldersByAccount,
-    unreadByFolder,
     folderUnread,
     accountUnread,
-    loadFolderUnread,
+    loadFolderStatuses,
     emailsByFolder,
     emailTotalByFolder,
     selectedAccountId,

@@ -37,6 +37,7 @@ const enUS: TranslationSchema = {
   'mail.loading': 'Loading emails...',
   'mail.page': 'Page',
   'mail.noEmails': 'No emails found',
+  'mail.noEmailSelected': 'No email selected',
   'mail.refreshFailed': 'Failed to fetch emails',
   'mail.refreshed': 'Refreshed',
   'mail.refresh.list': 'Refresh the message list',
@@ -178,10 +179,12 @@ const enUS: TranslationSchema = {
   'settings.accounts.oauth.is_oauth': 'This account signs in via online verification — no password needed.',
   'settings.accounts.oauth.gmail_app_password_hint':
     'Gmail requires 2-Step Verification and an "App Password" (myaccount.google.com/apppasswords) instead of your regular password.',
-  'settings.accounts.sync': 'Auto Sync',
+  'settings.accounts.sync': 'Sync',
   'settings.accounts.auto_sync': 'Auto Sync',
   'settings.accounts.sync_minutes': 'minutes',
   'settings.accounts.sync_disabled': 'Disabled',
+  'settings.accounts.sync_hint':
+    'The server pushes new mail as it arrives; the interval above is only a fallback poll when the connection drops.',
   'settings.accounts.test': 'Test Connection',
   'settings.accounts.test_success': 'Connection successful',
   'settings.accounts.test_fail': 'Connection failed',

@@ -42,20 +42,22 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `TestConnection` | 否 | **15s** | 只做连接+登录，用于设置页「测试连接」 |
 | `ListFolders` | **是**（缓存非空即返回，**无 TTL**） | 60s（走 Refresh） | 只有缓存为空才 `RefreshFolders` |
 | `RefreshFolders` | 否 | 60s | `LIST "" *`，成功后写缓存 |
-| `ListEmails` | **是**（仅 page ≤ 1） | 60s（走 Refresh） | 缓存缺 folder meta 或 total==0 时强制刷新 |
+| `ListEmails` | **是**（仅 page ≤ 1） | 60s（走 Refresh） | 缓存缺 folder meta 或 total==0 时强制刷新；命中缓存的返回带 `from_cache: true`，前端据此决定「刚打开的文件夹还要不要再刷一次」 |
 | `RefreshEmails` | 否 | 60s | 抓摘要页 + 合并缓存 |
 | `SearchEmails` | **仅缓存** | — | `db.SearchEmails`，**没有 IMAP SEARCH 兜底** |
 | `FetchEmail` | **是** | — | 命中 `LoadEmailBody` 直接返回 |
 | `RefreshEmailBody` | 否 | 60s | 两趟抓取：先 BodyStructure，再正文/inline 段 |
 | `DownloadAttachment` | 否 | 60s | 独立连接，只抓指定 part |
 | `UnseenCount` | 否 | 60s | 单个文件夹的 `STATUS UNSEEN`（托盘红点用） |
-| `FolderUnread` | **否（必须问服务器）** | 60s | 一次连接、**流水线**发出全部 `STATUS UNSEEN`，返回 `map[文件夹]未读数`；侧边栏每个文件夹的未读 badge 用它 |
+| `FolderStatuses` | **否（必须问服务器）** | 60s | 一次连接、**流水线**发出全部 `STATUS MESSAGES UIDNEXT UNSEEN`，返回 `map[文件夹]{messages,uid_next,unseen}`；既供侧边栏 badge，也供「打开的文件夹到底变没变」判断 |
 
 **缓存策略要点**：`SaveEmails` 按 UID 合并、不删旧行，所以翻到更早的页不会丢掉已缓存的邮件；`RefreshEmails` 的返回页可能来自「服务器新抓的页 + 缓存旧行」合并结果（page 1 总是如此）。
 
-**未读计数不能来自缓存**：`cached_emails.is_read` 只覆盖 UI 已经翻到过的那些页，用它统计会让任何大于一页的邮箱**少算**，所以侧边栏 badge 走 `FolderUnread`（服务器 `STATUS UNSEEN`）。成本控制：只连一次、把所有 `STATUS` 先发出去再逐个 `Wait`（go-imap 在同一连接上流水线化命令，见其 `Client` 文档），因此整个文件夹列表是**一个 RTT**而不是每文件夹一个。`\Noselect`/`\NonExistent` 的容器文件夹跳过（`STATUS` 对它们是报错而不是 0），服务器拒绝回答的文件夹**不出现在 map 里** —— 前端把「缺键」读作「没有要 badge 的」。服务端返回 0 的也不入 map。
+**未读计数不能来自缓存**：`cached_emails.is_read` 只覆盖 UI 已经翻到过的那些页，用它统计会让任何大于一页的邮箱**少算**，所以侧边栏 badge 走 `FolderStatuses`（服务器 `STATUS`）。成本控制：只连一次、把所有 `STATUS` 先发出去再逐个 `Wait`（go-imap 在同一连接上流水线化命令，见其 `Client` 文档），因此整个文件夹列表是**一个 RTT**而不是每文件夹一个。`\Noselect`/`\NonExistent` 的容器文件夹跳过（`STATUS` 对它们是报错而不是 0），服务器拒绝回答的文件夹**不出现在 map 里** —— 前端把「缺键」读作「没有要 badge 的」。
 
-触发时机（前端 `stores/accounts.ts`）：文件夹列表加载后、切换文件夹时、后台 `emails-synced` 事件到达时；每个账号 **30s 内只刷新一次**并有 in-flight 去重，避免同步 tick 与点击堆叠成多个 IMAP 连接。打开一封未读邮件时**乐观地**把该文件夹计数 −1（失败回滚 +1）；只在「这封邮件确实来自当前已加载页且未读」时这么做 —— 搜索/聚合视图里点开的邮件不在 `emailsByFolder` 里，读状态未知，不猜，等下一次刷新。
+**`UIDNEXT` 是「有没有新邮件」的判据**：同一次 STATUS 顺带取 `MESSAGES` 与 `UIDNEXT`，与「上一次真正抓取时看到的值」比较即可判断邮箱有没有动过 —— 只看 `UNSEEN` 不行（三个常年未读的订阅邮件会让它永远等于 3），而 `UIDNEXT` 单调递增，任何新邮件都会推高它。上一次抓取的值来自 `EmailPageResponse.uid_next`，并且**随文件夹 meta 一起落库**（`CachedFolderMeta.UIDNext`），所以重启后第一次打开文件夹也不必盲抓。见 §4 最后一行。
+
+触发时机（前端 `stores/accounts.ts`）：文件夹列表加载后、切换文件夹时、后台 `emails-synced` 事件到达时；每个账号 **30s 内只刷新一次**并有 in-flight 去重（「打开文件夹要不要刷」这一个判断用的是 5s 容忍度，同一个 sweep 复用），避免同步 tick 与点击堆叠成多个 IMAP 连接。打开一封未读邮件时**乐观地**把该文件夹计数 −1（失败回滚 +1）；只在「这封邮件确实来自当前已加载页且未读」时这么做 —— 搜索/聚合视图里点开的邮件不在 `emailsByFolder` 里，读状态未知，不猜，等下一次刷新。
 
 ### 2.2 连接阶段：`dialIMAP` 的 fallback 阶梯
 
@@ -275,6 +277,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **附件列表默认折叠** | `EmailDetail.vue`（`attachmentsOpen = ref(false)`，切邮件时也重置为 `false`） | 长附件列表不再默认占满正文上方 |
 | **打开邮件即标记已读**：写服务器 `\Seen`（UID `STORE +FLAGS.SILENT`，读-写 `SELECT`）+ 更新本地缓存 `is_read`，并在同一条连接上重读 `STATUS UNSEEN` | `services/emailfolders.go` `MarkEmailRead`、`services/databaseemail.go` `MarkEmailRead`、`stores/accounts.ts` `markEmailRead` | 之前从不写 `\Seen`：列表的未读样式与托盘徽标永远不会因为在这里读信而更新；失败只回滚列表项，不影响正文展示 |
 | **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
+| **打开文件夹即刷新（stale-while-revalidate）**：`selectFolder` 先用缓存画出列表，若这一页来自缓存（`EmailPageResponse.from_cache`）再在后台 `RefreshEmails` 一次，保持当前页、不弹 toast；同一文件夹 20s 内不重复拉、同文件夹同时只有一个请求 | `stores/accounts.ts` `selectFolder` / `revalidateOpenFolder` / `refreshFolder`；`services/emailservice.go` 新增 `FromCache` | 原先点开文件夹只看缓存，新邮件必须手动按刷新按钮。`from_cache` 让「刚从服务器取过的页」不再二次拨号（缓存为空时 `ListEmails` 自己就会走 `RefreshEmails`）。刷新按钮 = 同一函数的 `announce: true` 分支 |
+| **打开文件夹不再无条件刷新**：先用一次 `STATUS`（`MESSAGES`/`UIDNEXT`）比对上次抓取时的值，一致就**什么都不做**（不拨号抓列表、刷新图标不转）；只有真变了才 `RefreshEmails`。没有参照点（该文件夹从未抓过、或服务器不返回 `UIDNEXT`）时退回原来的 20s 时间窗 | `stores/accounts.ts` `revalidateOpenFolder` / `fetchSnapshot` / `loadFolderStatuses`；`services/emailfolders.go` `FolderStatuses`（取代 `FolderUnread`）；`services/databaseemail.go` `FolderMeta`（`CachedFolderMeta.UIDNext` 落库） | 上一版「点开就刷」在什么都没变时也要重下一遍 20 封摘要，并让刷新图标每次都转一下 —— 用户能直接看到这个无意义动作。`UNSEEN` 判不了「有没有新邮件」（常年未读的邮件会让它恒定），`UIDNEXT` 单调递增才是可靠信号。刷新图标同时从全局计数改成按 `account:folder` 判断，后台给别的文件夹做的刷新不再让当前列表的头转圈 |
 
 ---
 
@@ -282,10 +286,10 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 
 1. **放开 `class` 属性**：现在 `class` 被 schema 剥掉但 `<style>` 里的 `.class` 规则保留 → 邮件版式半失效，且与暗色模式互相放大。允许 `className` 是成本最低的改善。
 2. **搜索兜底**：接 IMAP `SEARCH`，或在搜索框明确提示「仅搜索已缓存邮件」。
-3. **缓存 TTL / stale-while-revalidate**：打开文件夹先出缓存、后台再刷新。**注意**：这会增加连接数，与已知的腾讯企业邮限流冲突，需要配合连接复用（长连接 + IDLE）一起做。
+3. ~~**缓存 TTL / stale-while-revalidate**：打开文件夹先出缓存、后台再刷新。~~ **已做**（见 §4 最后两行）：先一次 `STATUS` 判断有没有变，变了才抓；20s 时间窗 + 单文件夹 in-flight 去重 + 5s 状态复用。**仍待解决**的是连接数——每次真正抓取都是一条新连接，与已知的腾讯企业邮限流冲突，根治仍需连接复用（长连接 + IDLE，见第 6 项）。
 4. **统一发件人显示与文案**：合并两套 `senderDisplay`，把 `(No Subject)`/`(No content)`/`Unknown` 等硬编码兜底串纳入 i18n。
 5. **`text/*` 命名附件**：无 disposition 但有 filename 的文本 part 仍会被当正文，可考虑按 filename 存在与否再判一次。
-6. **连接复用**：目前「每个操作一条新连接」是限流与握手超时的根因（见 `email-fetch` 相关排查记录），长连接 + IDLE 是根治方向。
+6. **连接复用**：目前「每个操作一条新连接」是限流与握手超时的根因（见 `email-fetch` 相关排查记录）。**已部分解决**：开启自动同步的账号走 IDLE，一条常驻连接负责收信并在其上完成抓取（见 `real-time-sync.md`）；但手动操作（打开文件夹、翻页、取正文、点刷新）仍然各拨一条。
 7. **CSS 净化升级为解析器**：当前是务实黑名单（挡 `@import`/`url()`/`expression`/`position:fixed`），无法穷举未来语法。若要更强保证，需引入 CSS 解析器做声明级白名单（代价：新依赖 + 可能改变邮件版式）。
 8. **`data:` 图片体积**：内联图允许 `data:`（后端 CID 解析需要），恶意邮件可用超大 base64 撑内存；可加尺寸上限并在超限时降级为附件。
 9. **黑名单/发件人白名单的 UI 增强**：目前白名单只能在设置页移除、在邮件里添加；可考虑支持 `@domain` 手工添加与批量清理。

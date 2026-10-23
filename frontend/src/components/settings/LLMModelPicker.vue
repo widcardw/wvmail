@@ -108,7 +108,7 @@ function clearAll() {
           v-for="item in list"
           :key="item.data"
           class="picker__row"
-          label-class="picker__id font-mono"
+          label-class="picker__id font-mono text-sm"
           :title="item.data"
           :checked="isPicked(item.data)"
           @update:checked="toggle(item.data)"

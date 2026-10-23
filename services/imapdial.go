@@ -48,7 +48,7 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 	// buttons ever disagree, the log shows which server/user/password state each
 	// one actually used instead of leaving it to guesswork.
 	slog.Info("imap: testing connection",
-		"account", account.ID,
+		"account", account,
 		"host", account.IMAPHost,
 		"port", account.IMAPPort,
 		"user", account.IMAPUser,
@@ -61,14 +61,14 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 	client, err := dialIMAP(account, 15*time.Second)
 	if err != nil {
 		slog.Error("imap: connection test failed",
-			"account", account.ID, "host", account.IMAPHost,
+			"account", account, "host", account.IMAPHost,
 			"elapsed", time.Since(start).Round(time.Millisecond), "error", err)
 		return false, fmt.Sprintf("Connection failed: %v", err)
 	}
 	defer client.Logout()
 
 	slog.Info("imap: connection test succeeded",
-		"account", account.ID, "host", account.IMAPHost,
+		"account", account, "host", account.IMAPHost,
 		"elapsed", time.Since(start).Round(time.Millisecond))
 	return true, fmt.Sprintf("Successfully connected to %s as %s", account.IMAPHost, account.IMAPUser)
 }
@@ -77,6 +77,14 @@ func (s *EmailService) TestConnection(account EmailAccount) (bool, string) {
 // connection + login operation. The timeout covers TCP dial, TLS handshake,
 // and IMAP login.
 func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, error) {
+	return dialIMAPWith(account, timeout, nil)
+}
+
+// dialIMAPWith is dialIMAP plus the unsolicited-response handler the IDLE
+// watcher needs. It has to be installed at dial time: the client routes
+// untagged EXISTS/EXPUNGE responses to it, and there is no way to attach one to
+// an already-open connection.
+func dialIMAPWith(account EmailAccount, timeout time.Duration, handler *imapclient.UnilateralDataHandler) (*imapclient.Client, error) {
 	addr := fmt.Sprintf("%s:%d", account.IMAPHost, account.IMAPPort)
 
 	dialer := &net.Dialer{
@@ -87,6 +95,7 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 		TLSConfig: &tls.Config{
 			ServerName: account.IMAPHost,
 		},
+		UnilateralDataHandler: handler,
 	}
 
 	// Each phase is timed and logged: a stall that ends at ~timeout during
@@ -106,7 +115,10 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 			// Fallback to insecure plain connection
 			slog.Warn("imap STARTTLS failed, retrying insecurely",
 				"host", addr, "user", account.IMAPUser, "error", dialErr)
-			client, dialErr = imapclient.DialInsecure(addr, &imapclient.Options{Dialer: dialer})
+			client, dialErr = imapclient.DialInsecure(addr, &imapclient.Options{
+				Dialer:                dialer,
+				UnilateralDataHandler: handler,
+			})
 		}
 	}
 	if dialErr != nil {

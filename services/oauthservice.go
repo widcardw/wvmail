@@ -563,7 +563,7 @@ func oauthAccessToken(account EmailAccount) (string, error) {
 	}
 	if tokens.RefreshToken != "" && tokens.RefreshToken != account.OAuthRefreshToken {
 		slog.Warn("oauth: provider rotated the refresh token; keeping the stored one",
-			"account", account.ID, "provider", account.OAuthProvider)
+			"account", account, "provider", account.OAuthProvider)
 	}
 	expiry := time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second)
 	if tokens.ExpiresIn <= 0 {

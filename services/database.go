@@ -67,12 +67,19 @@ type CachedNote struct {
 	UpdatedAt int64  `gorm:"autoUpdateTime"`
 }
 
-// CachedFolderMeta stores the total message count for a folder, kept separate
-// from the email cache so it survives page-by-page cache replacement.
+// CachedFolderMeta stores what one fetch saw of a folder — the message count and
+// the mailbox's UIDNEXT — kept separate from the email cache so it survives
+// page-by-page cache replacement.
+//
+// UIDNEXT is persisted rather than kept in memory because it is the reference
+// point the frontend compares a later STATUS against before refreshing an opened
+// folder: without it, the first open of every folder after a restart would cost a
+// fetch even when nothing had arrived.
 type CachedFolderMeta struct {
 	AccountID  string `gorm:"primaryKey;size:64"`
 	FolderName string `gorm:"primaryKey;size:255"`
 	Total      int    `gorm:"not null"`
+	UIDNext    uint32 `gorm:"not null;default:0"`
 }
 
 // CachedReminder represents a persisted reminder. `Time` is epoch seconds, the

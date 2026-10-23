@@ -46,10 +46,26 @@ const tab = ref<string>(props.editing && form.value.AuthType === 'oauth2' ? 'oau
 const isOAuth = computed(() => form.value.AuthType === 'oauth2')
 const isGmailManual = computed(() => tab.value === 'manual' && form.value.Provider === 'gmail')
 
+/**
+ * The note that applies to the IMAP password field, if any. Several providers
+ * reject the account's login password and want an app-specific one instead;
+ * that is a property of *this* input, so it belongs under the input as a
+ * helper text rather than as a page-wide banner that shoves the form around.
+ * Only one note can apply at a time, in the same precedence as before.
+ */
+const passwordHint = computed(() => {
+  if (props.is163Provider) return `163 ${t.value['settings.accounts.imap_warning']}`
+  if (props.needsAuthCode) return t.value['settings.accounts.auth_code_hint']
+  if (isGmailManual.value) return t.value['settings.accounts.oauth.gmail_app_password_hint']
+  return ''
+})
+
 // --- Online verification (OAuth) ---
 
 type OAuthProviderId = 'google' | 'microsoft'
-const oauthProvider = ref<OAuthProviderId>(form.value.OAuthProvider === 'google' ? 'google' : 'microsoft')
+const oauthProvider = ref<OAuthProviderId>(
+  form.value.OAuthProvider === 'google' ? 'google' : 'microsoft',
+)
 const oauthClientID = ref(form.value.OAuthClientID ?? '')
 const oauthState = ref('')
 const oauthWaiting = ref(false)
@@ -195,11 +211,7 @@ function onEmailInput(email: string) {
       </h2>
       <!-- Tab strip shares the header row with the title; the indicator rides on
            the header's own border-bottom (see .head-tabs below). -->
-      <Tabs.Root
-        v-if="!props.editing"
-        v-model="tab"
-        class="head-tabs"
-      >
+      <Tabs.Root v-if="!props.editing" v-model="tab" class="head-tabs">
         <Tabs.List class="head-tabs__list">
           <Tabs.Trigger class="head-tabs__trigger" value="manual">
             {{ t['settings.accounts.tab.manual'] }}
@@ -289,24 +301,21 @@ function onEmailInput(email: string) {
             @update:model-value="form.IMAPUser = String($event)"
           />
         </Field.Root>
-        <Field.Root class="frow">
+        <!-- The password is not a password on several providers, and that note is
+             about *this* field: as a Field.HelperText it sits under the control,
+             reads as a hint instead of a page-wide banner, and Ark can describe
+             the input with it. -->
+        <Field.Root class="frow frow--stacked">
           <Field.Label class="flabel">{{ t['settings.accounts.imap_pass'] }}</Field.Label>
           <UiPasswordInput
             class="input"
             :value="form.IMAPPass"
             @input="form.IMAPPass = strVal($event)"
           />
+          <Field.HelperText v-if="passwordHint" class="field__hint frow-hint field__hint--warn">
+            {{ passwordHint }}
+          </Field.HelperText>
         </Field.Root>
-
-        <div v-if="props.is163Provider" class="hint hint--warn">
-          163 {{ t['settings.accounts.imap_warning'] }}
-        </div>
-        <div v-else-if="props.needsAuthCode" class="hint hint--warn">
-          {{ t['settings.accounts.auth_code_hint'] }}
-        </div>
-        <div v-else-if="isGmailManual" class="hint hint--warn">
-          {{ t['settings.accounts.oauth.gmail_app_password_hint'] }}
-        </div>
 
         <div class="sec">SMTP</div>
         <Field.Root class="frow">
@@ -374,7 +383,11 @@ function onEmailInput(email: string) {
             @update:model-value="oauthProvider = $event as OAuthProviderId"
           />
         </Field.Root>
-        <Field.Root class="frow">
+        <!-- The Client ID is the one input in this pane you can get wrong, and
+             both notes explain how to fill it (leave it empty, or bring your own
+             Google Cloud app). As helper text they stay where they were but stop
+             reading like app-level alerts. -->
+        <Field.Root class="frow frow--stacked">
           <Field.Label class="flabel">
             {{ t['settings.accounts.oauth.client_id'] }}
           </Field.Label>
@@ -384,11 +397,13 @@ function onEmailInput(email: string) {
             :placeholder="t['settings.accounts.oauth.client_id_placeholder']"
             @update:model-value="oauthClientID = String($event)"
           />
+          <Field.HelperText class="frow-hint">
+            {{ t['settings.accounts.oauth.hint'] }}
+          </Field.HelperText>
+          <Field.HelperText v-if="oauthProvider === 'google'" class="frow-hint field__hint--warn">
+            {{ t['settings.accounts.oauth.google_note'] }}
+          </Field.HelperText>
         </Field.Root>
-        <p class="hint">{{ t['settings.accounts.oauth.hint'] }}</p>
-        <p v-if="oauthProvider === 'google'" class="hint hint--warn">
-          {{ t['settings.accounts.oauth.google_note'] }}
-        </p>
 
         <div class="frow">
           <span class="flabel" aria-hidden="true"></span>
@@ -401,11 +416,11 @@ function onEmailInput(email: string) {
           />
         </div>
 
-        <div v-if="oauthWaiting" class="hint hint--ok">{{ t['settings.accounts.oauth.waiting'] }}</div>
+        <div v-if="oauthWaiting" class="hint hint--ok">
+          {{ t['settings.accounts.oauth.waiting'] }}
+        </div>
         <div v-else-if="oauthResult" class="hint hint--ok">
-          {{
-            t['settings.accounts.oauth.success'].replace('{email}', oauthResult.email ?? '')
-          }}
+          {{ t['settings.accounts.oauth.success'].replace('{email}', oauthResult.email ?? '') }}
         </div>
         <div v-if="oauthError" class="hint hint--err">{{ oauthError }}</div>
         <div v-else-if="isOAuth && !oauthResult" class="hint">
@@ -414,20 +429,23 @@ function onEmailInput(email: string) {
       </template>
 
       <div class="sec">{{ t['settings.accounts.sync'] }}</div>
-      <Field.Root class="frow">
+      <!-- Two columns instead of the usual flex .frow: the helper line belongs to
+           the field (Ark renders it as Field.HelperText and can describe the
+           control with it) but has to sit on its own line under the control, not
+           beside the switch. -->
+      <Field.Root class="frow frow--stacked">
         <Field.Label class="flabel">{{ t['settings.accounts.auto_sync'] }}</Field.Label>
         <div class="sync-row">
           <UiSwitch :checked="form.SyncInterval > 0" @update:checked="onAutoSyncToggle" />
           <template v-if="form.SyncInterval > 0">
-            <UiNumberInput
-              class="input--sm"
-              :value="form.SyncInterval"
-              @value="form.SyncInterval = $event"
-            />
+            <UiNumberInput :value="form.SyncInterval" @value="form.SyncInterval = $event" />
             <span class="muted">{{ t['settings.accounts.sync_minutes'] }}</span>
           </template>
           <span v-else class="muted">{{ t['settings.accounts.sync_disabled'] }}</span>
         </div>
+        <Field.HelperText v-if="form.SyncInterval > 0" class="frow-hint">
+          {{ t['settings.accounts.sync_hint'] }}
+        </Field.HelperText>
       </Field.Root>
 
       <div
@@ -540,6 +558,15 @@ function onEmailInput(email: string) {
   gap: 12px;
   padding: 7px 0;
 }
+/* Label column + control column, with the helper line as a second row under the
+   control only. Grid rather than flex so the helper text can break onto its own
+   line without a wrapper element and without a hand-tuned padding-left. */
+.frow--stacked {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  column-gap: 12px;
+  row-gap: 0;
+}
 .flabel {
   flex: 0 0 108px;
 }
@@ -547,15 +574,15 @@ function onEmailInput(email: string) {
   flex: 1;
   min-width: 0;
 }
-.input--sm {
-  flex: 0 0 90px;
-}
 .sec {
   padding: 12px 0 4px;
   color: var(--color-text-2);
   font-size: 13px;
   font-weight: 600;
 }
+/* `.hint` is now only for run-time status (test result, OAuth progress): a
+   bordered strip is right for "something just happened", wrong for a standing
+   note about a field — those are Field.HelperText now. */
 .hint {
   margin: 10px 0;
   padding: 8px 12px;
@@ -563,10 +590,6 @@ function onEmailInput(email: string) {
   font-size: 13px;
   border: 1px solid var(--n-border-color);
   border-radius: 6px;
-}
-.hint--warn {
-  background: rgba(240, 160, 32, 0.15);
-  border-color: #f0a020;
 }
 .hint--ok {
   background: rgba(24, 160, 88, 0.12);
@@ -578,6 +601,27 @@ function onEmailInput(email: string) {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+/* The visible number box is UiNumberInput's `.num` control — an element *inside*
+   the child component. A scoped class on the tag only reaches the child's root
+   element (NumberInput.Root's wrapper div), so the old `.input--sm` never applied:
+   the box fell back to `.num { width: 100% }` and sized itself against a
+   shrink-to-fit row, which is what made the row look off-centre. */
+.sync-row :deep(.num) {
+  flex: 0 0 88px;
+}
+/* Field.HelperText renders a <span>; the grid item makes it a block on its own row. */
+.frow-hint {
+  grid-column: 2;
+  margin: 4px 0 0;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* Kept in this file, after .frow-hint: scoped styles carry an extra attribute
+   selector, so they outrank the global .field__hint--warn in ui.css. */
+.field__hint--warn {
+  color: var(--color-warning);
 }
 .avatar-area {
   display: flex;
@@ -621,10 +665,21 @@ function onEmailInput(email: string) {
   .flabel {
     flex-basis: auto;
   }
-  .input,
-  .input--sm {
+  .input {
     width: 100%;
     flex-basis: auto;
+  }
+  /* Column layout: one column, so the helper text lines up with everything else. */
+  .frow--stacked {
+    grid-template-columns: 1fr;
+  }
+  .frow-hint {
+    grid-column: 1;
+  }
+  /* Column layout: the number box takes the row's full width like every other
+     input. */
+  .sync-row :deep(.num) {
+    flex: 1 1 auto;
   }
 }
 </style>

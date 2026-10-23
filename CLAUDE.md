@@ -35,6 +35,7 @@ Additional docs are in `.ai-docs/`:
 - `vue-patterns.md` — Vue 3 Composition API patterns used in this project
 - `ark-ui-guide.md` — Ark UI (headless) theming, import paths, CSS Modules + global.css tokens, and the naive→ark migration map
 - `email-fetch-and-display.md` — IMAP fetch path, fallbacks, caching/pagination, decoding rules
+- `real-time-sync.md` — IMAP IDLE watchers: connection lifecycle, heartbeat/watchdog, EXISTS de-duplication, and how the interval polling stays as the fallback
 - `mail-date-reminders.md` — date/time detection in mail bodies (chrono-node + guards), the highlight/tooltip markup, the click → reminder flow, and where reminders are stored
 - `dev-debugging.md` — running the app, logging, macOS devtools/WebKit pitfalls
 - `build-assets-and-icons.md` — app icon pipeline, `Assets.car` vs `icons.icns` precedence, actool/Xcode-license trap, `build/` vs CLI templates

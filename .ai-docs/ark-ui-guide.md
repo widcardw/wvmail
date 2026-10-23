@@ -124,6 +124,37 @@ Each component/part gets its styles in one of these (pick lowest-friction):
 
 We try NOT to write near-identical 12-part re-styles per Ak component in one file. Prefer semantic helpers.
 
+### Visually-hidden parts must have a positioned ancestor
+
+Ark ships some parts with an **inline** style, not just classes — the ones that matter here are the hidden inputs:
+`Switch.HiddenInput` and `Checkbox.HiddenInput` render a 1px `<input>` with
+
+```
+position: absolute; width: 1px; height: 1px; margin: -1px;
+clip: rect(0 0 0 0); overflow: hidden; border: 0; padding: 0;
+```
+
+Note there is **no `top`/`left`**: the box is placed at its *static position*, and its containing block is the nearest
+positioned ancestor — or the initial containing block if there is none. Without one it ends up at the **end of the
+document**, past the app's own layout, which silently extends the document's scrollable height. The damage only shows
+up on the first focus: clicking the switch makes the browser scroll the document to reveal that 1px box, so the whole
+window jumps up by that distance. `overflow: hidden` on `html/body` does **not** undo it — the wheel cannot scroll
+back, and the user is left staring at a blank strip under the app.
+
+`styles/ui.css` therefore makes the roots positioned and pins the inputs:
+
+```css
+[data-scope='switch'][data-part='root'],
+[data-scope='checkbox'][data-part='root'] { position: relative; }
+
+[data-scope='switch'][data-part='hidden-input'],
+[data-scope='checkbox'][data-part='hidden-input'] { top: 0; left: 0; }
+```
+
+Any new Ark component that renders a hidden input (RadioGroup, Toggle, PinInput, Select's `HiddenSelect`…) needs the
+same two rules. To check: in devtools, `document.scrollingElement.scrollHeight` must equal `window.innerHeight` on a
+page that does not scroll — if it is larger, something is sitting outside the layout.
+
 ## Theme & design tokens (global.css)
 
 **There is no component-forest theme provider.** Toggle handled by `src/stores/theme.ts`:
@@ -168,6 +199,23 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
   the label/label-column/hint look comes from `styles/ui.css` (`.row__label`/`.flabel`, `.field`, `.field__label`,
   `.field__hint`).
 - `Field.HelperText` (and `ErrorText`) render **`<span>`s** — give them `display: block` if they must stack.
+- **A hint that belongs under the control needs its own row.** `.frow` is a flex row, so a `Field.HelperText` placed
+  inside it would sit *beside* the control, next to the switch. Use `.frow--stacked` (grid `108px 1fr`) and give the
+  hint `grid-column: 2` — see the auto-sync row in `AccountForm.vue`. That keeps the helper text inside `Field.Root`
+  (where Ark can describe the control with it) without a wrapper element or a hand-tuned `padding-left`.
+  `views/settings/Common.vue` has the same thing for the settings pages, where the label column is the global
+  `.row__label` basis: `.row--stacked` = grid `240px 1fr`.
+- **Standing note about a field → `Field.HelperText`. Run-time status → bordered `.hint`.** This is the split the
+  account form follows: “this provider wants an app password”, “what happens when you press this button” and
+  “the Google Client ID needs review” are all properties of a field and now render as helper text under it (normal
+  colour for context, `--color-warning` for the ones that block you). “Connection test failed”, “waiting for the
+  browser”, “authorization succeeded” describe an *event*, keep the boxed `.hint` / `.hint--ok` / `.hint--err` strip.
+  A page-wide banner for a field note pushed the form around and read like an app-level alert; the helper text also
+  gives Ark an `aria-describedby` target (`field::v-N::helper-text`), so screen readers announce it on focus.
+- **`.field__hint--warn` must be redeclared in a component that also styles its own hint class.** Scoped styles carry
+  an extra `[data-v-…]` attribute selector, so a component-local `.frow-hint { color: … }` (specificity 0,2,0) beats
+  the global `.field__hint--warn` (0,1,0) from `ui.css`. Declare `.field__hint--warn` *after* the local hint rule in
+  that component's `<style scoped>`.
 - Validation is still manual (no `createForm`); `Field.Root` accepts `invalid` / `required` / `disabled` when we need it.
 
 ## Feedback / confirmation

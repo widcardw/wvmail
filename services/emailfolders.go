@@ -57,7 +57,7 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 	// Update cache
 	if err := s.db.SaveFolders(account.ID, folders); err != nil {
 		// Log but don't fail — cache is best-effort
-		slog.Warn("cache: failed to cache folders", "account", account.ID, "error", err)
+		slog.Warn("cache: failed to cache folders", "account", account, "error", err)
 	}
 
 	return folders, nil
@@ -98,26 +98,43 @@ func isSelectableMailbox(attrs []string) bool {
 	return true
 }
 
-// FolderUnread returns the unseen count per folder (STATUS … UNSEEN) so the sidebar can
-// badge every folder, not just the inbox the tray badge follows.
+// FolderStatus is one folder's counters as the server reported them.
 //
-// The count cannot come from the local cache: only the pages the UI happened to load are
-// stored, so anything derived from it would quietly undercount a large mailbox. One
-// connection is opened and every STATUS is issued before any is awaited, so the whole
-// folder list costs a single round trip instead of one per folder (go-imap pipelines
-// commands on one connection).
+// Unseen drives the sidebar badge. UIDNext and Messages are the change signal: a
+// message arriving moves UIDNext whether or not it is unread, which UNSEEN alone
+// cannot tell you (a mailbox with three permanently unread newsletters keeps
+// UNSEEN at 3 forever). The frontend compares them against what the last fetch
+// saw before deciding to refresh a folder at all (see revalidateOpenFolder in
+// stores/accounts.ts).
+type FolderStatus struct {
+	Name     string `json:"name"`
+	Messages int    `json:"messages"`
+	UIDNext  uint32 `json:"uid_next"`
+	Unseen   int    `json:"unseen"`
+}
+
+// FolderStatuses returns the per-folder counters (STATUS … MESSAGES UIDNEXT
+// UNSEEN) so the sidebar can badge every folder and the list can tell whether a
+// folder moved since it was last fetched.
 //
-// When no folder list is cached yet (a fresh account, or the startup tray seed has not
-// finished), the list is fetched first so the caller's request still answers with real
-// counts instead of an empty map.
+// The counts cannot come from the local cache: only the pages the UI happened to
+// load are stored, so anything derived from it would quietly undercount a large
+// mailbox. One connection is opened and every STATUS is issued before any is
+// awaited, so the whole folder list costs a single round trip instead of one per
+// folder (go-imap pipelines commands on one connection).
 //
-// Folders that are not selectable, or that the server refuses to answer for, are simply
-// absent from the map — the caller reads a missing key as "nothing to badge".
-func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error) {
+// When no folder list is cached yet (a fresh account, or the startup tray seed has
+// not finished), the list is fetched first so the caller's request still answers
+// with real counts instead of an empty map.
+//
+// Folders that are not selectable, or that the server refuses to answer for, are
+// simply absent from the map — the caller reads a missing key as "nothing to
+// badge", and as "unknown" when deciding whether to refresh.
+func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderStatus, error) {
 	folders, err := s.db.LoadFolders(account.ID)
 	if err != nil || len(folders) == 0 {
 		if folders, err = s.RefreshFolders(account); err != nil {
-			return map[string]int{}, nil
+			return map[string]FolderStatus{}, nil
 		}
 	}
 
@@ -138,25 +155,34 @@ func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error
 		}
 		jobs = append(jobs, statusJob{
 			name: f.Name,
-			cmd:  client.Status(f.Name, &imap.StatusOptions{NumUnseen: true}),
+			cmd: client.Status(f.Name, &imap.StatusOptions{
+				NumMessages: true,
+				UIDNext:     true,
+				NumUnseen:   true,
+			}),
 		})
 	}
 
-	counts := make(map[string]int, len(jobs))
+	statuses := make(map[string]FolderStatus, len(jobs))
 	for _, job := range jobs {
 		data, err := job.cmd.Wait()
 		if err != nil {
 			// One mailbox the server will not talk about must not cost the others
 			// their badges.
-			slog.Debug("sync: folder unseen count failed",
-				"account", account.ID, "folder", job.name, "error", err)
+			slog.Debug("sync: folder status failed",
+				"account", account, "folder", job.name, "error", err)
 			continue
 		}
-		if data.NumUnseen != nil && *data.NumUnseen > 0 {
-			counts[job.name] = int(*data.NumUnseen)
+		status := FolderStatus{Name: job.name, UIDNext: uint32(data.UIDNext)}
+		if data.NumMessages != nil {
+			status.Messages = int(*data.NumMessages)
 		}
+		if data.NumUnseen != nil {
+			status.Unseen = int(*data.NumUnseen)
+		}
+		statuses[job.name] = status
 	}
-	return counts, nil
+	return statuses, nil
 }
 
 // MarkEmailRead flags one message as seen, in the local cache and on the server.
@@ -169,7 +195,7 @@ func (s *EmailService) FolderUnread(account EmailAccount) (map[string]int, error
 func (s *EmailService) MarkEmailRead(account EmailAccount, folder string, uid uint32) error {
 	if err := s.db.MarkEmailRead(account.ID, folder, uid); err != nil {
 		slog.Warn("cache: failed to mark email read in cache",
-			"account", account.ID, "folder", folder, "uid", uid, "error", err)
+			"account", account, "folder", folder, "uid", uid, "error", err)
 	}
 
 	client, err := dialIMAP(account, 60*time.Second)

@@ -39,6 +39,7 @@ export interface TranslationSchema {
   'mail.loading': string
   'mail.page': string
   'mail.noEmails': string
+  'mail.noEmailSelected': string
   'mail.refreshFailed': string
   'mail.refreshed': string
   'mail.refresh.list': string
@@ -175,6 +176,7 @@ export interface TranslationSchema {
   'settings.accounts.auto_sync': string
   'settings.accounts.sync_minutes': string
   'settings.accounts.sync_disabled': string
+  'settings.accounts.sync_hint': string
   'settings.accounts.test': string
   'settings.accounts.test_success': string
   'settings.accounts.test_fail': string

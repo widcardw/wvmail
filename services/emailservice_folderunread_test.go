@@ -27,18 +27,18 @@ func TestIsSelectableMailbox(t *testing.T) {
 
 // With no cached folder list there is nothing to ask about, so the call must come back
 // empty without opening a connection (the account below has no host to dial).
-func TestFolderUnreadWithoutCachedFolders(t *testing.T) {
+func TestFolderStatusesWithoutCachedFolders(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	service := &EmailService{db: NewDBManager()}
-	counts, err := service.FolderUnread(EmailAccount{ID: "acct"})
+	statuses, err := service.FolderStatuses(EmailAccount{ID: "acct"})
 	if err != nil {
-		t.Fatalf("FolderUnread: %v", err)
+		t.Fatalf("FolderStatuses: %v", err)
 	}
-	if counts == nil {
-		t.Fatal("FolderUnread must return a map, not nil: the caller indexes into it")
+	if statuses == nil {
+		t.Fatal("FolderStatuses must return a map, not nil: the caller indexes into it")
 	}
-	if len(counts) != 0 {
-		t.Errorf("expected no counts, got %v", counts)
+	if len(statuses) != 0 {
+		t.Errorf("expected no statuses, got %v", statuses)
 	}
 }

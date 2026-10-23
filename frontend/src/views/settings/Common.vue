@@ -137,15 +137,15 @@ function onRemoveSender(sender: string) {
         />
       </Field.Root>
 
-      <UiSwitch
-        class="row"
-        label-class="row__label"
-        :checked="preferences.detectDatesInMail"
-        @update:checked="onDetectDatesChange"
-      >
-        {{ t['settings.common.detectDates'] }}
-      </UiSwitch>
-      <p class="row-hint">{{ t['settings.common.detectDatesHint'] }}</p>
+      <!-- The hint explains this one switch, so it hangs off the switch as a
+           Field.HelperText instead of a paragraph floating underneath it. -->
+      <Field.Root class="row row--stacked">
+        <Field.Label class="row__label">{{ t['settings.common.detectDates'] }}</Field.Label>
+        <UiSwitch :checked="preferences.detectDatesInMail" @update:checked="onDetectDatesChange" />
+        <Field.HelperText class="row-hint">
+          {{ t['settings.common.detectDatesHint'] }}
+        </Field.HelperText>
+      </Field.Root>
 
       <div class="actions">
         <button type="button" class="btn" @click="openConfigFolder">
@@ -212,9 +212,19 @@ function onRemoveSender(sender: string) {
 .row__label {
   flex-shrink: 0;
 }
+/* Label column + control column, with the helper line as a second row under the
+   control only. Grid rather than flex so the helper text breaks onto its own line
+   without a wrapper element. 240px matches the global `.row__label` basis. */
+.row--stacked {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 0;
+}
 .row-hint {
-  margin: -4px 0 8px;
-  padding: 0 18px;
+  grid-column: 2;
+  margin: 4px 0 0;
   font-size: 12px;
   color: var(--color-text-3);
 }

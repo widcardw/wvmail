@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
 )
 
 // The service itself and the message-list path: the cache-first paging and the
@@ -126,6 +127,17 @@ type FolderInfo struct {
 type EmailPageResponse struct {
 	Emails []EmailSummary `json:"emails"`
 	Total  int            `json:"total"` // total number of messages in the folder
+	// FromCache tells the caller whether this page came from the local cache
+	// without talking to the server. The frontend uses it to decide whether a
+	// folder it just opened still needs revalidating (see openFolder in
+	// stores/accounts.ts): a page that already came off the server must not be
+	// fetched a second time in the same breath.
+	FromCache bool `json:"from_cache"`
+	// UIDNext is the mailbox's next UID at fetch time, 0 when the page came from
+	// the cache. UIDs only ever grow, so the frontend can compare it against a
+	// later STATUS to tell "there is new mail" from "nothing moved" without
+	// fetching the list again (see revalidateOpenFolder in stores/accounts.ts).
+	UIDNext uint32 `json:"uid_next"`
 }
 
 // ListEmails retrieves a page of email summaries from the specified folder.
@@ -141,18 +153,23 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 
 	cached, err := s.db.LoadEmails(account.ID, folder)
 	if err == nil && len(cached) > 0 {
-		total, metaErr := s.db.LoadFolderMeta(account.ID, folder)
+		meta, metaErr := s.db.LoadFolderMeta(account.ID, folder)
 		// If no meta is stored yet (e.g. old cache before this feature), force a
 		// refresh to get the real total from the server.
-		if metaErr == nil && total > 0 {
+		if metaErr == nil && meta.Total > 0 {
 			// Page 1 keeps its old behaviour (show whatever is cached), and later
 			// pages are served from cache as soon as it can fill them: paging used
 			// to always dial the server, which cost a full connect+login+fetch
 			// (~0.5s) per page flip even when the rows were already stored.
-			if page <= 1 || cacheCoversPage(page, pageSize, total, len(cached)) {
+			if page <= 1 || cacheCoversPage(page, pageSize, meta.Total, len(cached)) {
 				return &EmailPageResponse{
-					Emails: s.paginate(cached, page, pageSize),
-					Total:  total,
+					Emails:    s.paginate(cached, page, pageSize),
+					Total:     meta.Total,
+					FromCache: true,
+					// The UIDNEXT that fetch saw travels with the cached page: it is
+					// what lets a folder click tell "nothing arrived" from "there is
+					// new mail" without fetching again (see revalidateOpenFolder).
+					UIDNext: meta.UIDNext,
 				}, nil
 			}
 		}
@@ -181,6 +198,15 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	}
 	defer client.Logout()
 
+	return s.fetchEmailsOn(client, account, folder, page, pageSize)
+}
+
+// fetchEmailsOn is RefreshEmails on a connection the caller already owns. The
+// IDLE watcher needs this: an idling connection cannot run another command, so
+// the watcher stops IDLE and reuses that same session for the fetch instead of
+// opening a second one for every arriving message (which is exactly the
+// connection pressure IDLE is meant to remove).
+func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
 	// Select the mailbox (read-only)
 	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
 	mbox, err := selectCmd.Wait()
@@ -192,7 +218,8 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	// transiently report 0 for an otherwise non-empty Sent folder right after a
 	// change; when we have a prior non-zero total for this exact folder, retry the
 	// select once before trusting an empty result.
-	priorTotal, _ := s.db.LoadFolderMeta(account.ID, folder)
+	priorMeta, _ := s.db.LoadFolderMeta(account.ID, folder)
+	priorTotal := priorMeta.Total
 	for retry := 0; mbox.NumMessages == 0 && priorTotal > 0 && retry < 1; retry++ {
 		time.Sleep(300 * time.Millisecond)
 		if rs, e2 := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); e2 == nil {
@@ -207,7 +234,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
 		switch {
 		case statusErr != nil:
-			slog.Warn("sync: unseen count failed", "account", account.ID, "folder", folder, "error", statusErr)
+			slog.Warn("sync: unseen count failed", "account", account, "folder", folder, "error", statusErr)
 		case status.NumUnseen != nil:
 			s.reportUnseen(account.ID, int(*status.NumUnseen))
 		}
@@ -220,7 +247,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 				folder, priorTotal,
 			)
 		}
-		return &EmailPageResponse{Emails: []EmailSummary{}, Total: 0}, nil
+		return &EmailPageResponse{Emails: []EmailSummary{}, Total: 0, UIDNext: uint32(mbox.UIDNext)}, nil
 	}
 
 	// Calculate the range for pagination
@@ -237,7 +264,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		end = 1
 	}
 	if start < 1 {
-		return &EmailPageResponse{Emails: []EmailSummary{}, Total: total}, nil
+		return &EmailPageResponse{Emails: []EmailSummary{}, Total: total, UIDNext: uint32(mbox.UIDNext)}, nil
 	}
 
 	var seqSet imap.SeqSet
@@ -261,7 +288,7 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 		// Some servers (e.g. Tencent WeCom) return malformed ENVELOPE data.
 		// Retry without Envelope and use default values for subject/from/date.
 		slog.Warn("sync: envelope fetch failed, retrying without envelope",
-			"account", account.ID, "folder", folder, "error", err)
+			"account", account, "folder", folder, "error", err)
 		fetchCmd.Close()
 		fetchCmd = client.Fetch(seqSet, &imap.FetchOptions{
 			Flags:        true,
@@ -337,11 +364,14 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 
 	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
 	// removing older rows, so paging to an earlier page keeps those in the cache.
-	if err := s.db.SaveFolderMeta(account.ID, folder, total); err != nil {
-		slog.Warn("cache: failed to cache folder meta", "account", account.ID, "folder", folder, "error", err)
+	if err := s.db.SaveFolderMeta(account.ID, folder, FolderMeta{
+		Total:   total,
+		UIDNext: uint32(mbox.UIDNext),
+	}); err != nil {
+		slog.Warn("cache: failed to cache folder meta", "account", account, "folder", folder, "error", err)
 	}
 	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
-		slog.Warn("cache: failed to cache emails", "account", account.ID, "folder", folder, "error", err)
+		slog.Warn("cache: failed to cache emails", "account", account, "folder", folder, "error", err)
 	}
 
 	// The IMAP request above only fetched the requested page. Return the page
@@ -358,8 +388,9 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 	}
 
 	return &EmailPageResponse{
-		Emails: responseEmails,
-		Total:  total,
+		Emails:  responseEmails,
+		Total:   total,
+		UIDNext: uint32(mbox.UIDNext),
 	}, nil
 }
 

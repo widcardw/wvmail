@@ -59,11 +59,11 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 		}
 		if cachedHTMLHasCharsetCorruption(cached) {
 			slog.Warn("body: cached HTML looks like UTF-8 decoded as GBK; refetching original body",
-				"account", account.ID, "folder", folder, "uid", uid)
+				"account", account, "folder", folder, "uid", uid)
 			refreshed, refreshErr := s.RefreshEmailBody(account, folder, uid)
 			if refreshErr != nil {
 				slog.Warn("body: failed to repair cached charset by refetching; showing cached body as fallback",
-					"account", account.ID, "folder", folder, "uid", uid, "error", refreshErr)
+					"account", account, "folder", folder, "uid", uid, "error", refreshErr)
 				return cached, nil
 			}
 			return refreshed, nil
@@ -417,7 +417,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	}{{"html", &detail.BodyHTML}, {"text", &detail.BodyText}} {
 		if repaired, ok := repairGBKMojibake(*field.body); ok {
 			slog.Warn("body: repaired UTF-8-as-GBK mojibake",
-				"account", account.ID, "folder", folder, "uid", uid, "part", field.name)
+				"account", account, "folder", folder, "uid", uid, "part", field.name)
 			*field.body = repaired
 		}
 	}
@@ -425,7 +425,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	// Update cache (best-effort)
 	if err := s.db.SaveEmailBody(account.ID, folder, detail); err != nil {
 		slog.Warn("body: failed to cache email body",
-			"account", account.ID, "folder", folder, "uid", uid, "error", err)
+			"account", account, "folder", folder, "uid", uid, "error", err)
 	}
 
 	return detail, nil

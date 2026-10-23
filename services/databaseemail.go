@@ -412,8 +412,19 @@ func containsAny(values, queries []string) bool {
 	return false
 }
 
-// SaveFolderMeta stores the total message count for a folder.
-func (m *DBManager) SaveFolderMeta(accountID, folderName string, total int) error {
+// FolderMeta is what one fetch of a folder left in the cache: how many messages
+// it held and the mailbox's next UID at that moment.
+//
+// A zero UIDNext means "unknown" — a row written before UIDNEXT was cached, or a
+// server that did not report it — and callers must treat it as "no reference
+// point" rather than as a real value.
+type FolderMeta struct {
+	Total   int
+	UIDNext uint32
+}
+
+// SaveFolderMeta stores the message count and UIDNEXT a fetch just observed.
+func (m *DBManager) SaveFolderMeta(accountID, folderName string, meta FolderMeta) error {
 	db, err := m.getDB()
 	if err != nil {
 		return err
@@ -421,23 +432,28 @@ func (m *DBManager) SaveFolderMeta(accountID, folderName string, total int) erro
 	return db.Where("account_id = ? AND folder_name = ?", accountID, folderName).
 		Delete(&CachedFolderMeta{}).
 		Session(&gorm.Session{SkipHooks: true}).
-		Create(&CachedFolderMeta{AccountID: accountID, FolderName: folderName, Total: total}).Error
+		Create(&CachedFolderMeta{
+			AccountID:  accountID,
+			FolderName: folderName,
+			Total:      meta.Total,
+			UIDNext:    meta.UIDNext,
+		}).Error
 }
 
-// LoadFolderMeta retrieves the cached total message count for a folder.
-// Returns 0 if no meta is stored.
-func (m *DBManager) LoadFolderMeta(accountID, folderName string) (int, error) {
+// LoadFolderMeta retrieves the cached state of a folder.
+// Returns the zero FolderMeta if none is stored.
+func (m *DBManager) LoadFolderMeta(accountID, folderName string) (FolderMeta, error) {
 	db, err := m.getDB()
 	if err != nil {
-		return 0, err
+		return FolderMeta{}, err
 	}
 	var meta CachedFolderMeta
 	if err := db.Where("account_id = ? AND folder_name = ?", accountID, folderName).
 		First(&meta).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, nil
+			return FolderMeta{}, nil
 		}
-		return 0, err
+		return FolderMeta{}, err
 	}
-	return int(meta.Total), nil
+	return FolderMeta{Total: int(meta.Total), UIDNext: meta.UIDNext}, nil
 }

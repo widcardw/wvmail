@@ -77,6 +77,26 @@ export interface FolderInfo {
 export interface EmailPageResponse {
   emails: EmailSummary[]
   total: number
+  /** True when the backend served this page from its cache without dialing IMAP. */
+  from_cache?: boolean
+  /**
+   * The mailbox's UIDNEXT at fetch time; 0 when unknown. UIDs only grow, so a
+   * later STATUS reporting the same value means nothing has arrived since — see
+   * `revalidateOpenFolder` in stores/accounts.ts.
+   */
+  uid_next?: number
+}
+
+/**
+ * One folder's counters as the server reported them (STATUS MESSAGES UIDNEXT
+ * UNSEEN). `unseen` drives the sidebar badge; `messages` + `uid_next` are the
+ * change signal that keeps opening a folder from re-fetching an unchanged list.
+ */
+export interface FolderStatus {
+  name: string
+  messages: number
+  uid_next: number
+  unseen: number
 }
 
 export type EmailProvider = 'gmail' | 'outlook' | '163' | 'qq' | 'custom'

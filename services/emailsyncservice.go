@@ -12,9 +12,16 @@ import (
 // EmailSyncService manages periodic email syncing for all accounts based on
 // each account's SyncInterval setting. It runs a background loop that checks
 // every 30 seconds and syncs accounts whose sync interval has elapsed.
+//
+// It is the fallback path, not the primary one: accounts with a live IDLE
+// connection (see emailidle.go) are skipped here, because the server already
+// tells us when their inbox changes. Everything below stays as the safety net for
+// servers that refuse IDLE, for accounts that are reconnecting, and for the
+// periods when no watcher is up.
 type EmailSyncService struct {
 	config   *ConfigService
 	email    *EmailService
+	idle     *EmailIdleService
 	mu       sync.Mutex
 	lastSync map[string]time.Time // accountID → last sync time
 	stopCh   chan struct{}
@@ -110,10 +117,10 @@ func (s *EmailSyncService) refreshUnread(account EmailAccount, inbox string) {
 	if err != nil {
 		// Keep the previous value: a transient IMAP error must not clear the badge.
 		slog.Warn("tray: unseen count failed, keeping previous value",
-			"account", account.ID, "error", err)
+			"account", account, "error", err)
 		return
 	}
-	slog.Info("tray: inbox unseen count", "account", account.ID, "name", account.Name, "unseen", unseen)
+	slog.Info("tray: inbox unseen count", "account", account, "unseen", unseen)
 	s.publishUnread(s.unread.observe(account.ID, unseen))
 }
 
@@ -132,7 +139,7 @@ func (s *EmailSyncService) checkUnreadOnce() {
 		go func() {
 			folders, err := s.email.ListFolders(acct)
 			if err != nil {
-				slog.Warn("tray: listing folders failed", "account", acct.ID, "error", err)
+				slog.Warn("tray: listing folders failed", "account", acct, "error", err)
 				return
 			}
 			for _, f := range folders {
@@ -183,6 +190,32 @@ func (s *EmailSyncService) Start() {
 // Stop stops the background sync loop.
 func (s *EmailSyncService) Stop() {
 	close(s.stopCh)
+}
+
+// SetIdleWatcher links the real-time watcher. Accounts it is currently watching
+// are skipped by the polling loop: fetching them on a timer as well would defeat
+// the point of IDLE and double the connections.
+func (s *EmailSyncService) SetIdleWatcher(idle *EmailIdleService) {
+	s.idle = idle
+}
+
+// OnMailArrived is the IDLE watcher's callback. The watcher has already fetched
+// and cached the new page on its own connection, so this only records the sync and
+// tells the UI; fetching again here would be a second full round trip for the same
+// messages.
+func (s *EmailSyncService) OnMailArrived(account EmailAccount, folder string) {
+	s.mu.Lock()
+	s.lastSync[account.ID] = time.Now()
+	s.mu.Unlock()
+
+	slog.Info("sync: new mail arrived (idle)", "account", account, "folder", folder)
+
+	app := application.Get()
+	if app != nil {
+		app.Event.Emit("emails-synced", account.ID)
+	}
+	// The unseen count came off the same connection during the fetch (see
+	// EmailService.reportUnseen), so no extra STATUS is needed here.
 }
 
 // ForceSyncNow immediately syncs the INBOX for a specific account and returns
@@ -237,6 +270,13 @@ func (s *EmailSyncService) syncLoop() {
 			continue
 		}
 
+		// IDLE is doing the job for this account; polling would only add
+		// connections. Accounts that are reconnecting are NOT skipped: Watching is
+		// false while the watcher is backing off, so the gap is covered here.
+		if s.idle != nil && s.idle.Watching(acct.ID) {
+			continue
+		}
+
 		s.mu.Lock()
 		last, exists := s.lastSync[acct.ID]
 		s.mu.Unlock()
@@ -253,7 +293,7 @@ func (s *EmailSyncService) syncLoop() {
 func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 	folders, err := s.email.ListFolders(acct)
 	if err != nil {
-		slog.Error("sync: listing folders failed", "account", acct.ID, "error", err)
+		slog.Error("sync: listing folders failed", "account", acct, "error", err)
 		return
 	}
 
@@ -268,7 +308,7 @@ func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 			// Without this the whole background sync failed silently: the
 			// UI keeps showing stale mail with no hint of why.
 			slog.Error("sync: refreshing inbox failed",
-				"account", acct.ID, "folder", f.Name, "error", err)
+				"account", acct, "folder", f.Name, "error", err)
 			return
 		}
 

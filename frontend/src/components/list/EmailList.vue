@@ -59,7 +59,7 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
       :label="folderDisplay.label"
       :title="accountsStore.selectedFolder || folderDisplay.label"
       :show-refresh="!accountsStore.isSmartFolder && !searchStore.searchActive"
-      :refreshing="accountsStore.refreshing"
+      :refreshing="accountsStore.refreshingOpenFolder"
       :page-count="pageCount"
       :total="accountsStore.currentTotal"
       :page-size="accountsStore.pageSize"
