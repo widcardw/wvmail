@@ -22,6 +22,8 @@ type: project
 
 只对 `SyncInterval > 0` 的账号开 watcher（也就是设置里「自动同步」打开的账号）。`reconcile` 每 30s 重读一次配置，负责三件事：开新账号、关掉关掉的账号、**连接参数变了就重连**（`fingerprint` 覆盖 host/port/user/auth_type/password/oauth_refresh_token/use_tls；改头像、改显示名、改间隔都不重连）。
 
+**删除账号不等这个 30s tick**：`ConfigService.RemoveAccount` 写盘之后回调 `EmailIdleService.StopWatching`（在 `main.go` 里用 `SetAccountRemovedListener` 接线），立刻关掉那条连接。否则被删的账号在窗口期内收到新邮件仍会被抓取、写缓存、发 `emails-synced`，服务端连接槽也一直占着。同一个回调顺带 `EmailSyncService.ForgetAccount` 清掉 `lastSync` 和托盘徽标里该账号的未读数（`unreadTracker.drop`），不用等 `syncLoop` 的 `retain`。
+
 启动后有 5s 延迟（`idleStartDelay`）才开第一条 IDLE：启动瞬间托盘 seed（`checkUnreadOnce`）和侧边栏徽标（`FolderStatuses`）已经各拨一次号，再加上 IDLE 就是每账号 3 条并发连接，QQ/163 会数这个数。延迟期间到达的邮件由启动那次抓取覆盖。
 
 ## 3. 一条连接的生命周期
@@ -71,3 +73,4 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
 2. **纯 flag 变化不触发**（`data.NumMessages == nil` 直接 return）。在手机上读了一封，这边的列表要等下次打开文件夹或下一次抓取才更新。要做的话得区分「自己 STORE 引起的」和「别处引起的」，否则会和 `MarkEmailRead` 打架。
 3. **没有 `IDLE` 的服务器**退回轮询，行为与改造前一致。
 4. **离线判定不参与**：`NetworkService.ProbeConnection` 的结果目前不影响 watcher，靠退避兜住。接进来可以少几次无效重连。
+5. **删除账号默认不清理本地缓存**：`RemoveAccount` 只改 `config.yaml`，`CachedEmail` / `CachedEmailBody` / `CachedFolder` / `CachedFolderMeta` 里该 `account_id` 的行会留在库里。缓存按 `account_id` 分区，重新添加同一个邮箱会拿到新 UUID，旧行再也读不到（但一直占着磁盘）。所以删除弹窗带一个「同时删除本地缓存的邮件」勾选项，勾上才调 `EmailService.PurgeAccountCache` → `DBManager.DeleteAccountCache`（一个事务删这四张表）。默认不勾：缓存是离线可读的前提，不该被顺手丢掉。

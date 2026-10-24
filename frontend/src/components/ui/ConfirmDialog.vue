@@ -51,6 +51,12 @@ function onOpenChange(open: boolean) {
         <Dialog.Description v-if="props.description" class="dlg-desc">
           {{ props.description }}
         </Dialog.Description>
+        <!-- Optional body between the question and the buttons: an extra decision
+             that belongs to this confirmation (e.g. "also delete cached mail"),
+             so callers do not have to build their own dialog shell for it. -->
+        <div v-if="$slots.extra" class="confirm-extra">
+          <slot name="extra" />
+        </div>
         <div class="dlg-actions confirm-actions">
           <button type="button" class="btn" :disabled="props.busy" @click="onOpenChange(false)">
             {{ t['cancel'] }}
@@ -74,5 +80,8 @@ function onOpenChange(open: boolean) {
 /* `.dlg-desc` only carries a top margin, so the gap above the buttons is ours. */
 .confirm-actions {
   margin-top: 16px;
+}
+.confirm-extra {
+  margin-top: 14px;
 }
 </style>

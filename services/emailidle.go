@@ -137,6 +137,33 @@ func (s *EmailIdleService) Watching(accountID string) bool {
 	return ok && w.live.Load()
 }
 
+// StopWatching closes one account's IDLE connection and forgets it.
+//
+// reconcile() would reach the same state on its own within idleReconcile, but
+// until it does the session is still open and still delivering: a deleted account
+// that receives mail in that window gets fetched, cached and announced to the UI,
+// and its server-side connection slot stays taken. ConfigService.RemoveAccount
+// calls this (via the listener wired in main.go) so the connection goes away with
+// the account instead of a tick later.
+//
+// Safe to call for an account that is not being watched, and safe to call twice:
+// the map entry is the only handle, and both this and reconcile() delete it while
+// holding s.mu, so w.stop is closed exactly once.
+func (s *EmailIdleService) StopWatching(accountID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// A re-added account must get a fresh chance to IDLE, so the "this server
+	// cannot IDLE" mark must not outlive the account.
+	delete(s.unsupported, accountID)
+	w, ok := s.watchers[accountID]
+	if !ok {
+		return
+	}
+	slog.Info("idle: stopping watcher", "account", w.account, "reason", "account removed")
+	close(w.stop)
+	delete(s.watchers, accountID)
+}
+
 // Start begins watching every account that has auto-sync enabled.
 func (s *EmailIdleService) Start() {
 	go func() {

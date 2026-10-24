@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PasswordInput } from '@ark-ui/vue/password-input'
+import { computed, useAttrs } from 'vue'
 
 // Thin wrapper around Ark's PasswordInput: one visual definition for every secret
 // field plus the show/hide trigger the plain <input type="password"> never had.
@@ -8,15 +9,17 @@ import { PasswordInput } from '@ark-ui/vue/password-input'
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
-  defineProps<{ value: string; placeholder?: string; disabled?: boolean }>(),
-  { placeholder: '', disabled: false },
+  defineProps<{ value: string; placeholder?: string; disabled?: boolean; width?: string }>(),
+  { placeholder: '', disabled: false, width: '220px' },
 )
 
 const emit = defineEmits<{ input: [event: Event] }>()
+const attrs = useAttrs()
+const rootClass = computed(() => attrs.class as string | undefined)
 </script>
 
 <template>
-  <PasswordInput.Root :disabled="props.disabled">
+  <PasswordInput.Root :disabled="props.disabled" :width="width">
     <PasswordInput.Control class="pw">
       <PasswordInput.Input
         v-bind="$attrs"

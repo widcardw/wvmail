@@ -84,6 +84,14 @@ func (t *unreadTracker) observe(accountID string, unseen int) bool {
 	return t.hasUnreadLocked()
 }
 
+// drop forgets one account and reports the aggregate that is left.
+func (t *unreadTracker) drop(accountID string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.counts, accountID)
+	return t.hasUnreadLocked()
+}
+
 // retain drops accounts that are no longer configured and reports the aggregate.
 func (t *unreadTracker) retain(accountIDs []string) bool {
 	keep := make(map[string]struct{}, len(accountIDs))
@@ -197,6 +205,22 @@ func (s *EmailSyncService) Stop() {
 // the point of IDLE and double the connections.
 func (s *EmailSyncService) SetIdleWatcher(idle *EmailIdleService) {
 	s.idle = idle
+}
+
+// ForgetAccount drops the bookkeeping of a deleted account: its last-sync stamp
+// and its share of the tray badge.
+//
+// syncLoop's unread.retain already does the badge part, and lastSync entries are
+// unreachable once the account is gone, but both only catch up on the next tick —
+// deleting the account that happened to hold the unread mail would leave the tray
+// icon lit for up to 30s. RemoveAccount calls this through the listener wired in
+// main.go so the UI settles immediately.
+func (s *EmailSyncService) ForgetAccount(accountID string) {
+	s.mu.Lock()
+	delete(s.lastSync, accountID)
+	s.mu.Unlock()
+
+	s.publishUnread(s.unread.drop(accountID))
 }
 
 // OnMailArrived is the IDLE watcher's callback. The watcher has already fetched

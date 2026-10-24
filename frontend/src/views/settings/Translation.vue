@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import UiSelect from '~/components/ui/UiSelect.vue'
+import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
@@ -120,6 +121,7 @@ function onSelectConfig(name: string) {
         <UiSelect
           :options="targetLangOptions"
           :model-value="form.DefaultTargetLang"
+          width="300px"
           @update:model-value="(v) => onSelect('DefaultTargetLang', v)"
         />
       </Field.Root>
@@ -129,6 +131,7 @@ function onSelectConfig(name: string) {
         <UiSelect
           :options="engineOptions"
           :model-value="form.DefaultEngine"
+          width="300px"
           @update:model-value="(v) => onSelect('DefaultEngine', v)"
         />
       </Field.Root>
@@ -140,6 +143,7 @@ function onSelectConfig(name: string) {
             :options="llmOptions"
             :model-value="form.LLMConfigName"
             :disabled="llmConfigs.length === 0"
+            width="300px"
             @update:model-value="onSelectConfig"
           />
         </Field.Root>
@@ -149,6 +153,7 @@ function onSelectConfig(name: string) {
           <UiSelect
             :options="modelOptions"
             :model-value="form.LLMModel"
+            width="300px"
             @update:model-value="(v) => onSelect('LLMModel', v)"
           />
         </Field.Root>
@@ -159,6 +164,7 @@ function onSelectConfig(name: string) {
           <Field.Label class="row__label">{{ t['settings.translation.deepl_key'] }}</Field.Label>
           <UiPasswordInput
             class="ctl"
+            width="300px"
             :value="form.DeepLAuthKey"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             @input="
@@ -191,14 +197,5 @@ function onSelectConfig(name: string) {
   align-items: center;
   gap: 12px;
   padding: 10px 18px;
-}
-.ctl {
-  width: 220px;
-}
-.ctl--w160 {
-  width: 160px;
-}
-.password {
-  width: 320px;
 }
 </style>

@@ -199,6 +199,9 @@ const enUS: TranslationSchema = {
   'settings.accounts.delete_title': 'Delete account',
   'settings.accounts.delete_body':
     '“{name}” ({email}) will be removed from the configuration. This cannot be undone.',
+  'settings.accounts.delete_cache': 'Also delete the mail cached on this device',
+  'settings.accounts.delete_cache_hint': 'This cannot be undone. It only affects this device.',
+  'settings.accounts.cache_purge_failed': 'Account deleted, but clearing the local cache failed',
   'settings.accounts.actions': 'More actions',
   'settings.accounts.move_up': 'Move up',
   'settings.accounts.move_down': 'Move down',

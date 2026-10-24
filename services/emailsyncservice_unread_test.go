@@ -1,6 +1,9 @@
 package services
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // The tray badge follows the aggregate across accounts, and an account that stops
 // answering keeps its last value.
@@ -78,5 +81,30 @@ func TestIsInboxMatchesProviderSpellings(t *testing.T) {
 		if isInbox(folder) {
 			t.Errorf("isInbox(%q) = true, want false", folder)
 		}
+	}
+}
+
+// Deleting an account clears its share of the badge immediately. syncLoop's
+// retain would get there within 30s, but until it does the tray stays lit for a
+// mailbox that no longer exists.
+func TestForgetAccountClearsBadgeAndLastSync(t *testing.T) {
+	svc := NewEmailSyncService(nil, nil)
+	var calls []bool
+	svc.SetUnreadListener(func(hasUnread bool) {
+		calls = append(calls, hasUnread)
+	})
+
+	svc.unread.observe("kept", 0)
+	svc.unread.observe("removed", 2)
+	svc.lastSync["removed"] = time.Now()
+	svc.publishUnread(true) // seed lastUnread so the flip is observable
+
+	svc.ForgetAccount("removed")
+
+	if _, ok := svc.lastSync["removed"]; ok {
+		t.Error("last-sync stamp must be dropped with the account")
+	}
+	if len(calls) != 2 || calls[0] != true || calls[1] != false {
+		t.Fatalf("listener calls = %v, want [true false]", calls)
 	}
 }

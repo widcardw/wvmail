@@ -10,6 +10,7 @@ import AccountForm from '~/components/settings/AccountForm.vue'
 import AccountList from '~/components/settings/AccountList.vue'
 import AvatarCropDialog from '~/components/settings/AvatarCropDialog.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
+import UiCheckbox from '~/components/ui/UiCheckbox.vue'
 
 const { t, tf } = useI18n()
 const accountsStore = useAccountsStore()
@@ -26,6 +27,12 @@ const testFailId = ref<string | null>(null)
 const deleteTarget = ref<EmailAccount | null>(null)
 /** Latched while RemoveAccount runs, so the dialog cannot be dismissed mid-write. */
 const deleting = ref(false)
+/**
+ * The dialog's "also delete cached mail" tick. Off by default and reset on every
+ * open: the cache is what makes the app readable offline, so discarding it is a
+ * deliberate choice, never the thing you get by clicking through.
+ */
+const purgeCache = ref(false)
 
 const avatarPreview = ref('')
 const avatarFileData = ref<ArrayBuffer | null>(null)
@@ -290,6 +297,7 @@ async function moveAccount(account: EmailAccount, offset: -1 | 1) {
  * about to drop.
  */
 function askDelete(account: EmailAccount) {
+  purgeCache.value = false
   deleteTarget.value = account
 }
 
@@ -311,7 +319,7 @@ async function confirmDelete() {
   if (!account || deleting.value) return
   deleting.value = true
   try {
-    await accountsStore.removeAccount(account.ID)
+    await accountsStore.removeAccount(account.ID, { purgeCache: purgeCache.value })
     fb.success(t.value['settings.accounts.deleted'])
     deleteTarget.value = null
   } catch (error) {
@@ -377,7 +385,19 @@ onUnmounted(() => {
       danger
       @update:open="onDeleteDialogOpen"
       @confirm="confirmDelete"
-    />
+    >
+      <template #extra>
+        <UiCheckbox
+          v-model:checked="purgeCache"
+          class="cache-row"
+          label-class="cache-row__label"
+          :disabled="deleting"
+        >
+          {{ t['settings.accounts.delete_cache'] }}
+        </UiCheckbox>
+        <p class="cache-hint">{{ t['settings.accounts.delete_cache_hint'] }}</p>
+      </template>
+    </ConfirmDialog>
   </div>
 </template>
 
@@ -386,5 +406,25 @@ onUnmounted(() => {
   max-width: 800px;
   padding: 16px;
   color: var(--n-text-color);
+}
+
+/* The delete dialog's optional extra step (see the #extra slot above). The
+   checkbox row is an Ark <label>, so the whole line toggles it. */
+.cache-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cache-row__label {
+  cursor: pointer;
+}
+/* Aligned under the label, past the 16px box + 8px gap. */
+.cache-hint {
+  margin: 2px 0 0 24px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-3);
 }
 </style>

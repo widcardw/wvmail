@@ -412,3 +412,21 @@ func (s *EmailService) paginate(summaries []EmailSummary, page, pageSize int) []
 	}
 	return summaries[start:end]
 }
+
+// PurgeAccountCache drops everything cached for one account and reports how many
+// rows went away.
+//
+// It is separate from ConfigService.RemoveAccount on purpose: the config write
+// decides whether the account exists, and this only decides how much of it stays
+// on disk. The settings page calls it after a successful removal, and only when
+// the user ticked "also delete cached mail" — the cache is what makes the app work
+// offline, so throwing it away is never implicit.
+func (s *EmailService) PurgeAccountCache(accountID string) (int64, error) {
+	deleted, err := s.db.DeleteAccountCache(accountID)
+	if err != nil {
+		slog.Error("cache: purging account failed", "account_id", accountID, "error", err)
+		return 0, err
+	}
+	slog.Info("cache: purged account", "account_id", accountID, "rows", deleted)
+	return deleted, nil
+}

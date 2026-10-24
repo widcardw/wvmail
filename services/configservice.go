@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -139,7 +140,29 @@ func (a EmailAccount) LogValue() slog.Value {
 
 // ConfigService provides methods for reading, writing, and managing
 // the application's YAML configuration file, with encrypted API key storage.
-type ConfigService struct{}
+type ConfigService struct {
+	// onAccountRemoved is told about every deleted account id, after the config
+	// write has landed. Wired once at startup (main.go) to drop that account's
+	// IDLE connection and its sync bookkeeping; nil in tests and the server build.
+	removedMu        sync.RWMutex
+	onAccountRemoved func(accountID string)
+}
+
+// SetAccountRemovedListener registers the callback for account deletions. It is
+// called after the config write has landed and outside configWriteMu: the callback
+// belongs to other services' state, not to the config's, and it must not be able
+// to extend the config's critical section.
+func (s *ConfigService) SetAccountRemovedListener(listener func(accountID string)) {
+	s.removedMu.Lock()
+	defer s.removedMu.Unlock()
+	s.onAccountRemoved = listener
+}
+
+func (s *ConfigService) accountRemovedListener() func(accountID string) {
+	s.removedMu.RLock()
+	defer s.removedMu.RUnlock()
+	return s.onAccountRemoved
+}
 
 func defaultConfig() AppConfig {
 	return AppConfig{
@@ -260,6 +283,21 @@ func (s *ConfigService) AddAccount(account EmailAccount) error {
 
 // RemoveAccount removes an email account by its ID.
 func (s *ConfigService) RemoveAccount(id string) error {
+	if err := removeAccountFromConfig(id); err != nil {
+		return err
+	}
+	// Outside configWriteMu: the listener stops that account's IDLE watcher and
+	// drops its sync bookkeeping — other services' state, which a config write has
+	// no business waiting on.
+	if listener := s.accountRemovedListener(); listener != nil {
+		listener(id)
+	}
+	return nil
+}
+
+// removeAccountFromConfig performs the read-modify-write. Callers must not hold
+// configWriteMu; it is taken here, like every other mutation.
+func removeAccountFromConfig(id string) error {
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 	cfg, err := readConfig()

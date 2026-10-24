@@ -457,3 +457,41 @@ func (m *DBManager) LoadFolderMeta(accountID, folderName string) (FolderMeta, er
 	}
 	return FolderMeta{Total: int(meta.Total), UIDNext: meta.UIDNext}, nil
 }
+
+// DeleteAccountCache removes every cached row belonging to one account: folders,
+// folder metadata, message summaries and their bodies.
+//
+// Deleting an account does not have to do this — the rows become unreachable the
+// moment the account leaves config.yaml, because everything here is keyed by
+// account_id and a re-added mailbox gets a fresh UUID. They do take real disk
+// though (bodies and attachment metadata are text), which is why the settings page
+// offers it as a checkbox rather than doing it silently.
+//
+// One transaction: a failure halfway would leave a mailbox with bodies but no
+// summaries, which reads as corruption in the search path.
+func (m *DBManager) DeleteAccountCache(accountID string) (int64, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return 0, err
+	}
+	var deleted int64
+	err = db.Transaction(func(tx *gorm.DB) error {
+		for _, model := range []any{
+			&CachedEmail{},
+			&CachedEmailBody{},
+			&CachedFolder{},
+			&CachedFolderMeta{},
+		} {
+			res := tx.Where("account_id = ?", accountID).Delete(model)
+			if res.Error != nil {
+				return res.Error
+			}
+			deleted += res.RowsAffected
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}

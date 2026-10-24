@@ -106,6 +106,15 @@ func main() {
 	idleSvc.SetMailHandler(syncSvc.OnMailArrived)
 	syncSvc.SetIdleWatcher(idleSvc)
 
+	// Deleting an account has to take its background work with it: both services
+	// only re-read the account list on their next 30s tick, which would leave a
+	// live IDLE connection (and a lit tray badge) behind for a mailbox the user
+	// just removed.
+	cfgSvc.SetAccountRemovedListener(func(accountID string) {
+		idleSvc.StopWatching(accountID)
+		syncSvc.ForgetAccount(accountID)
+	})
+
 	app := application.New(application.Options{
 		Name:        "wvmail",
 		Description: "A cross-platform desktop mail client",
@@ -155,8 +164,8 @@ func main() {
 		URL:              "/",
 		Width:            1280,
 		Height:           768,
-		MinWidth:         800,
-		MinHeight:        600,
+		MinWidth:         1280,
+		MinHeight:        768,
 	})
 
 	// macOS 26 (Tahoe) drops the traffic lights below the 40px in-page title

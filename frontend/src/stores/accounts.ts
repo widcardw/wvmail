@@ -138,7 +138,17 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
-  async function removeAccount(id: string) {
+  /**
+   * Delete one account, and optionally the mail cached for it.
+   *
+   * `purgeCache` is the delete dialog's tick box. It runs after the config write,
+   * because the cache must never be thrown away for an account that is still
+   * configured (a failed write leaves it in place), and its failure is reported
+   * but not rethrown: by then the account is gone, so telling the caller the
+   * delete failed would be a lie. What is left is a few unreachable rows, which is
+   * what the account would have cost had the box never been ticked.
+   */
+  async function removeAccount(id: string, { purgeCache = false }: { purgeCache?: boolean } = {}) {
     try {
       await ConfigService.RemoveAccount(id)
       if (selectedAccountId.value === id) {
@@ -160,6 +170,15 @@ export const useAccountsStore = defineStore('accounts', () => {
     } catch (e) {
       console.error('Failed to remove account', e)
       throw e
+    }
+
+    if (purgeCache) {
+      try {
+        await EmailService.PurgeAccountCache(id)
+      } catch (e) {
+        console.error('Failed to purge the account cache', e)
+        feedback.error(i18n.value['settings.accounts.cache_purge_failed'])
+      }
     }
   }
 

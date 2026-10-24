@@ -81,3 +81,34 @@ func TestIdleFingerprint(t *testing.T) {
 		t.Error("a new password must change the fingerprint")
 	}
 }
+
+// Deleting an account must close its connection right away: waiting for the 30s
+// reconcile would leave a session open for a mailbox the user just removed, and
+// mail arriving in that window would still be fetched and announced.
+func TestStopWatchingClosesTheConnection(t *testing.T) {
+	idle := NewEmailIdleService(nil, nil)
+	w := &idleWatcher{account: EmailAccount{ID: "a", Email: "a@example.com"}, stop: make(chan struct{})}
+	idle.watchers["a"] = w
+	idle.unsupported["a"] = true
+
+	idle.StopWatching("a")
+
+	select {
+	case <-w.stop:
+	default:
+		t.Fatal("stop channel was not closed")
+	}
+	if _, ok := idle.watchers["a"]; ok {
+		t.Error("watcher must be forgotten, otherwise reconcile would close it again")
+	}
+	if _, ok := idle.unsupported["a"]; ok {
+		t.Error("the cannot-IDLE mark must not outlive the account")
+	}
+	if idle.Watching("a") {
+		t.Error("Watching must report false once the account is gone")
+	}
+
+	// A second delete (or reconcile racing this one) must not close w.stop twice.
+	idle.StopWatching("a")
+	idle.StopWatching("never-watched")
+}
