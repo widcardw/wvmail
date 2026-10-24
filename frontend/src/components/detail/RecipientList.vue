@@ -132,6 +132,10 @@ watch(locale, () => nextTick(measure))
 <style scoped>
 .mrow {
   display: flex;
+  /* Align the label with the first address, not with the top of its box: the
+     label and the value used to inherit different line-heights (normal vs 1.6),
+     which put the label's text 1px higher than the addresses. */
+  align-items: baseline;
   gap: 6px;
   margin-bottom: 2px;
 }
@@ -139,6 +143,8 @@ watch(locale, () => nextTick(measure))
   font-weight: 600;
   min-width: 26px;
   flex-shrink: 0;
+  /* Same as the value's, so the label's own box is exactly one line tall. */
+  line-height: 1.6;
   opacity: 0.6;
 }
 .mvalue {
