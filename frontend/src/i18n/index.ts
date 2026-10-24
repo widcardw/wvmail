@@ -25,6 +25,9 @@ export interface TranslationSchema {
   'sidebar.all_sent': string
   'sidebar.all_drafts': string
   'sidebar.unread': string
+  'sidebar.conn_down': string
+  'sidebar.conn_suspect': string
+  'sidebar.conn_offline': string
   'connection.high': string
   'connection.medium': string
   'connection.low': string

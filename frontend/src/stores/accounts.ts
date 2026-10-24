@@ -12,11 +12,13 @@ import type {
 import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/services'
 import { reportFetchFailure, useFeedbackStore } from '~/stores/feedback'
 import { useSearchStore } from '~/stores/search'
+import { useAccountHealthStore } from '~/stores/accountHealth'
 import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const feedback = useFeedbackStore()
+  const health = useAccountHealthStore()
   const { t: i18n } = useI18n()
 
   const accounts = ref<EmailAccount[]>([])
@@ -166,6 +168,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         selectedEmailDetail.value = null
       }
       delete foldersByAccount.value[id]
+      health.forget(id)
       await loadAccounts()
     } catch (e) {
       console.error('Failed to remove account', e)
@@ -232,8 +235,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     testingId.value = account.ID
     try {
       const [success, message] = await EmailService.TestConnection(account)
+      // It logs in for real, so the sidebar's marker follows the answer: a test
+      // that fails from the settings page must not leave a healthy-looking row.
+      health.noteTestResult(account.ID, success)
       return { success, message }
     } catch (e) {
+      health.noteTestResult(account.ID, false)
       return { success: false, message: String(e) }
     } finally {
       testingId.value = null
@@ -334,8 +341,15 @@ export const useAccountsStore = defineStore('accounts', () => {
         if (statuses) {
           folderStatusByAccount.value[id] = statuses
           statusFetchedAt[id] = Date.now()
+          // This sweep is the only per-account reachability test the app runs on
+          // its own, so it doubles as the sidebar marker's status signal.
+          health.noteStatusOk(id)
         }
       } catch (e) {
+        // Logged only: badges are decoration and the previous counts are still the
+        // best guess. The failure is not lost, though — it is what lights up the
+        // account's "disconnected" icon.
+        health.noteStatusFailure(id)
         console.error('Failed to load folder statuses', e)
       }
     })()

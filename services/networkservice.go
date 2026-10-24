@@ -10,14 +10,55 @@ import (
 	"time"
 )
 
-// NetworkService answers one question for the title-bar quality meter: can the
-// mail server be reached *right now*, and how long does it take to answer?
+// NetworkService answers two questions for the connection UI: can the mail server
+// be reached *right now*, and how long does it take to answer (the title-bar
+// meter), and which accounts currently hold a live IMAP IDLE connection (the
+// sidebar's per-account "disconnected" marker).
 //
 // It exists because the webview cannot time an IMAP connection by itself, and
 // navigator.onLine only reports whether some interface is up — not whether the
 // mailbox answers. The frontend polls this while the window is visible and turns
-// the latency into the meter's four states (see frontend/src/composables/connection.ts).
-type NetworkService struct{}
+// the latency into the meter's four states (see
+// frontend/src/composables/connection.ts).
+//
+// The probe deliberately stops before LOGIN, so it says nothing about whether an
+// account's credentials still work — that is the second question's job, and it is
+// answered from the IDLE connections that already exist instead of by dialling.
+type NetworkService struct {
+	// idle is the IDLE watcher registry, injected before the window opens and
+	// never reassigned. Nil reads as "no account is idling", which is what tests
+	// and an unwired service see.
+	idle IdleStateReporter
+}
+
+// IdleStateReporter is the part of EmailIdleService this service needs. An
+// interface rather than the concrete type so the two stay independent: the IDLE
+// watcher has no idea it is being reported on, and this service does not need a
+// whole mail service to answer one question.
+type IdleStateReporter interface {
+	IdleStates() map[string]bool
+}
+
+// NewNetworkService wires the source of the per-account connection states.
+//
+// A constructor rather than a setter: an exported Set*(interface) method would be
+// exported to the frontend as a binding too, and the binding generator cannot
+// serialise an interface parameter (it warns and emits a method that can only be
+// called with null).
+func NewNetworkService(idle IdleStateReporter) *NetworkService {
+	return &NetworkService{idle: idle}
+}
+
+// AccountIdleStates reports, for every account with a live IDLE watcher, whether
+// that watcher is connected right now. Accounts without a watcher (auto-sync off,
+// or a server that refused IDLE) are absent rather than false — the caller has to
+// be able to tell "not watched" from "watcher is in its reconnect backoff".
+func (s *NetworkService) AccountIdleStates() map[string]bool {
+	if s.idle == nil {
+		return map[string]bool{}
+	}
+	return s.idle.IdleStates()
+}
 
 // NetworkProbeResult is one measurement. LatencyMS is -1 when the probe failed,
 // so "0 ms" can never be confused with "no answer"; the frontend keys "Off" off

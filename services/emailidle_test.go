@@ -112,3 +112,38 @@ func TestStopWatchingClosesTheConnection(t *testing.T) {
 	idle.StopWatching("a")
 	idle.StopWatching("never-watched")
 }
+
+// The sidebar's "disconnected" marker is built from this map, so the three states
+// it must tell apart are pinned here: live, present-but-reconnecting, and "do not
+// draw anything" for an account whose watcher cannot be trusted as a signal.
+func TestIdleStatesReportsLiveAndSkipsUnsupported(t *testing.T) {
+	idle := NewEmailIdleService(nil, nil)
+
+	live := &idleWatcher{account: EmailAccount{ID: "live"}, stop: make(chan struct{})}
+	live.live.Store(true)
+	reconnecting := &idleWatcher{account: EmailAccount{ID: "reconnecting"}, stop: make(chan struct{})}
+	refused := &idleWatcher{account: EmailAccount{ID: "refused"}, stop: make(chan struct{})}
+
+	idle.watchers["live"] = live
+	idle.watchers["reconnecting"] = reconnecting
+	idle.watchers["refused"] = refused
+	// The server answered NO to IDLE: the watcher goroutine is gone and the account
+	// is on interval polling, so reporting it as disconnected would be permanent
+	// noise about an account that is working.
+	idle.unsupported["refused"] = true
+
+	states := idle.IdleStates()
+
+	if got, ok := states["live"]; !ok || !got {
+		t.Errorf("live watcher: got %v (present %v), want true", got, ok)
+	}
+	if got, ok := states["reconnecting"]; !ok || got {
+		t.Errorf("reconnecting watcher: got %v (present %v), want a present false", got, ok)
+	}
+	if _, ok := states["refused"]; ok {
+		t.Error("a watcher that cannot IDLE must be absent, not false")
+	}
+	if len(states) != 2 {
+		t.Errorf("IdleStates() returned %d entries, want 2: %v", len(states), states)
+	}
+}

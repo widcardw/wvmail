@@ -221,3 +221,44 @@ func TestTruncateText(t *testing.T) {
 		})
 	}
 }
+
+// stubIdleStates stands in for the IDLE watcher: the service must pass its answer
+// through untouched, and must not panic when nothing has been wired yet.
+type stubIdleStates struct {
+	states map[string]bool
+	calls  int
+}
+
+func (s *stubIdleStates) IdleStates() map[string]bool {
+	s.calls++
+	return s.states
+}
+
+func TestAccountIdleStatesWithoutReporter(t *testing.T) {
+	svc := &NetworkService{}
+	states := svc.AccountIdleStates()
+	if len(states) != 0 {
+		t.Errorf("no reporter wired: got %v, want an empty map", states)
+	}
+	// An empty map rather than nil: the binding would turn nil into null, and the
+	// frontend would have to special-case it on every refresh.
+	if states == nil {
+		t.Error("AccountIdleStates must return a usable map, not nil")
+	}
+}
+
+func TestAccountIdleStatesPassesTheWatchersAnswerThrough(t *testing.T) {
+	stub := &stubIdleStates{states: map[string]bool{"a": true, "b": false}}
+	svc := NewNetworkService(stub)
+
+	states := svc.AccountIdleStates()
+	if !states["a"] || states["b"] {
+		t.Errorf("AccountIdleStates() = %v, want the watcher's own map", states)
+	}
+	if len(states) != 2 {
+		t.Errorf("got %d entries, want 2: %v", len(states), states)
+	}
+	if stub.calls != 1 {
+		t.Errorf("the reporter was called %d times, want 1", stub.calls)
+	}
+}

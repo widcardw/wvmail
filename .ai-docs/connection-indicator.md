@@ -1,5 +1,5 @@
 ---
-description: The title-bar connection meter — what it measures, why the probe is stdlib rather than dialIMAP, the latency thresholds, the polling schedule, and its deliberate limits
+description: The connection indicators — the title-bar meter (what it measures, why the probe is stdlib rather than dialIMAP, the latency thresholds, the polling schedule) and the sidebar's per-account "disconnected" marker
 ---
 
 # Title-bar connection meter
@@ -76,17 +76,84 @@ Before the first answer the icon is hidden entirely rather than showing a grey
 - A failed first attempt is retried once after 250 ms; `Attempts > 1` shows as
   "succeeded on retry" in the tooltip, which is the difference between slow and flaky.
 - Nothing here is persisted: the meter is live state only, and it resets on restart.
+- It describes **one account** (the selected one). Which *other* account is
+  disconnected is the sidebar marker's job — see the next section.
+
+## Per-account markers (sidebar)
+
+An account row shows a small connection icon immediately left of its unread badge
+(`components/sidebar/SideBar.vue`). This is the half of the question the meter
+cannot answer: with several mailboxes configured, "the network is fine" says
+nothing about which one stopped working.
+
+The marker **never dials**. It is built from two signals that already exist, so
+showing it costs no connections:
+
+| Signal | Source | Cost |
+|---|---|---|
+| STATUS sweep failed | `loadFolderStatuses` → `EmailService.FolderStatuses` | the sweep the badges already run (one dial per account, throttled 30 s) |
+| IDLE watcher down | `NetworkService.AccountIdleStates` → `EmailIdleService.IdleStates` | none — reads an in-memory map, polled every 30 s |
+
+| Marker | Icon | Colour | When |
+|---|---|---|---|
+| *(none)* | — | — | nothing has measured it yet, **or it is fine** |
+| `degraded` | `streamline:interface-link-broken-…` | red | one failed sweep, or a watcher that has been down for ≥2 polls (≈1 min) |
+| `offline` | `streamline:broken-link-2` | grey | two consecutive failed sweeps, or a failed connection test |
+
+The signal → marker mapping lives in `markerOf()` (`stores/accountHealth.ts`), not
+in the template. `health` has a third value, `ok`, which is *not* something to
+draw; testing `healthOf(...)` for truthiness made every healthy account render a
+marker (in the inherited text colour, which read as "all my accounts are greyed
+out"). Grey means "no connection at all" — a fact, stated quietly — while red is
+reserved for a connection that answers but does not hold.
+
+The icons must come from a monochrome set: `@iconify-json/streamline` draws with
+`currentColor`, so UnoCSS emits a `mask` rule and the CSS colour is the state.
+`@iconify-json/streamline-color` (also installed) hard-codes `#4147d5` in each
+body and cannot be tinted.
+
+Four rules that are easy to get wrong (all pinned in
+`frontend/tests/account-health.test.mts`):
+
+- **"Not measured" is not "fine".** A missing entry draws nothing; otherwise every
+  account would flash a warning during the first seconds after launch.
+- **A watcher that never connected says nothing.** `idleStartDelay` means no watcher
+  is live at launch, so only a watcher that *was* live and then dropped counts. If an
+  account truly cannot connect, the STATUS sweep reports it — that signal needs no
+  warm-up.
+- **Absent ≠ false.** `IdleStates()` omits accounts with auto-sync off and servers
+  that refused IDLE (`unsupported`): both fall back to interval polling, and reporting
+  them would leave a permanent warning on a working account.
+- **`offline` outranks a live IDLE session.** A server can keep an existing session
+  while refusing new connections (the concurrency limit on Gmail/163). Opening a
+  folder is what the user actually does, so the failed dial wins until a sweep
+  succeeds.
+
+Clicking the icon retries: `offline` verifies from scratch (bypassing the 30 s badge
+cache), `degraded` reuses a sweep from the last 5 s — enough to swallow a double
+click, short enough that the answer is still about now. While the meter reads `Off`
+nothing is dialled at all: that connection cannot succeed, and `dialIMAP`'s timeout
+is 60 s, which the user would spend watching a spinner. The icon is a `<span>`, not
+a button: it sits inside `BranchControl` (itself `role="button"`), so a focusable
+control there would be a keyboard trap; the same retry is reachable from Settings →
+the account's ⋮ menu.
 
 ## Files
 
 | Path | Role |
 |---|---|
-| `services/networkservice.go` | probe + retry + error truncation; registered in `main.go` |
+| `services/networkservice.go` | probe + retry + error truncation; also exposes `AccountIdleStates`; registered in `main.go` |
+| `services/emailidle.go` | `IdleStates()` — which watchers exist and which are live |
 | `frontend/src/stores/connection.ts` | polling schedule, target account, state |
+| `frontend/src/stores/accountHealth.ts` | the two per-account signals + the 30 s IDLE poll |
 | `frontend/src/composables/connection.ts` | `classifyConnection`, `connectionBars`, `formatLatency` |
+| `frontend/src/composables/account-health.ts` | per-account thresholds and the combination rule |
 | `frontend/src/components/icon/ConnectionStatus.vue` | the meter (CSS bars, not an icon glyph) + Ark tooltip |
+| `frontend/src/components/sidebar/SideBar.vue` | the marker + its retry |
 | `frontend/tests/connection.test.mts` | threshold boundaries, failure paths, formatting |
+| `frontend/tests/account-health.test.mts` | "not measured" silence, failure counts, combination |
 | `services/networkservice_test.go` | local fake/silent/HTTP servers, timeout bound, truncation |
+| `services/emailidle_test.go` | `IdleStates` (live / reconnecting / refused), stop-on-delete |
 
 ## The icon is drawn, not a font glyph
 

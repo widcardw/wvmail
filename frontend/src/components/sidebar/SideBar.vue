@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { TreeView, createTreeCollection } from '@ark-ui/vue/tree-view'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
+import { useAccountHealthStore } from '~/stores/accountHealth'
+import type { AccountMarker } from '~/stores/accountHealth'
+import { useConnectionStore } from '~/stores/connection'
+import { useFeedbackStore } from '~/stores/feedback'
 import { buildFolderTree } from '~/composables/folder-tree'
 import { getFolderDisplay } from '~/types/email'
 import type { FolderTreeNode } from '~/composables/folder-tree'
@@ -15,7 +19,17 @@ import UiBadge from '~/components/ui/UiBadge.vue'
 
 const { t, tf, locale } = useI18n()
 const store = useAccountsStore()
+const health = useAccountHealthStore()
+const connection = useConnectionStore()
+const feedback = useFeedbackStore()
 const router = useRouter()
+
+/**
+ * How old a STATUS sweep may be and still count as "just checked" when the user
+ * clicks a `suspect` marker. Long enough to swallow a double click, short enough
+ * that the answer is still about now.
+ */
+const RETRY_REUSE_SWEEP_MS = 5_000
 
 interface SideNode extends FolderTreeNode {
   id: string
@@ -126,10 +140,14 @@ const selected = ref<string[]>([])
 const inflight = new Set<string>()
 
 onMounted(async () => {
+  // Per-account connection markers: the states themselves arrive from the STATUS
+  // sweep and the IDLE watcher, this only starts the (connection-free) poll.
+  health.start()
   if (store.accounts.length === 0) await store.loadAccounts()
   rebuild()
   syncSelected()
 })
+onUnmounted(() => health.stop())
 
 // Lazy-load folders the first time an account branch gets opened.
 watch(expanded, (vals) => {
@@ -182,6 +200,70 @@ function goNav(path: string) {
 
 function isOpen(id: string) {
   return expanded.value.includes(id)
+}
+
+/**
+ * Icon per marker. Both come from the streamline set (`@iconify-json/streamline`),
+ * which draws with `currentColor` — the colour is the state, so a multi-coloured
+ * icon set could not express it.
+ *
+ * The names are computed here rather than written in the template, so they are
+ * listed in uno.config.ts' safelist: UnoCSS only scans template literals, and a
+ * class returned from a function is invisible to it.
+ */
+function markerIcon(marker: AccountMarker | null): string {
+  switch (marker) {
+    // A chain cut in two: the connection keeps breaking.
+    case 'degraded':
+      // return 'i-streamline:interface-link-broken-break-broken-hyperlink-link-remove-unlink'
+      return 'i-streamline:interface-time-midnight-whole-midnight-hour-clock-time'
+    // A link struck through: there is no connection at all.
+    case 'offline':
+      return 'i-streamline:broken-link-2'
+    default:
+      return ''
+  }
+}
+
+/** Tooltip for the account's connection marker: what is wrong, and what a click does. */
+function linkTitle(account: EmailAccount): string {
+  const marker = health.markerOf(account.ID)
+  const key = marker === 'offline' ? 'sidebar.conn_down' : 'sidebar.conn_suspect'
+  return tf(key, { host: account.IMAPHost })
+}
+
+/**
+ * Re-check one account's connection, from the marker itself.
+ *
+ * A click is an explicit "check now", so it bypasses the 30s badge cache — a
+ * button that quietly does nothing because a sweep ran 20 seconds ago is exactly
+ * the kind of click the user reads as broken. What it does *not* do is dial twice:
+ * a sweep from the last few seconds is reused, so double-clicking (or clicking
+ * right after an automatic sweep) costs nothing.
+ *
+ * Nothing is dialled at all while the link itself is down: that connection cannot
+ * succeed, and `dialIMAP`'s timeout is 60s, which the user would spend watching a
+ * spinner.
+ */
+async function retryAccount(account: EmailAccount) {
+  if (health.checking[account.ID]) return
+  const marker = health.markerOf(account.ID)
+  if (!marker) return
+
+  if (connection.quality === 'Off') {
+    feedback.error(t.value['sidebar.conn_offline'])
+    return
+  }
+
+  // `offline` is a known failure, so it is verified from scratch; `degraded` is a
+  // guess and accepts a sweep that is a couple of seconds old.
+  const maxAgeMs = marker === 'offline' ? 0 : RETRY_REUSE_SWEEP_MS
+  health.setChecking(account.ID, true)
+  try {
+    await store.loadFolderStatuses(account, maxAgeMs)
+  } finally {
+    health.setChecking(account.ID, false)
+  }
 }
 
 function onMailView() {
@@ -243,14 +325,43 @@ watch(() => router.currentRoute.value.path, syncSelected)
                     <AccountAvatar :account-id="account.ID" :size="18" />
                     <span class="acc-name">{{ account.Name || account.Email }}</span>
                   </TreeView.BranchText>
-                  <!-- Account badge: total unread across the account's folders (the
-                       same server-side counts the folder badges read). Shows as soon
-                       as the startup per-account fetch lands, no expand needed. -->
-                  <UiBadge
-                    class="acc-badge"
-                    :count="store.accountUnread(account.ID)"
-                    :label="tf('sidebar.unread', { count: store.accountUnread(account.ID) })"
-                  />
+                  <!-- Trailing meta: the connection marker (only while there is
+                       something to say) and the unread badge. Grouped so the marker
+                       does not jump to the edge when the badge is absent — UiBadge
+                       renders nothing at count 0. -->
+                  <span class="acc-meta">
+                    <!-- A span, not a button: BranchControl is itself a button
+                         (role="button") that owns the click, and a nested focusable
+                         control would be a keyboard trap. The click is stopped so
+                         retrying does not also expand the account; keyboard users
+                         have the same retry in Settings → the account's ⋮ menu. -->
+                    <span
+                      v-if="health.markerOf(account.ID)"
+                      class="acc-link"
+                      :class="`acc-link--${health.markerOf(account.ID)}`"
+                      :title="linkTitle(account)"
+                      @click.stop="retryAccount(account)"
+                    >
+                      <span
+                        v-if="health.checking[account.ID]"
+                        class="acc-link__spin"
+                        aria-hidden="true"
+                      />
+                      <i
+                        v-else
+                        class="acc-link__glyph"
+                        :class="markerIcon(health.markerOf(account.ID))"
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <!-- Account badge: total unread across the account's folders (the
+                         same server-side counts the folder badges read). Shows as soon
+                         as the startup per-account fetch lands, no expand needed. -->
+                    <UiBadge
+                      :count="store.accountUnread(account.ID)"
+                      :label="tf('sidebar.unread', { count: store.accountUnread(account.ID) })"
+                    />
+                  </span>
                 </TreeView.BranchControl>
 
                 <TreeView.BranchContent v-if="isOpen(account.ID)" :class="styles.folders">
@@ -349,10 +460,57 @@ watch(() => router.currentRoute.value.path, syncSelected)
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.acc-badge {
-  margin-left: auto;
+/* Right edge of an account row: connection marker + unread badge. The auto margin
+   lives here rather than on the badge, because the badge disappears at count 0 and
+   the marker must not slide to the edge when it does. */
+.acc-meta {
+  display: flex;
   flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
   margin-right: 6px;
+}
+.acc-link {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+/* The streamline set is drawn on a 14×14 grid, so 1em at font-size 14px is its
+   native size — no scaling blur. */
+.acc-link__glyph {
+  flex: none;
+  line-height: 1;
+}
+/* Unreachable is a fact, not a warning: it is stated quietly in grey. */
+.acc-link--offline {
+  color: var(--color-text-3);
+}
+/* Unstable is the one that needs attention: the account answers, then does not. */
+.acc-link--degraded {
+  color: var(--color-danger);
+}
+.acc-link:hover {
+  opacity: 0.75;
+}
+.acc-link__spin {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--n-border-color);
+  border-top-color: var(--n-primary-color);
+  border-radius: 50%;
+  animation: acc-link-spin 0.8s linear infinite;
+}
+@keyframes acc-link-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .f-icon {
   flex: 0 0 16px;

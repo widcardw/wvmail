@@ -137,6 +137,35 @@ func (s *EmailIdleService) Watching(accountID string) bool {
 	return ok && w.live.Load()
 }
 
+// IdleStates reports every account that has an IDLE watcher, and whether that
+// watcher's connection is live right now. This is the per-account signal the
+// sidebar's "disconnected" marker reads.
+//
+// Three things are deliberately *absent* from the map, because the caller must
+// not read "no entry" as "broken":
+//   - an account with auto-sync off has no watcher at all;
+//   - a watcher the server refused to IDLE (unsupported) has fallen back to
+//     interval polling, so it will never go live again this session;
+//   - an account that was just added and has not been reconciled yet.
+//
+// A present-but-false entry is the interesting one: the watcher exists and its
+// connection is currently down, i.e. it is sitting in the reconnect backoff.
+//
+// One call for the whole set rather than one Watching() per account: the sidebar
+// asks about every account on each refresh.
+func (s *EmailIdleService) IdleStates() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	states := make(map[string]bool, len(s.watchers))
+	for id, w := range s.watchers {
+		if s.unsupported[id] {
+			continue
+		}
+		states[id] = w.live.Load()
+	}
+	return states
+}
+
 // StopWatching closes one account's IDLE connection and forgets it.
 //
 // reconcile() would reach the same state on its own within idleReconcile, but

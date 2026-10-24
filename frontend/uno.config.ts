@@ -94,6 +94,11 @@ export default defineConfig({
     'i-vscode-icons:default-file',
     'i-ri:arrow-right-s-line',
     'i-ri:virus-line',
+    // Sidebar connection markers: the class names come from markerIcon() in
+    // SideBar.vue, so the scanner cannot see them.
+    'i-streamline:broken-link-2',
+    'i-streamline:interface-time-midnight-whole-midnight-hour-clock-time',
+    'i-streamline:interface-link-broken-break-broken-hyperlink-link-remove-unlink',
   ],
   shortcuts: {
     // 'chip' etc. reserved if we need one-token util aliases.

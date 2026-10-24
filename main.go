@@ -106,6 +106,11 @@ func main() {
 	idleSvc.SetMailHandler(syncSvc.OnMailArrived)
 	syncSvc.SetIdleWatcher(idleSvc)
 
+	// Backs the title-bar connection meter *and* the sidebar's per-account
+	// "disconnected" marker: the meter times a probe, the marker reads the IDLE
+	// connections that already exist (see services/networkservice.go).
+	netSvc := services.NewNetworkService(idleSvc)
+
 	// Deleting an account has to take its background work with it: both services
 	// only re-read the account list on their next 30s tick, which would leave a
 	// live IDLE connection (and a lit tray badge) behind for a mailbox the user
@@ -125,8 +130,9 @@ func main() {
 			application.NewService(services.NewNotesService()),
 			application.NewService(services.NewRemindersService()),
 			application.NewService(&services.TranslationService{}),
-			// Backs the title-bar connection meter; see services/networkservice.go.
-			application.NewService(&services.NetworkService{}),
+			// Backs the title-bar connection meter and the sidebar's per-account
+			// connection marker; see services/networkservice.go.
+			application.NewService(netSvc),
 			// Online verification (OAuth) for Gmail/Microsoft accounts; see
 			// services/oauthservice.go.
 			application.NewService(services.NewOAuthService()),
