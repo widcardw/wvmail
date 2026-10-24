@@ -320,7 +320,7 @@ function modelTags(item: LLMConfig): string[] {
             >
               {{
                 confirmingDelete === index
-                  ? t['settings.llm.delete'] + '?'
+                  ? t['settings.llm.delete_again']
                   : t['settings.llm.delete']
               }}
             </button>

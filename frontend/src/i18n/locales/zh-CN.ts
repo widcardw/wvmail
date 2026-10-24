@@ -154,6 +154,7 @@ const zhCN: TranslationSchema = {
   'settings.accounts.smtp_user': 'SMTP 用户名',
   'settings.accounts.smtp_pass': 'SMTP 密码',
   'settings.accounts.use_tls': '使用 TLS',
+  'settings.accounts.tab.group': '添加方式',
   'settings.accounts.tab.manual': '服务器配置',
   'settings.accounts.tab.oauth': '在线验证',
   'settings.accounts.oauth.provider': '服务商',
@@ -245,6 +246,8 @@ const zhCN: TranslationSchema = {
   'settings.llm.cancel': '取消',
   'settings.llm.save': '保存',
   'settings.llm.delete': '删除',
+  'settings.llm.delete_model': '删除 {model}',
+  'settings.llm.delete_again': '删除？',
   'settings.llm.edit': '编辑',
   'settings.llm.empty': '暂无 LLM 配置',
   'settings.llm.delete_confirm': '确定要删除此 LLM 配置吗？',
@@ -262,7 +265,7 @@ const zhCN: TranslationSchema = {
     '这里列出的模型都会生效，可在翻译等地方选用；服务商不提供列表时直接填写模型名后回车添加。',
   'settings.llm.fetchModelsNeeds': '需要先填写基础 URL 与 API 密钥',
   'settings.llm.modelsSearch': '搜索模型…',
-  'settings.llm.modelsSelected': '已选 {n} / 共 {total}',
+  'settings.llm.modelsSelected': '已选 {n} / 共 {total} 项',
   'settings.llm.modelsSelectAll': '全选',
   'settings.llm.modelsClear': '清空',
   'settings.llm.modelsApply': '确定',
@@ -278,6 +281,8 @@ const zhCN: TranslationSchema = {
   'settings.translation.deepl_key': 'DeepL Auth Key',
   'settings.translation.llm_config': 'LLM 配置',
   'settings.translation.llm_model': '模型',
+  // 忙碌按钮的计时后缀；中文用「秒」而不是英文的 s。
+  'busy.seconds': '{label} {s} 秒',
   cancel: '取消',
 }
 

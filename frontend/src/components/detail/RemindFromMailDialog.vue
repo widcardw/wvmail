@@ -24,7 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const reminders = useRemindersStore()
 const fb = useFeedbackStore()
 
@@ -122,7 +122,7 @@ async function save() {
               <Field.Label class="field__label">{{ t['mail.remind.field.time'] }}</Field.Label>
               <Field.Input v-model="time" class="ctl datetime" type="datetime-local" />
               <Field.HelperText v-if="props.zone" class="field__hint">
-                {{ t['mail.remind.zone'].replace('{zone}', props.zone) }}
+                {{ tf('mail.remind.zone', { zone: props.zone }) }}
               </Field.HelperText>
               <Field.HelperText v-if="isPast" class="field__hint field__hint--warn">
                 {{ t['mail.remind.past'] }}

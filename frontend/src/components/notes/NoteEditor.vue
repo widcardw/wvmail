@@ -20,7 +20,7 @@ const props = defineProps<{ note: Note }>()
 
 const SAVE_DEBOUNCE_MS = 2000
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const notesStore = useNotesStore()
 
 const title = ref(extractNoteTitle(props.note.content || '', t.value['notes.untitled']))
@@ -128,7 +128,7 @@ defineExpose({ flush, discard })
         type="button"
         class="tb tb--text select-none"
         :class="{ active: editor?.isActive('heading', { level: lvl }) }"
-        :title="t['notes.heading'].replace('{level}', String(lvl))"
+        :title="tf('notes.heading', { level: lvl })"
         @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
       >
         H{{ lvl }}

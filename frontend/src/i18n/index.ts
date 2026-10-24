@@ -155,6 +155,7 @@ export interface TranslationSchema {
   'settings.accounts.smtp_user': string
   'settings.accounts.smtp_pass': string
   'settings.accounts.use_tls': string
+  'settings.accounts.tab.group': string
   'settings.accounts.tab.manual': string
   'settings.accounts.tab.oauth': string
   'settings.accounts.oauth.provider': string
@@ -240,6 +241,8 @@ export interface TranslationSchema {
   'settings.llm.cancel': string
   'settings.llm.save': string
   'settings.llm.delete': string
+  'settings.llm.delete_model': string
+  'settings.llm.delete_again': string
   'settings.llm.edit': string
   'settings.llm.empty': string
   'settings.llm.delete_confirm': string
@@ -271,6 +274,7 @@ export interface TranslationSchema {
   'settings.translation.deepl_key': string
   'settings.translation.llm_config': string
   'settings.translation.llm_model': string
+  'busy.seconds': string
   cancel: string
 }
 
@@ -278,7 +282,10 @@ export function useI18n() {
   const store = useLocaleStore()
   return {
     locale: computed(() => store.current),
+    /** The raw dictionary: `t['key']`. No parameters, no formatting. */
     t: computed(() => store.t),
+    /** `tf('key', { name })` — interpolation, or `tf('key', count)` for plurals. */
+    tf: store.tf,
     setLocale: store.setLocale,
   }
 }

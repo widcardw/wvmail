@@ -294,7 +294,7 @@
 }
 
 /* --- Ark's visually-hidden inputs --------------------------------------------
-   `Switch.HiddenInput` and `Checkbox.HiddenInput` (the only two this app renders)
+   `Switch.HiddenInput`, `Checkbox.HiddenInput` and `SegmentGroup.ItemHiddenInput`
    ship an inline `position: absolute` with *auto* offsets — a 1px box with
    `clip: rect(0 0 0 0)`. With no positioned ancestor anywhere above them they
    resolve against the initial containing block, and their static position lands at
@@ -308,9 +308,12 @@
    the page was left showing a blank strip under the form.
 
    Making the root a positioned ancestor keeps the hidden box inside its own
-   control, which is where the browser looks when it scrolls it into view. */
+   control, which is where the browser looks when it scrolls it into view.
+   SegmentGroup's hidden input is nested one level deeper — inside `Item`, which is
+   a `<label>` — so its item is the ancestor that matters. */
 [data-scope='switch'][data-part='root'],
-[data-scope='checkbox'][data-part='root'] {
+[data-scope='checkbox'][data-part='root'],
+[data-scope='segment-group'][data-part='item'] {
   position: relative;
 }
 [data-scope='switch'][data-part='hidden-input'],

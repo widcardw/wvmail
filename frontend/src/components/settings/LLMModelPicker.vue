@@ -18,7 +18,7 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 
 const loading = ref(true)
 const error = ref('')
@@ -131,11 +131,7 @@ function clearAll() {
 
     <div class="picker__foot">
       <span class="picker__count">
-        {{
-          t['settings.llm.modelsSelected']
-            .replace('{n}', String(picked.length))
-            .replace('{total}', String(available.length))
-        }}
+        {{ tf('settings.llm.modelsSelected', { n: picked.length, total: available.length }) }}
       </span>
       <span class="picker__spacer" />
       <button type="button" class="btn btn--sm" @click="emit('cancel')">

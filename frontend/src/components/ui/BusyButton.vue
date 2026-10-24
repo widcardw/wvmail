@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from '~/i18n'
+import { formatMessage } from '~/i18n/format'
 
 defineOptions({ inheritAttrs: false })
 
@@ -16,6 +18,8 @@ const props = withDefaults(
   }>(),
   { busy: false, busyLabel: '', sizerLabel: '' },
 )
+
+const { tf } = useI18n()
 
 // Elapsed seconds while busy, so a slow or stuck action stays visible instead of
 // collapsing into an ellipsis.
@@ -47,8 +51,13 @@ onUnmounted(() => {
 // button as it grows from 9s to 10s.
 const elapsed = computed(() => String(seconds.value).padStart(2, '0'))
 
+// The unit is part of the message, not a literal glued onto the label: English
+// wants "12s", Chinese wants "12 秒", and the old `${label} {s}s` produced
+// "打开浏览器授权 06s".
 const busyText = computed(() =>
-  (props.busyLabel || `${props.label} {s}s`).replace('{s}', elapsed.value),
+  props.busyLabel
+    ? formatMessage(props.busyLabel, { s: elapsed.value })
+    : tf('busy.seconds', { label: props.label, s: elapsed.value }),
 )
 
 const idleSizer = computed(() => props.sizerLabel || props.label)

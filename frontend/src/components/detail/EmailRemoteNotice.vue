@@ -11,17 +11,16 @@ const emit = defineEmits<{
   always: []
 }>()
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 </script>
 
 <template>
   <div class="body-bar body-bar--with-actions">
     <i class="i-ri:shield-keyhole-line body-bar__icon" aria-hidden="true" />
-    <span
-      class="body-bar__text"
-      :title="t['mail.remote.blocked'].replace('{count}', String(props.count))"
-    >
-      {{ t['mail.remote.blocked_short'].replace('{count}', String(props.count)) }}
+    <!-- `count` is passed as a number, so the message picks its singular or plural
+         branch and can still print the number via `{count}`. -->
+    <span class="body-bar__text" :title="tf('mail.remote.blocked', props.count)">
+      {{ tf('mail.remote.blocked_short', props.count) }}
     </span>
     <div class="body-bar__actions">
       <button type="button" class="btn btn--sm btn--subtle" @click="emit('reveal')">

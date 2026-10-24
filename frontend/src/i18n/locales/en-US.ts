@@ -71,11 +71,13 @@ const enUS: TranslationSchema = {
     'This message is flagged as suspicious (spam or Junk). Its HTML body and attachments are hidden by default.',
   'mail.security.show_all': 'Show all content',
   'mail.cssArt.blocked':
-    'This message draws its content with CSS instead of text or images ({count} oversized style declarations blocked) — a technique common in spam and phishing mail',
+    'This message draws its content with CSS instead of text or images ({count} oversized style declaration blocked) — a technique common in spam and phishing mail | This message draws its content with CSS instead of text or images ({count} oversized style declarations blocked) — a technique common in spam and phishing mail',
   'mail.cssArt.blocked_short': 'Body drawn with CSS (blocked) — possibly spam',
+  // `singular | plural` — the branch is chosen by the count, so English stops
+  // printing "resource(s)". Chinese has one form and keeps a single branch.
   'mail.remote.blocked':
-    'Blocked {count} remote resource(s) — tracking pixels, remote images or styles',
-  'mail.remote.blocked_short': 'Blocked {count} remote resource(s)',
+    'Blocked {count} remote resource — tracking pixels, remote images or styles | Blocked {count} remote resources — tracking pixels, remote images or styles',
+  'mail.remote.blocked_short': 'Blocked {count} remote resource | Blocked {count} remote resources',
   'mail.remote.show': 'Show remote content',
   'mail.remote.always': 'Always allow this sender',
   'mail.remote.allowed': 'Remote content from this sender is now allowed',
@@ -159,6 +161,7 @@ const enUS: TranslationSchema = {
   'settings.accounts.smtp_user': 'SMTP Username',
   'settings.accounts.smtp_pass': 'SMTP Password',
   'settings.accounts.use_tls': 'Use TLS',
+  'settings.accounts.tab.group': 'Setup method',
   'settings.accounts.tab.manual': 'Server Settings',
   'settings.accounts.tab.oauth': 'Online Sign-in',
   'settings.accounts.oauth.provider': 'Provider',
@@ -174,9 +177,11 @@ const enUS: TranslationSchema = {
   'settings.accounts.oauth.begin': 'Open Browser to Sign In',
   'settings.accounts.oauth.waiting': 'The sign-in page is open — finish it in your browser…',
   'settings.accounts.oauth.success': 'Authorized: {email} filled in. Review and save.',
-  'settings.accounts.oauth.empty_email': 'Authorization finished, but no email address was returned. Please retry.',
+  'settings.accounts.oauth.empty_email':
+    'Authorization finished, but no email address was returned. Please retry.',
   'settings.accounts.oauth.not_verified': 'online verification',
-  'settings.accounts.oauth.is_oauth': 'This account signs in via online verification — no password needed.',
+  'settings.accounts.oauth.is_oauth':
+    'This account signs in via online verification — no password needed.',
   'settings.accounts.oauth.gmail_app_password_hint':
     'Gmail requires 2-Step Verification and an "App Password" (myaccount.google.com/apppasswords) instead of your regular password.',
   'settings.accounts.sync': 'Sync',
@@ -250,6 +255,8 @@ const enUS: TranslationSchema = {
   'settings.llm.cancel': 'Cancel',
   'settings.llm.save': 'Save',
   'settings.llm.delete': 'Delete',
+  'settings.llm.delete_model': 'Delete {model}',
+  'settings.llm.delete_again': 'Delete?',
   'settings.llm.edit': 'Edit',
   'settings.llm.empty': 'No LLM configurations yet',
   'settings.llm.delete_confirm': 'Are you sure you want to delete this LLM config?',
@@ -283,6 +290,8 @@ const enUS: TranslationSchema = {
   'settings.translation.deepl_key': 'DeepL Auth Key',
   'settings.translation.llm_config': 'LLM Config',
   'settings.translation.llm_model': 'Model',
+  // Busy buttons tick a counter: `{s}` is the zero-padded elapsed seconds.
+  'busy.seconds': '{label} {s}s',
   cancel: 'Cancel',
 }
 

@@ -88,7 +88,11 @@ async function submitAdd() {
         </button>
       </header>
 
-      <Tabs.Root default-value="today" class="tabs">
+      <!-- `orientation` has no default in zag: without it the indicator is
+           positioned with `top: var(--top)` instead of `left: var(--left)`, so
+           the underline stays pinned to the top of the strip and never follows
+           the selected tab. -->
+      <Tabs.Root default-value="today" orientation="horizontal" class="tabs">
         <Tabs.List class="tabs__list">
           <Tabs.Trigger class="tabs__trigger" value="today">
             {{ t['reminders.tab.today'] }}
@@ -215,6 +219,9 @@ async function submitAdd() {
 .tabs__indicator {
   position: absolute;
   bottom: -1px;
+  /* Ark supplies --left/--width inline but not the used width, so without this
+     the bar is shrink-to-fit and renders zero-width (invisible). */
+  width: var(--width);
   height: 2px;
   background: var(--n-primary-color);
   transition:

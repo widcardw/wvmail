@@ -39,7 +39,7 @@ const emit = defineEmits<{
   save: []
 }>()
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 
 const canSave = computed(() =>
   Boolean(form.value.Name && form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
@@ -284,7 +284,7 @@ watch(
                   <button
                     type="button"
                     class="model-tag__remove"
-                    :aria-label="`${t['settings.llm.delete']} ${model}`"
+                    :aria-label="tf('settings.llm.delete_model', { model })"
                     @click="removeModel(model)"
                   >
                     ×

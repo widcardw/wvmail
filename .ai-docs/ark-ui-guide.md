@@ -127,7 +127,7 @@ We try NOT to write near-identical 12-part re-styles per Ak component in one fil
 ### Visually-hidden parts must have a positioned ancestor
 
 Ark ships some parts with an **inline** style, not just classes — the ones that matter here are the hidden inputs:
-`Switch.HiddenInput` and `Checkbox.HiddenInput` render a 1px `<input>` with
+`Switch.HiddenInput`, `Checkbox.HiddenInput` and `SegmentGroup.ItemHiddenInput` render a 1px `<input>` with
 
 ```
 position: absolute; width: 1px; height: 1px; margin: -1px;
@@ -145,15 +145,55 @@ back, and the user is left staring at a blank strip under the app.
 
 ```css
 [data-scope='switch'][data-part='root'],
-[data-scope='checkbox'][data-part='root'] { position: relative; }
+[data-scope='checkbox'][data-part='root'],
+[data-scope='segment-group'][data-part='item'] { position: relative; }
 
 [data-scope='switch'][data-part='hidden-input'],
 [data-scope='checkbox'][data-part='hidden-input'] { top: 0; left: 0; }
 ```
 
+SegmentGroup's input is one level deeper — inside `Item`, which is a `<label>` — so there the *item* is the ancestor
+that has to be positioned (its input has no `data-part` attribute, so it cannot be targeted directly).
+
 Any new Ark component that renders a hidden input (RadioGroup, Toggle, PinInput, Select's `HiddenSelect`…) needs the
 same two rules. To check: in devtools, `document.scrollingElement.scrollHeight` must equal `window.innerHeight` on a
 page that does not scroll — if it is larger, something is sitting outside the layout.
+
+### Indicators need `orientation` **and** an explicit width
+
+`Tabs` and `SegmentGroup` both expose an `Indicator` that Ark positions from CSS variables measured off the selected
+item. Two things are easy to get wrong, and both fail *silently*:
+
+- **`orientation` has no default.** zag writes `left: var(--left)` only when the prop is literally `"horizontal"`
+  (`[prop("orientation") === "horizontal" ? "left" : "top"]: …`). Omit it and the indicator gets `top: var(--top)`
+  instead: it is pinned to the top of the strip, keeps its *static* left position and never follows the selection.
+  Always pass `orientation="horizontal"` on a horizontal strip (it also sets `aria-orientation`).
+- **Ark does not set the used width.** It publishes `--width`, but no `width`. An absolutely positioned element with
+  only `left` set is shrink-to-fit, so an empty indicator renders **zero-width and invisible**. Write
+  `width: var(--width)` yourself.
+
+The reminders page lived with both bugs (an invisible 2px bar at the top of the tab strip); `AccountForm.vue`'s
+`.head-tabs__indicator` and `ReminderView.vue`'s `.tabs__indicator` are the reference. Since Ark also writes
+`transition-property/duration` inline, a `transition` declared in CSS loses — leave the animation to Ark and set
+`--transition-duration: 0ms` on a headless harness if you need to measure the settled position.
+
+### Tabs vs SegmentGroup: pick by where the panes live
+
+`Tabs.Content` reads the tab machine from **context**, so it only renders as a descendant of `Tabs.Root`. That is fine
+when the strip and the panes are in the same region (`ReminderView.vue`: list on top, content below). It is the wrong
+tool when they are not — the account form's strip sits in the card header while its two panes sit in the card body,
+with the avatar row and sync section shared by both. Making Tabs work there would mean wrapping the whole card in
+`Tabs.Root`, i.e. handing the card's markup to the tab machine for a two-item switch.
+
+`SegmentGroup` is a **radio group**: it owns only the value, and the panes stay plain `v-if` branches where they are.
+Use it for a compact "pick one mode" control; keep `Tabs` when the selection really swaps a panel.
+
+- `SegmentGroup.Item` is a `<label>` with a hidden radio, so **state lives in `data-state="checked"`** (not
+  `data-selected`), and the focus ring has to be drawn on the item: `[data-focus-visible] { outline: … }`.
+- Its `update:modelValue` can emit `null`; guard it (`if (value) tab.value = value`) instead of widening the ref.
+- The group needs an accessible name — `SegmentGroup.Label` renders a `<span>` with the id that the root's
+  `aria-labelledby` points at, so a visually-hidden label (`.vh`) is enough. Without it the reference dangles.
+- `SegmentGroup.ItemHiddenInput` is required for the radio semantics; without it the item is a label pointing nowhere.
 
 ## Theme & design tokens (global.css)
 
@@ -205,13 +245,15 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
   (where Ark can describe the control with it) without a wrapper element or a hand-tuned `padding-left`.
   `views/settings/Common.vue` has the same thing for the settings pages, where the label column is the global
   `.row__label` basis: `.row--stacked` = grid `240px 1fr`.
-- **Standing note about a field → `Field.HelperText`. Run-time status → bordered `.hint`.** This is the split the
-  account form follows: “this provider wants an app password”, “what happens when you press this button” and
-  “the Google Client ID needs review” are all properties of a field and now render as helper text under it (normal
-  colour for context, `--color-warning` for the ones that block you). “Connection test failed”, “waiting for the
-  browser”, “authorization succeeded” describe an *event*, keep the boxed `.hint` / `.hint--ok` / `.hint--err` strip.
-  A page-wide banner for a field note pushed the form around and read like an app-level alert; the helper text also
-  gives Ark an `aria-describedby` target (`field::v-N::helper-text`), so screen readers announce it on focus.
+- **Three levels of "hint", pick by what the sentence is about.** (1) A standing fact about *one field* →
+  `Field.HelperText` under that field (normal colour for context, `--color-warning` for the ones that block you);
+  it also gives Ark an `aria-describedby` target (`field::v-N::helper-text`), so screen readers announce it on focus.
+  (2) A standing fact about the *pane/account* that no single field owns → a muted `.pane-note` line. (3) Something
+  that *just happened* (waiting for the browser, test failed, authorization succeeded) → a `.status` line: icon +
+  text, coloured `--color-text-3` / `--color-success` / `--color-danger`, with `role="status"` (`role="alert"` for
+  errors) so the change is announced. No borders, no background: a boxed banner around one sentence shouted louder
+  than the form and shoved it around. Keep at most one status line per slot — the account form used to stack three
+  independent banners that could all be true at once.
 - **`.field__hint--warn` must be redeclared in a component that also styles its own hint class.** Scoped styles carry
   an extra `[data-v-…]` attribute selector, so a component-local `.frow-hint { color: … }` (specificity 0,2,0) beats
   the global `.field__hint--warn` (0,1,0) from `ui.css`. Declare `.field__hint--warn` *after* the local hint rule in

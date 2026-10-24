@@ -2,7 +2,7 @@
 import { computed, onUnmounted, ref } from 'vue'
 import { useI18n } from '~/i18n'
 import { Field } from '@ark-ui/vue/field'
-import { Tabs } from '@ark-ui/vue/tabs'
+import { SegmentGroup } from '@ark-ui/vue/segment-group'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
@@ -32,16 +32,36 @@ const emit = defineEmits<{
   avatarFile: [event: Event]
 }>()
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 
 // Two ways to add an account: type the server details by hand, or finish a
-// browser-based OAuth round trip. The tab strip lives in the card header,
-// right of the title (Ark Tabs, same look as the reminders page). Ark's
-// Tabs.Root binds through v-model (modelValue), so `tab` stays a plain string.
-// Adding defaults to the manual form; editing an OAuth account opens on the
-// online-verification tab so a re-auth is one click away (the strip is hidden
-// while editing and the pane follows the account's stored auth type).
+// browser-based OAuth round trip. Adding defaults to the manual form; editing an
+// OAuth account opens on the online-verification pane so a re-auth is one click
+// away (the switcher is hidden while editing and the pane follows the account's
+// stored auth type).
+//
+// The switcher is a SegmentGroup, not Ark Tabs. `Tabs.Content` reads the tab
+// machine out of context, so it only renders *inside* `Tabs.Root` — and here the
+// strip sits in the card header while the panes sit in the card body, with the
+// avatar row and the sync section shared by both. Making Tabs work would mean
+// wrapping the entire card in `Tabs.Root`, i.e. handing the card's own markup to
+// the tab machine for the sake of a two-item switch. A radio group owns only the
+// value, which is all this needs: the panes stay plain `v-if` branches.
 const tab = ref<string>(props.editing && form.value.AuthType === 'oauth2' ? 'oauth' : 'manual')
+
+/**
+ * SegmentGroup can report `null` (its `clearValue`), but "server settings or
+ * online sign-in" has no empty state — keeping the last value means the two panes
+ * can never both be hidden.
+ */
+function onTabChange(value: string | null) {
+  if (value) tab.value = value
+}
+
+const addModes = computed(() => [
+  { value: 'manual', label: t.value['settings.accounts.tab.manual'] },
+  { value: 'oauth', label: t.value['settings.accounts.tab.oauth'] },
+])
 
 const isOAuth = computed(() => form.value.AuthType === 'oauth2')
 const isGmailManual = computed(() => tab.value === 'manual' && form.value.Provider === 'gmail')
@@ -71,6 +91,32 @@ const oauthState = ref('')
 const oauthWaiting = ref(false)
 const oauthError = ref('')
 const oauthResult = ref<OAuthPollResult | null>(null)
+
+type StatusKind = 'info' | 'ok' | 'err'
+
+const STATUS_ICON: Record<StatusKind, string> = {
+  info: 'i-ri:information-line',
+  ok: 'i-ri:checkbox-circle-line',
+  err: 'i-ri:error-warning-line',
+}
+
+/**
+ * The single line under the "authorise" button. OAuth is a sequence of run-time
+ * events, so it reads as one status line whose colour carries the outcome —
+ * previously three independent banners could stack, and a boxed strip for one
+ * sentence shouted louder than the form it sat in.
+ */
+const oauthStatus = computed<{ kind: StatusKind; text: string } | null>(() => {
+  if (oauthError.value) return { kind: 'err', text: oauthError.value }
+  if (oauthWaiting.value) return { kind: 'info', text: t.value['settings.accounts.oauth.waiting'] }
+  if (oauthResult.value) {
+    return {
+      kind: 'ok',
+      text: tf('settings.accounts.oauth.success', { email: oauthResult.value.email ?? '' }),
+    }
+  }
+  return null
+})
 
 const oauthProviderOptions = computed(() => [
   { label: t.value['settings.accounts.oauth.microsoft'], value: 'microsoft' },
@@ -209,19 +255,33 @@ function onEmailInput(email: string) {
       <h2>
         {{ props.editing ? t['settings.accounts.edit'] : t['settings.accounts.add'] }}
       </h2>
-      <!-- Tab strip shares the header row with the title; the indicator rides on
-           the header's own border-bottom (see .head-tabs below). -->
-      <Tabs.Root v-if="!props.editing" v-model="tab" class="head-tabs">
-        <Tabs.List class="head-tabs__list">
-          <Tabs.Trigger class="head-tabs__trigger" value="manual">
-            {{ t['settings.accounts.tab.manual'] }}
-          </Tabs.Trigger>
-          <Tabs.Trigger class="head-tabs__trigger" value="oauth">
-            {{ t['settings.accounts.tab.oauth'] }}
-          </Tabs.Trigger>
-          <Tabs.Indicator class="head-tabs__indicator" />
-        </Tabs.List>
-      </Tabs.Root>
+      <!-- The add-mode switch. It rides on the header's own border-bottom, so the
+           indicator has to be an absolutely positioned bar measured off the
+           selected item — that is what SegmentGroup.Indicator hands us through
+           --left / --width. `orientation` is not optional: zag only writes
+           `left: var(--left)` when the orientation is literally "horizontal"
+           (it has no default), and without it the bar is pinned to `top` and
+           never follows the selected item. The label is for screen readers only:
+           the visible heading names the card, not the choice. -->
+      <SegmentGroup.Root
+        v-if="!props.editing"
+        class="head-tabs"
+        orientation="horizontal"
+        :model-value="tab"
+        @update:model-value="onTabChange"
+      >
+        <SegmentGroup.Label class="vh">{{ t['settings.accounts.tab.group'] }}</SegmentGroup.Label>
+        <SegmentGroup.Indicator class="head-tabs__indicator" />
+        <SegmentGroup.Item
+          v-for="mode in addModes"
+          :key="mode.value"
+          class="head-tabs__item"
+          :value="mode.value"
+        >
+          <SegmentGroup.ItemText>{{ mode.label }}</SegmentGroup.ItemText>
+          <SegmentGroup.ItemHiddenInput />
+        </SegmentGroup.Item>
+      </SegmentGroup.Root>
     </header>
 
     <div class="card__body">
@@ -247,16 +307,6 @@ function onEmailInput(email: string) {
         </div>
       </div>
 
-      <Field.Root v-if="tab === 'manual'" class="frow">
-        <Field.Label class="flabel">{{ t['settings.accounts.name'] }}</Field.Label>
-        <Field.Input
-          class="input"
-          :model-value="form.Name"
-          :placeholder="t['settings.accounts.placeholder_name']"
-          @update:model-value="form.Name = String($event)"
-        />
-      </Field.Root>
-
       <!-- 服务器配置 pane: the classic typed form -->
       <template v-if="tab === 'manual'">
         <Field.Root class="frow">
@@ -266,6 +316,15 @@ function onEmailInput(email: string) {
             :model-value="form.Email"
             :placeholder="t['settings.accounts.placeholder_email']"
             @update:model-value="onEmailInput(String($event))"
+          />
+        </Field.Root>
+        <Field.Root class="frow">
+          <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
+          <Field.Input
+            class="input"
+            :model-value="form.Name"
+            :placeholder="t['settings.accounts.placeholder_name']"
+            @update:model-value="form.Name = String($event)"
           />
         </Field.Root>
         <Field.Root class="frow">
@@ -379,7 +438,7 @@ function onEmailInput(email: string) {
           <UiSelect
             :options="oauthProviderOptions"
             :model-value="oauthProvider"
-            width="230px"
+            width="400px"
             @update:model-value="oauthProvider = $event as OAuthProviderId"
           />
         </Field.Root>
@@ -416,16 +475,23 @@ function onEmailInput(email: string) {
           />
         </div>
 
-        <div v-if="oauthWaiting" class="hint hint--ok">
-          {{ t['settings.accounts.oauth.waiting'] }}
+        <!-- One status slot, not three stacked banners: waiting → success/failure
+             is a single run-time state, and the live region announces the change
+             because the element stays mounted between states. -->
+        <div
+          v-if="oauthStatus"
+          class="status"
+          :class="`status--${oauthStatus.kind}`"
+          :role="oauthStatus.kind === 'err' ? 'alert' : 'status'"
+        >
+          <i :class="STATUS_ICON[oauthStatus.kind]" aria-hidden="true" />
+          <span>{{ oauthStatus.text }}</span>
         </div>
-        <div v-else-if="oauthResult" class="hint hint--ok">
-          {{ t['settings.accounts.oauth.success'].replace('{email}', oauthResult.email ?? '') }}
-        </div>
-        <div v-if="oauthError" class="hint hint--err">{{ oauthError }}</div>
-        <div v-else-if="isOAuth && !oauthResult" class="hint">
+        <!-- A standing fact about the stored auth type, not an event — muted text
+             rather than a status line, and it yields to any live status above. -->
+        <p v-else-if="isOAuth" class="pane-note">
           {{ t['settings.accounts.oauth.is_oauth'] }}
-        </div>
+        </p>
       </template>
 
       <div class="sec">{{ t['settings.accounts.sync'] }}</div>
@@ -448,12 +514,19 @@ function onEmailInput(email: string) {
         </Field.HelperText>
       </Field.Root>
 
+      <!-- Same status line as the OAuth pane: "the test just ran" is an event, but
+           it does not deserve a bordered box around one sentence. -->
       <div
         v-if="props.testResult"
-        class="hint"
-        :class="props.testResult.success ? 'hint--ok' : 'hint--err'"
+        class="status"
+        :class="props.testResult.success ? 'status--ok' : 'status--err'"
+        role="status"
       >
-        {{ props.testResult.message }}
+        <i
+          :class="props.testResult.success ? STATUS_ICON.ok : STATUS_ICON.err"
+          aria-hidden="true"
+        />
+        <span>{{ props.testResult.message }}</span>
       </div>
     </div>
 
@@ -495,52 +568,60 @@ function onEmailInput(email: string) {
   font-size: 14px;
   font-weight: 600;
 }
-/* Tab strip in the header: stretch over the head's vertical padding so the
-   selected-tab indicator lands exactly on the header's border-bottom, like the
-   reminders page's tab strip rides on its own bottom border. display:flex is
-   what makes the list (align-self: stretch) actually fill the stretched box —
-   without it the list kept its text height and sat at the top, pushing the
-   labels far above center. */
+/* The add-mode switch: display:flex + align-self:stretch make the strip fill the
+   header's padding box (the -10px margins cancel the header's vertical padding),
+   so the indicator's -1px offset lands exactly on the header's border-bottom.
+   `position: relative` comes from Ark itself (SegmentGroup.Root sets it inline),
+   which is also what makes the indicator's --left/--width meaningful. */
 .head-tabs {
-  display: flex;
-  align-self: stretch;
-  margin: -10px 0;
-}
-.head-tabs__list {
-  position: relative;
   display: flex;
   align-self: stretch;
   align-items: stretch;
   gap: 2px;
   padding: 0 4px;
+  margin: -10px 0;
 }
-.head-tabs__trigger {
-  position: relative;
-  z-index: 1;
+.head-tabs__item {
+  position: relative; /* contains ItemHiddenInput's absolutely positioned radio */
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border: none;
-  background: transparent;
   color: var(--color-text-3);
   font-size: 13px;
   cursor: pointer;
+  user-select: none;
 }
-.head-tabs__trigger:hover {
+.head-tabs__item:hover {
   color: var(--n-text-color);
 }
-.head-tabs__trigger[data-selected] {
+.head-tabs__item[data-state='checked'] {
   color: var(--n-primary-color);
   font-weight: 600;
 }
+/* Focus lands on the hidden radio, so the ring has to be drawn on the item. */
+.head-tabs__item[data-focus-visible] {
+  outline: 2px solid var(--n-primary-color);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+/* Ark supplies position/left/--left/--width and the slide transition inline; only
+   the underline's thickness and the axis it hangs from belong here. Without
+   `width: var(--width)` the bar is shrink-to-fit and renders zero-width. */
 .head-tabs__indicator {
-  position: absolute;
   bottom: -1px;
+  width: var(--width);
   height: 2px;
   background: var(--n-primary-color);
-  transition:
-    left 0.2s ease,
-    width 0.2s ease;
+}
+/* Screen-reader-only text: the group needs a name, but the visible heading names
+   the card. Absolutely positioned inside .head-tabs, so it cannot push layout. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 .card__body {
   padding: 8px 16px;
@@ -580,22 +661,37 @@ function onEmailInput(email: string) {
   font-size: 13px;
   font-weight: 600;
 }
-/* `.hint` is now only for run-time status (test result, OAuth progress): a
-   bordered strip is right for "something just happened", wrong for a standing
-   note about a field — those are Field.HelperText now. */
-.hint {
-  margin: 10px 0;
-  padding: 8px 12px;
-  color: var(--n-text-color);
-  font-size: 13px;
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
+/* Run-time status lines (OAuth progress, connection test): icon + text, no box.
+   A bordered strip around one sentence read as an app-level alert and shoved the
+   form around; the colour alone carries the outcome. */
+.status {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
 }
-.hint--ok {
-  background: rgba(24, 160, 88, 0.12);
+.status i {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  font-size: 14px;
 }
-.hint--err {
-  background: rgba(208, 48, 80, 0.12);
+.status--info {
+  color: var(--color-text-3);
+}
+.status--ok {
+  color: var(--color-success);
+}
+.status--err {
+  color: var(--color-danger);
+}
+/* A standing note about the account (not an event): muted, no icon. */
+.pane-note {
+  margin: 8px 0;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .sync-row {
   display: flex;

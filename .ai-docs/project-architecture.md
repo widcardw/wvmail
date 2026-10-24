@@ -145,7 +145,7 @@ frontend/
 │   │   ├── html/            # mail-body HTML pipeline (index.ts is the barrel)
 │   │   ├── icons/           # provider/brand/attachment icon helpers
 │   │   └── *.ts             # small pure helpers (badge, connection, formats, date-mentions…)
-│   ├── i18n/                # typed dictionary (index.ts is the source of truth for keys)
+│   ├── i18n/                # typed dictionary + message syntax (see .ai-docs/i18n.md)
 │   ├── router/              # Vue Router: mail, notes, reminder, settings
 │   ├── stores/              # Pinia: accounts, theme, locale, preferences, notes, reminders, connection
 │   ├── styles/              # global.css (tokens) + ui.css (shared recipes: .btn, .icon-btn, .dlg-*)

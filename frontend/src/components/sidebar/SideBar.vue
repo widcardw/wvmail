@@ -13,7 +13,7 @@ import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 import FolderTreeNodeView from './FolderTreeNode.vue'
 import UiBadge from '~/components/ui/UiBadge.vue'
 
-const { t, locale } = useI18n()
+const { t, tf, locale } = useI18n()
 const store = useAccountsStore()
 const router = useRouter()
 
@@ -116,10 +116,7 @@ watch(
 )
 // Rebuild when folder cache changes (folder list loaded/refreshed), updating the hierarchy.
 watch(
-  () =>
-    store.accounts
-      .map((a) => JSON.stringify(store.foldersByAccount[a.ID] ?? null))
-      .join('|'),
+  () => store.accounts.map((a) => JSON.stringify(store.foldersByAccount[a.ID] ?? null)).join('|'),
   () => rebuild(),
 )
 
@@ -252,7 +249,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
                   <UiBadge
                     class="acc-badge"
                     :count="store.accountUnread(account.ID)"
-                    :label="t['sidebar.unread'].replace('{count}', String(store.accountUnread(account.ID)))"
+                    :label="tf('sidebar.unread', { count: store.accountUnread(account.ID) })"
                   />
                 </TreeView.BranchControl>
 
