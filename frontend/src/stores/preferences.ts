@@ -20,6 +20,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const minimizeWhenClose = ref(false)
   /** Highlight date/time mentions in email bodies (and offer to remind on click). */
   const detectDatesInMail = ref(true)
+  /**
+   * Hold suspicious mail behind the "show the body" bar. Default true: the gate
+   * has always been on, and a config written before this option existed must keep
+   * that behaviour (see `defaultConfig` in services/configservice.go).
+   */
+  const blockSuspiciousMail = ref(true)
 
   function loadFromConfig(config: AppConfig) {
     tagDeletePresses.value = config.SearchTagDeletePresses === 1 ? 1 : 2
@@ -27,6 +33,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     allowedRemoteSenders.value = [...(config.RemoteContent?.AllowedSenders ?? [])]
     minimizeWhenClose.value = config.MinimizeWhenClose
     detectDatesInMail.value = config.DetectDatesInMail !== false
+    blockSuspiciousMail.value = config.ScanExternalSafety !== false
   }
 
   async function setTagDeletePresses(value: TagDeletePresses) {
@@ -62,6 +69,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
       await ConfigService.SaveConfigField('allow_remote_content', String(value))
     } catch (error) {
       console.error('Failed to save remote content preference', error)
+    }
+  }
+
+  async function setBlockSuspiciousMail(value: boolean) {
+    blockSuspiciousMail.value = value
+    try {
+      // The YAML key predates this switch's move to Settings → Security; renaming
+      // it would silently drop the choice from every existing config.
+      await ConfigService.SaveConfigField('scan_external_safety', String(value))
+    } catch (error) {
+      console.error('Failed to save suspicious mail preference', error)
     }
   }
 
@@ -105,6 +123,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setMinimizeWhenClose,
     detectDatesInMail,
     setDetectDatesInMail,
+    blockSuspiciousMail,
+    setBlockSuspiciousMail,
     loadFromConfig,
     setTagDeletePresses,
     setAllowRemoteContent,

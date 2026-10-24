@@ -66,6 +66,7 @@ export default defineConfig({
     'i-ri:mail-line',
     'i-ri:translate-2',
     'i-ri:information-line',
+    'i-ri:shield-check-line',
     'i-ri:refresh-line',
     'i-ri:arrow-go-back-line',
     'i-ri:arrow-go-forward-line',

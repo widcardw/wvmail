@@ -6,7 +6,6 @@ import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
-import UiSwitch from '~/components/ui/UiSwitch.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
 const { t } = useI18n()
@@ -19,7 +18,6 @@ const logConfig = ref({
 })
 const logDir = ref('')
 const saving = ref(false)
-const scanExternalSafety = ref(true)
 
 const levelOptions = [
   { label: t.value['settings.about.log.level.debug'], value: 'debug' },
@@ -46,7 +44,6 @@ onMounted(async () => {
   try {
     const cfg = await ConfigService.GetConfig()
     if (cfg.LogConfig) logConfig.value = { ...logConfig.value, ...cfg.LogConfig }
-    if (cfg.ScanExternalSafety !== undefined) scanExternalSafety.value = cfg.ScanExternalSafety
   } catch (e) {
     console.error('Failed to load config', e)
   }
@@ -59,17 +56,17 @@ onMounted(async () => {
 
 function changeLevel(value: string) {
   logConfig.value.Level = value
-  schedule('log')
+  scheduleLog()
 }
 
 function changeRetention(value: string) {
   logConfig.value.RetentionDays = Number(value)
-  schedule('log')
+  scheduleLog()
 }
 
 function changeMax(value: number) {
   logConfig.value.MaxSizeMB = value
-  schedule('log')
+  scheduleLog()
 }
 
 async function saveLog() {
@@ -80,25 +77,9 @@ async function saveLog() {
     fb.error(String(e))
   }
 }
-async function saveSafety() {
-  try {
-    await ConfigService.SaveConfigField(
-      'scan_external_safety',
-      scanExternalSafety.value ? 'true' : 'false',
-    )
-  } catch (e) {
-    fb.error(String(e))
-  }
-}
 const persist = useAutoPersist()
-function schedule(kind: 'log' | 'safety') {
-  const op = kind === 'safety' ? saveSafety : saveLog
-  persist.schedule(kind, () => op())
-}
-
-function onScanSafetyChange(checked: boolean) {
-  scanExternalSafety.value = checked
-  schedule('safety')
+function scheduleLog() {
+  persist.schedule('log', () => saveLog())
 }
 async function handleOpenLogFolder() {
   if (!logDir.value) return
@@ -156,16 +137,6 @@ async function handleOpenLogFolder() {
           {{ t['settings.about.log.open_folder'] }}
         </button>
       </div>
-
-      <div class="divider">{{ t['settings.about.security'] }}</div>
-      <UiSwitch
-        class="row"
-        label-class="row__label"
-        :checked="scanExternalSafety"
-        @update:checked="onScanSafetyChange"
-      >
-        {{ t['settings.about.scan_safety'] }}
-      </UiSwitch>
     </section>
   </div>
 </template>

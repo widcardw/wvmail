@@ -121,6 +121,10 @@ export interface TranslationSchema {
   'reminders.submit': string
   settings: string
   'settings.common': string
+  'settings.security': string
+  'settings.security.spam': string
+  'settings.security.spam_switch': string
+  'settings.security.spam_hint': string
   'settings.remote.title': string
   'settings.remote.allow': string
   'settings.remote.hint': string
@@ -234,8 +238,6 @@ export interface TranslationSchema {
   'settings.about.log.retention.never': string
   'settings.about.log.max_size': string
   'settings.about.log.open_folder': string
-  'settings.about.security': string
-  'settings.about.scan_safety': string
   'settings.llm': string
   'settings.llm.title': string
   'settings.llm.add': string

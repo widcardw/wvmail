@@ -114,6 +114,8 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 
 原先只在 IMAP 路径算，后果是**第一次打开有门禁、第二次就没有了**：正文直接渲染、附件直接列出，只剩「已拦截 N 个远程资源」那条 bar（用户就是这样发现的：SZU 的 Junk 邮件只剩拦截资源提示）。`EmailDetail` 的其它字段都进库了，只有这个派生值没有，属于单点疏漏。
 
+**谁决定要不要拦**：判定（`IsSuspicious`）始终由服务端算，客户端只决定「要不要先折叠」。这个决定是 `Settings → 安全` 的「可疑邮件智能拦截」（配置键 `scan_external_safety`，默认开）：`EmailDetail.vue` 用 `isSpamGated(isSuspicious, intercept, revealed)`（`composables/mail-safety.ts`）算一次 `spamGated`，门禁条 / 正文 / 附件 / 翻译结果 / 两条净化提示条全读它——原先这六处各自重复 `detail.is_suspicious && !suspiciousRevealed`，开关只要漏掉一处就会出现「正文放行了但附件还藏着」。**这个开关此前是死的**：`ScanExternalSafety` 只被写进 YAML、没有任何代码读过，所以门禁实际上是「无条件」的（开关放在 `Settings → 关于` 里，看起来像在工作）。关掉它 = 垃圾邮件直接显示，远程内容开关仍然独立生效。
+
 ### 2.5 已知的获取层缺陷（尚未改）
 
 - **`SearchEmails` 只搜本地缓存**：没有 IMAP `SEARCH` 兜底，未缓存过的邮件搜不到，UI 也没说明这一点。
@@ -271,7 +273,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 删除死文件 `composables/sanitize-html.ts` | frontend | 0 引用 |
 | **默认拦截远程内容**（`src`/`srcSet`/`poster`/`background`/CSS `url()`）并计数 | `html/sanitize.ts` | 跟踪像素原先默认加载 |
 | **CSS 净化**：`@import`/`expression()`/`behavior` 永久剥离；拦截模式下远程 `url()` → `none`；`position:fixed\|sticky` → `static` | `html/sanitize.ts` | 原先 `<style>` 与 `style=` 原样放行：可外连、可覆盖应用 UI |
-| **放行入口**：全局开关 / 按发件人白名单 / 单封邮件 | `stores/preferences.ts`、`EmailDetail.vue`、`views/settings/Common.vue` + Go `RemoteContentConfig` | 拦截必须有出路，否则用户看不了图 |
+| **放行入口**：全局开关 / 按发件人白名单 / 单封邮件 | `stores/preferences.ts`、`EmailDetail.vue`、`views/settings/Security.vue` + Go `RemoteContentConfig` | 拦截必须有出路，否则用户看不了图 |
 | **横幅措辞改为准确描述**，并新增「已拦截 N 个远程资源」横幅与放行按钮 | `EmailDetail.vue` + i18n | 原「已拦截 {count} 个附件/资源」的 count 是「附件数 + 有 HTML ? 1 : 0」，与实际隐藏内容不符 |
 | **提示条从正文上方移到附件折叠栏那条带子上**：`EmailRemoteNotice.vue` 与 `.attach-head` 同几何（8px 16px、13px/600、`border-bottom`），底色用新增 token `--color-warning-bg`，左侧图标用 `--color-warning`；警告/错误 alert 也改为复用 token（原先硬编码 `rgba(240,160,32,.14)`/`#f0a020`） | `components/detail/EmailRemoteNotice.vue`（新）、`EmailDetail.vue`、`styles/global.css` | 顶部不再堆叠一块大警告框；拦截提示与附件同为「可操作条」，位置靠近它所影响的正文 |
 | **附件列表默认折叠** | `EmailDetail.vue`（`attachmentsOpen = ref(false)`，切邮件时也重置为 `false`） | 长附件列表不再默认占满正文上方 |

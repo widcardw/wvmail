@@ -8,6 +8,7 @@ import { usePreferencesStore } from '~/stores/preferences'
 import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import { sanitizeEmailHtml, linkifyPlainText } from '~/composables/html'
+import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
 import { EmailService, OsService } from '#/wvmail/services'
 import EmailShadowBody from './EmailShadowBody.vue'
@@ -36,6 +37,22 @@ const suspiciousRevealed = ref(false)
 const attachmentsOpen = ref(false)
 /** Revealed for this message only; reset whenever another email is opened. */
 const remoteRevealed = ref(false)
+
+/**
+ * Whether this message stays behind the spam gate.
+ *
+ * One definition for the six places that used to repeat
+ * `detail.is_suspicious && !suspiciousRevealed`: the bar, the body, the
+ * attachments and the two sanitiser notices all have to agree, and the Settings
+ * switch (Settings → Security) has to reach all of them or none.
+ */
+const spamGated = computed(() =>
+  isSpamGated(
+    Boolean(detail.value?.is_suspicious),
+    preferences.blockSuspiciousMail,
+    suspiciousRevealed.value,
+  ),
+)
 
 const senderKey = computed(() => (detail.value?.from_addr ?? '').toLowerCase())
 const senderRemoteAllowed = computed(() => preferences.isRemoteSenderAllowed(senderKey.value))
@@ -109,7 +126,7 @@ const {
 } = useMailTranslation({
   detail,
   sanitize: (html) => sanitizeEmailHtml(html, sanitizeOptions()).html,
-  blocked: () => Boolean(detail.value?.is_suspicious) && !suspiciousRevealed.value,
+  blocked: () => spamGated.value,
 })
 
 watch(detail, () => {
@@ -223,10 +240,7 @@ function closeError() {
 }
 
 const showAttachments = computed(
-  () =>
-    detail.value?.attachments &&
-    detail.value.attachments.length > 0 &&
-    (!detail.value.is_suspicious || suspiciousRevealed.value),
+  () => detail.value?.attachments && detail.value.attachments.length > 0 && !spamGated.value,
 )
 </script>
 
@@ -256,18 +270,12 @@ const showAttachments = computed(
         />
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
-        <EmailSecurityNotice
-          v-if="detail.is_suspicious && !suspiciousRevealed"
-          @reveal="suspiciousRevealed = true"
-        />
+        <EmailSecurityNotice v-if="spamGated" @reveal="suspiciousRevealed = true" />
 
-        <EmailCssArtNotice
-          v-if="cssArt > 0 && (!detail.is_suspicious || suspiciousRevealed)"
-          :count="cssArt"
-        />
+        <EmailCssArtNotice v-if="cssArt > 0 && !spamGated" :count="cssArt" />
 
         <EmailRemoteNotice
-          v-if="blockedRemote > 0 && (!detail.is_suspicious || suspiciousRevealed)"
+          v-if="blockedRemote > 0 && !spamGated"
           :count="blockedRemote"
           :can-always-allow="Boolean(senderKey)"
           @reveal="revealRemoteContent()"
@@ -283,7 +291,7 @@ const showAttachments = computed(
 
         <div class="detail-body" @click="handleLinkClick">
           <EmailShadowBody
-            v-if="sanitizedBodyHtml && (!detail.is_suspicious || suspiciousRevealed)"
+            v-if="sanitizedBodyHtml && !spamGated"
             :html="sanitizedBodyHtml"
             :dark="isDarkMode"
           />
@@ -292,7 +300,7 @@ const showAttachments = computed(
         </div>
 
         <EmailTranslatedBody
-          v-if="hasTranslationOutput && (!detail.is_suspicious || suspiciousRevealed)"
+          v-if="hasTranslationOutput && !spamGated"
           :html="translatedHtml"
           :text="translatedText"
           :error="translationError"

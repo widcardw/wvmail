@@ -127,7 +127,37 @@ export const useAccountsStore = defineStore('accounts', () => {
     // account branch is expanded. The backend STATUSes every cached folder over
     // one connection (FolderStatuses); failures are logged there, and the normal
     // triggers (expand, emails-synced) re-fetch later if this fires too early.
-    for (const account of accounts.value) void loadFolderStatuses(account)
+    void sweepStatusesInTurn([...accounts.value])
+  }
+
+  /**
+   * The startup badge sweep, one account at a time.
+   *
+   * Serial on purpose. Each `FolderStatuses` is a real IMAP connection, and the
+   * IDLE watchers are connecting at the same moment; firing four dials in one
+   * tick is what a provider with a low concurrent-connection limit (Gmail, 163)
+   * answers with a refusal — and a refusal is indistinguishable from "the account
+   * is broken", so the sidebar would paint healthy accounts as degraded on every
+   * launch. One dial at a time costs a couple of seconds of missing badges, and
+   * an account whose turn has not come yet simply draws none.
+   *
+   * The queue is shared across calls, so a second `loadAccounts` (add / edit /
+   * reorder) waits its turn instead of racing the sweep in flight; accounts
+   * already swept are then skipped by the 30 s freshness check. A hung server
+   * holds the queue for `dialIMAP`'s 60 s timeout — that is the trade: a slow
+   * badge instead of a false "disconnected". `loadFolderStatuses` swallows its
+   * own failures (it reports them to the badge and the health store), so a dead
+   * server cannot break the loop.
+   */
+  let statusSweep: Promise<void> = Promise.resolve()
+  function sweepStatusesInTurn(list: EmailAccount[]): Promise<void> {
+    const next = statusSweep.then(async () => {
+      for (const account of list) await loadFolderStatuses(account)
+    })
+    // Nothing here rejects today, but a poisoned queue would silently stop
+    // sweeping for the rest of the session — so the chain keeps a clean copy.
+    statusSweep = next.catch(() => {})
+    return next
   }
 
   async function addAccount(account: EmailAccount) {
