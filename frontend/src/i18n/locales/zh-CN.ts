@@ -37,6 +37,8 @@ const zhCN: TranslationSchema = {
   'mail.noSubject': '(无主题)',
   'mail.noContent': '(无内容)',
   'mail.loading': '正在加载邮件...',
+  'mail.recipients.more': '等 {count} 个收件人',
+  'mail.recipients.less': '收起',
   'mail.page': '页码',
   'mail.noEmails': '暂无邮件',
   'mail.noEmailSelected': '没有选中的邮件',

@@ -2,11 +2,13 @@
 import { useI18n } from '~/i18n'
 import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
+import RecipientList from '~/components/detail/RecipientList.vue'
 import type { EmailDetail } from '~/types/email'
 
 // The header of the reading pane: who sent it, when, the subject, the recipients,
 // and the actions that act on the message as a whole (refresh, export, translate).
 // The translate and export buttons receive their state as props rather than owning it.
+// Recipients live in RecipientList: a big-company To/Cc list has to collapse.
 const props = defineProps<{
   detail: EmailDetail
   loading: boolean
@@ -101,14 +103,16 @@ function translationTitle(): string {
     <h2 class="subject">{{ detail.subject || t['mail.noSubject'] }}</h2>
 
     <div class="meta">
-      <div class="mrow">
-        <span class="mlabel">{{ t['search.to'] }}</span>
-        <span>{{ (detail.to || []).join(', ') }}</span>
-      </div>
-      <div v-if="detail.cc && detail.cc.length > 0" class="mrow">
-        <span class="mlabel">Cc:</span>
-        <span>{{ detail.cc.join(', ') }}</span>
-      </div>
+      <RecipientList
+        v-if="(detail.to || []).length"
+        :label="t['search.to']"
+        :addresses="detail.to"
+      />
+      <RecipientList
+        v-if="(detail.cc || []).length"
+        :label="t['search.cc']"
+        :addresses="detail.cc"
+      />
     </div>
   </div>
 </template>
@@ -176,16 +180,5 @@ function translationTitle(): string {
 }
 .meta {
   font-size: 12px;
-  opacity: 0.75;
-}
-.mrow {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-.mlabel {
-  font-weight: 600;
-  min-width: 26px;
-  opacity: 0.6;
 }
 </style>

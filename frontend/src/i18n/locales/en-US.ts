@@ -38,6 +38,8 @@ const enUS: TranslationSchema = {
   'mail.noSubject': '(No Subject)',
   'mail.noContent': '(No Content)',
   'mail.loading': 'Loading emails...',
+  'mail.recipients.more': '{count} more recipient | {count} more recipients',
+  'mail.recipients.less': 'Show less',
   'mail.page': 'Page',
   'mail.noEmails': 'No emails found',
   'mail.noEmailSelected': 'No email selected',

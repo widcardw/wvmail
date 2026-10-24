@@ -158,12 +158,28 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 3. 成功写 `selectedEmailDetail`；失败写 `detailError`（详情保持为空）。
 4. `EmailDetail.vue`：loading 转圈 → 错误横幅 → **垃圾邮件门禁横幅** → 详情占位。
 5. 门禁：`is_suspicious` 时隐藏 **HTML 正文 + 附件列表**，需点「显示全部」。
-6. 头部：`senderDisplay`（name → addr → from → `'Unknown'`）、`formatDate`、主题、to/cc。
+6. 头部：`senderDisplay`（name → addr → from → `'Unknown'`）、`formatDate`、主题、to/cc（`RecipientList.vue`，见 §3.1b）。
 7. 附件区 `EmailAttachments.vue`。
 8. 正文：`body_html` → `sanitizeHtml` → `EmailShadowBody`；否则 `body_text` → `linkifyPlainText` → `EmailShadowBody`；都没有 → `"(No content)"`。
 9. `EmailShadowBody.vue`：暗色时 `adaptHtmlForDarkMode` → `shadowRoot.innerHTML = content`。
 10. 链接点击拦截 → `EmailLinkDialog` → `OsService.OpenURL`。
 11. 可选翻译：`translateHtmlWithLayout`（保留布局）→ 失败则降级为纯文本翻译。
+
+### 3.1b 收件人 / 抄送：超过一行就折叠（`RecipientList.vue`）
+
+企业邮件会带几十上百个地址（邮件列表、工单系统把所有 watcher 都加进 To、reply-all 链条）。原先 `to.join(', ')` 直接铺开，一封这样的邮件能把主题和正文整体顶出屏幕。
+
+**判据是「第一行真的满了」，不是「超过 N 个」**：一个地址可能顶四个短的，同一个列表在窄窗里放得下、宽窗里放不下。所以 `RecipientList.vue` 先在一份**离屏副本**（`.probe`，`visibility:hidden` + `position:absolute; left:-9999px`，仍然是真实布局，否则 `offsetWidth` 为 0）里量出每个地址与分隔符的宽度，再由纯函数 `layoutRecipients(widths, available, chipWidth, separatorWidth)`（`composables/recipients.ts`，有 `tests/recipients.test.mts` 钉住边界）决定第一行能放几个：
+
+- 放得下的地址照常显示，剩下的折成 chip「等 N 个收件人」，点一下展开成全部、chip 变「收起」；
+- **最后一个地址不需要给 chip 留位置**——它放得下就说明全都放得下，此时根本不出现 chip；
+- chip 的宽度按**总数**（最坏情况）预留，避免「chip 多宽 → 藏几个 → chip 多宽」的循环依赖；
+- 单个地址比整行还宽时仍然显示它并靠 `overflow:hidden` 裁掉，而不是渲染一个只剩 chip 的空行；
+- 只认**宽度**变化（`ResizeObserver` 里比对 `clientWidth`）：折叠后行高会变，跟着高度重算会自激。
+
+未测量时（首帧、或面板宽度为 0 的隐藏状态）按「全部显示」渲染，量到宽度后立刻收敛——比先画一行 chip 再跳变好。
+
+**密送显示不了**：IMAP `ENVELOPE` 里没有 Bcc 字段（投递前就被服务器剥掉，这是协议设计）。要显示只能解析原始头 `BODY.PEEK[HEADER]`，且只对自己发的、服务器仍保留该头的副本有意义——目前没做。
 
 ### 3.2 显示层 fallback 清单（按严重度）
 
@@ -301,6 +317,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **列表/搜索/联系人补全改按「时刻」排序**（新增 `services/emailtime.go`，SQL 只保留 `ORDER BY uid DESC`） | `databaseemail.go` `LoadEmails` / `SearchEmails` / `SuggestEmailContacts`，`emailservice.go` `fetchEmailsOn`；测试 `services/emailtime_test.go` | `date` 是带各自时区偏移的字符串，`ORDER BY date DESC` 比的是钟面：青云 21:32(+08:00) 的邮件压在 22:51(Z) 的两条 Jira 通知上面一整天。详见 §2.3b |
 | 日期落库统一转 UTC；`Envelope.Date` 为零值时不再格式化成 `0001-01-01T00:00:00Z` | `emailservice.go` `fetchEmailsOn`、`emailbody.go` `RefreshEmailBody`（并补取 `InternalDate`） | 前者让新行同构；后者是**真 bug**：非空的「公元 1 年」让 `InternalDate` 兜底永不触发 |
 | **`parseCachedContact` 的 cutset 从 raw string 改成解释字符串** | `services/databaseemail.go` | `` `<> \t\r\n` `` 在 raw 字面量里是**字面**的反斜杠+t/r/n，于是 `n`/`r`/`t`/`\` 都在裁剪集合里 —— `noreply@example.com` 被削成 `oreply@example.com`。测试 `TestParseCachedContactKeepsLeadingLetters` |
+| **收件人/抄送超过一行折叠**：「等 N 个收件人」chip 双向切换 | 新 `components/detail/RecipientList.vue` + `composables/recipients.ts`，`EmailHeader.vue` 改用它；i18n `mail.recipients.more` / `.less` | 企业邮件几十个地址原先整段铺开，把主题和正文顶出屏幕。判据是实测第一行能放几个（见 §3.1b），不是固定个数 |
+| 抄送标签从硬编码 `"Cc:"` 改为 i18n `search.cc`；`to`/`cc` 为空时整行不渲染 | `EmailHeader.vue` | 英文界面里 `Cc:` 与中文混排；空行只剩一个孤零零的标签 |
 
 ---
 

@@ -40,6 +40,8 @@ export interface TranslationSchema {
   'mail.noSubject': string
   'mail.noContent': string
   'mail.loading': string
+  'mail.recipients.more': string
+  'mail.recipients.less': string
   'mail.page': string
   'mail.noEmails': string
   'mail.noEmailSelected': string
