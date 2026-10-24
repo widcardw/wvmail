@@ -2,6 +2,30 @@ package services
 
 import "testing"
 
+// A bare address is trimmed of surrounding brackets and whitespace — and only
+// those: the cutset used to be written as a raw string, which put `n`, `r`, `t`
+// and `\` into it and turned "noreply@example.com" into "oreply@example.com".
+func TestParseCachedContactKeepsLeadingLetters(t *testing.T) {
+	tests := []struct {
+		raw     string
+		address string
+		name    string
+	}{
+		{raw: "noreply@example.com", address: "noreply@example.com"},
+		{raw: "notifications@vercel.com", address: "notifications@vercel.com"},
+		{raw: "  <team@example.com>\r\n", address: "team@example.com"},
+		{raw: "Alice <alice@example.com>", address: "alice@example.com", name: "Alice"},
+		{raw: "no at sign", address: ""},
+	}
+
+	for _, tt := range tests {
+		address, name := parseCachedContact(tt.raw)
+		if address != tt.address || name != tt.name {
+			t.Errorf("parseCachedContact(%q) = (%q, %q), want (%q, %q)", tt.raw, address, name, tt.address, tt.name)
+		}
+	}
+}
+
 func TestSearchEmailMatches(t *testing.T) {
 	summary := EmailSummary{
 		Subject:  "Project update",

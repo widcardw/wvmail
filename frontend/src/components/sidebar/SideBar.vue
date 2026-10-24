@@ -216,7 +216,7 @@ function markerIcon(marker: AccountMarker | null): string {
     // A chain cut in two: the connection keeps breaking.
     case 'degraded':
       // return 'i-streamline:interface-link-broken-break-broken-hyperlink-link-remove-unlink'
-      return 'i-streamline:interface-time-midnight-whole-midnight-hour-clock-time'
+      return 'i-mdi:snail'
     // A link struck through: there is no connection at all.
     case 'offline':
       return 'i-streamline:broken-link-2'
@@ -319,7 +319,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
               <TreeView.Branch>
                 <TreeView.BranchControl :class="styles.ctrl">
                   <TreeView.BranchIndicator :class="styles.indicator">
-                    <i class="i-material-symbols:chevron-right" aria-hidden="true" />
+                    <i class="i-mdi:chevron-right" aria-hidden="true" />
                   </TreeView.BranchIndicator>
                   <TreeView.BranchText :class="styles.branchText">
                     <AccountAvatar :account-id="account.ID" :size="18" />

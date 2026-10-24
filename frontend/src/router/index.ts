@@ -6,6 +6,7 @@ import NotesView from '../views/NotesView.vue'
 import SettingsMain from '../views/settings/SettingsMain.vue'
 import SettingsCommon from '../views/settings/Common.vue'
 import SettingsSecurity from '../views/settings/Security.vue'
+import SettingsProxy from '../views/settings/Proxy.vue'
 import SettingsAccount from '../views/settings/Account.vue'
 import SettingsAbout from '../views/settings/About.vue'
 import SettingsLLM from '../views/settings/LLM.vue'
@@ -27,6 +28,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'common', name: 'settings-common', component: SettingsCommon },
       { path: 'accounts', name: 'settings-accounts', component: SettingsAccount },
       { path: 'security', name: 'settings-security', component: SettingsSecurity },
+      { path: 'proxy', name: 'settings-proxy', component: SettingsProxy },
       { path: 'llm', name: 'settings-llm', component: SettingsLLM },
       { path: 'translation', name: 'settings-translation', component: SettingsTranslation },
       { path: 'about', name: 'settings-about', component: SettingsAbout },

@@ -130,6 +130,28 @@ export interface TranslationSchema {
   'settings.remote.hint': string
   'settings.remote.empty': string
   'settings.remote.remove': string
+  'settings.proxy': string
+  'settings.proxy.title': string
+  'settings.proxy.global': string
+  'settings.proxy.address': string
+  'settings.proxy.address_placeholder': string
+  'settings.proxy.test': string
+  'settings.proxy.test_ok': string
+  'settings.proxy.test_fail': string
+  'settings.proxy.hint': string
+  'settings.proxy.save_failed': string
+  'settings.proxy.accounts': string
+  'settings.proxy.accounts_hint': string
+  'settings.proxy.no_accounts': string
+  'settings.proxy.account_failed': string
+  'settings.proxy.account_needs_address': string
+  'settings.proxy.mode_follow': string
+  'settings.proxy.mode_custom': string
+  'settings.proxy.mode_off': string
+  'settings.proxy.route_custom': string
+  'settings.proxy.route_custom_missing': string
+  'settings.proxy.route_global': string
+  'settings.proxy.route_direct': string
   'settings.common.language': string
   'settings.common.theme': string
   'settings.common.primaryColor': string
@@ -185,6 +207,10 @@ export interface TranslationSchema {
   'settings.accounts.sync_minutes': string
   'settings.accounts.sync_disabled': string
   'settings.accounts.sync_hint': string
+  'settings.accounts.proxy': string
+  'settings.accounts.proxy_mode': string
+  'settings.accounts.proxy_address': string
+  'settings.accounts.proxy_hint': string
   'settings.accounts.test': string
   'settings.accounts.test_success': string
   'settings.accounts.test_fail': string

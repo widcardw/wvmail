@@ -11,7 +11,7 @@
  *    the persistent connection is up, so a drop is visible even for an account
  *    the user never expanded.
  *
- * The title-bar probe (`NetworkService.ProbeConnection`) is deliberately *not* a
+ * The title-bar probe (`NetworkService.ProbeAccount`) is deliberately *not* a
  * third source: it measures one host at a time, stops before LOGIN, and is
  * already busy describing the selected account in the title bar. Reusing it per
  * account would mean dialling every server on a timer — with a 60s dial timeout,

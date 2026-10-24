@@ -63,6 +63,9 @@ const emptyForm = (): EmailAccount => ({
   OAuthRefreshToken: '',
   SyncInterval: 0,
   Avatar: '',
+  // Always an object, never undefined: the form's proxy select reads Mode on
+  // every render, and a new account has to start on "follow the global proxy".
+  Proxy: { Mode: '', URL: '' },
 })
 
 const formData = ref<EmailAccount>(emptyForm())
@@ -116,7 +119,10 @@ function openAddForm() {
 
 function openEditForm(account: EmailAccount) {
   editingId.value = account.ID
-  formData.value = { ...account }
+  // Proxy is copied too: it is a struct, so a shallow spread would make the
+  // form write straight into the store's account while the user is still
+  // editing (and a cancelled edit would leave the change behind).
+  formData.value = { ...account, Proxy: { ...account.Proxy } }
   testResult.value = null
   avatarPreview.value = ''
   avatarFileData.value = null
@@ -205,6 +211,12 @@ function validateForm(): string[] {
   }
   if (!form.SMTPHost.trim()) errors.push(t.value['settings.accounts.smtp_host'])
   if (!form.SMTPPort) errors.push(t.value['settings.accounts.smtp_port'])
+  // "Custom proxy" with no address is a setting that cannot work: the dial would
+  // fail with "no address" on every operation. Caught here so the message points
+  // at the field instead of arriving as a connection error later.
+  if (form.Proxy?.Mode === 'custom' && !form.Proxy.URL.trim()) {
+    errors.push(t.value['settings.accounts.proxy_address'])
+  }
   return errors
 }
 

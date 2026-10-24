@@ -27,6 +27,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const blockSuspiciousMail = ref(true)
 
+  /**
+   * The app-wide proxy (Settings → Proxy). Off by default: a config written
+   * before this option existed must keep connecting directly.
+   *
+   * Held here rather than in a store of its own because every other preference
+   * already loads from the same AppConfig and saves through the same field-level
+   * binding — a second store would duplicate both halves of that.
+   */
+  const proxyEnabled = ref(false)
+  const proxyUrl = ref('')
+
   function loadFromConfig(config: AppConfig) {
     tagDeletePresses.value = config.SearchTagDeletePresses === 1 ? 1 : 2
     allowRemoteContent.value = config.RemoteContent?.AllowRemoteContent === true
@@ -34,6 +45,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     minimizeWhenClose.value = config.MinimizeWhenClose
     detectDatesInMail.value = config.DetectDatesInMail !== false
     blockSuspiciousMail.value = config.ScanExternalSafety !== false
+    proxyEnabled.value = config.Proxy?.Enabled === true
+    proxyUrl.value = config.Proxy?.URL ?? ''
   }
 
   async function setTagDeletePresses(value: TagDeletePresses) {
@@ -83,6 +96,28 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
+  /**
+   * Save the global proxy. Both halves travel in one field: they are one
+   * decision, and two separate writes could leave "enabled with no address" on
+   * disk after a crash between them.
+   *
+   * Unlike the other setters this one rethrows — the address is validated on the
+   * Go side, and the settings page has to be able to say so instead of leaving a
+   * switch that looks on but was never written.
+   */
+  async function setProxy(enabled: boolean, url: string) {
+    const previous = { enabled: proxyEnabled.value, url: proxyUrl.value }
+    proxyEnabled.value = enabled
+    proxyUrl.value = url
+    try {
+      await ConfigService.SaveConfigField('proxy', JSON.stringify({ enabled, url }))
+    } catch (error) {
+      proxyEnabled.value = previous.enabled
+      proxyUrl.value = previous.url
+      throw error
+    }
+  }
+
   /** True when this sender's remote content may load without asking again. */
   function isRemoteSenderAllowed(sender: string): boolean {
     const key = normalizeSender(sender)
@@ -125,6 +160,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setDetectDatesInMail,
     blockSuspiciousMail,
     setBlockSuspiciousMail,
+    proxyEnabled,
+    proxyUrl,
+    setProxy,
     loadFromConfig,
     setTagDeletePresses,
     setAllowRemoteContent,

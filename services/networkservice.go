@@ -10,10 +10,11 @@ import (
 	"time"
 )
 
-// NetworkService answers two questions for the connection UI: can the mail server
-// be reached *right now*, and how long does it take to answer (the title-bar
-// meter), and which accounts currently hold a live IMAP IDLE connection (the
-// sidebar's per-account "disconnected" marker).
+// NetworkService answers three questions for the connection UI: can the mail
+// server be reached *right now*, and how long does it take to answer (the
+// title-bar meter); which accounts currently hold a live IMAP IDLE connection
+// (the sidebar's per-account "disconnected" marker); and does a proxy address
+// actually work (Settings → Proxy).
 //
 // It exists because the webview cannot time an IMAP connection by itself, and
 // navigator.onLine only reports whether some interface is up — not whether the
@@ -89,12 +90,70 @@ const (
 	// maxProbeErrorLen keeps a server's full error text from ending up in a
 	// tooltip line.
 	maxProbeErrorLen = 160
+
+	// proxyTestHost/Port is what Settings → Proxy tests a proxy against. A
+	// Google IMAP endpoint is the case a proxy exists for in the first place,
+	// and reaching it proves the tunnel carries IMAP + TLS — not merely that
+	// some TCP port somewhere answered.
+	proxyTestHost = "imap.gmail.com"
+	proxyTestPort = 993
+	// proxyTestTimeout is longer than probeTimeout: the request is one the user
+	// pressed a button for, and a proxy hop adds a round trip to every phase.
+	proxyTestTimeout = 8 * time.Second
 )
 
-// ProbeConnection measures host:port. A failure is reported in the result rather
-// than as a Go error: "unreachable" is a normal outcome the UI renders, not an
-// exceptional one.
-func (s *NetworkService) ProbeConnection(host string, port int, useTLS bool) NetworkProbeResult {
+// ProbeAccount measures the mail server of one account, through whatever route
+// that account uses: direct, its own proxy, or the global one. That is why the
+// input is the account ID rather than host/port — resolving the route is the same
+// decision `dialIMAP` makes, and it must not be made twice, in two languages.
+func (s *NetworkService) ProbeAccount(accountID string) NetworkProbeResult {
+	cfg, err := readConfig()
+	if err != nil {
+		return NetworkProbeResult{LatencyMS: -1, Error: truncateText(err.Error(), maxProbeErrorLen)}
+	}
+	var account *EmailAccount
+	for i := range cfg.EmailAccounts {
+		if cfg.EmailAccounts[i].ID == accountID {
+			account = &cfg.EmailAccounts[i]
+			break
+		}
+	}
+	if account == nil {
+		return NetworkProbeResult{LatencyMS: -1, Error: "account not found"}
+	}
+
+	dialer, err := dialerForAccount(*account, probeTimeout)
+	if err != nil {
+		return NetworkProbeResult{LatencyMS: -1, Error: truncateText(err.Error(), maxProbeErrorLen)}
+	}
+	return probeMailbox(account.IMAPHost, account.IMAPPort, account.UseTLS, dialer, probeTimeout)
+}
+
+// TestProxy answers "does this address actually work?" for Settings → Proxy. The
+// address comes from the form rather than from the config, so one can be tried
+// before it is saved.
+func (s *NetworkService) TestProxy(proxyURL string) NetworkProbeResult {
+	u, err := parseProxyURL(proxyURL)
+	if err != nil {
+		return NetworkProbeResult{LatencyMS: -1, Error: truncateText(err.Error(), maxProbeErrorLen)}
+	}
+	if u == nil {
+		return NetworkProbeResult{LatencyMS: -1, Error: "no proxy address"}
+	}
+	dialer, err := newDialer(u, proxyTestTimeout)
+	if err != nil {
+		return NetworkProbeResult{LatencyMS: -1, Error: truncateText(err.Error(), maxProbeErrorLen)}
+	}
+
+	// Debug, and never the raw address: it can carry credentials.
+	slog.Debug("network: testing proxy", "proxy", u.Redacted())
+	return probeMailbox(proxyTestHost, proxyTestPort, true, dialer, proxyTestTimeout)
+}
+
+// probeMailbox measures host:port over an already-resolved route. A failure is
+// reported in the result rather than as a Go error: "unreachable" is a normal
+// outcome the UI renders, not an exceptional one.
+func probeMailbox(host string, port int, useTLS bool, dialer connDialer, timeout time.Duration) NetworkProbeResult {
 	host = strings.TrimSpace(host)
 	res := NetworkProbeResult{Ok: false, LatencyMS: -1}
 
@@ -107,7 +166,7 @@ func (s *NetworkService) ProbeConnection(host string, port int, useTLS bool) Net
 	for attempt := 1; attempt <= probeAttempts; attempt++ {
 		res.Attempts = attempt
 
-		elapsed, err := probeIMAPReachable(host, port, useTLS, probeTimeout)
+		elapsed, err := probeIMAPReachable(host, port, useTLS, dialer, timeout)
 		if err == nil {
 			res.Ok = true
 			res.LatencyMS = int(elapsed.Milliseconds())
@@ -131,8 +190,9 @@ func (s *NetworkService) ProbeConnection(host string, port int, useTLS bool) Net
 	return res
 }
 
-// probeIMAPReachable connects, completes TLS where the account uses it, and reads
-// the IMAP banner, returning how long the server took to answer.
+// probeIMAPReachable connects through dialer, completes TLS where the account
+// uses it, and reads the IMAP banner, returning how long the server took to
+// answer.
 //
 // This deliberately does *not* go through dialIMAP/imapclient: the probe runs
 // every few seconds and must never outlive its own timeout, while go-imap applies
@@ -147,12 +207,11 @@ func (s *NetworkService) ProbeConnection(host string, port int, useTLS bool) Net
 // The plaintext branch checks TCP + banner and skips STARTTLS on purpose: dialIMAP
 // falls back to a plaintext connection when STARTTLS is refused, so a plaintext
 // account that answers its banner is one the mail path can use.
-func probeIMAPReachable(host string, port int, useTLS bool, timeout time.Duration) (time.Duration, error) {
+func probeIMAPReachable(host string, port int, useTLS bool, dialer connDialer, timeout time.Duration) (time.Duration, error) {
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	deadline := time.Now().Add(timeout)
 	start := time.Now()
 
-	dialer := &net.Dialer{Deadline: deadline, Timeout: timeout}
 	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		return time.Since(start), fmt.Errorf("connect failed: %w", err)

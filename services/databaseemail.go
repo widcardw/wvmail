@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"gorm.io/gorm"
@@ -119,7 +120,7 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 
 	var cached []CachedEmail
 	if err := db.Where("account_id = ? AND folder_name = ?", accountID, folderName).
-		Order("date DESC").
+		Order("uid DESC").
 		Find(&cached).Error; err != nil {
 		return nil, err
 	}
@@ -132,6 +133,10 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 	for _, c := range cached {
 		emails = append(emails, cachedEmailSummary(c))
 	}
+	// SQL can only order by arrival here: `date` is a string carrying each
+	// sender's own offset, so ORDER BY date compares clock faces (see
+	// emailtime.go). The instant comparison happens on the parsed values.
+	sortEmailsNewestFirst(emails)
 	return emails, nil
 }
 
@@ -145,7 +150,7 @@ func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error)
 	}
 
 	var cached []CachedEmail
-	emailsQuery := db.Order("date DESC")
+	emailsQuery := db.Order("uid DESC")
 	if query.AccountID != "" {
 		emailsQuery = emailsQuery.Where("account_id = ?", query.AccountID)
 	}
@@ -183,6 +188,9 @@ func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error)
 			results = append(results, summary)
 		}
 	}
+	// The SQL pass only ordered by arrival; search results are read newest first
+	// like the folder lists, which means comparing instants, not strings.
+	sortEmailsNewestFirst(results)
 	return results, nil
 }
 
@@ -227,7 +235,7 @@ func (m *DBManager) SuggestEmailContacts(field, query, accountID string, limit i
 		} else {
 			query = query.Where(`LOWER("to") LIKE ?`, pattern)
 		}
-		if err := query.Order("date DESC").Find(&rows).Error; err != nil {
+		if err := query.Order("uid DESC").Find(&rows).Error; err != nil {
 			return nil, err
 		}
 		return rows, nil
@@ -244,6 +252,18 @@ func (m *DBManager) SuggestEmailContacts(field, query, accountID string, limit i
 		return nil, err
 	}
 	rows = append(rows, bodyRows...)
+	// The caller keeps the first `limit` suggestions, so "recent senders first"
+	// has to mean recent by the clock, not by the largest date string: the same
+	// offset trap as the folder list (see emailtime.go). Ties keep the arrival
+	// order the queries already applied.
+	sort.SliceStable(rows, func(i, j int) bool {
+		iTime, iOK := parseEmailTime(rows[i].Date)
+		jTime, jOK := parseEmailTime(rows[j].Date)
+		if iOK != jOK {
+			return iOK
+		}
+		return iTime.After(jTime)
+	})
 
 	results := make([]EmailContactSuggestion, 0, limit)
 	seen := make(map[string]struct{}, limit)
@@ -302,7 +322,10 @@ func parseCachedContact(raw string) (address, name string) {
 			address = raw
 		}
 	} else {
-		address = strings.Trim(raw, `<> \t\r\n`)
+		// An interpreted literal, not a raw one: in `<> \t\r\n` the escapes are
+		// two characters each, which put `n`, `r`, `t` and `\` into the cutset and
+		// turned "noreply@…" into "oreply@…".
+		address = strings.Trim(raw, "<> \t\r\n")
 	}
 	if !strings.Contains(address, "@") {
 		return "", ""

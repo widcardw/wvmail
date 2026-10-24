@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -258,6 +259,11 @@ func readConfig() (AppConfig, error) {
 	if cfg.EmailAccounts == nil {
 		cfg.EmailAccounts = []EmailAccount{}
 	}
+	// Dial-time code (IMAP, HTTP) has no ConfigService and must not re-read this
+	// file on every connection, so every read publishes the proxy settings it
+	// just parsed. Reads happen on every config access, which is what keeps the
+	// cached copy from going stale.
+	publishGlobalProxy(cfg.Proxy)
 	return cfg, nil
 }
 
@@ -324,6 +330,11 @@ func writeConfig(cfg AppConfig) error {
 	if err := writeFileAtomic(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
+	// Only after the file is actually in place: a failed write must leave the
+	// cached proxy describing what is still on disk. The read-modify-write
+	// callers above already published the pre-write state, so this is what makes
+	// a settings change take effect on the very next connection.
+	publishGlobalProxy(cfg.Proxy)
 	return nil
 }
 
@@ -365,8 +376,9 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 // time cannot lose each other's update.
 // Supported fields: "language", "theme", "primary_color",
 // "scan_external_safety", "search_tag_delete_presses", "allow_remote_content",
-// "minimize_when_close", "detect_dates_in_mail" and "allowed_remote_senders"
-// (the latter as a JSON array of strings).
+// "minimize_when_close", "detect_dates_in_mail", "proxy" (a JSON
+// {"enabled":bool,"url":string}) and "allowed_remote_senders" (a JSON array of
+// strings).
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	configWriteMu.Lock()
 	languageChanged, err := saveConfigFieldLocked(field, value)
@@ -434,6 +446,19 @@ func saveConfigFieldLocked(field, value string) (bool, error) {
 			return false, fmt.Errorf("invalid boolean value for detect_dates_in_mail: %s", value)
 		}
 		cfg.DetectDatesInMail = b
+	case "proxy":
+		var p ProxyConfig
+		if err := json.Unmarshal([]byte(value), &p); err != nil {
+			return false, fmt.Errorf("invalid JSON for proxy: %w", err)
+		}
+		p.URL = strings.TrimSpace(p.URL)
+		// Validated on save, not on dial: the settings page can then point at the
+		// field the user is still looking at, instead of every mail operation
+		// failing later with a message about a proxy they forgot they set.
+		if _, err := parseProxyURL(p.URL); err != nil {
+			return false, err
+		}
+		cfg.Proxy = p
 	default:
 		return false, fmt.Errorf("unknown config field: %s", field)
 	}

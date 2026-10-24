@@ -1,7 +1,7 @@
 /**
  * Connection quality for the title-bar meter (`ConnectionStatus.vue`).
  *
- * The measurement comes from Go (`NetworkService.ProbeConnection`), which times a
+ * The measurement comes from Go (`NetworkService.ProbeAccount`), which times a
  * connection up to the server's IMAP banner — TCP + TLS + one read, i.e. three or
  * four round trips. Measured on a normal home connection against the three
  * configured servers (imap.qq.com, imap.163.com, imap.exmail.qq.com) the probe

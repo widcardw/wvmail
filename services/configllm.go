@@ -20,7 +20,7 @@ import (
 // it falls back to a basic connectivity check. The request times out after 30
 // seconds.
 func (s *ConfigService) TestLLMConnection(cfg LLMConfig) (bool, string) {
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := newHTTPClient(60 * time.Second)
 	baseURL := strings.TrimRight(cfg.BaseURL, "/")
 	var req *http.Request
 	var err error
@@ -198,7 +198,7 @@ func (s *ConfigService) ListLLMModels(cfg LLMConfig) ([]string, error) {
 	}
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := newHTTPClient(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		if os.IsTimeout(err) || strings.Contains(err.Error(), "timeout") ||

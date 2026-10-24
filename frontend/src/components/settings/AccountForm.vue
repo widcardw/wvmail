@@ -230,6 +230,28 @@ function onAutoSyncToggle(checked: boolean) {
   form.value.SyncInterval = checked ? 5 : 0
 }
 
+// --- proxy ---
+//
+// The stored shape is { Mode, URL }: Mode "" follows the global proxy, "custom"
+// uses URL, "off" never proxies. `Proxy` is always an object on the form (see
+// emptyForm in Account.vue), so these helpers never have to null-check the
+// parent, only the URL.
+const proxyMode = computed(() => form.value.Proxy?.Mode ?? '')
+
+const proxyModeOptions = computed(() => [
+  { label: t.value['settings.proxy.mode_follow'], value: '' },
+  { label: t.value['settings.proxy.mode_custom'], value: 'custom' },
+  { label: t.value['settings.proxy.mode_off'], value: 'off' },
+])
+
+function setProxyMode(mode: string) {
+  form.value.Proxy = { Mode: mode, URL: mode === 'custom' ? (form.value.Proxy?.URL ?? '') : '' }
+}
+
+function setProxyURL(url: string) {
+  form.value.Proxy = { Mode: 'custom', URL: url }
+}
+
 function onEmailInput(email: string) {
   form.value.Email = email
   if (email && !props.editing) {
@@ -511,6 +533,32 @@ function onEmailInput(email: string) {
         </div>
         <Field.HelperText v-if="form.SyncInterval > 0" class="frow-hint">
           {{ t['settings.accounts.sync_hint'] }}
+        </Field.HelperText>
+      </Field.Root>
+
+      <!-- Proxy: three answers, not two. "No proxy" exists because a mailbox on
+           the local network must be able to opt out of a global proxy, and
+           "follow" must stay distinguishable from it. -->
+      <div class="sec">{{ t['settings.accounts.proxy'] }}</div>
+      <Field.Root class="frow">
+        <Field.Label class="flabel">{{ t['settings.accounts.proxy_mode'] }}</Field.Label>
+        <UiSelect
+          :options="proxyModeOptions"
+          :model-value="proxyMode"
+          width="230px"
+          @update:model-value="setProxyMode"
+        />
+      </Field.Root>
+      <Field.Root v-if="proxyMode === 'custom'" class="frow frow--stacked">
+        <Field.Label class="flabel">{{ t['settings.accounts.proxy_address'] }}</Field.Label>
+        <Field.Input
+          class="input"
+          :model-value="form.Proxy?.URL ?? ''"
+          :placeholder="t['settings.proxy.address_placeholder']"
+          @update:model-value="setProxyURL(String($event))"
+        />
+        <Field.HelperText class="frow-hint">
+          {{ t['settings.accounts.proxy_hint'] }}
         </Field.HelperText>
       </Field.Root>
 

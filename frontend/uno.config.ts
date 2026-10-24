@@ -44,7 +44,6 @@ export default defineConfig({
     'i-ri:notification-2-line',
     'i-ri:pen-nib-line',
     'i-ri:pen-nib-fill',
-    'i-material-symbols:dock-to-left-outline',
     // mail folder categories
     'i-ri:inbox-2-line',
     'i-ri:inbox-2-line',
@@ -67,6 +66,12 @@ export default defineConfig({
     'i-ri:translate-2',
     'i-ri:information-line',
     'i-ri:shield-check-line',
+    // Settings → Proxy: the nav icon is built as `i-${item.icon}`, and the
+    // proxy test's result icons come from a ternary — neither is visible to the
+    // scanner.
+    'i-ri:route-line',
+    'i-ri:checkbox-circle-line',
+    'i-ri:error-warning-line',
     'i-ri:refresh-line',
     'i-ri:arrow-go-back-line',
     'i-ri:arrow-go-forward-line',
@@ -99,6 +104,8 @@ export default defineConfig({
     // SideBar.vue, so the scanner cannot see them.
     'i-streamline:broken-link-2',
     'i-streamline:interface-time-midnight-whole-midnight-hour-clock-time',
+    'i-mdi:snail',
+    'i-mdi:chevron-right',
     'i-streamline:interface-link-broken-break-broken-hyperlink-link-remove-unlink',
   ],
   shortcuts: {

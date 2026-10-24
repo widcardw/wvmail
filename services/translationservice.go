@@ -79,7 +79,7 @@ func (s *TranslationService) TranslateText(text, targetLang, engine string, llmC
 // translateLLM translates text using the given LLM config.
 // It uses provider-specific API formats.
 func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfig) (string, error) {
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := newHTTPClient(60 * time.Second)
 	baseURL := strings.TrimRight(cfg.BaseURL, "/")
 	maxOutputTokens := cfg.MaxOutputTokens
 	if maxOutputTokens <= 0 {
@@ -217,7 +217,7 @@ func (s *TranslationService) translateDeepL(text, targetLang, authKey string) (s
 		return "", fmt.Errorf("DeepL auth key is not configured")
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := newHTTPClient(30 * time.Second)
 
 	values := url.Values{}
 	values.Set("auth_key", authKey)

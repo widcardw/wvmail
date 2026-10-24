@@ -19,7 +19,15 @@ it safe to write.
 `config.yaml` fields (top level): `language`, `theme`, `primary_color`,
 `database_path`, `log_config`, `translation_config`, `scan_external_safety`,
 `search_tag_delete_presses`, `llm_configs`, `email_accounts`, `remote_content`,
-`minimize_when_close`.
+`minimize_when_close`, `detect_dates_in_mail`, `proxy`.
+
+Two of those are optional blocks that are omitted entirely until the user opts in
+(`omitempty` on a zero struct works in yaml.v3, which a test pins):
+
+- `proxy: {enabled, url}` — the app-wide proxy; see `.ai-docs/proxy.md`.
+- `email_accounts[].proxy: {mode, url}` — one account's override of it. An absent
+  block means "follow the global proxy", which is what every account written
+  before this option existed gets.
 
 **Secrets are encrypted, not hidden.** `IMAPPass`/`SMTPPass`, `LLMConfigs[].APIKey`
 and `TranslationConfig.DeepLAuthKey` are AES-256-GCM ciphertexts (base64 with the

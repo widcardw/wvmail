@@ -38,7 +38,7 @@ const hasChildren = computed(() => props.node.children.length > 0)
         @click.stop="emit('toggle', node.fullName)"
       >
         <i
-          class="i-material-symbols:chevron-right"
+          class="i-mdi:chevron-right"
           :class="{ 'folder-toggle--open': isExpanded }"
           aria-hidden="true"
         />

@@ -97,7 +97,7 @@ type OAuthService struct {
 func NewOAuthService() *OAuthService {
 	return &OAuthService{
 		sessions: make(map[string]*oauthSession),
-		client:   &http.Client{Timeout: 30 * time.Second},
+		client:   newHTTPClient(30 * time.Second),
 	}
 }
 
@@ -545,7 +545,7 @@ func oauthAccessToken(account EmailAccount) (string, error) {
 	}
 	oauthTokenCache.Unlock()
 
-	svc := &OAuthService{client: &http.Client{Timeout: 30 * time.Second}}
+	svc := &OAuthService{client: newHTTPClient(30 * time.Second)}
 	refreshForm := url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {account.OAuthRefreshToken},

@@ -106,11 +106,9 @@ func httpServer(t *testing.T) (host string, port int) {
 	return "127.0.0.1", ln.Addr().(*net.TCPAddr).Port
 }
 
-func TestProbeConnectionUnconfigured(t *testing.T) {
-	svc := &NetworkService{}
-
+func TestProbeMailboxUnconfigured(t *testing.T) {
 	t.Run("empty host", func(t *testing.T) {
-		res := svc.ProbeConnection("", 993, true)
+		res := probeMailbox("", 993, true, &net.Dialer{}, probeTimeout)
 		if res.Ok {
 			t.Fatal("empty host must not report success")
 		}
@@ -126,16 +124,16 @@ func TestProbeConnectionUnconfigured(t *testing.T) {
 	})
 
 	t.Run("port zero", func(t *testing.T) {
-		if res := svc.ProbeConnection("imap.example.com", 0, true); res.Ok || res.LatencyMS != -1 {
+		if res := probeMailbox("imap.example.com", 0, true, &net.Dialer{}, probeTimeout); res.Ok || res.LatencyMS != -1 {
 			t.Errorf("expected an unmeasured failure, got %+v", res)
 		}
 	})
 }
 
-func TestProbeConnectionReachable(t *testing.T) {
+func TestProbeMailboxReachable(t *testing.T) {
 	host, port := fakeIMAPServer(t)
 
-	res := (&NetworkService{}).ProbeConnection(host, port, false)
+	res := probeMailbox(host, port, false, &net.Dialer{}, probeTimeout)
 	if !res.Ok {
 		t.Fatalf("expected the fake server to be reported reachable, got %+v", res)
 	}
@@ -150,7 +148,7 @@ func TestProbeConnectionReachable(t *testing.T) {
 	}
 }
 
-func TestProbeConnectionFailure(t *testing.T) {
+func TestProbeMailboxFailure(t *testing.T) {
 	// Bind and close to get a port nothing is listening on.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -159,7 +157,7 @@ func TestProbeConnectionFailure(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close()
 
-	res := (&NetworkService{}).ProbeConnection("127.0.0.1", port, false)
+	res := probeMailbox("127.0.0.1", port, false, &net.Dialer{}, probeTimeout)
 	if res.Ok {
 		t.Fatalf("a refused connection must not be reported reachable: %+v", res)
 	}
@@ -178,7 +176,7 @@ func TestProbeIMAPReachableBannerTimeout(t *testing.T) {
 	host, port := silentServer(t)
 
 	start := time.Now()
-	elapsed, err := probeIMAPReachable(host, port, false, 250*time.Millisecond)
+	elapsed, err := probeIMAPReachable(host, port, false, &net.Dialer{}, 250*time.Millisecond)
 	if err == nil {
 		t.Fatal("a server that never sends a banner must not be reported reachable")
 	}
@@ -193,7 +191,7 @@ func TestProbeIMAPReachableBannerTimeout(t *testing.T) {
 func TestProbeIMAPReachableRejectsNonIMAP(t *testing.T) {
 	host, port := httpServer(t)
 
-	if _, err := probeIMAPReachable(host, port, false, 2*time.Second); err == nil {
+	if _, err := probeIMAPReachable(host, port, false, &net.Dialer{}, 2*time.Second); err == nil {
 		t.Fatal("a port that answers with HTTP must not read as a mail server")
 	} else if !strings.Contains(err.Error(), "not an IMAP server") {
 		t.Errorf("expected the banner to be rejected, got %v", err)

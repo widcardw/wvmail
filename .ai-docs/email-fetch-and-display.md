@@ -62,15 +62,16 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 ### 2.2 连接阶段：`dialIMAP` 的 fallback 阶梯
 
 1. **加密方式**
-   - `UseTLS || port == 993` → `DialTLS`（隐式 TLS）。
-   - 否则 → 先试 `DialStartTLS`（机会性升级）；**失败则回退 `DialInsecure`（明文）**，并记 `warn`。
+   - `UseTLS || port == 993` → 隐式 TLS（`tls.Client` + `Handshake`）。
+   - 否则 → 先试 STARTTLS（`imapclient.NewStartTLS`，机会性升级）；**失败则重新拨号走明文**（`imapclient.New`），并记 `warn`。
    - 注意：该明文回退只对「用户自己配置为未启用 TLS 的非 993 端口」账号生效，但一旦回退，**密码是明文发送**的。
+   - 这三条不再调用库的 `DialTLS`/`DialStartTLS`/`DialInsecure`：`imapclient.Options.Dialer` 是具体的 `*net.Dialer`，塞不进代理拨号器，所以 `dialIMAPWith` 自己拨 TCP 再调 `imapclient.New`。代价是 TLS 握手改为受 `timeout` 约束（原来只约束 TCP 连接），详见 `.ai-docs/proxy.md`。
 2. **RFC 2971 ID 命令**：`providerNeedsIDCommand` 判断（provider 标签 `163`/`126`/`qq`，**或主机后缀** `qq.com`/`163.com`/`126.com`，覆盖 `imap.exmail.qq.com` 这类 `provider: custom` 的企业邮）。
    - 需要时：`WaitGreeting()` → `ID`。
    - **ID 被拒不再致命**：只记 warn 后继续 LOGIN，让真正的失败由登录阶段报出（原先直接失败，报错是难懂的 `id command failed: BAD`）。
 3. **登录看门狗**：`Login` 放在 goroutine，外面 `select` + `time.After(timeout)`；超时则 `client.Close()` 并返回 `login timed out after ...`。
 4. **登录后补 `CAPABILITY`**（部分服务端如 163 要求），失败即判为连接失败。
-5. **库自带的 30s 响应读超时**（go-imap 在每次读响应前设置）——所以「协议层卡住」通常在 ~30s 结束，而 **60s 只可能来自 TCP+TLS 握手**（`tls.DialWithDialer` 的 dialer 超时覆盖连接+握手整体）。
+5. **库自带的 30s 响应读超时**（go-imap 在每次读响应前设置）——所以「协议层卡住」通常在 ~30s 结束，而 **60s 只可能来自 TCP+TLS 握手**（`dialIMAPWith` 在握手前后各设/清一次 deadline，用调用方的 `timeout`）。
 6. **错误翻译**：`wrapIMAPError` 把 `Unsafe Login`、`authentication failed` 等翻译成带排查提示的中文/英文文案。
 7. **分阶段日志**：`phase=connect|greeting|login|capability` + `elapsed`，失败用 `slog.Error`，成功用 `slog.Debug`。
 
@@ -85,6 +86,22 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 5 | 主题为空 | `"(No Subject)"`（硬编码英文，未走 i18n） |
 | 6 | 发件人为空 | `name <addr>` → `addr` → 空 |
 | 7 | 缓存写入失败 | `slog.Warn`，**不影响返回**（缓存是 best-effort） |
+
+### 2.3b 列表排序：`date` 是字符串，必须解析成时刻再比
+
+`cached_emails.date` 存的是 RFC3339 **带各自时区偏移**的字符串（`2026-10-24T21:32:01+08:00`、`2026-10-24T14:51:46Z`、`2026-10-24T09:03:25-04:00` 混在同一列里）。原先三个查询用 `ORDER BY date DESC`，比的是**钟面**而不是时刻：
+
+> 真实病例：青云（`qingyuntop@126.com`）21:32 发的登录提醒（= 13:32 UTC）排在两条 22:49 / 22:51 本地时间的 Jira 通知（= 14:49 / 14:51 UTC）**上面**，因为 `"21:32" > "14:49"`。它在列表顶端赖了整整一天——直到第二天日期前缀变大才被压下去。这和「有没有别的客户端读过这封信」毫无关系（`\Seen` 只影响加粗，不参与排序）。
+
+改法：`services/emailtime.go` 提供 `parseEmailTime` / `sortEmailsNewestFirst`，**排序一律在 Go 里按解析后的 `time.Time` 比较**；SQL 只负责 `ORDER BY uid DESC` 给出确定的基础顺序（同秒的多封通知按 UID 落序，后到者在上）。三处入口：
+
+| 位置 | 用途 |
+|---|---|
+| `DBManager.LoadEmails` | 文件夹列表（含分页前的全量） |
+| `DBManager.SearchEmails` | 搜索结果（同一个列表组件渲染） |
+| `DBManager.SuggestEmailContacts` | 发件人补全「最近的优先」，`limit` 取前 N 行，顺序错了就补错人 |
+
+同时两处**写入**改成 `UTC().Format(time.RFC3339)`（`fetchEmailsOn` 与 `RefreshEmailBody`），让新行不再携带偏移、整列趋于同构；老行仍带偏移，读侧排序已能正确处理，所以不做数据回填。附带修掉一个真 bug：`Envelope.Date` 为空时原先会被格式化成 `0001-01-01T00:00:00Z`（非空字符串），导致下面第 4 条的 `InternalDate` 兜底**永远不会触发**。
 
 ### 2.4 正文/附件阶段：`RefreshEmailBody` 的兜底
 
@@ -281,6 +298,9 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
 | **打开文件夹即刷新（stale-while-revalidate）**：`selectFolder` 先用缓存画出列表，若这一页来自缓存（`EmailPageResponse.from_cache`）再在后台 `RefreshEmails` 一次，保持当前页、不弹 toast；同一文件夹 20s 内不重复拉、同文件夹同时只有一个请求 | `stores/accounts.ts` `selectFolder` / `revalidateOpenFolder` / `refreshFolder`；`services/emailservice.go` 新增 `FromCache` | 原先点开文件夹只看缓存，新邮件必须手动按刷新按钮。`from_cache` 让「刚从服务器取过的页」不再二次拨号（缓存为空时 `ListEmails` 自己就会走 `RefreshEmails`）。刷新按钮 = 同一函数的 `announce: true` 分支 |
 | **打开文件夹不再无条件刷新**：先用一次 `STATUS`（`MESSAGES`/`UIDNEXT`）比对上次抓取时的值，一致就**什么都不做**（不拨号抓列表、刷新图标不转）；只有真变了才 `RefreshEmails`。没有参照点（该文件夹从未抓过、或服务器不返回 `UIDNEXT`）时退回原来的 20s 时间窗 | `stores/accounts.ts` `revalidateOpenFolder` / `fetchSnapshot` / `loadFolderStatuses`；`services/emailfolders.go` `FolderStatuses`（取代 `FolderUnread`）；`services/databaseemail.go` `FolderMeta`（`CachedFolderMeta.UIDNext` 落库） | 上一版「点开就刷」在什么都没变时也要重下一遍 20 封摘要，并让刷新图标每次都转一下 —— 用户能直接看到这个无意义动作。`UNSEEN` 判不了「有没有新邮件」（常年未读的邮件会让它恒定），`UIDNEXT` 单调递增才是可靠信号。刷新图标同时从全局计数改成按 `account:folder` 判断，后台给别的文件夹做的刷新不再让当前列表的头转圈 |
+| **列表/搜索/联系人补全改按「时刻」排序**（新增 `services/emailtime.go`，SQL 只保留 `ORDER BY uid DESC`） | `databaseemail.go` `LoadEmails` / `SearchEmails` / `SuggestEmailContacts`，`emailservice.go` `fetchEmailsOn`；测试 `services/emailtime_test.go` | `date` 是带各自时区偏移的字符串，`ORDER BY date DESC` 比的是钟面：青云 21:32(+08:00) 的邮件压在 22:51(Z) 的两条 Jira 通知上面一整天。详见 §2.3b |
+| 日期落库统一转 UTC；`Envelope.Date` 为零值时不再格式化成 `0001-01-01T00:00:00Z` | `emailservice.go` `fetchEmailsOn`、`emailbody.go` `RefreshEmailBody`（并补取 `InternalDate`） | 前者让新行同构；后者是**真 bug**：非空的「公元 1 年」让 `InternalDate` 兜底永不触发 |
+| **`parseCachedContact` 的 cutset 从 raw string 改成解释字符串** | `services/databaseemail.go` | `` `<> \t\r\n` `` 在 raw 字面量里是**字面**的反斜杠+t/r/n，于是 `n`/`r`/`t`/`\` 都在裁剪集合里 —— `noreply@example.com` 被削成 `oreply@example.com`。测试 `TestParseCachedContactKeepsLeadingLetters` |
 
 ---
 

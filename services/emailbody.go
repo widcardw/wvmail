@@ -128,6 +128,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		BodyStructure: &imap.FetchItemBodyStructure{},
 		Envelope:      true,
 		Flags:         true,
+		InternalDate:  true,
 		UID:           true,
 	})
 	defer fetchCmd1.Close()
@@ -145,8 +146,14 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	detail := &EmailDetail{
 		UID:     uint32(buf.UID),
 		Subject: decodeMimeHeader(buf.Envelope.Subject),
-		Date:    buf.Envelope.Date.Format(time.RFC3339),
 		Flags:   make([]string, len(buf.Flags)),
+	}
+	// UTC, like the list rows: a missing Date header leaves the field empty for
+	// the InternalDate fallback rather than printing year 1.
+	if !buf.Envelope.Date.IsZero() {
+		detail.Date = buf.Envelope.Date.UTC().Format(time.RFC3339)
+	} else if !buf.InternalDate.IsZero() {
+		detail.Date = buf.InternalDate.UTC().Format(time.RFC3339)
 	}
 
 	// Copy flags from IMAP response

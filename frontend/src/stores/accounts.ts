@@ -10,6 +10,7 @@ import type {
   EmailPageResponse,
 } from '~/types/email'
 import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/services'
+import type { AccountProxy } from '#/wvmail/services'
 import { reportFetchFailure, useFeedbackStore } from '~/stores/feedback'
 import { useSearchStore } from '~/stores/search'
 import { useAccountHealthStore } from '~/stores/accountHealth'
@@ -212,6 +213,29 @@ export const useAccountsStore = defineStore('accounts', () => {
         console.error('Failed to purge the account cache', e)
         feedback.error(i18n.value['settings.accounts.cache_purge_failed'])
       }
+    }
+  }
+
+  /**
+   * Change one account's proxy override from the Proxy settings page.
+   *
+   * The list is patched in place first so the row's summary updates without a
+   * round trip; a failed write puts the old value back, because the page's
+   * select would otherwise show a setting that is not in config.yaml. No
+   * `loadAccounts()` afterwards: nothing else about the account changed, and it
+   * would kick off another STATUS sweep for every account.
+   */
+  async function setAccountProxy(id: string, proxy: AccountProxy) {
+    const account = accounts.value.find((item) => item.ID === id)
+    if (!account) return
+
+    const previous = account.Proxy
+    account.Proxy = proxy
+    try {
+      await ConfigService.UpdateAccount(id, account)
+    } catch (e) {
+      account.Proxy = previous
+      throw e
     }
   }
 
@@ -843,6 +867,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     loadAccounts,
     addAccount,
     removeAccount,
+    setAccountProxy,
     updateAccount,
     moveAccount,
     markAvatarUpdated,

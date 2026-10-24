@@ -40,6 +40,9 @@ type AppConfig struct {
 	// the user turn one into a reminder. Defaults to on (see defaultConfig), hence
 	// no `omitempty` — an explicit "off" has to be written.
 	DetectDatesInMail bool `yaml:"detect_dates_in_mail"`
+	// Proxy is the app-wide proxy (Settings → Proxy). Off by default: a config
+	// written before this option existed must keep connecting directly.
+	Proxy ProxyConfig `yaml:"proxy,omitempty"`
 }
 
 // RemoteContentConfig controls how remote content referenced by email bodies
@@ -118,6 +121,10 @@ type EmailAccount struct {
 	// Sync settings
 	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
 	Avatar       string `yaml:"avatar"`        // Avatar filename (relative to avatar dir)
+	// Proxy overrides the global proxy for this account. The zero value follows
+	// the global setting, which is what every account written before this option
+	// existed gets.
+	Proxy AccountProxy `yaml:"proxy,omitempty"`
 }
 
 // LogValue makes an account readable in the log. Pass the account itself to slog
@@ -271,6 +278,9 @@ func (s *ConfigService) SaveAccounts(accounts []EmailAccount) error {
 
 // AddAccount appends a new email account to the config.
 func (s *ConfigService) AddAccount(account EmailAccount) error {
+	if err := validateAccountProxy(account); err != nil {
+		return err
+	}
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 	cfg, err := readConfig()
@@ -279,6 +289,29 @@ func (s *ConfigService) AddAccount(account EmailAccount) error {
 	}
 	cfg.EmailAccounts = append(cfg.EmailAccounts, account)
 	return writeConfig(cfg)
+}
+
+// validateAccountProxy rejects a mode this build does not know, and a custom
+// address that cannot be parsed.
+//
+// Checked at save time on purpose: a bad address that is only discovered when
+// the next mail operation dials turns into "this account is broken" with no
+// visible cause, and the account form is where the user can still fix it.
+func validateAccountProxy(account EmailAccount) error {
+	switch account.Proxy.Mode {
+	case ProxyModeFollow, ProxyModeOff:
+		return nil
+	case ProxyModeCustom:
+		u, err := parseProxyURL(account.Proxy.URL)
+		if err != nil {
+			return err
+		}
+		if u == nil {
+			return fmt.Errorf("account proxy: no address given")
+		}
+		return nil
+	}
+	return fmt.Errorf("account proxy: unknown mode %q", account.Proxy.Mode)
 }
 
 // RemoveAccount removes an email account by its ID.
@@ -320,6 +353,9 @@ func removeAccountFromConfig(id string) error {
 
 // UpdateAccount updates an existing email account identified by its ID.
 func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
+	if err := validateAccountProxy(account); err != nil {
+		return err
+	}
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 	cfg, err := readConfig()

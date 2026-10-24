@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"net"
 	"strings"
 	"time"
 
@@ -87,11 +86,18 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 func dialIMAPWith(account EmailAccount, timeout time.Duration, handler *imapclient.UnilateralDataHandler) (*imapclient.Client, error) {
 	addr := fmt.Sprintf("%s:%d", account.IMAPHost, account.IMAPPort)
 
-	dialer := &net.Dialer{
-		Timeout: timeout,
+	// The proxy is resolved per dial, not cached on the account: flipping it in
+	// Settings has to affect the next connection, and the account object the
+	// frontend holds is not re-read on every operation.
+	dialer, err := dialerForAccount(account, timeout)
+	if err != nil {
+		slog.Error("imap connect failed (proxy)",
+			"host", addr, "user", account.IMAPUser,
+			"phase", "proxy", "error", err)
+		return nil, fmt.Errorf("proxy: %w", err)
 	}
+
 	opts := &imapclient.Options{
-		Dialer: dialer,
 		TLSConfig: &tls.Config{
 			ServerName: account.IMAPHost,
 		},
@@ -99,26 +105,55 @@ func dialIMAPWith(account EmailAccount, timeout time.Duration, handler *imapclie
 	}
 
 	// Each phase is timed and logged: a stall that ends at ~timeout during
-	// "connect" means the TCP/TLS handshake never completed (net.Dialer.Timeout
-	// bounds tls.DialWithDialer), which is a different fault from a rejected
-	// credential or a failed command.
+	// "connect" means the TCP/TLS handshake never completed, which is a
+	// different fault from a rejected credential or a failed command.
 	connectStart := time.Now()
 
+	// The socket is opened here rather than by imapclient.DialTLS because
+	// Options.Dialer is a concrete *net.Dialer and cannot be handed a proxy
+	// dialer. What follows is what DialTLS / DialStartTLS / DialInsecure do
+	// internally — dial, wrap in TLS where the account uses it, then New.
 	var client *imapclient.Client
 	var dialErr error
 
-	if account.UseTLS || account.IMAPPort == 993 {
-		client, dialErr = imapclient.DialTLS(addr, opts)
+	conn, err := dialer.Dial("tcp", addr)
+	if err != nil {
+		dialErr = err
 	} else {
-		client, dialErr = imapclient.DialStartTLS(addr, opts)
-		if dialErr != nil {
-			// Fallback to insecure plain connection
-			slog.Warn("imap STARTTLS failed, retrying insecurely",
-				"host", addr, "user", account.IMAPUser, "error", dialErr)
-			client, dialErr = imapclient.DialInsecure(addr, &imapclient.Options{
-				Dialer:                dialer,
-				UnilateralDataHandler: handler,
-			})
+		// Bound the handshake with the caller's timeout. The tls.DialWithDialer
+		// path this replaces bounded only the TCP connect, so a server (or a
+		// proxy) that accepted the socket and then stalled could hold the call
+		// well past it.
+		if timeout > 0 {
+			_ = conn.SetDeadline(time.Now().Add(timeout))
+		}
+		if account.UseTLS || account.IMAPPort == 993 {
+			tlsConn := tls.Client(conn, opts.TLSConfig)
+			if handshakeErr := tlsConn.Handshake(); handshakeErr != nil {
+				_ = conn.Close()
+				dialErr = handshakeErr
+			} else {
+				client = imapclient.New(tlsConn, opts)
+			}
+		} else {
+			client, dialErr = imapclient.NewStartTLS(conn, opts)
+			if dialErr != nil {
+				// Fallback to insecure plain connection
+				slog.Warn("imap STARTTLS failed, retrying insecurely",
+					"host", addr, "user", account.IMAPUser, "error", dialErr)
+				plain, plainErr := dialer.Dial("tcp", addr)
+				if plainErr != nil {
+					dialErr = plainErr
+				} else {
+					client = imapclient.New(plain, opts)
+					dialErr = nil
+				}
+			}
+		}
+		if client != nil {
+			// The handshake is over; the client sets its own per-command
+			// deadlines from here on.
+			_ = conn.SetDeadline(time.Time{})
 		}
 	}
 	if dialErr != nil {

@@ -303,7 +303,8 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	}
 	defer fetchCmd.Close()
 
-	// Results come in ascending order; reverse for newest-first
+	// Results come in ascending sequence order (oldest arrival first); the sort
+	// after the loop turns them into newest-first.
 	summaries := make([]EmailSummary, 0, len(buffers))
 	for _, buf := range buffers {
 		summary := EmailSummary{
@@ -312,10 +313,15 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		}
 		if buf.Envelope != nil {
 			summary.Subject = decodeMimeHeader(buf.Envelope.Subject)
-			summary.Date = buf.Envelope.Date.Format(time.RFC3339)
+			// Stored in UTC so the column is homogeneous: an absent Date header
+			// leaves the zero time, which must not be formatted into
+			// "0001-01-01T00:00:00Z" and hide the InternalDate fallback below.
+			if !buf.Envelope.Date.IsZero() {
+				summary.Date = buf.Envelope.Date.UTC().Format(time.RFC3339)
+			}
 		}
 		if summary.Date == "" && !buf.InternalDate.IsZero() {
-			summary.Date = buf.InternalDate.Format(time.RFC3339)
+			summary.Date = buf.InternalDate.UTC().Format(time.RFC3339)
 		}
 		if summary.Subject == "" {
 			summary.Subject = "(No Subject)"
@@ -357,10 +363,10 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		summaries = append(summaries, summary)
 	}
 
-	// Reverse to get newest first
-	for i, j := 0, len(summaries)-1; i < j; i, j = i+1, j-1 {
-		summaries[i], summaries[j] = summaries[j], summaries[i]
-	}
+	// Newest first. The sequence range above selected the newest arrivals, but
+	// arrival order is not date order (a forwarded message keeps its original
+	// Date header), so the page is ordered on the parsed instant.
+	sortEmailsNewestFirst(summaries)
 
 	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
 	// removing older rows, so paging to an earlier page keeps those in the cache.

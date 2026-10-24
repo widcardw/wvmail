@@ -19,7 +19,7 @@ const DEGRADED_INTERVAL_MS = 6_000
 /**
  * Live connection quality for the title-bar meter.
  *
- * The probe itself is Go (`NetworkService.ProbeConnection`, see
+ * The probe itself is Go (`NetworkService.ProbeAccount`, see
  * services/networkservice.go); this store owns *when* to probe, what the last
  * answer means, and which server it described. It measures the active account —
  * the mailbox the user is looking at — and falls back to the first configured one
@@ -68,11 +68,11 @@ export const useConnectionStore = defineStore('connection', () => {
 
     probing.value = true
     try {
-      const res = await NetworkService.ProbeConnection(
-        account.IMAPHost,
-        account.IMAPPort,
-        account.UseTLS,
-      )
+      // The account ID, not host/port: Go resolves the route (direct, this
+      // account's own proxy, or the global one) exactly as `dialIMAP` will. A
+      // probe that measured a different path than the mail itself takes would
+      // read "Off" for a mailbox that works fine through its proxy.
+      const res = await NetworkService.ProbeAccount(account.ID)
       host.value = account.IMAPHost
       attempts.value = res.Attempts
       error.value = res.Error

@@ -11,7 +11,7 @@ It answers "is the mailbox reachable right now, and how fast does it answer?" fo
 ```
 store/connection.ts (polling + state)          components/icon/ConnectionStatus.vue
   start() ──▶ probe()                            ┌─ 3 CSS bars, filled per state
-              └─▶ NetworkService.ProbeConnection │  (green / amber / red / grey)
+              └─▶ NetworkService.ProbeAccount    │  (green / amber / red / grey)
                     (Go, ≤3s per attempt)        └─ Ark Tooltip: status, host · latency,
                     TCP + TLS + IMAP banner          retry note, last-check time, hint
 ```
@@ -68,6 +68,12 @@ second with a 250 ms budget).
 The store probes the **selected** account and falls back to the first configured one.
 Before the first answer the icon is hidden entirely rather than showing a grey
 "offline" nobody verified. If no account is configured at all it never appears.
+
+It passes the account **ID**, not host/port, so Go resolves the route exactly as
+`dialIMAP` will — direct, that account's own proxy, or the global one
+(`.ai-docs/proxy.md`). Measuring a different path than the mail takes would read
+"Off" for a mailbox that works through its proxy, and the sidebar's retry refuses
+to dial while the meter reads Off.
 
 ## Deliberate limits
 

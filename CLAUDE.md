@@ -43,6 +43,7 @@ Additional docs are in `.ai-docs/`:
 - `notes.md` — the notes view: one TipTap editor per note (and why `setContent` makes that necessary), the autosave/flush rules, note HTML → text
 - `config-store.md` — what `config.yaml` holds, secret encryption, atomic + serialized writes, and why it stays a single file
 - `connection-indicator.md` — the title-bar connection meter: what the Go probe measures, its latency thresholds and polling schedule, and why it is not `dialIMAP`
+- `proxy.md` — the global proxy plus per-account overrides: address parsing, why the IMAP socket is dialled by hand, the CONNECT/SOCKS5 dialers, and the cached snapshot dial-time code reads
 
 ## Design Tokens (global.css) + Theming
 
