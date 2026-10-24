@@ -173,6 +173,34 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  /**
+   * Move one account by one slot (-1 up, +1 down) in the order the sidebar and
+   * the settings list render.
+   *
+   * The array is reordered locally first so the list does not jump a round trip
+   * later — a menu that has to be reopened to see the result feels broken — and
+   * the backend only persists the slot. A failed write re-reads the config, which
+   * puts the old order back and is the only honest state to show.
+   */
+  async function moveAccount(id: string, offset: -1 | 1) {
+    const from = accounts.value.findIndex((item) => item.ID === id)
+    const to = from + offset
+    if (from === -1 || to < 0 || to >= accounts.value.length) return
+
+    const next = accounts.value.slice()
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    accounts.value = next
+
+    try {
+      await ConfigService.MoveAccount(id, offset)
+    } catch (e) {
+      console.error('Failed to reorder account', e)
+      await loadAccounts()
+      throw e
+    }
+  }
+
   function markAvatarUpdated(id: string, filename: string) {
     const account = accounts.value.find((item) => item.ID === id)
     if (account) account.Avatar = filename
@@ -753,6 +781,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     addAccount,
     removeAccount,
     updateAccount,
+    moveAccount,
     markAvatarUpdated,
     testConnection,
     loadFolders,

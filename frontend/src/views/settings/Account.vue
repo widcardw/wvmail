@@ -9,8 +9,9 @@ import { ConfigService } from '#/wvmail/services'
 import AccountForm from '~/components/settings/AccountForm.vue'
 import AccountList from '~/components/settings/AccountList.vue'
 import AvatarCropDialog from '~/components/settings/AvatarCropDialog.vue'
+import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const accountsStore = useAccountsStore()
 const fb = useFeedbackStore()
 
@@ -18,10 +19,13 @@ const showingList = ref(true)
 const editingId = ref<string | null>(null)
 const saving = ref(false)
 const testResult = ref<{ success: boolean; message: string } | null>(null)
-const confirmingDeleteId = ref<string | null>(null)
 const testingId = ref<string | null>(null)
 const testSuccessId = ref<string | null>(null)
 const testFailId = ref<string | null>(null)
+/** The account the delete dialog is asking about; null keeps the dialog shut. */
+const deleteTarget = ref<EmailAccount | null>(null)
+/** Latched while RemoveAccount runs, so the dialog cannot be dismissed mid-write. */
+const deleting = ref(false)
 
 const avatarPreview = ref('')
 const avatarFileData = ref<ArrayBuffer | null>(null)
@@ -270,21 +274,51 @@ async function testItem(account: EmailAccount) {
   }
 }
 
-async function deleteAccount(account: EmailAccount) {
-  if (confirmingDeleteId.value !== account.ID) {
-    confirmingDeleteId.value = account.ID
-    setTimeout(() => {
-      if (confirmingDeleteId.value === account.ID) confirmingDeleteId.value = null
-    }, 3000)
-    return
+/** Reorder one account by one slot; the store applies it optimistically. */
+async function moveAccount(account: EmailAccount, offset: -1 | 1) {
+  try {
+    await accountsStore.moveAccount(account.ID, offset)
+  } catch (error) {
+    fb.error(String(error))
   }
+}
 
-  confirmingDeleteId.value = null
+/**
+ * Deleting is destructive and irreversible, so it is asked about in a dialog
+ * rather than by turning the button into a "delete?" label: the old two-click
+ * trick was easy to misread, and it had no way to say *which* account it was
+ * about to drop.
+ */
+function askDelete(account: EmailAccount) {
+  deleteTarget.value = account
+}
+
+const deleteDescription = computed(() => {
+  const account = deleteTarget.value
+  if (!account) return ''
+  return tf('settings.accounts.delete_body', {
+    name: account.Name || account.Email,
+    email: account.Email,
+  })
+})
+
+function onDeleteDialogOpen(open: boolean) {
+  if (!open && !deleting.value) deleteTarget.value = null
+}
+
+async function confirmDelete() {
+  const account = deleteTarget.value
+  if (!account || deleting.value) return
+  deleting.value = true
   try {
     await accountsStore.removeAccount(account.ID)
     fb.success(t.value['settings.accounts.deleted'])
+    deleteTarget.value = null
   } catch (error) {
+    // Leave the dialog up: the account is still there, and the toast says why.
     fb.error(String(error))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -327,11 +361,22 @@ onUnmounted(() => {
       :testing-id="testingId"
       :test-success-id="testSuccessId"
       :test-fail-id="testFailId"
-      :confirming-delete-id="confirmingDeleteId"
       @add="openAddForm"
       @edit="openEditForm"
       @test="testItem"
-      @delete="deleteAccount"
+      @move="moveAccount"
+      @delete="askDelete"
+    />
+
+    <ConfirmDialog
+      :open="deleteTarget !== null"
+      :title="t['settings.accounts.delete_title']"
+      :description="deleteDescription"
+      :confirm-label="t['settings.accounts.delete']"
+      :busy="deleting"
+      danger
+      @update:open="onDeleteDialogOpen"
+      @confirm="confirmDelete"
     />
   </div>
 </template>

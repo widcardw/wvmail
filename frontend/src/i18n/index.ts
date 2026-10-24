@@ -184,6 +184,11 @@ export interface TranslationSchema {
   'settings.accounts.delete': string
   'settings.accounts.deleted': string
   'settings.accounts.delete_confirm': string
+  'settings.accounts.delete_title': string
+  'settings.accounts.delete_body': string
+  'settings.accounts.actions': string
+  'settings.accounts.move_up': string
+  'settings.accounts.move_down': string
   'settings.accounts.empty': string
   'settings.accounts.save': string
   'settings.accounts.cancel': string

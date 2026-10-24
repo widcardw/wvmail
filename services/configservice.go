@@ -297,6 +297,48 @@ func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
 	return fmt.Errorf("account with id %q not found", id)
 }
 
+// MoveAccount moves one email account by `offset` slots in the configured order,
+// which is the order the settings list and the sidebar render in.
+//
+// offset is -1 (up) or +1 (down). A move past either end is a no-op instead of an
+// error, so the caller does not have to re-check the bounds it just rendered.
+// Only the slice order changes: the entries themselves are read decrypted and
+// written back re-encrypted by readConfig/writeConfig like every other mutation.
+func (s *ConfigService) MoveAccount(id string, offset int) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
+	if err != nil {
+		return err
+	}
+	idx := -1
+	for i, a := range cfg.EmailAccounts {
+		if a.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return fmt.Errorf("account with id %q not found", id)
+	}
+	target := idx + offset
+	if offset == 0 || target < 0 || target >= len(cfg.EmailAccounts) {
+		return nil
+	}
+	accounts := cfg.EmailAccounts
+	moved := accounts[idx]
+	// Shift the entries between the old and the new slot over by one, then drop
+	// the moved account into the hole. copy() handles the overlap correctly for
+	// both directions, which a naive swap loop would not.
+	if offset > 0 {
+		copy(accounts[idx:target], accounts[idx+1:target+1])
+	} else {
+		copy(accounts[target+1:idx+1], accounts[target:idx])
+	}
+	accounts[target] = moved
+	return writeConfig(cfg)
+}
+
 // SaveAccountAvatar saves an avatar image for the given account ID.
 // fileData should be the raw bytes of the image. Returns the relative filename stored.
 func (s *ConfigService) SaveAccountAvatar(accountID string, fileData []byte, ext string) (string, error) {
