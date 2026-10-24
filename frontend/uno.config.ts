@@ -31,9 +31,7 @@ export default defineConfig({
       },
     }),
   ],
-  transformers: [
-    transformerDirectives(),
-  ],
+  transformers: [transformerDirectives()],
   // Iconify names that only exist as runtime strings (map-driven icons, attachment
   // types, provider fallbacks, avatars) must still be emitted offline, so list them
   // explicitly. These correspond to `@iconify-json/*` collections added as deps.
@@ -95,6 +93,7 @@ export default defineConfig({
     'i-vscode-icons:file-type-light-yaml',
     'i-vscode-icons:default-file',
     'i-ri:arrow-right-s-line',
+    'i-ri:virus-line',
   ],
   shortcuts: {
     // 'chip' etc. reserved if we need one-token util aliases.

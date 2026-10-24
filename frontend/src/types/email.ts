@@ -255,11 +255,17 @@ const FOLDER_CATEGORIES: Array<{ patterns: string[]; category: FolderCategory }>
       'all mail',
       'allmail',
       '归档',
+      '存档',
       '全部邮件',
+      '所有邮件',
       '[gmail]/all mail',
       '[gmail]/archive',
     ],
     category: { icon: 'ri:archive-2-line', labelCn: '归档', labelEn: 'Archive', rank: 7 },
+  },
+  {
+    patterns: ['virus', '病毒', '病毒邮件', '病毒文件夹'],
+    category: { icon: 'ri:virus-line', labelCn: '病毒邮件', labelEn: 'Virus', rank: 8 },
   },
 ]
 
