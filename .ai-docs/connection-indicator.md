@@ -95,10 +95,19 @@ nothing about which one stopped working.
 The marker **never dials**. It is built from two signals that already exist, so
 showing it costs no connections:
 
+Those signals now arrive in two ways. Real operations emit a structured
+`account-health` event at the moment they already know the outcome (IDLE connect/drop,
+background sync, STATUS sweep); the frontend drains those events through a bounded
+queue, ordered by `Seq`, and the Wails binding also exposes the last 64 events so a
+late-mounted UI can catch up. The 30 s IDLE-state read and the startup STATUS sweep stay
+as periodic corrections and fallbacks. Logs are deliberately not parsed: their wording
+and levels are not a stable interface.
+
 | Signal | Source | Cost |
 |---|---|---|
 | STATUS sweep failed | `loadFolderStatuses` → `EmailService.FolderStatuses` | the sweep the badges already run (one dial per account, throttled 30 s) |
-| IDLE watcher down | `NetworkService.AccountIdleStates` → `EmailIdleService.IdleStates` | none — reads an in-memory map, polled every 30 s |
+| IDLE watcher down | `account-health` events + `NetworkService.AccountIdleStates` | events are free; the in-memory map is polled every 30 s |
+| Background sync | `EmailSyncService.syncAccount` → `account-health` | free — the sync already knows whether it reached the inbox |
 
 | Marker | Icon | Colour | When |
 |---|---|---|---|
@@ -149,11 +158,12 @@ the account's ⋮ menu.
 | Path | Role |
 |---|---|
 | `services/networkservice.go` | probe + retry + error truncation; also exposes `AccountIdleStates`; registered in `main.go` |
-| `services/emailidle.go` | `IdleStates()` — which watchers exist and which are live |
+| `services/accounthealth.go` | shared event reporter: sequence, bounded history, Wails emission |
+| `services/emailidle.go` | `IdleStates()` — which watchers exist and which are live; emits IDLE outcomes |
 | `frontend/src/stores/connection.ts` | polling schedule, target account, state |
-| `frontend/src/stores/accountHealth.ts` | the two per-account signals + the 30 s IDLE poll |
+| `frontend/src/stores/accountHealth.ts` | event subscription/queue, the two per-account signals + the 30 s IDLE poll |
 | `frontend/src/composables/connection.ts` | `classifyConnection`, `connectionBars`, `formatLatency` |
-| `frontend/src/composables/account-health.ts` | per-account thresholds and the combination rule |
+| `frontend/src/composables/account-health.ts` | event reducer, queue policy, thresholds and the combination rule |
 | `frontend/src/components/icon/ConnectionStatus.vue` | the meter (CSS bars, not an icon glyph) + Ark tooltip |
 | `frontend/src/components/sidebar/SideBar.vue` | the marker + its retry |
 | `frontend/tests/connection.test.mts` | threshold boundaries, failure paths, formatting |

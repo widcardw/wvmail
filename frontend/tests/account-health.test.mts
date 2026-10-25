@@ -10,9 +10,12 @@
  * every Wi-Fi roam).
  */
 import {
+  ACCOUNT_HEALTH_EVENT_LIMIT,
   HEALTH_FAILURES_BEFORE_DOWN,
   HEALTH_IDLE_POLLS_BEFORE_SUSPECT,
+  applyAccountHealthEvent,
   combineHealth,
+  enqueueAccountHealthEvents,
   healthFromIdle,
   healthFromStatus,
   markerFromHealth,
@@ -28,6 +31,13 @@ function check(name: string, cond: boolean) {
   } else {
     fail++
     console.log(`  FAIL ${name}`)
+  }
+}
+
+function signals() {
+  return {
+    status: { measured: false, failures: 0 },
+    idle: { present: false, live: false, everLive: false, downPolls: 0 },
   }
 }
 
@@ -97,6 +107,58 @@ check('a healthy account draws nothing', markerFromHealth('ok') === null)
 check('an unmeasured account draws nothing', markerFromHealth(null) === null)
 check('a proven disconnect is the offline marker', markerFromHealth('down') === 'offline')
 check('a suspicion is the degraded marker', markerFromHealth('suspect') === 'degraded')
+
+console.log('structured health events')
+
+const eventSignals = signals()
+applyAccountHealthEvent(eventSignals, { source: 'status', outcome: 'failure' })
+check('a status failure starts one failed sweep', eventSignals.status.failures === 1)
+applyAccountHealthEvent(eventSignals, { source: 'sync', outcome: 'ok' })
+check('a sync success clears the sweep', eventSignals.status.failures === 0)
+
+const idleSignals = signals()
+applyAccountHealthEvent(idleSignals, { source: 'idle', outcome: 'ok' })
+check(
+  'an idle success marks the watcher live',
+  idleSignals.idle.present === true &&
+    idleSignals.idle.live === true &&
+    idleSignals.idle.everLive === true,
+)
+applyAccountHealthEvent(idleSignals, { source: 'idle', outcome: 'failure' })
+check(
+  'an idle failure records one down period without hiding debounce',
+  idleSignals.idle.live === false && idleSignals.idle.downPolls === 1,
+)
+applyAccountHealthEvent(idleSignals, { source: 'idle', outcome: 'ok' })
+check('a later idle success clears down polls', idleSignals.idle.downPolls === 0)
+
+const queued = enqueueAccountHealthEvents(
+  [],
+  [
+    { seq: 1, at: 1, account: 'a', source: 'status', outcome: 'failure' },
+    { seq: 2, at: 2, account: 'a', source: 'status', outcome: 'ok' },
+  ],
+)
+check('the queue keeps events in order', queued.queue.map((e) => e.seq).join(',') === '1,2')
+check('the queue tracks the newest sequence', queued.lastSeq === 2)
+const deduped = enqueueAccountHealthEvents(
+  queued.queue,
+  [{ seq: 2, at: 2, account: 'a', source: 'status', outcome: 'ok' }],
+  queued.lastSeq,
+)
+check('an already-seen sequence is not queued twice', deduped.queue.length === 2)
+
+const flood = Array.from({ length: ACCOUNT_HEALTH_EVENT_LIMIT + 10 }, (_, i) => ({
+  seq: i + 1,
+  at: i,
+  account: 'a',
+  source: 'sync' as const,
+  outcome: 'ok' as const,
+}))
+check(
+  'the queue is bounded',
+  enqueueAccountHealthEvents([], flood).queue.length === ACCOUNT_HEALTH_EVENT_LIMIT,
+)
 
 console.log(`\n${pass} passed, ${fail} failed`)
 if (fail > 0) process.exit(1)

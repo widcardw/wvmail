@@ -67,6 +67,11 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
 
 `emails-synced` 到达后（`stores/accounts.ts`）：节流刷新该账号的未读徽标；若事件账号正好是当前账号，按缓存重读当前页（`ListEmails`，不打网络）。
 
+IDLE 的连接结果也会发结构化 `account-health` 事件（`services/accounthealth.go`）：
+连接进入 live、断开、以及一条健康连接按计划结束时都会报告。前端不解析日志，
+而是按 `Seq` 串行消费事件并更新侧边栏的 `accountHealth`；30s 的
+`AccountIdleStates` 轮询仍是纠偏兜底。
+
 ## 7. 已知限制
 
 1. **只有 INBOX**。其它文件夹靠「打开即刷新」（见 `email-fetch-and-display.md` §4）。给每个文件夹都开 IDLE 意味着每账号 N 条常驻连接，国内服务商不接受。

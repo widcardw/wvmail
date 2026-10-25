@@ -71,6 +71,17 @@ export interface IdleSignal {
   downPolls: number
 }
 
+/** A structured reachability signal emitted by the Go service that ran the work. */
+export interface AccountHealthEvent {
+  seq: number
+  at: number
+  account: string
+  source: 'idle' | 'sync' | 'status'
+  outcome: 'ok' | 'failure' | 'forgot'
+}
+
+export const ACCOUNT_HEALTH_EVENT_LIMIT = 64
+
 /** Health implied by the last STATUS sweep, or null when nothing has measured it. */
 export function healthFromStatus(signal: StatusSignal): AccountHealth | null {
   if (!signal.measured) return null
@@ -141,4 +152,55 @@ export function combineHealth(
   if (idle === 'ok') return 'ok'
   if (status === 'suspect' || idle === 'suspect') return 'suspect'
   return status ?? idle
+}
+
+/**
+ * Apply one event to the raw signals.
+ *
+ * IDLE events do not increment `downPolls` directly: `refreshIdle` remains the
+ * periodic authority, while this event simply records what the watcher observed
+ * at the moment it happened. A failure after the session has been live still
+ * counts as one poll-sized down period, preserving the existing two-observation
+ * debounce before the snail appears.
+ */
+export function applyAccountHealthEvent(
+  signals: { status: StatusSignal; idle: IdleSignal },
+  event: Pick<AccountHealthEvent, 'source' | 'outcome'>,
+) {
+  if (event.outcome === 'forgot') return
+
+  if (event.source === 'idle') {
+    signals.idle.present = true
+    if (event.outcome === 'ok') {
+      signals.idle.live = true
+      signals.idle.everLive = true
+      signals.idle.downPolls = 0
+      return
+    }
+    signals.idle.live = false
+    if (signals.idle.everLive) signals.idle.downPolls = Math.max(signals.idle.downPolls, 1)
+    return
+  }
+
+  if (event.outcome === 'ok') {
+    signals.status.measured = true
+    signals.status.failures = 0
+    return
+  }
+
+  signals.status.measured = true
+  signals.status.failures += 1
+}
+
+/** Drop stale, already-processed events; keep the newest `limit` in order. */
+export function enqueueAccountHealthEvents(
+  queue: AccountHealthEvent[],
+  events: AccountHealthEvent[],
+  lastSeq = 0,
+  limit = ACCOUNT_HEALTH_EVENT_LIMIT,
+): { queue: AccountHealthEvent[]; lastSeq: number } {
+  const fresh = events.filter((event) => event.seq > lastSeq)
+  const merged = [...queue, ...fresh].slice(-limit)
+  const nextSeq = merged.reduce((max, event) => Math.max(max, event.seq), lastSeq)
+  return { queue: merged, lastSeq: nextSeq }
 }

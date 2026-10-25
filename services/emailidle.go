@@ -82,6 +82,7 @@ var errIdleUnsupported = errors.New("server does not support IDLE")
 type EmailIdleService struct {
 	config *ConfigService
 	email  *EmailService
+	health *accountHealthReporter
 
 	mu          sync.Mutex
 	watchers    map[string]*idleWatcher
@@ -115,10 +116,20 @@ func NewEmailIdleService(cfg *ConfigService, email *EmailService) *EmailIdleServ
 	return &EmailIdleService{
 		config:      cfg,
 		email:       email,
+		health:      newAccountHealthReporter(),
 		watchers:    make(map[string]*idleWatcher),
 		unsupported: make(map[string]bool),
 		stopCh:      make(chan struct{}),
 	}
+}
+
+// SetAccountHealthReporter replaces the health reporter. It is wired by main()
+// so the IDLE watcher and the mail services emit through one sequence.
+func (s *EmailIdleService) SetAccountHealthReporter(reporter *accountHealthReporter) {
+	if reporter == nil {
+		reporter = newAccountHealthReporter()
+	}
+	s.health = reporter
 }
 
 // SetMailHandler registers the callback that runs after new mail has been cached.
@@ -305,6 +316,11 @@ func (s *EmailIdleService) watch(w *idleWatcher, account EmailAccount) {
 
 		connected := false
 		err := s.idleOnce(w, account, func() { connected = true })
+		// The watcher only reaches this line when the connection is no longer
+		// usable (or it cannot establish one at all). The existing 30s IDLE poll
+		// still decides when that becomes worth drawing; this event just makes
+		// the transition available immediately.
+		s.health.report(account.ID, AccountHealthSourceIdle, AccountHealthOutcomeFailure)
 		if errors.Is(err, errIdleUnsupported) {
 			slog.Info("idle: falling back to interval polling", "account", account)
 			s.mu.Lock()
@@ -314,6 +330,9 @@ func (s *EmailIdleService) watch(w *idleWatcher, account EmailAccount) {
 		}
 		if err == nil {
 			return // stopped on purpose
+		}
+		if connected {
+			s.health.report(account.ID, AccountHealthSourceIdle, AccountHealthOutcomeOK)
 		}
 		// A successful IDLE start means the server and the network were fine, so
 		// the next drop deserves a fresh, short backoff.
@@ -401,6 +420,7 @@ func (s *EmailIdleService) idleOnce(w *idleWatcher, account EmailAccount, connec
 	total := int64(mbox.NumMessages)
 
 	w.live.Store(true)
+	s.health.report(account.ID, AccountHealthSourceIdle, AccountHealthOutcomeOK)
 	defer w.live.Store(false)
 	connected()
 	slog.Info("idle: watching inbox",

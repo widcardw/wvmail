@@ -333,6 +333,7 @@ func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 			// UI keeps showing stale mail with no hint of why.
 			slog.Error("sync: refreshing inbox failed",
 				"account", acct, "folder", f.Name, "error", err)
+			s.email.health.report(acct.ID, AccountHealthSourceSync, AccountHealthOutcomeFailure)
 			return
 		}
 
@@ -344,6 +345,7 @@ func (s *EmailSyncService) syncAccount(acct EmailAccount) {
 		if app != nil {
 			app.Event.Emit("emails-synced", acct.ID)
 		}
+		s.email.health.report(acct.ID, AccountHealthSourceSync, AccountHealthOutcomeOK)
 		s.refreshUnread(acct, f.Name)
 		return
 	}

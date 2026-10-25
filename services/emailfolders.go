@@ -134,12 +134,14 @@ func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderSt
 	folders, err := s.db.LoadFolders(account.ID)
 	if err != nil || len(folders) == 0 {
 		if folders, err = s.RefreshFolders(account); err != nil {
-			return map[string]FolderStatus{}, nil
+			s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeFailure)
+			return nil, fmt.Errorf("connection failed: %w", err)
 		}
 	}
 
 	client, err := dialIMAP(account, 60*time.Second)
 	if err != nil {
+		s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeFailure)
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}
 	defer client.Logout()
@@ -182,6 +184,7 @@ func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderSt
 		}
 		statuses[job.name] = status
 	}
+	s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeOK)
 	return statuses, nil
 }
 

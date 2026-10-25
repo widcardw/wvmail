@@ -1,14 +1,19 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { NetworkService } from '#/wvmail/services'
+import { Events } from '@wailsio/runtime'
+import { EmailService, NetworkService } from '#/wvmail/services'
 import {
+  ACCOUNT_HEALTH_EVENT_LIMIT,
   HEALTH_FAILURES_BEFORE_DOWN,
+  applyAccountHealthEvent,
+  enqueueAccountHealthEvents,
   combineHealth,
   healthFromIdle,
   healthFromStatus,
   markerFromHealth,
 } from '~/composables/account-health'
 import type {
+  AccountHealthEvent,
   AccountHealth,
   AccountMarker,
   IdleSignal,
@@ -16,6 +21,25 @@ import type {
 } from '~/composables/account-health'
 
 export type { AccountMarker } from '~/composables/account-health'
+
+function normalizeHealthEvent(event: {
+  seq?: unknown
+  at?: unknown
+  account?: unknown
+  source?: unknown
+  outcome?: unknown
+}): AccountHealthEvent {
+  const source = String(event.source ?? '')
+  const outcome = String(event.outcome ?? '')
+  return {
+    seq: Number(event.seq) || 0,
+    at: Number(event.at) || 0,
+    account: String(event.account ?? ''),
+    source: source === 'idle' || source === 'sync' || source === 'status' ? source : 'status',
+    outcome:
+      outcome === 'ok' || outcome === 'failure' || outcome === 'forgot' ? outcome : 'failure',
+  }
+}
 
 /**
  * How often the IDLE states are re-read.
@@ -55,6 +79,10 @@ export const useAccountHealthStore = defineStore('accountHealth', () => {
   const signals = ref<Record<string, Signals>>({})
   /** Accounts with a retry in flight — the row shows a spinner instead of the icon. */
   const checking = ref<Record<string, boolean>>({})
+  const pendingEvents = ref<AccountHealthEvent[]>([])
+  let lastEventSeq = 0
+  let draining = false
+  let unlistenHealthEvents: (() => void) | null = null
 
   /**
    * The published state, derived rather than assigned: every note* call only
@@ -135,6 +163,36 @@ export const useAccountHealthStore = defineStore('accountHealth', () => {
     delete checking.value[accountId]
   }
 
+  function enqueueEvents(events: AccountHealthEvent[]) {
+    const result = enqueueAccountHealthEvents(
+      pendingEvents.value,
+      events,
+      lastEventSeq,
+      ACCOUNT_HEALTH_EVENT_LIMIT,
+    )
+    pendingEvents.value = result.queue
+    lastEventSeq = result.lastSeq
+    void drainEvents()
+  }
+
+  async function drainEvents() {
+    if (draining) return
+    draining = true
+    try {
+      while (pendingEvents.value.length > 0) {
+        const [event, ...rest] = pendingEvents.value
+        pendingEvents.value = rest
+        if (event.outcome === 'forgot') {
+          forget(event.account)
+          continue
+        }
+        applyAccountHealthEvent(ensure(event.account), event)
+      }
+    } finally {
+      draining = false
+    }
+  }
+
   /**
    * Re-read the IDLE watcher states.
    *
@@ -197,6 +255,10 @@ export const useAccountHealthStore = defineStore('accountHealth', () => {
     // poller (the same reason stores/connection.ts has one).
     if (started) return
     started = true
+    unlistenHealthEvents = Events.On('account-health', (event) => {
+      enqueueEvents([normalizeHealthEvent(event.data)])
+    })
+    void catchUpEvents()
     window.addEventListener('focus', onWake)
     document.addEventListener('visibilitychange', onVisibilityChange)
     void refreshIdle()
@@ -211,6 +273,18 @@ export const useAccountHealthStore = defineStore('accountHealth', () => {
     }
     window.removeEventListener('focus', onWake)
     document.removeEventListener('visibilitychange', onVisibilityChange)
+    unlistenHealthEvents?.()
+    unlistenHealthEvents = null
+    pendingEvents.value = []
+  }
+
+  async function catchUpEvents() {
+    try {
+      const events = (await EmailService.AccountHealthEvents()) ?? []
+      enqueueEvents(events.map(normalizeHealthEvent))
+    } catch (e) {
+      console.error('Failed to read account health events', e)
+    }
   }
 
   return {

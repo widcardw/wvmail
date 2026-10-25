@@ -25,20 +25,20 @@ func TestIsSelectableMailbox(t *testing.T) {
 	}
 }
 
-// With no cached folder list there is nothing to ask about, so the call must come back
-// empty without opening a connection (the account below has no host to dial).
+// With no cached folder list the folder refresh is part of the health sweep: its
+// dial failure must reach the caller instead of being flattened into an empty,
+// apparently successful map.
 func TestFolderStatusesWithoutCachedFolders(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	service := &EmailService{db: NewDBManager()}
-	statuses, err := service.FolderStatuses(EmailAccount{ID: "acct"})
-	if err != nil {
-		t.Fatalf("FolderStatuses: %v", err)
+	service := &EmailService{db: NewDBManager(), health: newAccountHealthReporter()}
+	_, err := service.FolderStatuses(EmailAccount{ID: "acct"})
+	if err == nil {
+		t.Fatal("FolderStatuses must report the folder refresh failure")
 	}
-	if statuses == nil {
-		t.Fatal("FolderStatuses must return a map, not nil: the caller indexes into it")
-	}
-	if len(statuses) != 0 {
-		t.Errorf("expected no statuses, got %v", statuses)
+	if events := service.health.events(); len(events) != 1 {
+		t.Fatalf("expected one failure event, got %v", events)
+	} else if events[0].Outcome != AccountHealthOutcomeFailure {
+		t.Fatalf("expected a failure event, got %+v", events[0])
 	}
 }

@@ -38,6 +38,7 @@ func init() {
 	// generator emits a typed JS/TS API for them. Events carrying anything else
 	// (or nothing) are declared by the callers that emit them.
 	application.RegisterEvent[string]("emails-synced")
+	application.RegisterEvent[services.AccountHealthEvent]("account-health")
 	// Emitted by ConfigService when the UI language changes, so the system tray can
 	// rebuild its labels without a restart.
 	application.RegisterEvent[string]("language-changed")
@@ -99,10 +100,13 @@ func main() {
 	}
 
 	emailSvc := services.NewEmailService()
+	accountHealth := services.NewAccountHealthReporter()
+	emailSvc.SetAccountHealthReporter(accountHealth)
 	syncSvc := services.NewEmailSyncService(cfgSvc, emailSvc)
 	// Real-time arrival (IMAP IDLE) for accounts with auto-sync on. It feeds the
 	// same "new mail" path as the interval sync, which stays as the fallback.
 	idleSvc := services.NewEmailIdleService(cfgSvc, emailSvc)
+	idleSvc.SetAccountHealthReporter(accountHealth)
 	idleSvc.SetMailHandler(syncSvc.OnMailArrived)
 	syncSvc.SetIdleWatcher(idleSvc)
 

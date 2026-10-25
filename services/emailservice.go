@@ -20,7 +20,8 @@ import (
 // EmailService provides methods for connecting to IMAP/SMTP email servers
 // and managing email operations.
 type EmailService struct {
-	db *DBManager
+	db     *DBManager
+	health *accountHealthReporter
 
 	// onUnseen, when set, receives the unseen count of every INBOX this service
 	// fetches, so the tray badge follows real mail without a second connection.
@@ -30,8 +31,24 @@ type EmailService struct {
 
 func NewEmailService() *EmailService {
 	return &EmailService{
-		db: NewDBManager(),
+		db:     NewDBManager(),
+		health: newAccountHealthReporter(),
 	}
+}
+
+// SetAccountHealthReporter replaces the health reporter. It is wired by main()
+// so every mail operation emits through the same sequence and snapshot source.
+func (s *EmailService) SetAccountHealthReporter(reporter *accountHealthReporter) {
+	if reporter == nil {
+		reporter = newAccountHealthReporter()
+	}
+	s.health = reporter
+}
+
+// AccountHealthEvents returns the bounded recent health-event history, oldest
+// first. It is exposed on the service because Wails binds methods, not fields.
+func (s *EmailService) AccountHealthEvents() []AccountHealthEvent {
+	return s.health.events()
 }
 
 // SetUnseenListener registers the callback that receives INBOX unseen counts.
