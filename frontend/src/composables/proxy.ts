@@ -1,4 +1,5 @@
 import type { AccountProxy } from '#/wvmail/services'
+import type { TranslationSchema } from '~/i18n'
 
 /**
  * How one account reaches its mail server, as far as the UI is concerned.
@@ -40,4 +41,16 @@ export function resolveProxyRoute(
 
   const address = global.url.trim()
   return global.enabled && address ? { kind: 'global', address } : { kind: 'direct' }
+}
+
+/** The three mode labels, shared by the proxy page and the account form. */
+export function proxyModeLabels(t: TranslationSchema): Array<{
+  label: string
+  value: ProxyMode
+}> {
+  return [
+    { label: t['settings.proxy.mode_follow'], value: '' },
+    { label: t['settings.proxy.mode_custom'], value: 'custom' },
+    { label: t['settings.proxy.mode_off'], value: 'off' },
+  ]
 }

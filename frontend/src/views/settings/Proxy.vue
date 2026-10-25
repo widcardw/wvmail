@@ -4,12 +4,13 @@ import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { usePreferencesStore } from '~/stores/preferences'
 import { useFeedbackStore } from '~/stores/feedback'
-import { proxyModeOf, resolveProxyRoute } from '~/composables/proxy'
+import { proxyModeLabels, proxyModeOf, resolveProxyRoute } from '~/composables/proxy'
 import type { ProxyMode } from '~/composables/proxy'
 import { NetworkService } from '#/wvmail/services'
 import type { EmailAccount } from '~/types/email'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
+import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 
@@ -89,11 +90,7 @@ async function runTest() {
 
 // --- per-account modes ---
 
-const modeOptions = computed(() => [
-  { label: t.value['settings.proxy.mode_follow'], value: '' },
-  { label: t.value['settings.proxy.mode_custom'], value: 'custom' },
-  { label: t.value['settings.proxy.mode_off'], value: 'off' },
-])
+const modeOptions = computed(() => proxyModeLabels(t.value))
 
 function modeOf(account: EmailAccount): string {
   return proxyModeOf(account.Proxy)
@@ -151,14 +148,9 @@ async function setMode(account: EmailAccount, mode: string) {
         <h2>{{ t['settings.proxy.title'] }}</h2>
       </header>
 
-      <UiSwitch
-        class="row switch-row"
-        label-class="row__label"
-        :checked="preferences.proxyEnabled"
-        @update:checked="onToggle"
-      >
-        {{ t['settings.proxy.global'] }}
-      </UiSwitch>
+      <UiFieldRow :label="t['settings.proxy.global']">
+        <UiSwitch :checked="preferences.proxyEnabled" @update:checked="onToggle" />
+      </UiFieldRow>
 
       <div class="row">
         <span class="row__label">{{ t['settings.proxy.address'] }}</span>
@@ -231,14 +223,6 @@ async function setMode(account: EmailAccount, mode: string) {
 </template>
 
 <style scoped>
-.wrap {
-  padding: 16px;
-  max-width: 800px;
-  color: var(--n-text-color);
-}
-.surface--spaced {
-  margin-top: 14px;
-}
 .row {
   display: flex;
   align-items: center;
@@ -255,33 +239,6 @@ async function setMode(account: EmailAccount, mode: string) {
   min-width: 0;
   max-width: 320px;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-}
-.status {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  padding: 0 18px 8px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.status i {
-  flex: 0 0 auto;
-  margin-top: 1px;
-  font-size: 14px;
-}
-.status--ok {
-  color: var(--color-success);
-}
-.status--err {
-  color: var(--color-danger);
-}
-/* Sits under its section, aligned with the label column rather than the control. */
-.hint {
-  margin: 0;
-  padding: 0 18px 14px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-text-3);
 }
 .acc-list {
   margin: 0;

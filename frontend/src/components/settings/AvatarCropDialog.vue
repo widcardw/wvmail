@@ -4,6 +4,7 @@ import { Dialog } from '@ark-ui/vue/dialog'
 import { ImageCropper, useImageCropper } from '@ark-ui/vue/image-cropper'
 import { useI18n } from '~/i18n'
 import BusyButton from '~/components/ui/BusyButton.vue'
+import UiDialog from '~/components/ui/UiDialog.vue'
 import { useFeedbackStore } from '~/stores/feedback'
 
 const props = defineProps<{
@@ -61,85 +62,65 @@ onUnmounted(() => imageCropper.value.reset?.())
 </script>
 
 <template>
-  <Dialog.Root
-    :open="props.open"
-    lazy-mount
-    unmount-on-exit
-    @update:open="emit('update:open', $event)"
-  >
-    <Teleport to="body">
-      <Dialog.Backdrop class="dlg-back" />
-      <Dialog.Positioner class="dlg-pos">
-        <Dialog.Content class="dlg-card dlg-card--flush">
-          <header class="crop-dialog__head">
-            <div>
-              <Dialog.Title class="crop-dialog__title">
-                {{ t['settings.accounts.crop_avatar'] }}
-              </Dialog.Title>
-              <Dialog.Description class="crop-dialog__description">
-                {{ t['settings.accounts.crop_avatar_hint'] }}
-              </Dialog.Description>
-            </div>
-            <Dialog.CloseTrigger
-              type="button"
-              class="crop-dialog__close"
-              :aria-label="t['settings.accounts.close_crop']"
-              @click="close"
-            >
-              <i class="i-ri:close-line" aria-hidden="true" />
-            </Dialog.CloseTrigger>
-          </header>
+  <UiDialog :open="props.open" size="crop" @update:open="emit('update:open', $event)">
+    <header class="crop-dialog__head">
+      <div>
+        <Dialog.Title class="crop-dialog__title">
+          {{ t['settings.accounts.crop_avatar'] }}
+        </Dialog.Title>
+        <Dialog.Description class="crop-dialog__description">
+          {{ t['settings.accounts.crop_avatar_hint'] }}
+        </Dialog.Description>
+      </div>
+      <Dialog.CloseTrigger
+        type="button"
+        class="crop-dialog__close"
+        :aria-label="t['settings.accounts.close_crop']"
+        @click="close"
+      >
+        <i class="i-ri:close-line" aria-hidden="true" />
+      </Dialog.CloseTrigger>
+    </header>
 
-          <ImageCropper.RootProvider :value="imageCropper" class="avatar-cropper">
-            <ImageCropper.Viewport class="avatar-cropper__viewport" :style="cropViewportStyle">
-              <ImageCropper.Image
-                v-if="props.imageSrc"
-                :key="props.imageSrc"
-                class="avatar-cropper__image"
-                :src="props.imageSrc"
-                :alt="t['settings.accounts.crop_image_alt']"
-              />
-              <ImageCropper.Selection class="avatar-cropper__selection">
-                <ImageCropper.Handle
-                  v-for="position in ImageCropper.handles"
-                  :key="position"
-                  class="avatar-cropper__handle"
-                  :position="position"
-                >
-                  <div />
-                </ImageCropper.Handle>
-                <ImageCropper.Grid class="avatar-cropper__grid" axis="horizontal" />
-                <ImageCropper.Grid class="avatar-cropper__grid" axis="vertical" />
-              </ImageCropper.Selection>
-            </ImageCropper.Viewport>
-          </ImageCropper.RootProvider>
+    <ImageCropper.RootProvider :value="imageCropper" class="avatar-cropper">
+      <ImageCropper.Viewport class="avatar-cropper__viewport" :style="cropViewportStyle">
+        <ImageCropper.Image
+          v-if="props.imageSrc"
+          :key="props.imageSrc"
+          class="avatar-cropper__image"
+          :src="props.imageSrc"
+          :alt="t['settings.accounts.crop_image_alt']"
+        />
+        <ImageCropper.Selection class="avatar-cropper__selection">
+          <ImageCropper.Handle
+            v-for="position in ImageCropper.handles"
+            :key="position"
+            class="avatar-cropper__handle"
+            :position="position"
+          >
+            <div />
+          </ImageCropper.Handle>
+          <ImageCropper.Grid class="avatar-cropper__grid" axis="horizontal" />
+          <ImageCropper.Grid class="avatar-cropper__grid" axis="vertical" />
+        </ImageCropper.Selection>
+      </ImageCropper.Viewport>
+    </ImageCropper.RootProvider>
 
-          <footer class="crop-dialog__foot">
-            <button type="button" class="btn" @click="close">
-              {{ t['settings.accounts.cancel'] }}
-            </button>
-            <BusyButton
-              class="btn btn--primary"
-              :label="t['settings.accounts.crop_avatar_done']"
-              :busy="cropSaving"
-              @click="confirm"
-            />
-          </footer>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Teleport>
-  </Dialog.Root>
+    <footer class="crop-dialog__foot">
+      <button type="button" class="btn" @click="close">
+        {{ t['settings.accounts.cancel'] }}
+      </button>
+      <BusyButton
+        class="btn btn--primary"
+        :label="t['settings.accounts.crop_avatar_done']"
+        :busy="cropSaving"
+        @click="confirm"
+      />
+    </footer>
+  </UiDialog>
 </template>
 
 <style scoped>
-.dlg-card {
-  position: relative;
-  width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-  border-radius: var(--radius-md);
-  box-shadow: 0 20px 50px rgb(0 0 0 / 30%);
-}
 .crop-dialog__head {
   display: flex;
   align-items: flex-start;

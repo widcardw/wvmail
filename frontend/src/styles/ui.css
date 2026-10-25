@@ -5,6 +5,17 @@
  */
 
 /* --- Card / surface --- */
+.wrap {
+  max-width: 800px;
+  padding: 16px;
+  color: var(--n-text-color);
+}
+.wrap--narrow {
+  max-width: 720px;
+}
+.surface--spaced {
+  margin-top: 14px;
+}
 .surface {
   background: var(--color-surface);
   border: 1px solid var(--n-border-color);
@@ -438,10 +449,71 @@ button.model-tag:hover {
   font-size: 13px;
   opacity: 0.55;
 }
+.hint {
+  margin: 0;
+  padding: 0 18px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-3);
+}
 .empty-message {
   padding: 30px 18px;
   color: var(--color-text-3);
   font-size: 13px;
+}
+
+/* --- Run-time status line --- */
+.status {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.status i {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  font-size: 14px;
+}
+.status--info {
+  color: var(--color-text-3);
+}
+.status--ok {
+  color: var(--color-success);
+}
+.status--err {
+  color: var(--color-danger);
+}
+
+/* --- Inline alert (reading-pane error) --- */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px;
+  padding: 9px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--n-border-color);
+}
+.alert--err {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+}
+.alert.with-x {
+  align-items: center;
+}
+.alert__close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+}
+.alert__close i {
+  font-size: 15px;
 }
 
 /* --- Inline spinner --- */
@@ -505,6 +577,12 @@ button.model-tag:hover {
 }
 .dlg-card--wide {
   width: min(720px, 100%);
+}
+.dlg-card--crop {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 30%);
 }
 /* For cards that supply their own head/body/foot padding. */
 .dlg-card--flush {

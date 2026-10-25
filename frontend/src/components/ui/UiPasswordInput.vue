@@ -4,25 +4,34 @@ import { computed, useAttrs } from 'vue'
 
 // Thin wrapper around Ark's PasswordInput: one visual definition for every secret
 // field plus the show/hide trigger the plain <input type="password"> never had.
+//
+// Like UiSelect and UiNumberInput, the only sizing API is `width`, and it lands on
+// the visible box (PasswordInput.Control). Passing a `width` prop to Ark's Root
+// does nothing — Root has no such prop, so it just leaks into the DOM as an
+// invalid attribute — which is why this component used to look like it took a
+// width that never applied.
 // It keeps a native-like value/input contract, so call sites still read the same
 // way as `strVal($event)` / `onInput(key, $event)` expect.
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
   defineProps<{ value: string; placeholder?: string; disabled?: boolean; width?: string }>(),
-  { placeholder: '', disabled: false, width: '220px' },
+  { placeholder: '', disabled: false, width: undefined },
 )
 
 const emit = defineEmits<{ input: [event: Event] }>()
 const attrs = useAttrs()
-const rootClass = computed(() => attrs.class as string | undefined)
+const inputAttrs = computed(() => {
+  const { class: _class, ...rest } = attrs
+  return rest
+})
 </script>
 
 <template>
-  <PasswordInput.Root :disabled="props.disabled" :width="width">
-    <PasswordInput.Control class="pw">
+  <PasswordInput.Root :disabled="props.disabled">
+    <PasswordInput.Control class="pw" :style="{ width: props.width }">
       <PasswordInput.Input
-        v-bind="$attrs"
+        v-bind="inputAttrs"
         class="pw__input"
         :value="props.value"
         :placeholder="props.placeholder"

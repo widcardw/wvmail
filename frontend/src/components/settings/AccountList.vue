@@ -83,8 +83,8 @@ function onSelect(account: EmailAccount, value: string | undefined) {
 </script>
 
 <template>
-  <div class="card">
-    <header class="card__head">
+  <section class="surface">
+    <header class="surface__head">
       <h2>{{ t['settings.accounts'] }}</h2>
       <button type="button" class="btn btn--primary btn--sm" @click="emit('add')">
         {{ t['settings.accounts.add'] }}
@@ -191,27 +191,10 @@ function onSelect(account: EmailAccount, value: string | undefined) {
         </div>
       </li>
     </ul>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
-}
-.card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.card__head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
 .empty {
   padding: 30px 18px;
   color: var(--color-text-3);

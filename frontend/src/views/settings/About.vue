@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
+import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
 const { t } = useI18n()
@@ -92,7 +92,7 @@ async function handleOpenLogFolder() {
 </script>
 
 <template>
-  <div class="wrap">
+  <div class="wrap wrap--narrow">
     <section class="surface">
       <header class="surface__head">
         <h2>{{ t['settings.about'] }}</h2>
@@ -105,32 +105,29 @@ async function handleOpenLogFolder() {
 
       <div class="divider">{{ t['settings.about.log.title'] }}</div>
 
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.about.log.level'] }}</Field.Label>
+      <UiFieldRow :label="t['settings.about.log.level']">
         <UiSelect
           :options="levelOptions"
           :model-value="logConfig.Level"
           @update:model-value="changeLevel"
         />
-      </Field.Root>
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.about.log.retention'] }}</Field.Label>
+      </UiFieldRow>
+      <UiFieldRow :label="t['settings.about.log.retention']">
         <UiSelect
           :options="retentionOptions"
           :model-value="retentionValue"
           @update:model-value="changeRetention"
         />
-      </Field.Root>
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.about.log.max_size'] }}</Field.Label>
+      </UiFieldRow>
+      <UiFieldRow :label="t['settings.about.log.max_size']">
         <UiNumberInput
-          class="numsel"
           :value="logConfig.MaxSizeMB"
           :min="1"
           :max="1024"
+          width="220px"
           @value="changeMax($event)"
         />
-      </Field.Root>
+      </UiFieldRow>
 
       <div class="actions">
         <button type="button" class="btn" @click="handleOpenLogFolder">
@@ -142,11 +139,6 @@ async function handleOpenLogFolder() {
 </template>
 
 <style scoped>
-.wrap {
-  padding: 16px;
-  max-width: 720px;
-  color: var(--n-text-color);
-}
 .about-line {
   margin: 0;
   padding: 2px 18px;
@@ -170,21 +162,6 @@ async function handleOpenLogFolder() {
   font-weight: 800;
   color: var(--color-text-1);
   border-top: 1px solid var(--n-border-color);
-}
-.row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 18px;
-}
-.row__label {
-  width: 220px;
-  flex-shrink: 0;
-}
-.numsel {
-  /* Width only: UiNumberInput's `.num` control draws the box. */
-  width: 220px;
-  height: 28px;
 }
 .actions {
   display: flex;

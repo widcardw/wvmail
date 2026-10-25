@@ -5,6 +5,7 @@ import { Field } from '@ark-ui/vue/field'
 import { Tabs } from '@ark-ui/vue/tabs'
 import { useI18n } from '~/i18n'
 import ReminderTimeline from '~/components/reminder/ReminderTimeline.vue'
+import UiDialog from '~/components/ui/UiDialog.vue'
 import { useRemindersStore } from '~/stores/reminders'
 import type { Reminder } from '~/types/reminder'
 import {
@@ -13,6 +14,7 @@ import {
   startOfDay,
   startOfMonth,
   startOfWeek,
+  toLocalInputValue,
 } from '~/composables/reminder-date'
 
 const { t } = useI18n()
@@ -52,16 +54,11 @@ const showAdd = ref(false)
 const newTitle = ref('')
 const newTime = ref('')
 
-function toLocalInput(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
 function openAdd() {
   const next = new Date()
   next.setHours(next.getHours() + 1, 0, 0, 0)
   newTitle.value = ''
-  newTime.value = toLocalInput(next)
+  newTime.value = toLocalInputValue(next)
   showAdd.value = true
 }
 
@@ -120,46 +117,36 @@ async function submitAdd() {
 
     <!-- Ark's render strategy replaces the old `v-if="showAdd"`: the content stays
          unmounted until the first open and is unmounted again on close. -->
-    <Dialog.Root
-      :open="showAdd"
-      lazy-mount
-      unmount-on-exit
-      @open-change="(details: unknown) => (showAdd = !!(details as { open?: boolean })?.open)"
-    >
-      <Dialog.Backdrop class="dlg-back" />
-      <Dialog.Positioner class="dlg-pos">
-        <Dialog.Content class="dlg-card dlg-card--narrow">
-          <h3 class="dlg-title">{{ t['reminders.new'] }}</h3>
-          <Field.Root class="d-field">
-            <Field.Label class="d-label">{{ t['reminders.field.title'] }}</Field.Label>
-            <Field.Input
-              v-model="newTitle"
-              class="input d-input"
-              type="text"
-              :placeholder="t['reminders.placeholder.title']"
-              @keydown.enter="submitAdd"
-            />
-          </Field.Root>
-          <Field.Root class="d-field">
-            <Field.Label class="d-label">{{ t['reminders.field.time'] }}</Field.Label>
-            <Field.Input v-model="newTime" class="input d-input datetime" type="datetime-local" />
-          </Field.Root>
-          <div class="dlg-actions">
-            <button type="button" class="btn" @click="showAdd = false">
-              {{ t['cancel'] }}
-            </button>
-            <button
-              type="button"
-              class="btn btn--primary"
-              :disabled="!newTitle.trim()"
-              @click="submitAdd"
-            >
-              {{ t['reminders.submit'] }}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Dialog.Root>
+    <UiDialog :open="showAdd" size="narrow" @update:open="showAdd = $event">
+      <Dialog.Title class="dlg-title">{{ t['reminders.new'] }}</Dialog.Title>
+      <Field.Root class="d-field">
+        <Field.Label class="d-label">{{ t['reminders.field.title'] }}</Field.Label>
+        <Field.Input
+          v-model="newTitle"
+          class="input d-input"
+          type="text"
+          :placeholder="t['reminders.placeholder.title']"
+          @keydown.enter="submitAdd"
+        />
+      </Field.Root>
+      <Field.Root class="d-field">
+        <Field.Label class="d-label">{{ t['reminders.field.time'] }}</Field.Label>
+        <Field.Input v-model="newTime" class="input d-input datetime" type="datetime-local" />
+      </Field.Root>
+      <div class="dlg-actions">
+        <button type="button" class="btn" @click="showAdd = false">
+          {{ t['cancel'] }}
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          :disabled="!newTitle.trim()"
+          @click="submitAdd"
+        >
+          {{ t['reminders.submit'] }}
+        </button>
+      </div>
+    </UiDialog>
   </div>
 </template>
 

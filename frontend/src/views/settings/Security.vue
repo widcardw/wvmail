@@ -2,6 +2,7 @@
 import { useI18n } from '~/i18n'
 import { usePreferencesStore } from '~/stores/preferences'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
+import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 
 const { t } = useI18n()
 const preferences = usePreferencesStore()
@@ -30,14 +31,9 @@ function onRemoveSender(sender: string) {
         <h2>{{ t['settings.remote.title'] }}</h2>
       </header>
 
-      <UiSwitch
-        class="row remote-row"
-        label-class="row__label"
-        :checked="preferences.allowRemoteContent"
-        @update:checked="onAllowRemoteChange"
-      >
-        {{ t['settings.remote.allow'] }}
-      </UiSwitch>
+      <UiFieldRow :label="t['settings.remote.allow']">
+        <UiSwitch :checked="preferences.allowRemoteContent" @update:checked="onAllowRemoteChange" />
+      </UiFieldRow>
 
       <div class="row row--top">
         <span class="row__label">{{ t['settings.remote.hint'] }}</span>
@@ -69,29 +65,20 @@ function onRemoveSender(sender: string) {
         <h2>{{ t['settings.security.spam'] }}</h2>
       </header>
 
-      <UiSwitch
-        class="row switch-row"
-        label-class="row__label"
-        :checked="preferences.blockSuspiciousMail"
-        @update:checked="onBlockSuspiciousChange"
+      <UiFieldRow
+        :label="t['settings.security.spam_switch']"
+        :hint="t['settings.security.spam_hint']"
       >
-        {{ t['settings.security.spam_switch'] }}
-      </UiSwitch>
-
-      <p class="hint">{{ t['settings.security.spam_hint'] }}</p>
+        <UiSwitch
+          :checked="preferences.blockSuspiciousMail"
+          @update:checked="onBlockSuspiciousChange"
+        />
+      </UiFieldRow>
     </section>
   </div>
 </template>
 
 <style scoped>
-.wrap {
-  padding: 16px;
-  max-width: 800px;
-  color: var(--n-text-color);
-}
-.surface--spaced {
-  margin-top: 14px;
-}
 .row {
   display: flex;
   align-items: center;
@@ -103,21 +90,6 @@ function onRemoveSender(sender: string) {
    (a large blank gap). Use `.row--top` + a flex:1 content column instead. */
 .row--top {
   align-items: flex-start;
-}
-/* Ark Switch: the root is a <label> for the hidden input, so the whole row is
-   clickable. Part visuals live in styles/ui.css. */
-.remote-row,
-.switch-row {
-  cursor: pointer;
-}
-/* Sits under the switch, aligned with its label column rather than the control:
-   it explains the switch, and the switch's own text starts at the label column. */
-.hint {
-  margin: 0;
-  padding: 0 18px 14px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-text-3);
 }
 .senders {
   flex: 1;

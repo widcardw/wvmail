@@ -49,7 +49,10 @@ console.log('search query syntax')
 check('a bare word is a content search', parseSearchInput('发票').field === 'content')
 check('…and keeps its text', parseSearchInput('  发票  ').value === '发票')
 check('from: switches the field', parseSearchInput('from: alice@x.com').field === 'from')
-check('…and drops the space after the colon', parseSearchInput('from: alice@x.com').value === 'alice@x.com')
+check(
+  '…and drops the space after the colon',
+  parseSearchInput('from: alice@x.com').value === 'alice@x.com',
+)
 // Only *leading* space is part of the syntax; `addTag` trims the rest before the
 // value reaches the backend.
 check('trailing space stays in the value', parseSearchInput('from:   x  ').value === 'x  ')
@@ -63,10 +66,7 @@ check('empty input is an empty content search', parseSearchInput('').value === '
 const mine = { field: 'to' as const, value: 'me@x.com', locked: true }
 const theirs = { field: 'from' as const, value: 'alice@x.com' }
 check('no default filter renders just the tags', buildDisplayedTags([theirs], null).length === 1)
-check(
-  'the default filter comes first',
-  buildDisplayedTags([theirs], mine)[0].value === 'me@x.com',
-)
+check('the default filter comes first', buildDisplayedTags([theirs], mine)[0].value === 'me@x.com')
 check('…and is not duplicated', buildDisplayedTags([theirs], mine).length === 2)
 
 check(
@@ -97,13 +97,18 @@ check(
 )
 check(
   'the localised label can be typed too',
-  buildFieldSuggestions('发', LABELS, null).map((s) => s.field).join() === 'from',
+  buildFieldSuggestions('发', LABELS, null)
+    .map((s) => s.field)
+    .join() === 'from',
 )
 check(
   'a field already covered by the locked filter is not offered',
   !buildFieldSuggestions('', LABELS, 'to').some((s) => s.field === 'to'),
 )
-check('once a prefix is written no field is offered', buildFieldSuggestions('from: a', LABELS, null).length === 0)
+check(
+  'once a prefix is written no field is offered',
+  buildFieldSuggestions('from: a', LABELS, null).length === 0,
+)
 check(
   'the suggestion label matches the tag label',
   buildFieldSuggestions('', LABELS, null)[0].label === 'From:',

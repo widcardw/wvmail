@@ -34,8 +34,8 @@ const { t } = useI18n()
     </div>
     <div v-if="error" class="alert alert--err with-x">
       <span>{{ error }}</span>
-      <button type="button" class="x" aria-label="close" @click="emit('dismiss-error')">
-        <i class="i-ri:close-line" />
+      <button type="button" class="alert__close" aria-label="close" @click="emit('dismiss-error')">
+        <i class="i-ri:close-line" aria-hidden="true" />
       </button>
     </div>
   </div>
@@ -59,33 +59,5 @@ const { t } = useI18n()
   letter-spacing: 0.5px;
   opacity: 0.5;
   margin-bottom: 8px;
-}
-.alert {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 12px;
-  padding: 9px 12px;
-  font-size: 13px;
-  border-radius: 6px;
-  border: 1px solid var(--n-border-color);
-}
-.alert--err {
-  background: var(--color-danger-bg);
-  border-color: var(--color-danger);
-}
-.with-x {
-  align-items: center;
-}
-.x {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: inherit;
-  opacity: 0.6;
-}
-.x i {
-  font-size: 15px;
 }
 </style>

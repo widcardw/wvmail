@@ -5,6 +5,7 @@ import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS, LLM_PROVIDER_LABELS } from '~/types/config'
+import { llmModels } from '~/composables/llm-models'
 import AppIcon from '~/components/icon/AppIcon.vue'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import { getProviderIconConfig } from '~/composables/icons/providers'
@@ -231,14 +232,8 @@ function providerLabel(provider: string): string {
   return LLM_PROVIDER_LABELS[provider as LLMProvider] ?? provider
 }
 
-/**
- * Models this config can use. Configs saved before the catalog feature only have
- * the single `Model`, which is shown as the sole entry.
- */
 function modelTags(item: LLMConfig): string[] {
-  const models = item.Models ?? []
-  if (models.length > 0) return models
-  return item.Model ? [item.Model] : []
+  return llmModels(item)
 }
 </script>
 
@@ -354,11 +349,6 @@ function modelTags(item: LLMConfig): string[] {
 </template>
 
 <style scoped>
-.wrap {
-  max-width: 800px;
-  padding: 16px;
-  color: var(--n-text-color);
-}
 .empty {
   padding: 32px 18px;
   color: var(--color-text-3);

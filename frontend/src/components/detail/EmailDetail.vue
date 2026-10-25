@@ -250,8 +250,8 @@ const showAttachments = computed(
       <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
         <span>{{ accountsStore.detailError }}</span>
-        <button type="button" class="x" aria-label="close" @click="closeError()">
-          <i class="i-ri:close-line" />
+        <button type="button" class="alert__close" aria-label="close" @click="closeError()">
+          <i class="i-ri:close-line" aria-hidden="true" />
         </button>
       </div>
 
@@ -378,35 +378,6 @@ const showAttachments = computed(
 .empty {
   color: var(--color-text-3);
   font-size: 13px;
-}
-
-.alert {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 12px;
-  padding: 9px 12px;
-  font-size: 13px;
-  border-radius: 6px;
-  border: 1px solid var(--n-border-color);
-}
-.alert--err {
-  background: var(--color-danger-bg);
-  border-color: var(--color-danger);
-}
-.x {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: inherit;
-  opacity: 0.6;
-}
-.x i {
-  font-size: 15px;
-}
-.with-x {
-  align-items: center;
 }
 
 .detail-body {

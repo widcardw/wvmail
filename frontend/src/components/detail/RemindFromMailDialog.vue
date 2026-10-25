@@ -6,6 +6,8 @@ import { useI18n } from '~/i18n'
 import { useRemindersStore } from '~/stores/reminders'
 import { useFeedbackStore } from '~/stores/feedback'
 import BusyButton from '~/components/ui/BusyButton.vue'
+import UiDialog from '~/components/ui/UiDialog.vue'
+import { toLocalInputValue } from '~/composables/reminder-date'
 
 // Confirmation step for a date/time detected inside an email body. The detector is
 // allowed to be approximate precisely because this dialog exists: the moment can be
@@ -32,13 +34,6 @@ const title = ref('')
 const time = ref('')
 const saving = ref(false)
 
-const pad = (n: number) => String(n).padStart(2, '0')
-
-/** `datetime-local` wants a local, seconds-less value. */
-function toLocalInput(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
 // Re-seed on every open: the next mention belongs to another moment, and often to
 // another email.
 watch(
@@ -46,7 +41,7 @@ watch(
   (open) => {
     if (!open) return
     title.value = props.suggestedTitle.trim()
-    time.value = toLocalInput(new Date(props.at * 1000))
+    time.value = toLocalInputValue(new Date(props.at * 1000))
   },
   { immediate: true },
 )
@@ -83,67 +78,50 @@ async function save() {
 </script>
 
 <template>
-  <Dialog.Root
-    :open="props.open"
-    lazy-mount
-    unmount-on-exit
-    @update:open="emit('update:open', $event)"
-  >
-    <Teleport to="body">
-      <Dialog.Backdrop class="dlg-back" />
-      <Dialog.Positioner class="dlg-pos">
-        <Dialog.Content class="dlg-card dlg-card--flush">
-          <header class="dlg-head">
-            <Dialog.Title class="dlg-title">{{ t['mail.remind.title'] }}</Dialog.Title>
-            <Dialog.CloseTrigger
-              type="button"
-              class="dlg-close"
-              :aria-label="t['cancel']"
-              @click="close"
-            >
-              <i class="i-ri:close-line" aria-hidden="true" />
-            </Dialog.CloseTrigger>
-          </header>
+  <UiDialog :open="props.open" @update:open="emit('update:open', $event)">
+    <header class="dlg-head">
+      <Dialog.Title class="dlg-title">{{ t['mail.remind.title'] }}</Dialog.Title>
+      <Dialog.CloseTrigger type="button" class="dlg-close" :aria-label="t['cancel']" @click="close">
+        <i class="i-ri:close-line" aria-hidden="true" />
+      </Dialog.CloseTrigger>
+    </header>
 
-          <div class="dlg-body">
-            <Field.Root class="field" :disabled="true">
-              <Field.Label class="field__label">{{ t['mail.remind.body'] }}</Field.Label>
-              <Field.Input class="ctl" :model-value="props.text" />
-            </Field.Root>
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['mail.remind.field.title'] }}</Field.Label>
-              <Field.Input
-                class="ctl"
-                :model-value="title"
-                @update:model-value="title = String($event)"
-              />
-            </Field.Root>
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['mail.remind.field.time'] }}</Field.Label>
-              <Field.Input v-model="time" class="ctl datetime" type="datetime-local" />
-              <Field.HelperText v-if="props.zone" class="field__hint">
-                {{ tf('mail.remind.zone', { zone: props.zone }) }}
-              </Field.HelperText>
-              <Field.HelperText v-if="isPast" class="field__hint field__hint--warn">
-                {{ t['mail.remind.past'] }}
-              </Field.HelperText>
-            </Field.Root>
-          </div>
+    <div class="dlg-body">
+      <Field.Root class="field" :disabled="true">
+        <Field.Label class="field__label">{{ t['mail.remind.body'] }}</Field.Label>
+        <Field.Input class="ctl" :model-value="props.text" />
+      </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['mail.remind.field.title'] }}</Field.Label>
+        <Field.Input
+          class="ctl"
+          :model-value="title"
+          @update:model-value="title = String($event)"
+        />
+      </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['mail.remind.field.time'] }}</Field.Label>
+        <Field.Input v-model="time" class="ctl datetime" type="datetime-local" />
+        <Field.HelperText v-if="props.zone" class="field__hint">
+          {{ tf('mail.remind.zone', { zone: props.zone }) }}
+        </Field.HelperText>
+        <Field.HelperText v-if="isPast" class="field__hint field__hint--warn">
+          {{ t['mail.remind.past'] }}
+        </Field.HelperText>
+      </Field.Root>
+    </div>
 
-          <footer class="dlg-foot">
-            <button type="button" class="btn" @click="close">{{ t['cancel'] }}</button>
-            <BusyButton
-              class="btn btn--primary"
-              :label="t['mail.remind.add']"
-              :busy="saving"
-              :disabled="!canSave"
-              @click="save"
-            />
-          </footer>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Teleport>
-  </Dialog.Root>
+    <footer class="dlg-foot">
+      <button type="button" class="btn" @click="close">{{ t['cancel'] }}</button>
+      <BusyButton
+        class="btn btn--primary"
+        :label="t['mail.remind.add']"
+        :busy="saving"
+        :disabled="!canSave"
+        @click="save"
+      />
+    </footer>
+  </UiDialog>
 </template>
 
 <style scoped>

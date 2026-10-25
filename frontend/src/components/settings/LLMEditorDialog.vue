@@ -4,6 +4,7 @@ import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import BusyButton from '~/components/ui/BusyButton.vue'
+import UiDialog from '~/components/ui/UiDialog.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
@@ -11,6 +12,7 @@ import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS } from '~/types/config'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import JsonResponseViewer from '~/components/settings/JsonResponseViewer.vue'
 import LLMModelPicker from '~/components/settings/LLMModelPicker.vue'
+import { llmModels } from '~/composables/llm-models'
 
 const props = defineProps<{
   open: boolean
@@ -83,15 +85,8 @@ const pickerOpen = ref(false)
 /** Name currently being typed into the "add model" box. */
 const typedModel = ref('')
 
-/**
- * Every model this config can use. Configs saved before the catalog feature only
- * carry the single `Model`, which is shown as the initial entry.
- */
-const selectedModels = computed(() => {
-  const models = form.value.Models ?? []
-  if (models.length > 0) return models
-  return form.value.Model ? [form.value.Model] : []
-})
+/** Every model this config can use (catalog set or legacy single model). */
+const selectedModels = computed(() => llmModels(form.value))
 
 /**
  * `Model` is kept in sync with the first entry: callers that don't pick a model
@@ -159,220 +154,204 @@ watch(
 </script>
 
 <template>
-  <Dialog.Root
-    :open="props.open"
-    lazy-mount
-    unmount-on-exit
-    @update:open="emit('update:open', $event)"
-  >
-    <Teleport to="body">
-      <Dialog.Backdrop class="dlg-back" />
-      <Dialog.Positioner class="dlg-pos dlg-pos--top">
-        <Dialog.Content class="dlg-card dlg-card--wide dlg-card--flush">
-          <header class="dlg-head">
-            <Dialog.Title class="dlg-title">
-              {{ props.editing ? t['settings.llm.edit'] : t['settings.llm.add'] }}
-            </Dialog.Title>
-            <Dialog.CloseTrigger
-              type="button"
-              class="dlg-close"
-              :aria-label="t['settings.accounts.cancel']"
-              @click="close"
-            >
-              <i class="i-ri:close-line" aria-hidden="true" />
-            </Dialog.CloseTrigger>
-          </header>
+  <UiDialog :open="props.open" size="top" @update:open="emit('update:open', $event)">
+    <header class="dlg-head">
+      <Dialog.Title class="dlg-title">
+        {{ props.editing ? t['settings.llm.edit'] : t['settings.llm.add'] }}
+      </Dialog.Title>
+      <Dialog.CloseTrigger
+        type="button"
+        class="dlg-close"
+        :aria-label="t['settings.accounts.cancel']"
+        @click="close"
+      >
+        <i class="i-ri:close-line" aria-hidden="true" />
+      </Dialog.CloseTrigger>
+    </header>
 
-          <div class="dlg-body">
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['settings.llm.provider'] }}</Field.Label>
-              <UiSelect
-                :options="props.providerOptions"
-                :model-value="form.Provider"
-                width="100%"
-                @update:model-value="onProvider"
-              />
-            </Field.Root>
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['settings.llm.name'] }}</Field.Label>
-              <Field.Input
-                class="ctl"
-                :model-value="form.Name"
-                placeholder="My LLM"
-                @update:model-value="setText('Name', $event)"
-              />
-            </Field.Root>
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['settings.llm.baseURL'] }}</Field.Label>
-              <Field.Input
-                class="ctl"
-                :model-value="form.BaseURL"
-                placeholder="https://api.example.com/v1"
-                @update:model-value="setText('BaseURL', $event)"
-              />
-            </Field.Root>
-            <Field.Root class="field">
-              <Field.Label class="field__label">
-                {{ t['settings.llm.apiKey'] }}<span v-if="!props.apiKeyRequired"> (optional)</span>
-              </Field.Label>
-              <UiPasswordInput
-                class="ctl"
-                :value="form.APIKey"
-                :placeholder="props.apiKeyRequired ? 'sk-...' : 'Optional for local Ollama'"
-                @input="onApiKey"
-              />
-            </Field.Root>
-            <div class="limits">
-              <Field.Root class="field">
-                <Field.Label class="field__label">{{
-                  t['settings.llm.contextWindow']
-                }}</Field.Label>
-                <UiNumberInput
-                  :value="form.ContextWindowTokens"
-                  :min="1024"
-                  :step="1024"
-                  @value="onNumber('ContextWindowTokens', $event)"
-                />
-              </Field.Root>
-              <Field.Root class="field">
-                <Field.Label class="field__label">{{ t['settings.llm.maxOutput'] }}</Field.Label>
-                <UiNumberInput
-                  :value="form.MaxOutputTokens"
-                  :min="256"
-                  :step="256"
-                  @value="onNumber('MaxOutputTokens', $event)"
-                />
-              </Field.Root>
-            </div>
+    <div class="dlg-body">
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['settings.llm.provider'] }}</Field.Label>
+        <UiSelect
+          :options="props.providerOptions"
+          :model-value="form.Provider"
+          width="100%"
+          @update:model-value="onProvider"
+        />
+      </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['settings.llm.name'] }}</Field.Label>
+        <Field.Input
+          class="ctl"
+          :model-value="form.Name"
+          placeholder="My LLM"
+          @update:model-value="setText('Name', $event)"
+        />
+      </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['settings.llm.baseURL'] }}</Field.Label>
+        <Field.Input
+          class="ctl"
+          :model-value="form.BaseURL"
+          placeholder="https://api.example.com/v1"
+          @update:model-value="setText('BaseURL', $event)"
+        />
+      </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">
+          {{ t['settings.llm.apiKey'] }}<span v-if="!props.apiKeyRequired"> (optional)</span>
+        </Field.Label>
+        <UiPasswordInput
+          width="100%"
+          :value="form.APIKey"
+          :placeholder="props.apiKeyRequired ? 'sk-...' : 'Optional for local Ollama'"
+          @input="onApiKey"
+        />
+      </Field.Root>
+      <div class="limits">
+        <Field.Root class="field">
+          <Field.Label class="field__label">{{ t['settings.llm.contextWindow'] }}</Field.Label>
+          <UiNumberInput
+            :value="form.ContextWindowTokens"
+            :min="1024"
+            :step="1024"
+            width="100%"
+            @value="onNumber('ContextWindowTokens', $event)"
+          />
+        </Field.Root>
+        <Field.Root class="field">
+          <Field.Label class="field__label">{{ t['settings.llm.maxOutput'] }}</Field.Label>
+          <UiNumberInput
+            :value="form.MaxOutputTokens"
+            :min="256"
+            :step="256"
+            width="100%"
+            @value="onNumber('MaxOutputTokens', $event)"
+          />
+        </Field.Root>
+      </div>
 
-            <!-- Model set lives after the connection fields: you need a working
+      <!-- Model set lives after the connection fields: you need a working
                base URL + key before fetching the catalog, and the test section
                right below consumes the ticked models. -->
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['settings.llm.models'] }}</Field.Label>
-              <div class="model-row">
-                <Field.Input
-                  v-model="typedModel"
-                  class="ctl"
-                  placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
-                  @change="addTypedModel()"
-                />
-                <button
-                  type="button"
-                  class="btn btn--sm"
-                  :disabled="!typedModel.trim()"
-                  @click="addTypedModel()"
-                >
-                  {{ t['settings.llm.modelAdd'] }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--sm"
-                  :disabled="!canConn"
-                  :title="canConn ? undefined : t['settings.llm.fetchModelsNeeds']"
-                  @click="pickerOpen = !pickerOpen"
-                >
-                  {{ t['settings.llm.fetchModels'] }}
-                </button>
-              </div>
-              <Field.HelperText class="field__hint">
-                {{ t['settings.llm.modelsHint'] }}
-              </Field.HelperText>
-              <div v-if="selectedModels.length > 0" class="model-tags">
-                <span v-for="model in selectedModels" :key="model" class="model-tag" :title="model">
-                  <span class="model-tag__text">{{ model }}</span>
-                  <button
-                    type="button"
-                    class="model-tag__remove"
-                    :aria-label="tf('settings.llm.delete_model', { model })"
-                    @click="removeModel(model)"
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-            </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['settings.llm.models'] }}</Field.Label>
+        <div class="model-row">
+          <Field.Input
+            v-model="typedModel"
+            class="ctl"
+            placeholder="gpt-4o, claude-sonnet-4-20250514, ..."
+            @change="addTypedModel()"
+          />
+          <button
+            type="button"
+            class="btn btn--sm"
+            :disabled="!typedModel.trim()"
+            @click="addTypedModel()"
+          >
+            {{ t['settings.llm.modelAdd'] }}
+          </button>
+          <button
+            type="button"
+            class="btn btn--sm"
+            :disabled="!canConn"
+            :title="canConn ? undefined : t['settings.llm.fetchModelsNeeds']"
+            @click="pickerOpen = !pickerOpen"
+          >
+            {{ t['settings.llm.fetchModels'] }}
+          </button>
+        </div>
+        <Field.HelperText class="field__hint">
+          {{ t['settings.llm.modelsHint'] }}
+        </Field.HelperText>
+        <div v-if="selectedModels.length > 0" class="model-tags">
+          <span v-for="model in selectedModels" :key="model" class="model-tag" :title="model">
+            <span class="model-tag__text">{{ model }}</span>
+            <button
+              type="button"
+              class="model-tag__remove"
+              :aria-label="tf('settings.llm.delete_model', { model })"
+              @click="removeModel(model)"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      </Field.Root>
 
-            <!-- Deliberately OUTSIDE the Field.Root above. Every Ark form control
+      <!-- Deliberately OUTSIDE the Field.Root above. Every Ark form control
                  inside one Field.Root inherits that field's `ids.control`, so the
                  checkbox list and the "add model" input all ended up with the same
                  id; `label[for]` then resolves to the *first* of them (the text
                  input) and clicking a model row toggled nothing. One control per
                  Field.Root is the rule — a list of controls gets its own container. -->
-            <LLMModelPicker
-              v-if="pickerOpen"
-              :config="form"
-              :selected="selectedModels"
-              @confirm="onModelsPicked"
-              @cancel="pickerOpen = false"
-            />
+      <LLMModelPicker
+        v-if="pickerOpen"
+        :config="form"
+        :selected="selectedModels"
+        @confirm="onModelsPicked"
+        @cancel="pickerOpen = false"
+      />
 
-            <Field.Root class="field">
-              <Field.Label class="field__label">{{ t['settings.llm.test_model'] }}</Field.Label>
-              <div class="test-actions">
-                <UiSelect
-                  :options="testModelOptions"
-                  :model-value="testModel"
-                  :disabled="testModelOptions.length === 0"
-                  :placeholder="t['settings.llm.test_no_model']"
-                  @update:model-value="testModel = $event"
-                  width="300px"
-                />
-                <BusyButton
-                  class="btn"
-                  :label="t['settings.llm.test_connection']"
-                  :busy="props.testing"
-                  :disabled="!canConn"
-                  @click="emit('test', 'conn')"
-                />
-                <BusyButton
-                  class="btn"
-                  :label="t['settings.llm.test_chat']"
-                  :busy="props.testingChat"
-                  :disabled="!canChat"
-                  @click="emit('test', 'chat', testModel)"
-                />
-              </div>
-              <Field.HelperText class="field__hint">
-                {{ t['settings.llm.test_hint'] }}
-              </Field.HelperText>
-            </Field.Root>
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ t['settings.llm.test_model'] }}</Field.Label>
+        <div class="test-actions">
+          <UiSelect
+            :options="testModelOptions"
+            :model-value="testModel"
+            :disabled="testModelOptions.length === 0"
+            :placeholder="t['settings.llm.test_no_model']"
+            @update:model-value="testModel = $event"
+            width="300px"
+          />
+          <BusyButton
+            class="btn"
+            :label="t['settings.llm.test_connection']"
+            :busy="props.testing"
+            :disabled="!canConn"
+            @click="emit('test', 'conn')"
+          />
+          <BusyButton
+            class="btn"
+            :label="t['settings.llm.test_chat']"
+            :busy="props.testingChat"
+            :disabled="!canChat"
+            @click="emit('test', 'chat', testModel)"
+          />
+        </div>
+        <Field.HelperText class="field__hint">
+          {{ t['settings.llm.test_hint'] }}
+        </Field.HelperText>
+      </Field.Root>
 
-            <div v-if="props.testSummary" class="result" :class="props.testOk ? 'ok' : 'bad'">
-              <strong>{{ t['settings.llm.test_connection'] }}: {{ props.testSummary }}</strong>
-              <JsonResponseViewer v-if="props.testBody" :body="props.testBody" />
-            </div>
-            <div
-              v-if="props.testChatSummary"
-              class="result"
-              :class="props.testChatOk ? 'ok' : 'bad'"
-            >
-              <strong>
-                {{ t['settings.llm.test_chat'] }}
-                <template v-if="props.testChatModel">· {{ props.testChatModel }}</template
-                >:
-                {{ props.testChatSummary }}
-              </strong>
-              <JsonResponseViewer v-if="props.testChatBody" :body="props.testChatBody" />
-            </div>
-          </div>
+      <div v-if="props.testSummary" class="result" :class="props.testOk ? 'ok' : 'bad'">
+        <strong>{{ t['settings.llm.test_connection'] }}: {{ props.testSummary }}</strong>
+        <JsonResponseViewer v-if="props.testBody" :body="props.testBody" />
+      </div>
+      <div v-if="props.testChatSummary" class="result" :class="props.testChatOk ? 'ok' : 'bad'">
+        <strong>
+          {{ t['settings.llm.test_chat'] }}
+          <template v-if="props.testChatModel">· {{ props.testChatModel }}</template
+          >:
+          {{ props.testChatSummary }}
+        </strong>
+        <JsonResponseViewer v-if="props.testChatBody" :body="props.testChatBody" />
+      </div>
+    </div>
 
-          <footer class="dlg-foot">
-            <button type="button" class="btn" @click="close">
-              {{ t['settings.llm.cancel'] }}
-            </button>
-            <BusyButton
-              class="btn btn--primary"
-              :label="t['settings.llm.save']"
-              :busy="props.saving"
-              :disabled="!canSave"
-              @click="emit('save')"
-            />
-          </footer>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Teleport>
-  </Dialog.Root>
+    <footer class="dlg-foot">
+      <button type="button" class="btn" @click="close">
+        {{ t['settings.llm.cancel'] }}
+      </button>
+      <BusyButton
+        class="btn btn--primary"
+        :label="t['settings.llm.save']"
+        :busy="props.saving"
+        :disabled="!canSave"
+        @click="emit('save')"
+      />
+    </footer>
+  </UiDialog>
 </template>
 
 <style scoped>

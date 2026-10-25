@@ -33,3 +33,9 @@ export function epochSeconds(date: Date, hour = 0, minute = 0): number {
     new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute).getTime() / 1000,
   )
 }
+
+/** `datetime-local` wants a local, seconds-less value. */
+export function toLocalInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Dialog } from '@ark-ui/vue/dialog'
 import { useI18n } from '~/i18n'
+import UiDialog from '~/components/ui/UiDialog.vue'
 
 // The app's one yes/no confirmation shell: an Ark Dialog with role="alertdialog",
 // the cancel button on the left and the confirming one on the right (danger
@@ -29,51 +30,41 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-function onOpenChange(open: boolean) {
-  if (!open && props.busy) return
-  emit('update:open', open)
-}
 </script>
 
 <template>
-  <Dialog.Root
+  <UiDialog
     :open="props.open"
+    size="narrow"
     role="alertdialog"
-    lazy-mount
-    unmount-on-exit
-    @open-change="(details: unknown) => onOpenChange(!!(details as { open?: boolean })?.open)"
+    :busy="props.busy"
+    @update:open="emit('update:open', $event)"
   >
-    <Dialog.Backdrop class="dlg-back" />
-    <Dialog.Positioner class="dlg-pos">
-      <Dialog.Content class="dlg-card dlg-card--narrow">
-        <Dialog.Title class="dlg-title">{{ props.title }}</Dialog.Title>
-        <Dialog.Description v-if="props.description" class="dlg-desc">
-          {{ props.description }}
-        </Dialog.Description>
-        <!-- Optional body between the question and the buttons: an extra decision
-             that belongs to this confirmation (e.g. "also delete cached mail"),
-             so callers do not have to build their own dialog shell for it. -->
-        <div v-if="$slots.extra" class="confirm-extra">
-          <slot name="extra" />
-        </div>
-        <div class="dlg-actions confirm-actions">
-          <button type="button" class="btn" :disabled="props.busy" @click="onOpenChange(false)">
-            {{ t['cancel'] }}
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :class="props.danger ? 'btn--danger' : 'btn--primary'"
-            :disabled="props.busy"
-            @click="emit('confirm')"
-          >
-            {{ props.confirmLabel }}
-          </button>
-        </div>
-      </Dialog.Content>
-    </Dialog.Positioner>
-  </Dialog.Root>
+    <Dialog.Title class="dlg-title">{{ props.title }}</Dialog.Title>
+    <Dialog.Description v-if="props.description" class="dlg-desc">
+      {{ props.description }}
+    </Dialog.Description>
+    <!-- Optional body between the question and the buttons: an extra decision
+         that belongs to this confirmation (e.g. "also delete cached mail"),
+         so callers do not have to build their own dialog shell for it. -->
+    <div v-if="$slots.extra" class="confirm-extra">
+      <slot name="extra" />
+    </div>
+    <div class="dlg-actions confirm-actions">
+      <button type="button" class="btn" :disabled="props.busy" @click="emit('update:open', false)">
+        {{ t['cancel'] }}
+      </button>
+      <button
+        type="button"
+        class="btn"
+        :class="props.danger ? 'btn--danger' : 'btn--primary'"
+        :disabled="props.busy"
+        @click="emit('confirm')"
+      >
+        {{ props.confirmLabel }}
+      </button>
+    </div>
+  </UiDialog>
 </template>
 
 <style scoped>

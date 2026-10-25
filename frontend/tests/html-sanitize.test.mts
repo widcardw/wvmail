@@ -326,9 +326,7 @@ check(
 console.log('oversized content')
 // Sanitiser wraps every <table> in a horizontally-scrollable <div>, so wide tables
 // grow inside their own wrapper instead of the reading pane.
-const wideTable = block(
-  '<table width="800"><tr><td>wide</td></tr></table><p>after</p>',
-)
+const wideTable = block('<table width="800"><tr><td>wide</td></tr></table><p>after</p>')
 check(
   'wide table is wrapped in email-table-scroll',
   /<div class="email-table-scroll"><table/.test(wideTable.html),

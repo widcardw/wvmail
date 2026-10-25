@@ -35,7 +35,10 @@ console.log('note text')
 
 check('blocks separate with newlines', noteHtmlToText('<p>a</p><p>b</p>') === 'a\nb')
 check('a line break is a break', noteHtmlToText('a<br>b') === 'a\nb')
-check('list items are separate lines', noteHtmlToText('<ul><li>one</li><li>two</li></ul>') === 'one\ntwo')
+check(
+  'list items are separate lines',
+  noteHtmlToText('<ul><li>one</li><li>two</li></ul>') === 'one\ntwo',
+)
 check('headings break too', noteHtmlToText('<h1>Title</h1><p>body</p>') === 'Title\nbody')
 check('inline markup does not break', noteHtmlToText('<p>a <strong>b</strong> c</p>') === 'a b c')
 check('an empty note is empty text', noteHtmlToText('') === '')
@@ -43,17 +46,32 @@ check('empty paragraphs disappear', noteHtmlToText('<p></p><p>real</p>') === 're
 check('nbsp becomes a space, not a line', noteHtmlToText('<p>a&nbsp;b</p>') === 'a b')
 check('a space separator collapses blocks', noteHtmlToText('<p>a</p><p>b</p>', ' ') === 'a b')
 
-check('entities decode', decodeNoteEntities('a &amp; b &lt;c&gt; &quot;d&quot;') === 'a & b <c> "d"')
+check(
+  'entities decode',
+  decodeNoteEntities('a &amp; b &lt;c&gt; &quot;d&quot;') === 'a & b <c> "d"',
+)
 check('numeric entities decode', decodeNoteEntities('&#65;&#x42;') === 'AB')
 check('an unknown entity is left alone', decodeNoteEntities('&frobnicate;') === '&frobnicate;')
-check('an escaped tag survives as text', noteHtmlToText('<p>&lt;b&gt;bold?&lt;/b&gt;</p>') === '<b>bold?</b>')
+check(
+  'an escaped tag survives as text',
+  noteHtmlToText('<p>&lt;b&gt;bold?&lt;/b&gt;</p>') === '<b>bold?</b>',
+)
 check('a real tag does not', noteHtmlToText('<p><b>bold</b></p>') === 'bold')
 
-check('the title is the first line', extractNoteTitle('<p>Hello</p><p>world</p>', 'Untitled') === 'Hello')
-check('the title is capped at 15 chars', extractNoteTitle(`<p>${'x'.repeat(40)}</p>`, 'Untitled') === 'x'.repeat(15))
+check(
+  'the title is the first line',
+  extractNoteTitle('<p>Hello</p><p>world</p>', 'Untitled') === 'Hello',
+)
+check(
+  'the title is capped at 15 chars',
+  extractNoteTitle(`<p>${'x'.repeat(40)}</p>`, 'Untitled') === 'x'.repeat(15),
+)
 check('an empty note falls back to the label', extractNoteTitle('<p></p>', '无标题') === '无标题')
 check('an empty string falls back too', extractNoteTitle('', 'Untitled') === 'Untitled')
-check('a whitespace-only first line is skipped', extractNoteTitle('<p> </p><p>second</p>', 'Untitled') === 'second')
+check(
+  'a whitespace-only first line is skipped',
+  extractNoteTitle('<p> </p><p>second</p>', 'Untitled') === 'second',
+)
 
 const long = `<p>${'y'.repeat(80)}</p>`
 check('the preview is capped at 60 chars', notePreviewText(long, 'empty').length === 61)
@@ -73,7 +91,9 @@ check(
 )
 check(
   'an older note includes the year',
-  formatNoteDate(Math.floor(new Date('2024-01-20T09:05:00').getTime() / 1000), now).includes('2024'),
+  formatNoteDate(Math.floor(new Date('2024-01-20T09:05:00').getTime() / 1000), now).includes(
+    '2024',
+  ),
 )
 
 console.log(`\n${pass} passed, ${fail} failed`)

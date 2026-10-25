@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
+import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig } from '~/types/config'
+import { llmModels } from '~/composables/llm-models'
 
 const { t } = useI18n()
 const fb = useFeedbackStore()
@@ -33,13 +34,8 @@ const form = ref({
   LLMModel: '',
 })
 
-/** Models offered by one config: its picked set, or the single legacy `Model`. */
 function modelListFor(configName: string): string[] {
-  const cfg = llmConfigs.value.find((c) => c.Name === configName)
-  if (!cfg) return []
-  const models = cfg.Models ?? []
-  if (models.length > 0) return models
-  return cfg.Model ? [cfg.Model] : []
+  return llmModels(llmConfigs.value.find((c) => c.Name === configName))
 }
 
 const modelOptions = computed(() =>
@@ -116,29 +112,26 @@ function onSelectConfig(name: string) {
         {{ t['settings.translation.no_llm'] }}
       </div>
 
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.translation.target_lang'] }}</Field.Label>
+      <UiFieldRow :label="t['settings.translation.target_lang']">
         <UiSelect
           :options="targetLangOptions"
           :model-value="form.DefaultTargetLang"
           width="300px"
           @update:model-value="(v) => onSelect('DefaultTargetLang', v)"
         />
-      </Field.Root>
+      </UiFieldRow>
 
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.translation.engine'] }}</Field.Label>
+      <UiFieldRow :label="t['settings.translation.engine']">
         <UiSelect
           :options="engineOptions"
           :model-value="form.DefaultEngine"
           width="300px"
           @update:model-value="(v) => onSelect('DefaultEngine', v)"
         />
-      </Field.Root>
+      </UiFieldRow>
 
       <template v-if="form.DefaultEngine === 'llm'">
-        <Field.Root class="row">
-          <Field.Label class="row__label">{{ t['settings.translation.llm_config'] }}</Field.Label>
+        <UiFieldRow :label="t['settings.translation.llm_config']">
           <UiSelect
             :options="llmOptions"
             :model-value="form.LLMConfigName"
@@ -146,24 +139,21 @@ function onSelectConfig(name: string) {
             width="300px"
             @update:model-value="onSelectConfig"
           />
-        </Field.Root>
+        </UiFieldRow>
 
-        <Field.Root v-if="modelOptions.length > 0" class="row">
-          <Field.Label class="row__label">{{ t['settings.translation.llm_model'] }}</Field.Label>
+        <UiFieldRow v-if="modelOptions.length > 0" :label="t['settings.translation.llm_model']">
           <UiSelect
             :options="modelOptions"
             :model-value="form.LLMModel"
             width="300px"
             @update:model-value="(v) => onSelect('LLMModel', v)"
           />
-        </Field.Root>
+        </UiFieldRow>
       </template>
 
       <template v-else-if="form.DefaultEngine === 'deepl'">
-        <Field.Root class="row">
-          <Field.Label class="row__label">{{ t['settings.translation.deepl_key'] }}</Field.Label>
+        <UiFieldRow :label="t['settings.translation.deepl_key']">
           <UiPasswordInput
-            class="ctl"
             width="300px"
             :value="form.DeepLAuthKey"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -171,18 +161,13 @@ function onSelectConfig(name: string) {
               (event: Event) => (form.DeepLAuthKey = (event.target as HTMLInputElement).value)
             "
           />
-        </Field.Root>
+        </UiFieldRow>
       </template>
     </section>
   </div>
 </template>
 
 <style scoped>
-.wrap {
-  padding: 16px;
-  max-width: 800px;
-  color: var(--n-text-color);
-}
 .warning {
   margin: 14px 18px 0;
   padding: 8px 12px;
@@ -191,11 +176,5 @@ function onSelectConfig(name: string) {
   background: rgba(240, 160, 32, 0.15);
   border-left: 3px solid #f0a020;
   border-radius: 4px;
-}
-.row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
 }
 </style>

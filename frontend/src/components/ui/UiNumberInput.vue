@@ -10,10 +10,10 @@ import { NumberInput } from '@ark-ui/vue/number-input'
 // instead of reading `.value` off a DOM event (see `onNumber` in LLMEditorDialog).
 //
 // The visible box is `NumberInput.Control` (class `.num`), so the caller's `class`
-// — normally a width / flex basis — lands on that box and only the remaining
-// `$attrs` reach the input. The steppers sit in flow after the input instead of
-// being absolutely positioned: anchored to a control that can be wider than the
-// input (`.input--sm`, `.numsel`) they used to float to the edge of the row.
+// and the `width` prop both land on that box; only the remaining `$attrs` reach the
+// input. The steppers sit in flow after the input instead of being absolutely
+// positioned: anchored to a control that can be wider than the input, they used to
+// float to the edge of the row.
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
@@ -23,8 +23,9 @@ const props = withDefaults(
     max?: number
     step?: number
     disabled?: boolean
+    width?: string
   }>(),
-  { min: undefined, max: undefined, step: undefined, disabled: false },
+  { min: undefined, max: undefined, step: undefined, disabled: false, width: undefined },
 )
 
 const emit = defineEmits<{ value: [value: number] }>()
@@ -46,7 +47,7 @@ const inputAttrs = computed(() => {
     :disabled="props.disabled"
     @value-change="emit('value', $event.valueAsNumber)"
   >
-    <NumberInput.Control class="num" :class="rootClass">
+    <NumberInput.Control class="num" :class="rootClass" :style="{ width: props.width }">
       <NumberInput.Input v-bind="inputAttrs" class="num__input" />
       <div class="num__steppers">
         <NumberInput.IncrementTrigger type="button" class="num__btn" aria-label="+">

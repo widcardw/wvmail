@@ -8,6 +8,7 @@ import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
+import { proxyModeLabels } from '~/composables/proxy'
 import { EMAIL_PROVIDER_DEFAULTS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
 import type { OAuthPollResult } from '#/wvmail/services'
@@ -238,11 +239,7 @@ function onAutoSyncToggle(checked: boolean) {
 // parent, only the URL.
 const proxyMode = computed(() => form.value.Proxy?.Mode ?? '')
 
-const proxyModeOptions = computed(() => [
-  { label: t.value['settings.proxy.mode_follow'], value: '' },
-  { label: t.value['settings.proxy.mode_custom'], value: 'custom' },
-  { label: t.value['settings.proxy.mode_off'], value: 'off' },
-])
+const proxyModeOptions = computed(() => proxyModeLabels(t.value))
 
 function setProxyMode(mode: string) {
   form.value.Proxy = { Mode: mode, URL: mode === 'custom' ? (form.value.Proxy?.URL ?? '') : '' }
@@ -272,8 +269,8 @@ function onEmailInput(email: string) {
 </script>
 
 <template>
-  <div class="card">
-    <header class="card__head">
+  <div class="surface">
+    <header class="surface__head">
       <h2>
         {{ props.editing ? t['settings.accounts.edit'] : t['settings.accounts.add'] }}
       </h2>
@@ -388,11 +385,7 @@ function onEmailInput(email: string) {
              the input with it. -->
         <Field.Root class="frow frow--stacked">
           <Field.Label class="flabel">{{ t['settings.accounts.imap_pass'] }}</Field.Label>
-          <UiPasswordInput
-            class="input"
-            :value="form.IMAPPass"
-            @input="form.IMAPPass = strVal($event)"
-          />
+          <UiPasswordInput :value="form.IMAPPass" @input="form.IMAPPass = strVal($event)" />
           <Field.HelperText v-if="passwordHint" class="field__hint frow-hint field__hint--warn">
             {{ passwordHint }}
           </Field.HelperText>
@@ -423,11 +416,7 @@ function onEmailInput(email: string) {
         </Field.Root>
         <Field.Root class="frow">
           <Field.Label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</Field.Label>
-          <UiPasswordInput
-            class="input"
-            :value="form.SMTPPass"
-            @input="form.SMTPPass = strVal($event)"
-          />
+          <UiPasswordInput :value="form.SMTPPass" @input="form.SMTPPass = strVal($event)" />
         </Field.Root>
         <Field.Root class="frow">
           <Field.Label class="flabel">{{ t['settings.accounts.use_tls'] }}</Field.Label>
@@ -599,23 +588,6 @@ function onEmailInput(email: string) {
 </template>
 
 <style scoped>
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
-}
-.card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.card__head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
 /* The add-mode switch: display:flex + align-self:stretch make the strip fill the
    header's padding box (the -10px margins cancel the header's vertical padding),
    so the indicator's -1px offset lands exactly on the header's border-bottom.
@@ -709,30 +681,10 @@ function onEmailInput(email: string) {
   font-size: 13px;
   font-weight: 600;
 }
-/* Run-time status lines (OAuth progress, connection test): icon + text, no box.
-   A bordered strip around one sentence read as an app-level alert and shoved the
-   form around; the colour alone carries the outcome. */
+/* Shared status styles live in ui.css; only the spacing sits here because this
+   is inside the form body (not a section-level hint). */
 .status {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
   margin: 8px 0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.status i {
-  flex: 0 0 auto;
-  margin-top: 1px;
-  font-size: 14px;
-}
-.status--info {
-  color: var(--color-text-3);
-}
-.status--ok {
-  color: var(--color-success);
-}
-.status--err {
-  color: var(--color-danger);
 }
 /* A standing note about the account (not an event): muted, no icon. */
 .pane-note {

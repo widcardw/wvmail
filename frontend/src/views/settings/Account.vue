@@ -414,12 +414,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.wrap {
-  max-width: 800px;
-  padding: 16px;
-  color: var(--n-text-color);
-}
-
 /* The delete dialog's optional extra step (see the #extra slot above). The
    checkbox row is an Ark <label>, so the whole line toggles it. */
 .cache-row {

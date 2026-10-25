@@ -1,20 +1,35 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useThemeStore } from '~/stores/theme'
 import { usePreferencesStore } from '~/stores/preferences'
+import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
-import QuitConfirmDialog from '~/components/settings/QuitConfirmDialog.vue'
+import UiFieldRow from '~/components/ui/UiFieldRow.vue'
+import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 
 const { t, locale, setLocale } = useI18n()
 const theme = useThemeStore()
 const preferences = usePreferencesStore()
+const fb = useFeedbackStore()
 
 /** Quitting ends the process, so the button only opens the confirmation. */
 const showQuitDialog = ref(false)
+const quitting = ref(false)
+
+async function confirmQuit() {
+  if (quitting.value) return
+  quitting.value = true
+  try {
+    await OsService.QuitApp()
+  } catch (e) {
+    console.error('Failed to quit the app', e)
+    quitting.value = false
+    fb.error(t.value['quitApp.failed'])
+  }
+}
 
 const PRESETS = ['#18a058', '#2080f0', '#f0a020', '#d03050', '#8a2be2', '#e11d48']
 const localeOptions = [
@@ -74,29 +89,23 @@ function onDetectDatesChange(checked: boolean) {
         <h2>{{ t['settings.common'] }}</h2>
       </header>
 
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.common.language'] }}</Field.Label>
+      <UiFieldRow :label="t['settings.common.language']">
         <UiSelect :options="localeOptions" :model-value="locale" @update:model-value="onLocale" />
-      </Field.Root>
-
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.common.theme'] }}</Field.Label>
+      </UiFieldRow>
+      <UiFieldRow :label="t['settings.common.theme']">
         <UiSelect :options="themeOptions" :model-value="theme.mode" @update:model-value="onTheme" />
-      </Field.Root>
-
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.common.tagDelete'] }}</Field.Label>
+      </UiFieldRow>
+      <UiFieldRow :label="t['settings.common.tagDelete']">
         <UiSelect
           :options="tagDeleteOptions"
           :model-value="String(preferences.tagDeletePresses)"
           @update:model-value="onTagDeletePresses"
         />
-      </Field.Root>
+      </UiFieldRow>
 
       <!-- Native color input + preset swatches: a bespoke composite, so it keeps the
            raw control. The explicit Field id still links the label to it. -->
-      <Field.Root class="row" id="primary-color">
-        <Field.Label class="row__label">{{ t['settings.common.primaryColor'] }}</Field.Label>
+      <UiFieldRow :label="t['settings.common.primaryColor']">
         <div class="color">
           <input
             id="primary-color"
@@ -118,26 +127,20 @@ function onDetectDatesChange(checked: boolean) {
           />
           <code class="color__hex">{{ theme.primaryColor }}</code>
         </div>
-      </Field.Root>
-
-      <Field.Root class="row">
-        <Field.Label class="row__label">{{ t['settings.common.actionOnClose'] }}</Field.Label>
+      </UiFieldRow>
+      <UiFieldRow :label="t['settings.common.actionOnClose']">
         <UiSelect
           :options="minimizeOrCloseOptions"
           :model-value="String(Number(preferences.minimizeWhenClose))"
           @update:model-value="onActionOnClose"
         />
-      </Field.Root>
-
-      <!-- The hint explains this one switch, so it hangs off the switch as a
-           Field.HelperText instead of a paragraph floating underneath it. -->
-      <Field.Root class="row row--stacked">
-        <Field.Label class="row__label">{{ t['settings.common.detectDates'] }}</Field.Label>
+      </UiFieldRow>
+      <UiFieldRow
+        :label="t['settings.common.detectDates']"
+        :hint="t['settings.common.detectDatesHint']"
+      >
         <UiSwitch :checked="preferences.detectDatesInMail" @update:checked="onDetectDatesChange" />
-        <Field.HelperText class="row-hint">
-          {{ t['settings.common.detectDatesHint'] }}
-        </Field.HelperText>
-      </Field.Root>
+      </UiFieldRow>
 
       <div class="actions">
         <button type="button" class="btn" @click="openConfigFolder">
@@ -149,41 +152,20 @@ function onDetectDatesChange(checked: boolean) {
       </div>
     </section>
 
-    <QuitConfirmDialog v-model:open="showQuitDialog" />
+    <ConfirmDialog
+      :open="showQuitDialog"
+      :title="t['quitApp.title']"
+      :description="t['quitApp.body']"
+      :confirm-label="t['quitApp.confirm']"
+      :busy="quitting"
+      danger
+      @update:open="showQuitDialog = $event"
+      @confirm="confirmQuit"
+    />
   </div>
 </template>
 
 <style scoped>
-.wrap {
-  padding: 16px;
-  max-width: 800px;
-  color: var(--n-text-color);
-}
-.row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 18px;
-}
-.row__label {
-  flex-shrink: 0;
-}
-/* Label column + control column, with the helper line as a second row under the
-   control only. Grid rather than flex so the helper text breaks onto its own line
-   without a wrapper element. 240px matches the global `.row__label` basis. */
-.row--stacked {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  align-items: center;
-  column-gap: 16px;
-  row-gap: 0;
-}
-.row-hint {
-  grid-column: 2;
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--color-text-3);
-}
 .color {
   display: flex;
   align-items: center;

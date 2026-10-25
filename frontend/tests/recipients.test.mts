@@ -51,7 +51,10 @@ const layout = (widths: number[], available: number, chip = 60, sep = 6) =>
   const got = layout([500], 200)
   check('one oversized address is still shown', got.visible === 1 && got.hidden === 0)
   const many = layout([500, 30, 30], 200)
-  check('oversized first address keeps a chip for the rest', many.visible === 1 && many.hidden === 2)
+  check(
+    'oversized first address keeps a chip for the rest',
+    many.visible === 1 && many.hidden === 2,
+  )
 }
 
 // Degenerate inputs must not produce a negative or oversized count.
