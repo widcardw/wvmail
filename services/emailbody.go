@@ -144,9 +144,10 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	buf := bufs1[0]
 
 	detail := &EmailDetail{
-		UID:     uint32(buf.UID),
-		Subject: decodeMimeHeader(buf.Envelope.Subject),
-		Flags:   make([]string, len(buf.Flags)),
+		UID:       uint32(buf.UID),
+		MessageID: strings.TrimSpace(buf.Envelope.MessageID),
+		Subject:   decodeMimeHeader(buf.Envelope.Subject),
+		Flags:     make([]string, len(buf.Flags)),
 	}
 	// UTC, like the list rows: a missing Date header leaves the field empty for
 	// the InternalDate fallback rather than printing year 1.

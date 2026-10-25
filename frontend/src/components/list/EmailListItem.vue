@@ -2,6 +2,7 @@
 import { formatDateRecent, displaySender, truncateSubject } from '~/composables/formats'
 import { useLocaleStore } from '~/stores/locale'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
+import { isFlagged } from '~/composables/mail-flags'
 import type { EmailSummary } from '~/types/email'
 
 type ListEmail = EmailSummary & {
@@ -36,6 +37,11 @@ const localeStore = useLocaleStore()
             <AccountAvatar v-if="props.email.account_id" :account-id="props.email.account_id" />
           </span>
           <span class="email-from">{{ displaySender(props.email) }}</span>
+          <i
+            v-if="isFlagged(props.email.flags)"
+            class="i-ri:star-fill email-star"
+            aria-hidden="true"
+          />
           <span class="email-date">{{
             formatDateRecent(props.email.date, localeStore.current)
           }}</span>
@@ -99,6 +105,11 @@ const localeStore = useLocaleStore()
   opacity: 0.6;
   white-space: nowrap;
   flex-shrink: 0;
+}
+.email-star {
+  flex: none;
+  font-size: 12px;
+  color: var(--color-warning);
 }
 .email-subject {
   font-size: 12px;

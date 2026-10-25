@@ -25,6 +25,7 @@ export const PAGE_SIZE = 20
 
 export interface EmailSummary {
   uid: number
+  message_id?: string
   subject: string
   from: string
   from_name: string
@@ -46,6 +47,7 @@ export interface EmailSearchFilter {
 
 export interface EmailDetail {
   uid: number
+  message_id?: string
   subject: string
   from: string
   from_name: string

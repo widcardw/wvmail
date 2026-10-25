@@ -29,6 +29,7 @@ type CachedEmail struct {
 	AccountID  string `gorm:"index:idx_ce_account_folder;size:64;not null"`
 	FolderName string `gorm:"size:255;not null"`
 	UID        uint32 `gorm:"not null"`
+	MessageID  string `gorm:"size:512"`
 	Subject    string `gorm:"size:512"`
 	From       string `gorm:"size:256"` // display "Name <email>"
 	FromName   string `gorm:"size:128"`
@@ -45,6 +46,7 @@ type CachedEmailBody struct {
 	AccountID   string `gorm:"index:idx_ceb_account_folder_uid;size:64;not null"`
 	FolderName  string `gorm:"size:255;not null"`
 	UID         uint32 `gorm:"not null"`
+	MessageID   string `gorm:"size:512"`
 	Subject     string `gorm:"size:512"`
 	From        string `gorm:"size:256"` // display "Name <email>"
 	FromName    string `gorm:"size:128"`
@@ -80,6 +82,17 @@ type CachedFolderMeta struct {
 	FolderName string `gorm:"primaryKey;size:255"`
 	Total      int    `gorm:"not null"`
 	UIDNext    uint32 `gorm:"not null;default:0"`
+}
+
+// CachedFlaggedSnapshot stores one account's last successful "All Starred"
+// result. The aggregate can span hundreds of mailboxes, so keeping the finished
+// list as JSON makes reopening the view a local read instead of another IMAP
+// search. FetchedAt lets the UI show the snapshot immediately and refresh it in
+// the background only when it has aged.
+type CachedFlaggedSnapshot struct {
+	AccountID string `gorm:"primaryKey;size:64"`
+	Emails    string `gorm:"type:text"`
+	FetchedAt int64  `gorm:"not null;default:0"`
 }
 
 // CachedReminder represents a persisted reminder. `Time` is epoch seconds, the
@@ -139,7 +152,7 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedFolderMeta{}, &CachedReminder{}); err != nil {
+	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedFolderMeta{}, &CachedFlaggedSnapshot{}, &CachedReminder{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 

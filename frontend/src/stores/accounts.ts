@@ -16,6 +16,7 @@ import { useSearchStore } from '~/stores/search'
 import { useAccountHealthStore } from '~/stores/accountHealth'
 import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
+import { isFlagged, withMailFlag } from '~/composables/mail-flags'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const feedback = useFeedbackStore()
@@ -60,7 +61,10 @@ export const useAccountsStore = defineStore('accounts', () => {
   const smartFolder = ref<string | null>(null)
   const smartEmails = ref<EmailSummary[]>([])
   const smartFolderLoading = ref(false)
+  const smartFolderRefreshing = ref(false)
   const smartCurrentPage = ref(1)
+  const flagging = ref<Record<string, boolean>>({})
+  const flaggedInflight = new Map<string, Promise<EmailSummary[]>>()
 
   const isSmartFolder = computed(() => smartFolder.value !== null)
 
@@ -735,6 +739,96 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  /** True while the selected message's star is being written to the server. */
+  const selectedEmailFlagged = computed(() => isFlagged(selectedEmailDetail.value?.flags))
+  const selectedEmailFlagging = computed(() => {
+    const account = selectedEmailAccount.value
+    const folder = selectedEmailFolder.value
+    const uid = selectedEmailUid.value
+    return account && folder && uid != null
+      ? flagging.value[emailKey(account.ID, folder, uid)] === true
+      : false
+  })
+
+  function emailKey(accountId: string, folder: string, uid: number): string {
+    return `${accountId}\u200b${folder}\u200b${uid}`
+  }
+
+  /**
+   * Apply a flag change to every view that can hold the same message: the
+   * folder page, aggregate/search results, and the open reading pane. Keyed by
+   * account+folder+UID, because the same UID in another folder is another mail.
+   */
+  function setFlagInMemory(
+    accountId: string,
+    folder: string,
+    uid: number,
+    flag: string,
+    enabled: boolean,
+  ) {
+    for (const [key, rows] of Object.entries(emailsByFolder.value)) {
+      if (key !== `${accountId}:${folder}`) continue
+      const row = rows.find((email) => email.uid === uid)
+      if (row) row.flags = withMailFlag(row.flags, flag, enabled)
+    }
+    for (const email of smartEmails.value) {
+      if (email.account_id === accountId && email.folder_name === folder && email.uid === uid) {
+        email.flags = withMailFlag(email.flags, flag, enabled)
+      }
+    }
+    searchStore.setFlag(accountId, folder, uid, flag, enabled)
+    const detail = selectedEmailDetail.value
+    if (
+      selectedEmailAccountId.value === accountId &&
+      selectedEmailFolder.value === folder &&
+      selectedEmailUid.value === uid &&
+      detail
+    ) {
+      detail.flags = withMailFlag(detail.flags, flag, enabled)
+    }
+  }
+
+  /**
+   * Toggle the IMAP \Flagged system flag. The UI flips immediately, but a failed
+   * STORE rolls every copy back: a star that only exists on screen is worse than
+   * a short delay.
+   */
+  async function toggleSelectedEmailFlagged() {
+    const account = selectedEmailAccount.value
+    const folder = selectedEmailFolder.value
+    const uid = selectedEmailUid.value
+    const detail = selectedEmailDetail.value
+    if (!account || !folder || uid == null || !detail) {
+      feedback.info(i18n.value['mail.flag.aggregate'])
+      return
+    }
+    const key = emailKey(account.ID, folder, uid)
+    if (flagging.value[key]) return
+
+    const previous = isFlagged(detail.flags)
+    const next = !previous
+    flagging.value[key] = true
+    setFlagInMemory(account.ID, folder, uid, '\\Flagged', next)
+    try {
+      await EmailService.SetEmailFlagged(account, folder, uid, next)
+      feedback.success(i18n.value[next ? 'mail.flag.added' : 'mail.flag.removed'])
+      if (smartFolder.value === 'starred' && !next) {
+        smartEmails.value = smartEmails.value.filter(
+          (email) =>
+            !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
+        )
+        const lastPage = Math.max(1, Math.ceil(smartEmails.value.length / pageSize))
+        smartCurrentPage.value = Math.min(smartCurrentPage.value, lastPage)
+      }
+    } catch (e) {
+      setFlagInMemory(account.ID, folder, uid, '\\Flagged', previous)
+      feedback.error(i18n.value['mail.flag.failed'])
+      console.error('Failed to update the star', e)
+    } finally {
+      delete flagging.value[key]
+    }
+  }
+
   function goToPage(page: number) {
     // A search on screen owns its own paging: the same store the list reads above.
     if (searchStore.searchActive) {
@@ -787,40 +881,67 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailFolder.value = null
     selectedEmailDetail.value = null
     smartFolderLoading.value = true
+    smartCurrentPage.value = 1
 
     try {
-      const all: EmailSummary[] = []
-      for (const account of accounts.value) {
-        let folders = foldersByAccount.value[account.ID]
-        if (!folders) {
-          // Load folders first if not yet cached
-          try {
-            folders = await EmailService.ListFolders(account)
-            foldersByAccount.value[account.ID] = folders
-          } catch {
-            continue
-          }
-        }
-        const match = folders.find((f) => folderMatchesType(f.name, smartType))
-        if (!match) continue
-        const resp: EmailPageResponse | null = await EmailService.ListEmails(
-          account,
-          match.name,
-          1,
-          200,
+      if (smartType === 'starred') {
+        const snapshots = await Promise.all(
+          accounts.value.map(async (account) => {
+            try {
+              const snapshot = await EmailService.ListFlaggedEmails(account, false)
+              return { account, snapshot }
+            } catch (e) {
+              console.error('Failed to load the flagged snapshot', e)
+              return null
+            }
+          }),
         )
-        if (resp?.emails) {
-          // Attach account/folder metadata for opening emails from smart folder
-          for (const email of resp.emails) {
-            email.account_id = account.ID
-            email.folder_name = match.name
+        const all = snapshots.flatMap((entry) => {
+          if (!entry?.snapshot) return []
+          for (const email of entry.snapshot.emails) email.account_id = entry.account.ID
+          return entry.snapshot.emails
+        })
+        all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        smartEmails.value = all
+
+        const stale = snapshots
+          .filter((entry) => entry?.snapshot?.stale)
+          .map((entry) => entry!.account)
+        if (stale.length) void refreshFlaggedAccounts(stale)
+      } else {
+        const all: EmailSummary[] = []
+        for (const account of accounts.value) {
+          let folders = foldersByAccount.value[account.ID]
+          if (!folders) {
+            // Load folders first if not yet cached
+            try {
+              folders = await EmailService.ListFolders(account)
+              foldersByAccount.value[account.ID] = folders
+            } catch {
+              continue
+            }
           }
-          all.push(...resp.emails)
+          const match = folders.find((f) => folderMatchesType(f.name, smartType))
+          if (!match) continue
+          const resp: EmailPageResponse | null = await EmailService.ListEmails(
+            account,
+            match.name,
+            1,
+            200,
+          )
+          if (resp?.emails) {
+            // Attach account/folder metadata for opening emails from smart folder
+            for (const email of resp.emails) {
+              email.account_id = account.ID
+              email.folder_name = match.name
+            }
+            all.push(...resp.emails)
+          }
         }
+        // Sort by date descending across all accounts
+        all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        smartEmails.value = all
       }
-      // Sort by date descending across all accounts
-      all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      smartEmails.value = all
     } catch (e) {
       // Keep any previously loaded aggregate rather than showing an empty list,
       // and say why: an empty smart folder looked like "no mail at all".
@@ -828,6 +949,58 @@ export const useAccountsStore = defineStore('accounts', () => {
     } finally {
       smartFolderLoading.value = false
     }
+  }
+
+  /** One server search per account at a time, shared by every caller. */
+  function refreshFlaggedAccount(account: EmailAccount): Promise<EmailSummary[]> {
+    const running = flaggedInflight.get(account.ID)
+    if (running) return running
+    const job = EmailService.ListFlaggedEmails(account, true)
+      .then((snapshot) => {
+        const emails = snapshot?.emails ?? []
+        for (const email of emails) email.account_id = account.ID
+        return emails
+      })
+      .finally(() => {
+        if (flaggedInflight.get(account.ID) === job) flaggedInflight.delete(account.ID)
+      })
+    flaggedInflight.set(account.ID, job)
+    return job
+  }
+
+  /**
+   * Refresh stale account snapshots one at a time. Gmail and Outlook often cap
+   * concurrent IMAP sessions, and firing every account at once made the whole
+   * Starred tab feel slower than the slowest server.
+   */
+  async function refreshFlaggedAccounts(list: EmailAccount[]) {
+    if (smartFolder.value !== 'starred' || smartFolderRefreshing.value) return
+    smartFolderRefreshing.value = true
+    try {
+      for (const account of list) {
+        try {
+          const emails = await refreshFlaggedAccount(account)
+          if (smartFolder.value !== 'starred') return
+          // A fresh result replaces this account's rows wholesale. Matching
+          // folder+UID across accounts would drop unrelated mail because IMAP
+          // UIDs are unique only inside one mailbox.
+          const others = smartEmails.value.filter((email) => email.account_id !== account.ID)
+          smartEmails.value = [...others, ...emails].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+          )
+        } catch (e) {
+          console.error('Failed to refresh flagged mail', e)
+        }
+      }
+    } finally {
+      smartFolderRefreshing.value = false
+    }
+  }
+
+  /** Force a server refresh of All Starred, keeping the current rows on screen. */
+  async function refreshStarred() {
+    if (smartFolder.value !== 'starred') return
+    await refreshFlaggedAccounts([...accounts.value])
   }
 
   return {
@@ -848,6 +1021,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailAccount,
     selectedEmailAccountId,
     selectedEmailFolder,
+    selectedEmailFlagged,
+    selectedEmailFlagging,
     selectedEmailDetail,
     loadingDetail,
     detailError,
@@ -860,10 +1035,13 @@ export const useAccountsStore = defineStore('accounts', () => {
     smartFolder,
     smartEmails,
     smartFolderLoading,
+    smartFolderRefreshing,
     smartCurrentPage,
     isSmartFolder,
     folderMatchesType,
     selectSmartFolder,
+    refreshStarred,
+    toggleSelectedEmailFlagged,
     loadAccounts,
     addAccount,
     removeAccount,

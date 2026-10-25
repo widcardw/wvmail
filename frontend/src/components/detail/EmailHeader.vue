@@ -3,11 +3,12 @@ import { useI18n } from '~/i18n'
 import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import RecipientList from '~/components/detail/RecipientList.vue'
+import UiIconAction from '~/components/ui/UiIconAction.vue'
 import type { EmailDetail } from '~/types/email'
 
 // The header of the reading pane: who sent it, when, the subject, the recipients,
-// and the actions that act on the message as a whole (refresh, export, translate).
-// The translate and export buttons receive their state as props rather than owning it.
+// and the actions that act on the message as a whole (refresh, star, export, translate).
+// The buttons receive their state as props rather than owning it.
 // Recipients live in RecipientList: a big-company To/Cc list has to collapse.
 const props = defineProps<{
   detail: EmailDetail
@@ -15,12 +16,15 @@ const props = defineProps<{
   exportingOriginal: boolean
   translating: boolean
   hasTranslation: boolean
+  flagged: boolean
+  flagging: boolean
 }>()
 
 const emit = defineEmits<{
   refresh: []
   'export-original': []
   'toggle-translation': []
+  'toggle-flag': []
 }>()
 
 const { t } = useI18n()
@@ -65,38 +69,33 @@ function translationTitle(): string {
         <span class="ddate">{{ formatDate(detail.date, localeStore.current) }}</span>
       </div>
       <div class="head-actions">
-        <button
-          type="button"
-          class="icon-btn"
-          :title="t['mail.refresh.detail']"
+        <UiIconAction
+          :label="t[flagged ? 'mail.flag.remove' : 'mail.flag.add']"
+          :icon="flagged ? 'ri:star-fill' : 'ri:star-line'"
+          :active="flagged"
+          :busy="flagging"
+          @click="emit('toggle-flag')"
+        />
+        <UiIconAction
+          :label="t['mail.refresh.detail']"
+          icon="ri:refresh-line"
           :disabled="loading"
+          :busy="loading"
           @click="emit('refresh')"
-        >
-          <i class="i-ri:refresh-line" :class="{ rot: loading }" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="icon-btn"
-          :title="t['mail.export.original']"
+        />
+        <UiIconAction
+          :label="t['mail.export.original']"
+          icon="ri:download-2-line"
           :disabled="loading || exportingOriginal"
+          :busy="exportingOriginal"
           @click="emit('export-original')"
-        >
-          <span v-if="exportingOriginal" class="ic-spin" />
-          <i v-else class="i-ri:download-2-line" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="icon-btn"
-          :title="translationTitle()"
+        />
+        <UiIconAction
+          :label="translationTitle()"
+          :icon="hasTranslation ? 'ri:close-line' : 'ri:translate-2'"
+          :busy="translating"
           @click="emit('toggle-translation')"
-        >
-          <span v-if="translating" class="ic-spin" />
-          <i
-            v-else
-            :class="hasTranslation ? 'i-ri:close-line' : 'i-ri:translate-2'"
-            aria-hidden="true"
-          />
-        </button>
+        />
       </div>
     </div>
 
@@ -152,24 +151,6 @@ function translationTitle(): string {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
-}
-.rot {
-  animation: rot360 0.8s linear infinite;
-}
-/* Top-of-detail actions become themed, visible buttons (not faint icons) */
-.ic-spin {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--n-border-color);
-  border-top-color: var(--n-primary-color);
-  border-radius: 50%;
-  animation: rot360 0.8s linear infinite;
-}
-@keyframes rot360 {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .subject {
   font-size: 20px;

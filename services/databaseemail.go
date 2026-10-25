@@ -95,6 +95,7 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 			AccountID:  accountID,
 			FolderName: folderName,
 			UID:        e.UID,
+			MessageID:  e.MessageID,
 			Subject:    e.Subject,
 			From:       e.From,
 			FromName:   e.FromName,
@@ -342,15 +343,16 @@ func cachedEmailSummary(c CachedEmail) EmailSummary {
 		json.Unmarshal([]byte(c.To), &to)
 	}
 	return EmailSummary{
-		UID:      c.UID,
-		Subject:  c.Subject,
-		From:     c.From,
-		FromName: c.FromName,
-		FromAddr: c.FromAddr,
-		To:       to,
-		Date:     c.Date,
-		Flags:    flags,
-		IsRead:   c.IsRead,
+		UID:       c.UID,
+		MessageID: c.MessageID,
+		Subject:   c.Subject,
+		From:      c.From,
+		FromName:  c.FromName,
+		FromAddr:  c.FromAddr,
+		To:        to,
+		Date:      c.Date,
+		Flags:     flags,
+		IsRead:    c.IsRead,
 	}
 }
 
@@ -369,6 +371,64 @@ func (m *DBManager) MarkEmailRead(accountID, folderName string, uid uint32) erro
 	return db.Model(&CachedEmail{}).
 		Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, uid).
 		Update("is_read", true).Error
+}
+
+// SetEmailFlagged updates the cached flags after the server accepted the STORE.
+// Both the list row and any cached body are updated: reopening a cached message
+// must not restore the star state from before the toggle.
+func (m *DBManager) SetEmailFlagged(accountID, folderName string, uid uint32, flagged bool) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+
+	type cachedFlagRow struct {
+		ID    uint
+		Flags string
+	}
+	for _, model := range []any{&CachedEmail{}, &CachedEmailBody{}} {
+		var rows []cachedFlagRow
+		if err := db.Model(model).
+			Select("id", "flags").
+			Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, uid).
+			Find(&rows).Error; err != nil {
+			return err
+		}
+		for _, row := range rows {
+			var flags []string
+			if row.Flags != "" {
+				_ = json.Unmarshal([]byte(row.Flags), &flags)
+			}
+			encoded, err := json.Marshal(flagsWith(flags, "\\Flagged", flagged))
+			if err != nil {
+				return err
+			}
+			if err := db.Model(model).Where("id = ?", row.ID).Update("flags", string(encoded)).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// flagsWith adds or removes one IMAP flag without changing the order of the
+// others. IMAP flag names are case-insensitive.
+func flagsWith(flags []string, flag string, enabled bool) []string {
+	out := make([]string, 0, len(flags)+1)
+	found := false
+	for _, current := range flags {
+		if strings.EqualFold(current, flag) {
+			found = true
+			if !enabled {
+				continue
+			}
+		}
+		out = append(out, current)
+	}
+	if enabled && !found {
+		out = append(out, flag)
+	}
+	return out
 }
 
 func searchEmailMatches(summary EmailSummary, body *CachedEmailBody, filters []EmailSearchFilter) bool {
@@ -481,6 +541,59 @@ func (m *DBManager) LoadFolderMeta(accountID, folderName string) (FolderMeta, er
 	return FolderMeta{Total: int(meta.Total), UIDNext: meta.UIDNext}, nil
 }
 
+// SaveFlaggedSnapshot replaces the account's cached All Starred result.
+func (m *DBManager) SaveFlaggedSnapshot(accountID string, emails []EmailSummary, fetchedAt int64) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(emails)
+	if err != nil {
+		return err
+	}
+	snapshot := CachedFlaggedSnapshot{
+		AccountID: accountID,
+		Emails:    string(encoded),
+		FetchedAt: fetchedAt,
+	}
+	return db.Save(&snapshot).Error
+}
+
+// LoadFlaggedSnapshot reads the account's cached All Starred result. A missing
+// row means the account has not completed its first search yet.
+func (m *DBManager) LoadFlaggedSnapshot(accountID string) ([]EmailSummary, int64, error) {
+	db, err := m.getDB()
+	if err != nil {
+		return nil, 0, err
+	}
+	var snapshot CachedFlaggedSnapshot
+	if err := db.Where("account_id = ?", accountID).First(&snapshot).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, 0, nil
+		}
+		return nil, 0, err
+	}
+	var emails []EmailSummary
+	if snapshot.Emails != "" {
+		if err := json.Unmarshal([]byte(snapshot.Emails), &emails); err != nil {
+			return nil, 0, err
+		}
+	}
+	return emails, snapshot.FetchedAt, nil
+}
+
+// InvalidateFlaggedSnapshot marks an account's aggregate stale after a star
+// change. The next open paints the old rows immediately, then refreshes them.
+func (m *DBManager) InvalidateFlaggedSnapshot(accountID string) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Model(&CachedFlaggedSnapshot{}).
+		Where("account_id = ?", accountID).
+		Update("fetched_at", 0).Error
+}
+
 // DeleteAccountCache removes every cached row belonging to one account: folders,
 // folder metadata, message summaries and their bodies.
 //
@@ -504,6 +617,7 @@ func (m *DBManager) DeleteAccountCache(accountID string) (int64, error) {
 			&CachedEmailBody{},
 			&CachedFolder{},
 			&CachedFolderMeta{},
+			&CachedFlaggedSnapshot{},
 		} {
 			res := tx.Where("account_id = ?", accountID).Delete(model)
 			if res.Error != nil {

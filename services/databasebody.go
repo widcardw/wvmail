@@ -23,6 +23,7 @@ func (m *DBManager) SaveEmailBody(accountID, folderName string, detail *EmailDet
 		AccountID:   accountID,
 		FolderName:  folderName,
 		UID:         detail.UID,
+		MessageID:   detail.MessageID,
 		Subject:     detail.Subject,
 		From:        detail.From,
 		FromName:    detail.FromName,
@@ -72,6 +73,7 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 
 	return &EmailDetail{
 		UID:         cached.UID,
+		MessageID:   cached.MessageID,
 		Subject:     cached.Subject,
 		From:        cached.From,
 		FromName:    cached.FromName,

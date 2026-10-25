@@ -22,15 +22,18 @@ func TestDeleteAccountCacheRemovesOnlyThatAccount(t *testing.T) {
 		if err := db.SaveFolderMeta(account, "INBOX", FolderMeta{Total: 1, UIDNext: 2}); err != nil {
 			t.Fatalf("SaveFolderMeta(%s): %v", account, err)
 		}
+		if err := db.SaveFlaggedSnapshot(account, []EmailSummary{{UID: 1}}, 1); err != nil {
+			t.Fatalf("SaveFlaggedSnapshot(%s): %v", account, err)
+		}
 	}
 
 	deleted, err := db.DeleteAccountCache("gone")
 	if err != nil {
 		t.Fatalf("DeleteAccountCache: %v", err)
 	}
-	// Two folders + two emails + two bodies + two metas, one account's worth.
-	if deleted != 4 {
-		t.Errorf("deleted rows = %d, want 4", deleted)
+	// One folder + one email + one body + one meta + one starred snapshot.
+	if deleted != 5 {
+		t.Errorf("deleted rows = %d, want 5", deleted)
 	}
 
 	if folders, err := db.LoadFolders("gone"); err != nil {

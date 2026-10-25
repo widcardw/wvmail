@@ -11,12 +11,23 @@ const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 const searchStore = useSearchStore()
 
-const loading = computed(() =>
-  searchStore.searchActive
-    ? searchStore.searchLoading
-    : accountsStore.isSmartFolder
-      ? accountsStore.smartFolderLoading
-      : accountsStore.loading,
+const loading = computed(() => {
+  if (searchStore.searchActive) return searchStore.searchLoading
+  if (
+    accountsStore.smartFolder === 'starred' &&
+    accountsStore.currentTotal === 0 &&
+    accountsStore.smartFolderRefreshing
+  ) {
+    // The first visit has no snapshot to paint, so keep the empty state from
+    // flashing while the initial per-account searches run in the background.
+    return true
+  }
+  return accountsStore.isSmartFolder ? accountsStore.smartFolderLoading : accountsStore.loading
+})
+const refreshing = computed(() =>
+  accountsStore.isSmartFolder
+    ? accountsStore.smartFolderRefreshing
+    : accountsStore.refreshingOpenFolder,
 )
 const emails = computed(() => accountsStore.currentEmails)
 const selectedUid = computed(() => accountsStore.selectedEmailUid)
@@ -27,7 +38,15 @@ const pageCount = computed(() => {
 })
 
 const folderDisplay = computed(() => {
-  if (accountsStore.isSmartFolder) return { label: String(accountsStore.smartFolder) }
+  if (accountsStore.isSmartFolder) {
+    const labels: Record<string, string> = {
+      inbox: t.value['sidebar.all_inbox'],
+      sent: t.value['sidebar.all_sent'],
+      drafts: t.value['sidebar.all_drafts'],
+      starred: t.value['sidebar.all_starred'],
+    }
+    return { label: labels[String(accountsStore.smartFolder)] ?? String(accountsStore.smartFolder) }
+  }
   if (accountsStore.selectedFolder)
     return getFolderDisplay(accountsStore.selectedFolder, locale.value)
   if (searchStore.searchActive) return { label: t.value['search.results'] }
@@ -58,13 +77,23 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
       v-if="showHeader"
       :label="folderDisplay.label"
       :title="accountsStore.selectedFolder || folderDisplay.label"
-      :show-refresh="!accountsStore.isSmartFolder && !searchStore.searchActive"
-      :refreshing="accountsStore.refreshingOpenFolder"
+      :show-refresh="
+        accountsStore.smartFolder === 'starred' ||
+        (!accountsStore.isSmartFolder && !searchStore.searchActive)
+      "
+      :refresh-title="
+        accountsStore.smartFolder === 'starred' ? t['mail.refresh.starred'] : undefined
+      "
+      :refreshing="refreshing"
       :page-count="pageCount"
       :total="accountsStore.currentTotal"
       :page-size="accountsStore.pageSize"
       :page="accountsStore.currentPage"
-      @refresh="accountsStore.forceRefreshEmails()"
+      @refresh="
+        accountsStore.smartFolder === 'starred'
+          ? accountsStore.refreshStarred()
+          : accountsStore.forceRefreshEmails()
+      "
       @page-change="accountsStore.goToPage"
     />
 

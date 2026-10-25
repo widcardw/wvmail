@@ -8,6 +8,7 @@ const props = defineProps<{
   label: string
   title: string
   showRefresh: boolean
+  refreshTitle?: string
   refreshing: boolean
   pageCount: number
   total: number
@@ -58,7 +59,7 @@ function onPageCommit(details: unknown) {
       v-if="showRefresh"
       type="button"
       class="icon-btn"
-      :title="t['mail.refresh.list']"
+      :title="refreshTitle || t['mail.refresh.list']"
       :disabled="refreshing"
       @click="emit('refresh')"
     >

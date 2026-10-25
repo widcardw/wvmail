@@ -24,6 +24,7 @@ export interface TranslationSchema {
   'sidebar.all_inbox': string
   'sidebar.all_sent': string
   'sidebar.all_drafts': string
+  'sidebar.all_starred': string
   'sidebar.unread': string
   'sidebar.conn_down': string
   'sidebar.conn_suspect': string
@@ -49,6 +50,13 @@ export interface TranslationSchema {
   'mail.refreshed': string
   'mail.refresh.list': string
   'mail.refresh.detail': string
+  'mail.refresh.starred': string
+  'mail.flag.add': string
+  'mail.flag.remove': string
+  'mail.flag.added': string
+  'mail.flag.removed': string
+  'mail.flag.failed': string
+  'mail.flag.aggregate': string
   'mail.refresh.aggregate': string
   'mail.export.original': string
   'mail.export.dialog': string
@@ -251,6 +259,7 @@ export interface TranslationSchema {
   'settings.accounts.placeholder_imap_host': string
   'settings.accounts.placeholder_smtp_host': string
   'settings.about': string
+  'settings.about.github_open': string
   'settings.about.log.title': string
   'settings.about.log.level': string
   'settings.about.log.level.debug': string

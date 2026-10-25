@@ -264,9 +264,12 @@ const showAttachments = computed(
           :exporting-original="exportingOriginal"
           :translating="translating"
           :has-translation="hasTranslation"
+          :flagged="accountsStore.selectedEmailFlagged"
+          :flagging="accountsStore.selectedEmailFlagging"
           @refresh="handleRefresh"
           @export-original="handleExportOriginal"
           @toggle-translation="toggleTranslation"
+          @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
         />
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->

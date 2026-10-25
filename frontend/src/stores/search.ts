@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { EmailService } from '#/wvmail/services'
 import { reportFetchFailure } from '~/stores/feedback'
 import { PAGE_SIZE } from '~/types/email'
+import { withMailFlag } from '~/composables/mail-flags'
 import type { EmailPageResponse, EmailSearchFilter, EmailSummary } from '~/types/email'
 
 /**
@@ -77,6 +78,15 @@ export const useSearchStore = defineStore('search', () => {
     searchLoading.value = false
   }
 
+  /** Keep search rows in step with a flag change made from the reading pane. */
+  function setFlag(accountId: string, folder: string, uid: number, flag: string, enabled: boolean) {
+    const row = searchResults.value.find(
+      (email) =>
+        email.account_id === accountId && email.folder_name === folder && email.uid === uid,
+    )
+    if (row) row.flags = withMailFlag(row.flags, flag, enabled)
+  }
+
   /** Paging while a search is on screen: re-runs the stored query for that page. */
   function goToPage(page: number) {
     const id = ++requestId
@@ -115,6 +125,7 @@ export const useSearchStore = defineStore('search', () => {
     searchFolderName,
     searchEmails,
     clearSearch,
+    setFlag,
     goToPage,
   }
 })

@@ -43,6 +43,7 @@ const smartRows = [
   { key: 'inbox', labelKey: 'sidebar.all_inbox', icon: 'ri:inbox-archive-line' },
   { key: 'sent', labelKey: 'sidebar.all_sent', icon: 'ri:send-plane-2-line' },
   { key: 'drafts', labelKey: 'sidebar.all_drafts', icon: 'ri:draft-line' },
+  { key: 'starred', labelKey: 'sidebar.all_starred', icon: 'ri:star-line' },
 ] as const
 
 const utilRows = [

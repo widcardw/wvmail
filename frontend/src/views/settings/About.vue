@@ -6,10 +6,12 @@ import { ConfigService, OsService } from '#/wvmail/services'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
 import UiFieldRow from '~/components/ui/UiFieldRow.vue'
+import AppIcon from '~/components/icon/AppIcon.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
 const { t } = useI18n()
 const fb = useFeedbackStore()
+const repositoryURL = 'https://github.com/widcardw/wvmail'
 
 const logConfig = ref({
   Level: 'info',
@@ -89,6 +91,14 @@ async function handleOpenLogFolder() {
     console.error('Failed to open log folder', e)
   }
 }
+
+async function handleOpenRepository() {
+  try {
+    await OsService.OpenURL(repositoryURL)
+  } catch (e) {
+    console.error('Failed to open repository', e)
+  }
+}
 </script>
 
 <template>
@@ -100,7 +110,19 @@ async function handleOpenLogFolder() {
 
       <div class="lead">
         <p class="lead__title">wvmail — Cross-platform desktop email client, Wails3 + Vue 3</p>
-        <p class="lead__meta">Version 0.0.1</p>
+        <div class="lead__meta-row">
+          <p class="lead__meta">Version 0.0.1</p>
+          <a
+            class="repo-link"
+            :href="repositoryURL"
+            :aria-label="t['settings.about.github_open']"
+            @click.prevent="handleOpenRepository"
+          >
+            <AppIcon icon="ri:github-fill" :size="14" />
+            <span>github.com/widcardw/wvmail</span>
+            <AppIcon icon="ri:external-link-line" :size="12" />
+          </a>
+        </div>
       </div>
 
       <div class="divider">{{ t['settings.about.log.title'] }}</div>
@@ -152,9 +174,34 @@ async function handleOpenLogFolder() {
   font-size: 13px;
 }
 .lead__meta {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 12px;
   opacity: 0.55;
+}
+.lead__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.repo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  font-size: 12px;
+  color: var(--n-primary-color);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.repo-link:hover {
+  text-decoration: underline;
+  background: var(--n-sidebar-hover);
+}
+.repo-link:focus-visible {
+  outline: 2px solid var(--n-primary-color);
+  outline-offset: 1px;
 }
 .divider {
   padding: 10px 18px 4px;

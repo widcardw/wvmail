@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -71,6 +72,7 @@ func (s *EmailService) reportUnseen(accountID string, unseen int) {
 // EmailSummary is a lightweight representation of an email for list views.
 type EmailSummary struct {
 	UID        uint32   `json:"uid"`
+	MessageID  string   `json:"message_id,omitempty"`
 	Subject    string   `json:"subject"`
 	From       string   `json:"from"`
 	FromName   string   `json:"from_name"`
@@ -118,6 +120,7 @@ type AttachmentInfo struct {
 // EmailDetail is the full representation of an email including body content.
 type EmailDetail struct {
 	UID          uint32           `json:"uid"`
+	MessageID    string           `json:"message_id,omitempty"`
 	Subject      string           `json:"subject"`
 	From         string           `json:"from"`
 	FromName     string           `json:"from_name"`
@@ -324,60 +327,7 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	// after the loop turns them into newest-first.
 	summaries := make([]EmailSummary, 0, len(buffers))
 	for _, buf := range buffers {
-		summary := EmailSummary{
-			UID:   uint32(buf.UID),
-			Flags: make([]string, len(buf.Flags)),
-		}
-		if buf.Envelope != nil {
-			summary.Subject = decodeMimeHeader(buf.Envelope.Subject)
-			// Stored in UTC so the column is homogeneous: an absent Date header
-			// leaves the zero time, which must not be formatted into
-			// "0001-01-01T00:00:00Z" and hide the InternalDate fallback below.
-			if !buf.Envelope.Date.IsZero() {
-				summary.Date = buf.Envelope.Date.UTC().Format(time.RFC3339)
-			}
-		}
-		if summary.Date == "" && !buf.InternalDate.IsZero() {
-			summary.Date = buf.InternalDate.UTC().Format(time.RFC3339)
-		}
-		if summary.Subject == "" {
-			summary.Subject = "(No Subject)"
-		}
-		for i, f := range buf.Flags {
-			summary.Flags[i] = string(f)
-		}
-		// Check if the message is read
-		for _, f := range buf.Flags {
-			if f == imap.FlagSeen {
-				summary.IsRead = true
-				break
-			}
-		}
-		// Build sender name + address from envelope
-		if buf.Envelope != nil && len(buf.Envelope.From) > 0 {
-			addr := buf.Envelope.From[0]
-			if addr.Host != "" {
-				summary.FromAddr = addr.Mailbox + "@" + addr.Host
-			} else {
-				summary.FromAddr = addr.Mailbox
-			}
-			summary.FromName = decodeMimeHeader(addr.Name)
-			if summary.FromName != "" {
-				summary.From = summary.FromName + " <" + summary.FromAddr + ">"
-			} else {
-				summary.From = summary.FromAddr
-			}
-		}
-		if buf.Envelope != nil {
-			for _, addr := range buf.Envelope.To {
-				if addr.Host != "" {
-					summary.To = append(summary.To, addr.Mailbox+"@"+addr.Host)
-				} else {
-					summary.To = append(summary.To, addr.Mailbox)
-				}
-			}
-		}
-		summaries = append(summaries, summary)
+		summaries = append(summaries, emailSummaryFromBuffer(buf))
 	}
 
 	// Newest first. The sequence range above selected the newest arrivals, but
@@ -415,6 +365,62 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		Total:   total,
 		UIDNext: uint32(mbox.UIDNext),
 	}, nil
+}
+
+// emailSummaryFromBuffer is shared by the folder page fetch and the flagged-mail
+// search. Keeping one conversion means the two paths cannot disagree about
+// sender formatting, dates, or read state.
+func emailSummaryFromBuffer(buf *imapclient.FetchMessageBuffer) EmailSummary {
+	summary := EmailSummary{
+		UID:   uint32(buf.UID),
+		Flags: make([]string, len(buf.Flags)),
+	}
+	if buf.Envelope != nil {
+		summary.Subject = decodeMimeHeader(buf.Envelope.Subject)
+		summary.MessageID = strings.TrimSpace(buf.Envelope.MessageID)
+		// Stored in UTC so the column is homogeneous: an absent Date header
+		// leaves the zero time, which must not be formatted into
+		// "0001-01-01T00:00:00Z" and hide the InternalDate fallback below.
+		if !buf.Envelope.Date.IsZero() {
+			summary.Date = buf.Envelope.Date.UTC().Format(time.RFC3339)
+		}
+	}
+	if summary.Date == "" && !buf.InternalDate.IsZero() {
+		summary.Date = buf.InternalDate.UTC().Format(time.RFC3339)
+	}
+	if summary.Subject == "" {
+		summary.Subject = "(No Subject)"
+	}
+	for i, f := range buf.Flags {
+		summary.Flags[i] = string(f)
+		if f == imap.FlagSeen {
+			summary.IsRead = true
+		}
+	}
+	if buf.Envelope != nil && len(buf.Envelope.From) > 0 {
+		addr := buf.Envelope.From[0]
+		if addr.Host != "" {
+			summary.FromAddr = addr.Mailbox + "@" + addr.Host
+		} else {
+			summary.FromAddr = addr.Mailbox
+		}
+		summary.FromName = decodeMimeHeader(addr.Name)
+		if summary.FromName != "" {
+			summary.From = summary.FromName + " <" + summary.FromAddr + ">"
+		} else {
+			summary.From = summary.FromAddr
+		}
+	}
+	if buf.Envelope != nil {
+		for _, addr := range buf.Envelope.To {
+			if addr.Host != "" {
+				summary.To = append(summary.To, addr.Mailbox+"@"+addr.Host)
+			} else {
+				summary.To = append(summary.To, addr.Mailbox)
+			}
+		}
+	}
+	return summary
 }
 
 // paginate returns a slice of email summaries for the given page.

@@ -54,6 +54,7 @@ export default defineConfig({
     'i-ri:spam-2-line',
     'i-ri:archive-2-line',
     'i-ri:star-line',
+    'i-ri:star-fill',
     'i-ri:notification-3-line',
     'i-ri:folder-2-line',
     'i-ri:draft-line',
@@ -66,6 +67,8 @@ export default defineConfig({
     'i-ri:translate-2',
     'i-ri:information-line',
     'i-ri:shield-check-line',
+    'i-ri:github-fill',
+    'i-ri:external-link-line',
     // Settings → Proxy: the nav icon is built as `i-${item.icon}`, and the
     // proxy test's result icons come from a ternary — neither is visible to the
     // scanner.
@@ -73,6 +76,7 @@ export default defineConfig({
     'i-ri:checkbox-circle-line',
     'i-ri:error-warning-line',
     'i-ri:refresh-line',
+    'i-ri:download-2-line',
     'i-ri:arrow-go-back-line',
     'i-ri:arrow-go-forward-line',
     'i-ri:robot-2-line',
