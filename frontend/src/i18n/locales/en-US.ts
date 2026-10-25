@@ -189,6 +189,7 @@ const enUS: TranslationSchema = {
   'settings.accounts.provider': 'Provider',
   'settings.accounts.imap_host': 'IMAP Server',
   'settings.accounts.imap_port': 'IMAP Port',
+  'settings.accounts.port': 'Port',
   'settings.accounts.imap_user': 'IMAP Username',
   'settings.accounts.imap_pass': 'IMAP Password',
   'settings.accounts.smtp_host': 'SMTP Server',

@@ -21,6 +21,10 @@ const props = withDefaults(
 
 const emit = defineEmits<{ input: [event: Event] }>()
 const attrs = useAttrs()
+const rootClass = computed(() => attrs.class as string | undefined)
+const controlStyle = computed(() =>
+  props.width ? { width: props.width, flex: 'none' } : undefined,
+)
 const inputAttrs = computed(() => {
   const { class: _class, ...rest } = attrs
   return rest
@@ -28,8 +32,10 @@ const inputAttrs = computed(() => {
 </script>
 
 <template>
-  <PasswordInput.Root :disabled="props.disabled">
-    <PasswordInput.Control class="pw" :style="{ width: props.width }">
+  <!-- Ark renders an extra div for Root by default. `as-child` merges its props
+       onto Control so the visible box is the only flex/grid item. -->
+  <PasswordInput.Root as-child :disabled="props.disabled">
+    <PasswordInput.Control class="pw" :class="rootClass" :style="controlStyle">
       <PasswordInput.Input
         v-bind="inputAttrs"
         class="pw__input"

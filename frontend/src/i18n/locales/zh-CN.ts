@@ -181,6 +181,7 @@ const zhCN: TranslationSchema = {
   'settings.accounts.provider': '提供商',
   'settings.accounts.imap_host': 'IMAP 服务器',
   'settings.accounts.imap_port': 'IMAP 端口',
+  'settings.accounts.port': '端口',
   'settings.accounts.imap_user': 'IMAP 用户名',
   'settings.accounts.imap_pass': 'IMAP 密码',
   'settings.accounts.smtp_host': 'SMTP 服务器',

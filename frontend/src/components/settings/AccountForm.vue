@@ -357,19 +357,24 @@ function onEmailInput(email: string) {
         </Field.Root>
 
         <div class="sec">IMAP</div>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.imap_host'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.IMAPHost"
-            :placeholder="t['settings.accounts.placeholder_imap_host']"
-            @update:model-value="form.IMAPHost = String($event)"
-          />
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.imap_port'] }}</Field.Label>
-          <UiNumberInput :value="form.IMAPPort" @value="form.IMAPPort = $event" />
-        </Field.Root>
+        <!-- Server and port share one line. They stay two separate Ark fields:
+             a Field.Root owns a single control id, so one root for both would
+             give the two controls the same id and point the label at both. -->
+        <div class="frow frow--pair">
+          <Field.Root class="frow__cell frow__cell--grow">
+            <Field.Label class="flabel">{{ t['settings.accounts.imap_host'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.IMAPHost"
+              :placeholder="t['settings.accounts.placeholder_imap_host']"
+              @update:model-value="form.IMAPHost = String($event)"
+            />
+          </Field.Root>
+          <Field.Root class="frow__cell frow__cell--port">
+            <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
+            <UiNumberInput :value="form.IMAPPort" width="96px" @value="form.IMAPPort = $event" />
+          </Field.Root>
+        </div>
         <Field.Root class="frow">
           <Field.Label class="flabel">{{ t['settings.accounts.imap_user'] }}</Field.Label>
           <Field.Input
@@ -392,19 +397,21 @@ function onEmailInput(email: string) {
         </Field.Root>
 
         <div class="sec">SMTP</div>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.smtp_host'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.SMTPHost"
-            :placeholder="t['settings.accounts.placeholder_smtp_host']"
-            @update:model-value="form.SMTPHost = String($event)"
-          />
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.smtp_port'] }}</Field.Label>
-          <UiNumberInput :value="form.SMTPPort" @value="form.SMTPPort = $event" />
-        </Field.Root>
+        <div class="frow frow--pair">
+          <Field.Root class="frow__cell frow__cell--grow">
+            <Field.Label class="flabel">{{ t['settings.accounts.smtp_host'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.SMTPHost"
+              :placeholder="t['settings.accounts.placeholder_smtp_host']"
+              @update:model-value="form.SMTPHost = String($event)"
+            />
+          </Field.Root>
+          <Field.Root class="frow__cell frow__cell--port">
+            <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
+            <UiNumberInput :value="form.SMTPPort" width="96px" @value="form.SMTPPort = $event" />
+          </Field.Root>
+        </div>
         <Field.Root class="frow">
           <Field.Label class="flabel">{{ t['settings.accounts.smtp_user'] }}</Field.Label>
           <Field.Input
@@ -668,6 +675,34 @@ function onEmailInput(email: string) {
   column-gap: 12px;
   row-gap: 0;
 }
+/* Two related controls on one line (server + port). The port keeps its own
+   small inline label so it stays identifiable once it is no longer the only
+   thing in the row. */
+.frow--pair {
+  gap: 12px;
+}
+.frow__cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.frow__cell--grow {
+  flex: 1 1 auto;
+}
+.frow__cell--port {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+/* The inline label sits before its control instead of on the row's label
+   column, so it must not claim that column's width. */
+.flabel--inline {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--color-text-3);
+  line-height: 1;
+  white-space: nowrap;
+}
 .flabel {
   flex: 0 0 108px;
 }
@@ -698,11 +733,8 @@ function onEmailInput(email: string) {
   align-items: center;
   gap: 8px;
 }
-/* The visible number box is UiNumberInput's `.num` control — an element *inside*
-   the child component. A scoped class on the tag only reaches the child's root
-   element (NumberInput.Root's wrapper div), so the old `.input--sm` never applied:
-   the box fell back to `.num { width: 100% }` and sized itself against a
-   shrink-to-fit row, which is what made the row look off-centre. */
+/* UiNumberInput renders `.num` as the component root, so this scoped descendant
+   selector can size the visible box without a wrapper around it. */
 .sync-row :deep(.num) {
   flex: 0 0 88px;
 }
@@ -768,6 +800,16 @@ function onEmailInput(email: string) {
   /* Column layout: one column, so the helper text lines up with everything else. */
   .frow--stacked {
     grid-template-columns: 1fr;
+  }
+  /* Column layout: the port box drops under the server box and spans the row,
+     like every other input. */
+  .frow__cell {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .frow__cell--port {
+    flex: 0 0 auto;
   }
   .frow-hint {
     grid-column: 1;

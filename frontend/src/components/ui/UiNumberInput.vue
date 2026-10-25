@@ -32,6 +32,9 @@ const emit = defineEmits<{ value: [value: number] }>()
 
 const attrs = useAttrs()
 const rootClass = computed(() => attrs.class as string | undefined)
+const controlStyle = computed(() =>
+  props.width ? { width: props.width, flex: 'none' } : undefined,
+)
 const inputAttrs = computed(() => {
   const { class: _class, ...rest } = attrs
   return rest
@@ -40,6 +43,7 @@ const inputAttrs = computed(() => {
 
 <template>
   <NumberInput.Root
+    as-child
     :model-value="String(props.value)"
     :min="props.min"
     :max="props.max"
@@ -47,7 +51,7 @@ const inputAttrs = computed(() => {
     :disabled="props.disabled"
     @value-change="emit('value', $event.valueAsNumber)"
   >
-    <NumberInput.Control class="num" :class="rootClass" :style="{ width: props.width }">
+    <NumberInput.Control class="num" :class="rootClass" :style="controlStyle">
       <NumberInput.Input v-bind="inputAttrs" class="num__input" />
       <div class="num__steppers">
         <NumberInput.IncrementTrigger type="button" class="num__btn" aria-label="+">

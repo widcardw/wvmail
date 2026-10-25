@@ -45,6 +45,7 @@ defineProps<{
   line-height: 2.15;
 }
 .field-row__control {
+  width: 100%;
   min-width: 0;
 }
 .field-row__hint {

@@ -263,7 +263,7 @@
    keeps it from fading such a control twice. */
 .ctl:disabled,
 .input:disabled,
-.pw__input:disabled,
+.pw[data-disabled],
 .num[data-disabled],
 [data-scope='field'][data-part='root'][data-disabled] :is(input, textarea, select):not(:disabled) {
   color: var(--color-text-3);
@@ -706,11 +706,34 @@ button.model-tag:hover {
   position: relative;
   display: flex;
   align-items: center;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: 30px;
+  overflow: hidden;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+}
+.pw:focus-within {
+  border-color: var(--n-primary-color);
 }
 .pw__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
   width: 100%;
+  padding: 0 8px;
   padding-right: 30px;
+  font-size: 13px;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+.pw__input:disabled {
+  cursor: not-allowed;
 }
 .pw__toggle {
   position: absolute;
@@ -742,7 +765,8 @@ button.model-tag:hover {
 .num {
   display: flex;
   align-items: stretch;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
   min-width: 0;
   height: 30px;
   overflow: hidden;

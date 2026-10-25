@@ -179,6 +179,7 @@ export interface TranslationSchema {
   'settings.accounts.provider': string
   'settings.accounts.imap_host': string
   'settings.accounts.imap_port': string
+  'settings.accounts.port': string
   'settings.accounts.imap_user': string
   'settings.accounts.imap_pass': string
   'settings.accounts.smtp_host': string
