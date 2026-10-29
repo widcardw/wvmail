@@ -2,7 +2,7 @@ import { h, type VNode } from 'vue'
 
 export interface IconSource {
   type: 'iconify' | 'image' | 'component'
-  create: () => VNode
+  create: (size: number) => VNode
 }
 
 /**
@@ -11,13 +11,16 @@ export interface IconSource {
  * - 163 / qq: hand-built colored chip / local PNG.
  */
 
-function brandCreate(iconName: string, size?: number): () => VNode {
-  return () =>
+function brandCreate(iconName: string): (size: number) => VNode {
+  return (size) =>
     h('i', {
       class: `i-${iconName}`,
       style: {
-        fontSize: size ? `${size}px` : undefined,
-        verticalAlign: 'middle',
+        display: 'block',
+        width: `${size}px`,
+        height: `${size}px`,
+        fontSize: `${size}px`,
+        flexShrink: 0,
       },
     })
 }
@@ -25,15 +28,15 @@ function brandCreate(iconName: string, size?: number): () => VNode {
 export const ICON_MAPPING: Record<string, IconSource> = {
   gmail: {
     type: 'iconify',
-    create: brandCreate('logos:google-icon', 16),
+    create: brandCreate('logos:google-icon'),
   },
   outlook: {
     type: 'iconify',
-    create: brandCreate('logos:microsoft-windows-icon', 16),
+    create: brandCreate('logos:microsoft-windows-icon'),
   },
   '163': {
     type: 'component',
-    create: () =>
+    create: (size) =>
       h(
         'span',
         {
@@ -41,12 +44,12 @@ export const ICON_MAPPING: Record<string, IconSource> = {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '18px',
-            height: '18px',
-            borderRadius: '5px',
+            width: `${size}px`,
+            height: `${size}px`,
+            borderRadius: `${Math.max(3, Math.round(size * 0.24))}px`,
             background: '#FF3333',
             color: '#fff',
-            fontSize: '9px',
+            fontSize: `${Math.max(7, Math.round(size * 0.36))}px`,
             fontWeight: 700,
             userSelect: 'none',
           },
@@ -56,45 +59,17 @@ export const ICON_MAPPING: Record<string, IconSource> = {
   },
   qq: {
     type: 'component',
-    create: () => h('img', { src: '/qq_macos_bigsur_icon.png', width: 18, height: 18, alt: 'QQ' }),
-  },
-}
-
-export const ICON_MAPPING_SMALL: Record<string, IconSource> = {
-  gmail: {
-    type: 'iconify',
-    create: brandCreate('logos:google-icon', 16),
-  },
-  outlook: {
-    type: 'iconify',
-    create: brandCreate('logos:microsoft-windows-icon', 16),
-  },
-  '163': {
-    type: 'component',
-    create: () =>
-      h(
-        'span',
-        {
-          style: {
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '16px',
-            height: '16px',
-            borderRadius: '4px',
-            background: '#FF3333',
-            color: '#fff',
-            fontSize: '6px',
-            fontWeight: 700,
-            userSelect: 'none',
-          },
+    create: (size) =>
+      h('img', {
+        src: '/qq_macos_bigsur_icon.png',
+        alt: 'QQ',
+        style: {
+          display: 'block',
+          width: `${size}px`,
+          height: `${size}px`,
+          objectFit: 'cover',
         },
-        '163',
-      ),
-  },
-  qq: {
-    type: 'component',
-    create: () => h('img', { src: '/qq_macos_bigsur_icon.png', width: 16, height: 16, alt: 'QQ' }),
+      }),
   },
 }
 

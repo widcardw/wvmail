@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Avatar } from '@ark-ui/vue/avatar'
-import { ICON_MAPPING_SMALL as ICON_MAPPING } from '~/composables/icons/mapping'
+import { ICON_MAPPING } from '~/composables/icons/mapping'
 import { useAccountsStore } from '~/stores/accounts'
 import { ConfigService } from '#/wvmail/services'
 
@@ -50,7 +50,7 @@ const displayName = computed(
 const glyph = computed(() => {
   if (!account.value) return null
   const src = ICON_MAPPING[account.value.Provider]
-  return src ? src.create() : null
+  return src ? src.create(props.size) : null
 })
 const fallback = computed(() => {
   if (glyph.value) return null
@@ -73,6 +73,7 @@ const fallback = computed(() => {
     <Avatar.Fallback
       v-else
       class="aa__fb"
+      :class="{ 'aa__fb--initials': !glyph }"
       :style="avatarStyle"
       :key="account ? account.ID : 'none'"
     >
@@ -95,9 +96,12 @@ const fallback = computed(() => {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: var(--n-action-color);
+  background: transparent;
   font-size: max(8px, 1em);
   color: var(--n-text-color);
+}
+.aa__fb--initials {
+  background: var(--n-action-color);
 }
 .aa__img {
   width: 100%;

@@ -4,6 +4,7 @@ import { Menu } from '@ark-ui/vue/menu'
 import { useI18n } from '~/i18n'
 import { EMAIL_PROVIDER_LABELS } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
+import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 
 defineProps<{
   accounts: EmailAccount[]
@@ -94,13 +95,16 @@ function onSelect(account: EmailAccount, value: string | undefined) {
     <p v-if="accounts.length === 0" class="empty">{{ t['settings.accounts.empty'] }}</p>
     <ul v-else class="list">
       <li v-for="(account, index) in accounts" :key="account.ID" class="row">
-        <div class="row-info">
-          <div class="flex items-center space-x-1">
-            <strong>{{ account.Name || account.Email }}</strong>
-            <span class="chip">{{ providerLabel(account.Provider) }}</span>
-          </div>
-          <div class="muted">
-            {{ account.Email }} &middot; IMAP: {{ account.IMAPHost }}:{{ account.IMAPPort }}
+        <div class="row-main">
+          <AccountAvatar :account-id="account.ID" :size="30" />
+          <div class="row-info">
+            <div class="flex items-center space-x-1">
+              <strong>{{ account.Name || account.Email }}</strong>
+              <span class="chip">{{ providerLabel(account.Provider) }}</span>
+            </div>
+            <div class="muted">
+              {{ account.Email }} &middot; IMAP: {{ account.IMAPHost }}:{{ account.IMAPPort }}
+            </div>
           </div>
         </div>
 
@@ -207,7 +211,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
 }
 .row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 12px 16px;
@@ -216,7 +220,15 @@ function onSelect(account: EmailAccount, value: string | undefined) {
 .row:last-child {
   border-bottom: none;
 }
+.row-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
 .row-info {
+  flex: 1;
   min-width: 0;
 }
 .row-actions {
