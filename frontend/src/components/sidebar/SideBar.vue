@@ -53,6 +53,12 @@ const utilRows = [
     icon: 'ri:notification-2-line',
     path: '/reminder',
   },
+  {
+    key: 'contacts',
+    labelKey: 'contacts.title',
+    icon: 'ri:contacts-book-2-line',
+    path: '/contacts',
+  },
   { key: 'notes', labelKey: 'notes.title', icon: 'ri:pen-nib-line', path: '/notes' },
   { key: 'settings', labelKey: 'settings', icon: 'ri:settings-2-line', path: '/settings' },
 ] as const
@@ -273,7 +279,7 @@ function onMailView() {
 
 function syncSelected() {
   // Only mirror the store into the tree while the mail list is the visible
-  // view. On settings/notes/reminder the folder row must lose its highlight:
+  // view. On settings/contacts/notes/reminder the folder row must lose its highlight:
   // otherwise it still looks selected, and re-clicking it emits no
   // selection-change (the value is unchanged), so the click never navigates
   // back to the folder. The nested folder button remains a normal button, so

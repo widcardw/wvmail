@@ -19,6 +19,35 @@ export interface TranslationSchema {
   'search.results': string
   'search.deleteAgain': string
   'search.history': string
+  'contacts.title': string
+  'contacts.localOnly': string
+  'contacts.add': string
+  'contacts.new': string
+  'contacts.edit': string
+  'contacts.name': string
+  'contacts.email': string
+  'contacts.namePlaceholder': string
+  'contacts.emailPlaceholder': string
+  'contacts.search': string
+  'contacts.clearSearch': string
+  'contacts.empty': string
+  'contacts.noMatch': string
+  'contacts.delete': string
+  'contacts.deleteConfirm': string
+  'contacts.save': string
+  'contacts.saveFailed': string
+  'contacts.saved': string
+  'contacts.deleted': string
+  'contacts.deleteFailed': string
+  'contacts.invalidEmail': string
+  'contacts.copyEmail': string
+  'contacts.copied': string
+  'contacts.copyFailed': string
+  'contacts.addSender': string
+  'contacts.alreadySaved': string
+  'contacts.added': string
+  'contacts.actions': string
+  'contacts.unnamed': string
   'sidebar.inbox': string
   'sidebar.sent': string
   'sidebar.all_inbox': string

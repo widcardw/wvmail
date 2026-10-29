@@ -42,6 +42,7 @@ export default defineConfig({
     'i-ri:computer-line',
     'i-ri:inbox-archive-line',
     'i-ri:notification-2-line',
+    'i-ri:contacts-book-2-line',
     'i-ri:pen-nib-line',
     'i-ri:pen-nib-fill',
     // mail folder categories

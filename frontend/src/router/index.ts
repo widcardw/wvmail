@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import MailView from '../views/MailView.vue'
 import ReminderView from '../views/ReminderView.vue'
 import NotesView from '../views/NotesView.vue'
+import ContactsView from '../views/ContactsView.vue'
 import SettingsMain from '../views/settings/SettingsMain.vue'
 import SettingsCommon from '../views/settings/Common.vue'
 import SettingsSecurity from '../views/settings/Security.vue'
@@ -19,6 +20,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: MailView },
   { path: '/reminder', name: 'reminder', component: ReminderView },
   { path: '/notes', name: 'notes', component: NotesView },
+  { path: '/contacts', name: 'contacts', component: ContactsView },
   {
     path: '/settings',
     name: 'settings',

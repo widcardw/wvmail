@@ -133,6 +133,7 @@ func main() {
 			application.NewService(emailSvc),
 			application.NewService(services.NewNotesService()),
 			application.NewService(services.NewRemindersService()),
+			application.NewService(services.NewContactsService()),
 			application.NewService(&services.TranslationService{}),
 			// Backs the title-bar connection meter and the sidebar's per-account
 			// connection marker; see services/networkservice.go.

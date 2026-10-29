@@ -69,6 +69,16 @@ type CachedNote struct {
 	UpdatedAt int64  `gorm:"autoUpdateTime"`
 }
 
+// CachedContact is a locally saved address-book entry. Email is stored in lower
+// case and uniquely indexed so the same person cannot be added twice.
+type CachedContact struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Name      string `gorm:"size:255"`
+	Email     string `gorm:"uniqueIndex;size:320;not null"`
+	CreatedAt int64  `gorm:"autoCreateTime"`
+	UpdatedAt int64  `gorm:"autoUpdateTime"`
+}
+
 // CachedFolderMeta stores what one fetch saw of a folder — the message count and
 // the mailbox's UIDNEXT — kept separate from the email cache so it survives
 // page-by-page cache replacement.
@@ -152,7 +162,7 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedFolderMeta{}, &CachedFlaggedSnapshot{}, &CachedReminder{}); err != nil {
+	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedContact{}, &CachedFolderMeta{}, &CachedFlaggedSnapshot{}, &CachedReminder{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 

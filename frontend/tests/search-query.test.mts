@@ -15,6 +15,7 @@ import {
   fieldLabel,
   isCompleteEmail,
   matchAccounts,
+  matchSavedContacts,
   mergeAccountSuggestions,
   parseSearchInput,
   toSearchFilters,
@@ -117,16 +118,40 @@ check(
 const merged = mergeAccountSuggestions(
   [acct('alice@x.com', 'Alice')],
   [
-    { address: 'ALICE@x.com', name: 'duplicate' },
-    { address: 'dave@w.com', name: 'Dave' },
+    { ID: 'saved:1', address: 'dave@w.com', name: 'Dave' },
+    { ID: 'saved:2', address: 'ALICE@x.com', name: 'duplicate' },
   ],
+  [
+    { address: 'dave@w.com', name: 'duplicate history' },
+    { address: 'erin@z.com', name: 'Erin' },
+  ],
+  '联系人',
   '历史联系人',
 )
-check('a remembered contact that is also an account is skipped', merged.length === 2)
-check('remembered contacts come after the accounts', merged[1].Email === 'dave@w.com')
-check('…and are labelled as history', merged[1].Provider === '历史联系人')
-check('suggestion ids are stable', merged[1].ID === 'cached:dave@w.com')
-check('the merged list is capped', mergeAccountSuggestions([], [], 'x', 0).length === 0)
+check('a saved contact that is also an account is skipped', merged.length === 3)
+check('saved contacts come after the accounts', merged[1].Email === 'dave@w.com')
+check('…and are labelled as contacts', merged[1].Provider === '联系人')
+check('history contacts come after saved contacts', merged[2].Email === 'erin@z.com')
+check('…and are labelled as history', merged[2].Provider === '历史联系人')
+check('suggestion ids are stable', merged[2].ID === 'cached:erin@z.com')
+check(
+  'the merged list is capped',
+  mergeAccountSuggestions([], [], [], '联系人', '历史联系人', 0).length === 0,
+)
+
+const savedContacts = [
+  { id: 'one', name: 'Alice', email: 'alice@x.com' },
+  { id: 'two', name: '财务部', email: 'finance@example.com' },
+] as const
+check(
+  'saved contacts match by name',
+  matchSavedContacts([...savedContacts], 'ali')[0]?.address === 'alice@x.com',
+)
+check(
+  'saved contacts match by address',
+  matchSavedContacts([...savedContacts], 'finance@')[0]?.name === '财务部',
+)
+check('an empty saved-contact query returns nothing', matchSavedContacts([...savedContacts], '').length === 0)
 
 check('a whole address completes', isCompleteEmail('alice@x.com'))
 check('…even with padding', isCompleteEmail('  alice@x.com '))

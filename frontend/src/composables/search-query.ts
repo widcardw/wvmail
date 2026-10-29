@@ -8,6 +8,7 @@
  * `use-mail-search.ts`, which is the only consumer of these helpers.
  */
 import type { EmailAccount, EmailSearchField, EmailSearchFilter } from '~/types/email'
+import type { Contact } from '~/types/contact'
 
 /** A tag in the query bar. `locked` marks the contextual filter ("sent → from me"). */
 export type SearchTag = EmailSearchFilter & { locked?: boolean }
@@ -28,6 +29,7 @@ export interface FieldSuggestion {
 
 /** A contact remembered from earlier mail, as returned by the backend. */
 export interface ContactSuggestion {
+  ID?: string
   address: string
   name: string
 }
@@ -84,6 +86,30 @@ export function matchAccounts(
     .slice(0, limit)
 }
 
+/** Locally saved contacts matching what has been typed in a from:/to: query. */
+export function matchSavedContacts(
+  contacts: Contact[],
+  value: string,
+  limit: number = SUGGESTION_LIMIT,
+): ContactSuggestion[] {
+  const needle = value.trim().toLowerCase()
+  if (!needle) return []
+  return contacts
+    .filter((contact) =>
+      [contact.email, contact.name].some((part) =>
+        String(part || '')
+          .toLowerCase()
+          .includes(needle),
+      ),
+    )
+    .slice(0, limit)
+    .map((contact) => ({
+      ID: `saved:${contact.id}`,
+      address: contact.email,
+      name: contact.name,
+    }))
+}
+
 /**
  * The field rows: offered only while nothing is typed, or while what is typed still
  * prefixes a field name. The field the contextual filter already covers is not
@@ -105,25 +131,39 @@ export function buildFieldSuggestions(
 }
 
 /**
- * Configured accounts first, then contacts remembered from earlier mail (labelled
- * with `historyLabel`), de-duplicated by address and capped to `limit`.
+ * Configured accounts first, then locally saved contacts, then contacts
+ * remembered from earlier mail. Each tier is de-duplicated by address and the
+ * result is capped to `limit`.
  */
 export function mergeAccountSuggestions(
   accounts: EmailAccount[],
-  contacts: ContactSuggestion[],
+  savedContacts: ContactSuggestion[],
+  historyContacts: ContactSuggestion[],
+  contactsLabel: string,
   historyLabel: string,
   limit: number = SUGGESTION_LIMIT,
 ): AccountSuggestion[] {
   const configured = new Set(accounts.map((account) => account.Email.toLowerCase()))
-  const remembered: AccountSuggestion[] = contacts
+  const seen = new Set(configured)
+  const saved: AccountSuggestion[] = savedContacts
     .filter((contact) => !configured.has(contact.address.toLowerCase()))
+    .map((contact) => ({
+      ID: contact.ID || `saved:${contact.address}`,
+      Email: contact.address,
+      Name: contact.name,
+      Provider: contactsLabel,
+    }))
+  for (const contact of saved) seen.add(contact.Email.toLowerCase())
+
+  const remembered: AccountSuggestion[] = historyContacts
+    .filter((contact) => !seen.has(contact.address.toLowerCase()))
     .map((contact) => ({
       ID: `cached:${contact.address}`,
       Email: contact.address,
       Name: contact.name,
       Provider: historyLabel,
     }))
-  return [...accounts, ...remembered].slice(0, limit)
+  return [...accounts, ...saved, ...remembered].slice(0, limit)
 }
 
 /** True when the typed value is a whole address (used to commit a `to:` tag). */

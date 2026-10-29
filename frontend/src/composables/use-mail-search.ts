@@ -10,6 +10,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
+import { useContactsStore } from '~/stores/contacts'
 import { useSearchStore } from '~/stores/search'
 import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
@@ -20,6 +21,7 @@ import {
   buildFieldSuggestions,
   isCompleteEmail,
   matchAccounts,
+  matchSavedContacts,
   mergeAccountSuggestions,
   parseSearchInput,
   toSearchFilters,
@@ -40,6 +42,7 @@ export interface MailSearchOptions {
 export function useMailSearch(options: MailSearchOptions = {}) {
   const { t } = useI18n()
   const accountsStore = useAccountsStore()
+  const contactsStore = useContactsStore()
   const searchStore = useSearchStore()
   const feedback = useFeedbackStore()
   const preferences = usePreferencesStore()
@@ -50,7 +53,9 @@ export function useMailSearch(options: MailSearchOptions = {}) {
   const defaultFilterDismissed = ref(false)
   const pendingDeleteKey = ref<string | null>(null)
   const activeSuggestionIndex = ref(-1)
-  const contactSuggestions = ref<ContactSuggestion[]>([])
+  const historyContactSuggestions = ref<ContactSuggestion[]>([])
+
+  void contactsStore.loadContacts()
 
   let contactRequestId = 0
   let contactTimer: ReturnType<typeof setTimeout> | undefined
@@ -98,10 +103,19 @@ export function useMailSearch(options: MailSearchOptions = {}) {
     return matchAccounts(accountsStore.accounts, value)
   })
 
+  const savedContactSuggestions = computed(() => {
+    const { field, value } = parsedInput.value
+    if ((field !== 'from' && field !== 'to') || input.value.trim() === '') return []
+    if (defaultFilter.value?.field === field) return []
+    return matchSavedContacts(contactsStore.sortedContacts, value)
+  })
+
   const suggestionAccounts = computed(() =>
     mergeAccountSuggestions(
       accountSuggestions.value,
-      contactSuggestions.value,
+      savedContactSuggestions.value,
+      historyContactSuggestions.value,
+      t.value['contacts.title'],
       t.value['search.history'],
     ),
   )
@@ -220,7 +234,7 @@ export function useMailSearch(options: MailSearchOptions = {}) {
   async function loadContactSuggestions() {
     const requestId = ++contactRequestId
     const { field, value } = parsedInput.value
-    contactSuggestions.value = []
+    historyContactSuggestions.value = []
     if (
       (field !== 'from' && field !== 'to') ||
       !value.trim() ||
@@ -237,7 +251,7 @@ export function useMailSearch(options: MailSearchOptions = {}) {
         SUGGESTION_LIMIT,
       )
       if (requestId === contactRequestId) {
-        contactSuggestions.value = (result || []) as ContactSuggestion[]
+        historyContactSuggestions.value = (result || []) as ContactSuggestion[]
       }
     } catch (error) {
       if (requestId === contactRequestId) {
