@@ -216,15 +216,22 @@ defineExpose({ flush, discard })
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 8px;
+  height: var(--pane-header-height);
+  padding: 0 12px;
   border-bottom: 1px solid var(--n-border-color);
   flex-shrink: 0;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.editor-toolbar::-webkit-scrollbar {
+  display: none;
 }
 .tb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 26px;
   height: 24px;
   padding: 0;

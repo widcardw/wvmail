@@ -12,6 +12,7 @@ import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
 import { EmailService, OsService } from '#/wvmail/services'
 import EmailShadowBody from './EmailShadowBody.vue'
+import EmailActionBar from './EmailActionBar.vue'
 import EmailHeader from './EmailHeader.vue'
 import EmailTranslatedBody from './EmailTranslatedBody.vue'
 import EmailAttachments from './EmailAttachments.vue'
@@ -246,6 +247,20 @@ const showAttachments = computed(
 
 <template>
   <div class="email-detail">
+    <EmailActionBar
+      :has-detail="!!detail"
+      :loading="loading"
+      :exporting-original="exportingOriginal"
+      :translating="translating"
+      :has-translation="hasTranslation"
+      :flagged="accountsStore.selectedEmailFlagged"
+      :flagging="accountsStore.selectedEmailFlagging"
+      @refresh="handleRefresh"
+      @export-original="handleExportOriginal"
+      @toggle-translation="toggleTranslation"
+      @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
+    />
+
     <div class="scroll">
       <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
@@ -260,16 +275,6 @@ const showAttachments = computed(
       <template v-if="detail">
         <EmailHeader
           :detail="detail"
-          :loading="loading"
-          :exporting-original="exportingOriginal"
-          :translating="translating"
-          :has-translation="hasTranslation"
-          :flagged="accountsStore.selectedEmailFlagged"
-          :flagging="accountsStore.selectedEmailFlagging"
-          @refresh="handleRefresh"
-          @export-original="handleExportOriginal"
-          @toggle-translation="toggleTranslation"
-          @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
         />
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
@@ -330,6 +335,8 @@ const showAttachments = computed(
 <style scoped>
 .email-detail {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   color: var(--n-text-color);
   background: var(--n-body-color);
@@ -365,7 +372,8 @@ const showAttachments = computed(
   }
 }
 .scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 .centerpad {

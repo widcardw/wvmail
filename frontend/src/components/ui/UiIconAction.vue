@@ -17,11 +17,13 @@ withDefaults(
     /** A spinner replaces the glyph while the action is running. */
     busy?: boolean
     active?: boolean
+    danger?: boolean
   }>(),
   {
     disabled: false,
     busy: false,
     active: false,
+    danger: false,
   },
 )
 
@@ -36,7 +38,10 @@ const emit = defineEmits<{
       <button
         type="button"
         class="icon-btn detail-action"
-        :class="{ 'detail-action--active': active }"
+        :class="{
+          'detail-action--active': active,
+          'detail-action--danger': danger,
+        }"
         :disabled="disabled || busy"
         :aria-label="label"
         :aria-pressed="active || undefined"
@@ -62,6 +67,12 @@ const emit = defineEmits<{
 .detail-action--active {
   color: var(--color-warning);
   background: var(--color-warning-bg);
+}
+.detail-action--danger {
+  color: var(--color-danger);
+}
+.detail-action--danger:hover {
+  background: var(--color-danger-bg);
 }
 .detail-action__spin {
   width: 13px;

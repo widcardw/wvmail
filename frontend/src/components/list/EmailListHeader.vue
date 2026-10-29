@@ -108,7 +108,8 @@ function onPageCommit(details: unknown) {
 <style scoped>
 .list-header {
   flex-shrink: 0;
-  padding: 6px 10px;
+  height: var(--pane-header-height);
+  padding: 0 10px;
   border-bottom: 1px solid var(--n-border-color);
   display: flex;
   align-items: center;

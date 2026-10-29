@@ -3,28 +3,13 @@ import { useI18n } from '~/i18n'
 import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import RecipientList from '~/components/detail/RecipientList.vue'
-import UiIconAction from '~/components/ui/UiIconAction.vue'
 import type { EmailDetail } from '~/types/email'
 
-// The header of the reading pane: who sent it, when, the subject, the recipients,
-// and the actions that act on the message as a whole (refresh, star, export, translate).
-// The buttons receive their state as props rather than owning it.
+// The header of the reading pane: who sent it, when, the subject and the recipients.
+// Message-wide actions live in the fixed bar above this scroll area.
 // Recipients live in RecipientList: a big-company To/Cc list has to collapse.
-const props = defineProps<{
+defineProps<{
   detail: EmailDetail
-  loading: boolean
-  exportingOriginal: boolean
-  translating: boolean
-  hasTranslation: boolean
-  flagged: boolean
-  flagging: boolean
-}>()
-
-const emit = defineEmits<{
-  refresh: []
-  'export-original': []
-  'toggle-translation': []
-  'toggle-flag': []
 }>()
 
 const { t } = useI18n()
@@ -49,54 +34,17 @@ function senderDisplay(detail: {
   if (detail.from) return { name: null, addr: null, fallback: detail.from }
   return { name: null, addr: null, fallback: 'Unknown' }
 }
-
-function translationTitle(): string {
-  if (props.translating) return t.value['mail.translation.cancel']
-  if (props.hasTranslation) return t.value['mail.translation.close']
-  return t.value['mail.translation.translate']
-}
 </script>
 
 <template>
   <div class="detail-header">
-    <div class="head-row">
-      <div class="sender">
-        <span v-if="senderDisplay(detail).name" class="from">
-          <strong>{{ senderDisplay(detail).name }}</strong>
-          <span class="addr">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
-        </span>
-        <span v-else class="from">{{ senderDisplay(detail).fallback }}</span>
-        <span class="ddate">{{ formatDate(detail.date, localeStore.current) }}</span>
-      </div>
-      <div class="head-actions">
-        <UiIconAction
-          :label="t[flagged ? 'mail.flag.remove' : 'mail.flag.add']"
-          :icon="flagged ? 'ri:star-fill' : 'ri:star-line'"
-          :active="flagged"
-          :busy="flagging"
-          @click="emit('toggle-flag')"
-        />
-        <UiIconAction
-          :label="t['mail.refresh.detail']"
-          icon="ri:refresh-line"
-          :disabled="loading"
-          :busy="loading"
-          @click="emit('refresh')"
-        />
-        <UiIconAction
-          :label="t['mail.export.original']"
-          icon="ri:download-2-line"
-          :disabled="loading || exportingOriginal"
-          :busy="exportingOriginal"
-          @click="emit('export-original')"
-        />
-        <UiIconAction
-          :label="translationTitle()"
-          :icon="hasTranslation ? 'ri:close-line' : 'ri:translate-2'"
-          :busy="translating"
-          @click="emit('toggle-translation')"
-        />
-      </div>
+    <div class="sender">
+      <span v-if="senderDisplay(detail).name" class="from">
+        <strong>{{ senderDisplay(detail).name }}</strong>
+        <span class="addr">&lt;{{ senderDisplay(detail).addr }}&gt;</span>
+      </span>
+      <span v-else class="from">{{ senderDisplay(detail).fallback }}</span>
+      <span class="ddate">{{ formatDate(detail.date, localeStore.current) }}</span>
     </div>
 
     <h2 class="subject">{{ detail.subject || t['mail.noSubject'] }}</h2>
@@ -121,12 +69,6 @@ function translationTitle(): string {
   padding: 18px 22px 14px;
   border-bottom: 1px solid var(--n-border-color);
 }
-.head-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
 .sender {
   display: flex;
   flex-direction: column;
@@ -146,11 +88,6 @@ function translationTitle(): string {
 .ddate {
   font-size: 12px;
   opacity: 0.6;
-}
-.head-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
 }
 .subject {
   font-size: 20px;

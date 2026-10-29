@@ -51,6 +51,12 @@ export interface TranslationSchema {
   'mail.refresh.list': string
   'mail.refresh.detail': string
   'mail.refresh.starred': string
+  'mail.actions': string
+  'mail.reply': string
+  'mail.reply_all': string
+  'mail.forward': string
+  'mail.mark.unread': string
+  'mail.delete': string
   'mail.flag.add': string
   'mail.flag.remove': string
   'mail.flag.added': string
