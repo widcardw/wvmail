@@ -42,22 +42,25 @@ type CachedEmail struct {
 
 // CachedEmailBody represents a cached full email body content.
 type CachedEmailBody struct {
-	ID          uint   `gorm:"primaryKey"`
-	AccountID   string `gorm:"index:idx_ceb_account_folder_uid;size:64;not null"`
-	FolderName  string `gorm:"size:255;not null"`
-	UID         uint32 `gorm:"not null"`
-	MessageID   string `gorm:"size:512"`
-	Subject     string `gorm:"size:512"`
-	From        string `gorm:"size:256"` // display "Name <email>"
-	FromName    string `gorm:"size:128"`
-	FromAddr    string `gorm:"size:256"`
-	To          string `gorm:"size:512"` // JSON serialized []string
-	Cc          string `gorm:"size:512"` // JSON serialized []string
-	Date        string `gorm:"size:64"`
-	BodyText    string `gorm:"type:text"`
-	BodyHTML    string `gorm:"type:text"`
-	Flags       string `gorm:"size:512"`  // JSON serialized []string
-	Attachments string `gorm:"type:text"` // JSON serialized []AttachmentInfo
+	ID         uint   `gorm:"primaryKey"`
+	AccountID  string `gorm:"index:idx_ceb_account_folder_uid;size:64;not null"`
+	FolderName string `gorm:"size:255;not null"`
+	UID        uint32 `gorm:"not null"`
+	MessageID  string `gorm:"size:512"`
+	Subject    string `gorm:"size:512"`
+	From       string `gorm:"size:256"` // display "Name <email>"
+	FromName   string `gorm:"size:128"`
+	FromAddr   string `gorm:"size:256"`
+	To         string `gorm:"size:512"` // JSON serialized []string
+	Cc         string `gorm:"size:512"` // JSON serialized []string
+	Date       string `gorm:"size:64"`
+	BodyText   string `gorm:"type:text"`
+	BodyHTML   string `gorm:"type:text"`
+	// Zero for cache rows written before this field existed. The frontend treats
+	// an empty BodyHTML as plain text too, so those rows keep their old behaviour.
+	BodyIsPlainText bool   `gorm:"not null;default:false"`
+	Flags           string `gorm:"size:512"`  // JSON serialized []string
+	Attachments     string `gorm:"type:text"` // JSON serialized []AttachmentInfo
 }
 
 // CachedNote represents a persisted note with rich text content.

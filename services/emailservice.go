@@ -119,20 +119,23 @@ type AttachmentInfo struct {
 
 // EmailDetail is the full representation of an email including body content.
 type EmailDetail struct {
-	UID          uint32           `json:"uid"`
-	MessageID    string           `json:"message_id,omitempty"`
-	Subject      string           `json:"subject"`
-	From         string           `json:"from"`
-	FromName     string           `json:"from_name"`
-	FromAddr     string           `json:"from_addr"`
-	To           []string         `json:"to"`
-	Cc           []string         `json:"cc"`
-	Date         string           `json:"date"`
-	BodyText     string           `json:"body_text"`
-	BodyHTML     string           `json:"body_html"`
-	Flags        []string         `json:"flags"`
-	Attachments  []AttachmentInfo `json:"attachments"`
-	IsSuspicious bool             `json:"is_suspicious"`
+	UID       uint32   `json:"uid"`
+	MessageID string   `json:"message_id,omitempty"`
+	Subject   string   `json:"subject"`
+	From      string   `json:"from"`
+	FromName  string   `json:"from_name"`
+	FromAddr  string   `json:"from_addr"`
+	To        []string `json:"to"`
+	Cc        []string `json:"cc"`
+	Date      string   `json:"date"`
+	BodyText  string   `json:"body_text"`
+	BodyHTML  string   `json:"body_html"`
+	// BodyIsPlainText records that the MIME body was text/plain (and no HTML
+	// alternative was used). The frontend renders these bodies as Markdown.
+	BodyIsPlainText bool             `json:"body_is_plain_text"`
+	Flags           []string         `json:"flags"`
+	Attachments     []AttachmentInfo `json:"attachments"`
+	IsSuspicious    bool             `json:"is_suspicious"`
 }
 
 // FolderInfo represents a mail folder with its metadata.

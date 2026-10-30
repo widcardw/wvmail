@@ -57,6 +57,8 @@ export interface EmailDetail {
   date: string
   body_text: string
   body_html: string
+  /** True when the MIME body was text/plain and no HTML alternative was used. */
+  body_is_plain_text: boolean
   flags: string[]
   attachments: AttachmentInfo[]
   is_suspicious: boolean

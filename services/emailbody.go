@@ -198,6 +198,8 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	var parts []bodyPartInfo
 	var attachments []AttachmentInfo
 	var inlineImgs []inlineImgInfo
+	sawHTMLPart := false
+	sawTextPart := false
 	if buf.BodyStructure != nil {
 		buf.BodyStructure.Walk(func(path []int, part imap.BodyStructure) bool {
 			mt := part.MediaType()
@@ -343,14 +345,17 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 					decoded := decodeBodyPart(raw, info.encoding, info.charset)
 					if info.isHTML {
 						detail.BodyHTML = decoded
+						sawHTMLPart = true
 					} else {
 						detail.BodyText = decoded
+						sawTextPart = true
 					}
 				} else if !isAttachmentSection(sec.Part, attachments) {
 					// Whole-message fallback section (no usable body structure
 					// was advertised): decode it like a body part so CTE and
 					// charset are still handled instead of dumping raw bytes.
 					detail.BodyText = decodeBodyPart(raw, "", "")
+					sawTextPart = true
 				}
 			}
 
@@ -414,6 +419,9 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	// attachments as well was noise (and inflated the "N attachments" header). Parts the
 	// body never referenced stay listed, or they would be invisible everywhere.
 	detail.Attachments = visibleAttachments(attachments, renderedInline)
+	// A text/plain-only MIME body is rendered as Markdown in the reader. When an
+	// HTML alternative exists, that stays the authoritative body.
+	detail.BodyIsPlainText = sawTextPart && !sawHTMLPart
 
 	// Bodies that were double-encoded upstream (UTF-8 bytes decoded as GBK by a
 	// gateway, or by an older build of this decoder) can be reversed here: the

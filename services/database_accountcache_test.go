@@ -82,3 +82,29 @@ func TestDeleteAccountCacheUnknownAccount(t *testing.T) {
 		t.Errorf("deleted rows = %d, want 0", deleted)
 	}
 }
+
+func TestEmailBodyPlainTextFlagRoundTrips(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	db := NewDBManager()
+	want := &EmailDetail{
+		UID:             7,
+		Subject:         "markdown mail",
+		BodyText:        "# heading\n\n**bold**",
+		BodyIsPlainText: true,
+	}
+	if err := db.SaveEmailBody("account", "INBOX", want); err != nil {
+		t.Fatalf("SaveEmailBody: %v", err)
+	}
+
+	got, err := db.LoadEmailBody("account", "INBOX", want.UID)
+	if err != nil {
+		t.Fatalf("LoadEmailBody: %v", err)
+	}
+	if !got.BodyIsPlainText {
+		t.Error("text/plain marker was lost in the body cache")
+	}
+	if got.BodyText != want.BodyText {
+		t.Errorf("body text = %q, want %q", got.BodyText, want.BodyText)
+	}
+}

@@ -7,7 +7,7 @@ import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
 import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
-import { sanitizeEmailHtml, linkifyPlainText } from '~/composables/html'
+import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
 import { EmailService, OsService } from '#/wvmail/services'
@@ -66,21 +66,18 @@ const allowRemote = computed(
 // Sanitising parses and rewrites the whole body, so cache it per detail (and per
 // remote-content decision) instead of re-running it on every re-render.
 const sanitized = computed(() => {
-  const html = detail.value?.body_html
-  if (!html) return { html: '', blockedRemote: 0, cssArt: 0 }
-  return sanitizeEmailHtml(html, sanitizeOptions())
+  const mail = detail.value
+  if (!mail) return { html: '', blockedRemote: 0, cssArt: 0 }
+  if (mail.body_is_plain_text || !mail.body_html) {
+    if (!mail.body_text) return { html: '', blockedRemote: 0, cssArt: 0 }
+    return sanitizePlainTextEmail(mail.body_text, sanitizeOptions())
+  }
+  return sanitizeEmailHtml(mail.body_html, sanitizeOptions())
 })
 const sanitizedBodyHtml = computed(() => sanitized.value.html)
 const blockedRemote = computed(() => sanitized.value.blockedRemote)
 /** Style declarations dropped because they were spam-grade (a picture drawn with CSS). */
 const cssArt = computed(() => sanitized.value.cssArt)
-
-/** Text-only messages: same URL + date highlighting, without the HTML pipeline. */
-const plainBodyHtml = computed(() => {
-  const text = detail.value?.body_text
-  if (!text) return ''
-  return linkifyPlainText(text, sanitizeOptions().mentions)
-})
 
 /**
  * Reference for date detection: when the message was sent, not the clock. A mail
@@ -273,9 +270,7 @@ const showAttachments = computed(
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
 
       <template v-if="detail">
-        <EmailHeader
-          :detail="detail"
-        />
+        <EmailHeader :detail="detail" />
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
         <EmailSecurityNotice v-if="spamGated" @reveal="suspiciousRevealed = true" />
@@ -303,7 +298,6 @@ const showAttachments = computed(
             :html="sanitizedBodyHtml"
             :dark="isDarkMode"
           />
-          <EmailShadowBody v-else-if="plainBodyHtml" :html="plainBodyHtml" :dark="isDarkMode" />
           <div v-else class="centerpad-empty">{{ t['mail.noContent'] }}</div>
         </div>
 
