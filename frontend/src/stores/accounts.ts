@@ -63,6 +63,19 @@ export const useAccountsStore = defineStore('accounts', () => {
   const smartFolderLoading = ref(false)
   const smartFolderRefreshing = ref(false)
   const smartCurrentPage = ref(1)
+  /** Latest aggregate-view request; switching views invalidates older results. */
+  let smartFolderRequestId = 0
+
+  function invalidateSmartFolderRequests() {
+    smartFolderRequestId++
+    smartFolderLoading.value = false
+    smartFolderRefreshing.value = false
+  }
+
+  function smartFolderRequestIsCurrent(requestId: number, smartType: string): boolean {
+    return requestId === smartFolderRequestId && smartFolder.value === smartType
+  }
+
   const flagging = ref<Record<string, boolean>>({})
   const flaggedInflight = new Map<string, Promise<EmailSummary[]>>()
 
@@ -82,6 +95,26 @@ export const useAccountsStore = defineStore('accounts', () => {
   const selectedEmailDetail = ref<EmailDetail | null>(null)
   const loadingDetail = ref(false)
   const detailError = ref<string | null>(null)
+  /**
+   * Latest detail request. Selecting another message, or refreshing the body,
+   * invalidates every request that started before it so a slow IMAP fetch cannot
+   * paint its result over the message now on screen.
+   */
+  let detailRequestId = 0
+
+  function detailRequestIsCurrent(
+    requestId: number,
+    accountId: string,
+    folder: string,
+    uid: number,
+  ): boolean {
+    return (
+      requestId === detailRequestId &&
+      selectedEmailAccountId.value === accountId &&
+      selectedEmailFolder.value === folder &&
+      selectedEmailUid.value === uid
+    )
+  }
 
   const selectedAccount = computed(() => {
     if (!selectedAccountId.value) return null
@@ -353,6 +386,25 @@ export const useAccountsStore = defineStore('accounts', () => {
   // login + SELECT + FETCH, so clicking back and forth between two folders must not
   // dial IMAP on every click.
   const fetchInflight = new Set<string>()
+  /**
+   * Latest list mutation per account:folder. Both cache loads and server
+   * refreshes use it, so a slow page-1 response cannot overwrite page 2 when the
+   * user has already paged or refreshed.
+   */
+  let folderRequestSeq = 0
+  const folderRequestIds = new Map<string, number>()
+  let listRequestsInFlight = 0
+
+  function beginFolderRequest(key: string): number {
+    const id = ++folderRequestSeq
+    folderRequestIds.set(key, id)
+    return id
+  }
+
+  function folderRequestIsCurrent(key: string, id: number): boolean {
+    return folderRequestIds.get(key) === id
+  }
+
   /** account:folder → when its rows last came off the server. */
   const folderFetchedAt: Record<string, number> = {}
   const FOLDER_OPEN_REFRESH_MIN_MS = 20_000
@@ -441,6 +493,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     ps = pageSize,
   ): Promise<boolean> {
     const key = `${account.ID}:${folder}`
+    const requestId = beginFolderRequest(key)
+    listRequestsInFlight++
     loading.value = true
     try {
       const resp: EmailPageResponse | null = await EmailService.ListEmails(
@@ -449,6 +503,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         page,
         ps,
       )
+      if (!folderRequestIsCurrent(key, requestId)) return false
       emailsByFolder.value[key] = resp?.emails ?? []
       emailTotalByFolder.value[key] = resp?.total ?? 0
       if (page === 1) {
@@ -461,13 +516,15 @@ export const useAccountsStore = defineStore('accounts', () => {
       recordSnapshot(key, resp)
       return fromCache
     } catch (e) {
+      if (!folderRequestIsCurrent(key, requestId)) return false
       // Keep the previously loaded page: the backend deliberately returns an
       // error instead of an empty list when a refresh looks wrong, and blanking
       // the list here threw that protection away.
       reportFetchFailure('Failed to load emails', e)
       return false
     } finally {
-      loading.value = false
+      listRequestsInFlight--
+      if (listRequestsInFlight === 0) loading.value = false
     }
   }
 
@@ -494,6 +551,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     // fetch is running must not open a second IMAP session on the same mailbox.
     if (fetchInflight.has(key)) return
     fetchInflight.add(key)
+    const requestId = beginFolderRequest(key)
     refreshingKeys.value[key] = true
     try {
       const cur = currentPageByFolder.value[key] || 1
@@ -503,6 +561,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         cur,
         pageSize,
       )
+      if (!folderRequestIsCurrent(key, requestId)) return
       const total = resp?.total ?? 0
       const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
       const next = Math.max(1, Math.min(cur, maxPages))
@@ -516,6 +575,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       // (30s), so the background path normally costs nothing extra.
       void loadFolderStatuses(account)
     } catch (e) {
+      if (!folderRequestIsCurrent(key, requestId)) return
       if (announce) reportFetchFailure('Failed to refresh emails', e)
       else console.error('Failed to refresh folder in the background', e)
     } finally {
@@ -585,8 +645,10 @@ export const useAccountsStore = defineStore('accounts', () => {
         if (account && folder) {
           const key = `${account.ID}:${folder}`
           const want = currentPageByFolder.value[key] || 1
+          const requestId = beginFolderRequest(key)
           EmailService.ListEmails(account, folder, want, pageSize)
             .then((resp: EmailPageResponse | null) => {
+              if (!folderRequestIsCurrent(key, requestId)) return
               // The sync just fetched this folder on the server, so a click on it
               // must not trigger another dial straight away.
               folderFetchedAt[key] = Date.now()
@@ -601,6 +663,7 @@ export const useAccountsStore = defineStore('accounts', () => {
               } else {
                 // our page is now beyond the last page (list shrank) -> show last page
                 return EmailService.ListEmails(account, folder, page, pageSize).then((p2) => {
+                  if (!folderRequestIsCurrent(key, requestId)) return
                   emailsByFolder.value[key] = p2?.emails ?? []
                   emailTotalByFolder.value[key] = p2?.total ?? 0
                   currentPageByFolder.value[key] = page
@@ -620,6 +683,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   async function selectEmail(account: EmailAccount, folder: string, uid: number) {
+    const requestId = ++detailRequestId
     selectedEmailUid.value = uid
     selectedEmailAccountId.value = account.ID
     selectedEmailFolder.value = folder
@@ -628,14 +692,18 @@ export const useAccountsStore = defineStore('accounts', () => {
     detailError.value = null
     try {
       const detail = await EmailService.FetchEmail(account, folder, uid)
+      if (!detailRequestIsCurrent(requestId, account.ID, folder, uid)) return
       selectedEmailDetail.value = detail
       // Opening a message reads it: see markEmailRead.
       void markEmailRead(account, folder, uid)
     } catch (e) {
+      if (!detailRequestIsCurrent(requestId, account.ID, folder, uid)) return
       detailError.value = String(e)
       console.error('Failed to fetch email detail', e)
     } finally {
-      loadingDetail.value = false
+      if (detailRequestIsCurrent(requestId, account.ID, folder, uid)) {
+        loadingDetail.value = false
+      }
     }
   }
 
@@ -666,17 +734,22 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   async function refreshEmailBody(account: EmailAccount, folder: string, uid: number) {
+    const requestId = ++detailRequestId
     loadingDetail.value = true
     detailError.value = null
     try {
       const detail = await EmailService.RefreshEmailBody(account, folder, uid)
+      if (!detailRequestIsCurrent(requestId, account.ID, folder, uid)) return
       selectedEmailDetail.value = detail
       feedback.success(i18n.value['mail.refreshed'])
     } catch (e) {
+      if (!detailRequestIsCurrent(requestId, account.ID, folder, uid)) return
       detailError.value = String(e)
       console.error('Failed to refresh email body', e)
     } finally {
-      loadingDetail.value = false
+      if (detailRequestIsCurrent(requestId, account.ID, folder, uid)) {
+        loadingDetail.value = false
+      }
     }
   }
 
@@ -705,6 +778,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   function selectAccount(id: string) {
+    invalidateSmartFolderRequests()
+    smartFolder.value = null
     selectedAccountId.value = id
     selectedFolder.value = null
     selectedEmailUid.value = null
@@ -718,6 +793,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   function selectFolder(accountId: string, folderName: string) {
+    invalidateSmartFolderRequests()
     selectedAccountId.value = accountId
     selectedFolder.value = folderName
     smartFolder.value = null // clear smart folder selection
@@ -873,6 +949,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   async function selectSmartFolder(smartType: string) {
+    const requestId = ++smartFolderRequestId
+    const previousSmartFolder = smartFolder.value
     smartFolder.value = smartType
     selectedAccountId.value = null
     selectedFolder.value = null
@@ -880,7 +958,10 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailAccountId.value = null
     selectedEmailFolder.value = null
     selectedEmailDetail.value = null
+    // Never leave rows from the previous smart folder under the new heading.
+    if (previousSmartFolder !== smartType) smartEmails.value = []
     smartFolderLoading.value = true
+    smartFolderRefreshing.value = false
     smartCurrentPage.value = 1
 
     try {
@@ -896,6 +977,7 @@ export const useAccountsStore = defineStore('accounts', () => {
             }
           }),
         )
+        if (!smartFolderRequestIsCurrent(requestId, smartType)) return
         const all = snapshots.flatMap((entry) => {
           if (!entry?.snapshot) return []
           for (const email of entry.snapshot.emails) email.account_id = entry.account.ID
@@ -907,7 +989,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         const stale = snapshots
           .filter((entry) => entry?.snapshot?.stale)
           .map((entry) => entry!.account)
-        if (stale.length) void refreshFlaggedAccounts(stale)
+        if (stale.length) void refreshFlaggedAccounts(stale, requestId)
       } else {
         const all: EmailSummary[] = []
         for (const account of accounts.value) {
@@ -916,6 +998,7 @@ export const useAccountsStore = defineStore('accounts', () => {
             // Load folders first if not yet cached
             try {
               folders = await EmailService.ListFolders(account)
+              if (!smartFolderRequestIsCurrent(requestId, smartType)) return
               foldersByAccount.value[account.ID] = folders
             } catch {
               continue
@@ -929,6 +1012,7 @@ export const useAccountsStore = defineStore('accounts', () => {
             1,
             200,
           )
+          if (!smartFolderRequestIsCurrent(requestId, smartType)) return
           if (resp?.emails) {
             // Attach account/folder metadata for opening emails from smart folder
             for (const email of resp.emails) {
@@ -938,16 +1022,20 @@ export const useAccountsStore = defineStore('accounts', () => {
             all.push(...resp.emails)
           }
         }
+        if (!smartFolderRequestIsCurrent(requestId, smartType)) return
         // Sort by date descending across all accounts
         all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         smartEmails.value = all
       }
     } catch (e) {
+      if (!smartFolderRequestIsCurrent(requestId, smartType)) return
       // Keep any previously loaded aggregate rather than showing an empty list,
       // and say why: an empty smart folder looked like "no mail at all".
       reportFetchFailure('Failed to load smart folder', e)
     } finally {
-      smartFolderLoading.value = false
+      if (smartFolderRequestIsCurrent(requestId, smartType)) {
+        smartFolderLoading.value = false
+      }
     }
   }
 
@@ -973,14 +1061,14 @@ export const useAccountsStore = defineStore('accounts', () => {
    * concurrent IMAP sessions, and firing every account at once made the whole
    * Starred tab feel slower than the slowest server.
    */
-  async function refreshFlaggedAccounts(list: EmailAccount[]) {
-    if (smartFolder.value !== 'starred' || smartFolderRefreshing.value) return
+  async function refreshFlaggedAccounts(list: EmailAccount[], requestId = smartFolderRequestId) {
+    if (!smartFolderRequestIsCurrent(requestId, 'starred') || smartFolderRefreshing.value) return
     smartFolderRefreshing.value = true
     try {
       for (const account of list) {
         try {
           const emails = await refreshFlaggedAccount(account)
-          if (smartFolder.value !== 'starred') return
+          if (!smartFolderRequestIsCurrent(requestId, 'starred')) return
           // A fresh result replaces this account's rows wholesale. Matching
           // folder+UID across accounts would drop unrelated mail because IMAP
           // UIDs are unique only inside one mailbox.
@@ -993,7 +1081,9 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
       }
     } finally {
-      smartFolderRefreshing.value = false
+      if (smartFolderRequestIsCurrent(requestId, 'starred')) {
+        smartFolderRefreshing.value = false
+      }
     }
   }
 

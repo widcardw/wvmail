@@ -34,7 +34,7 @@ check('list converted', /<ul>[\s\S]*<li>one<\/li>[\s\S]*<li>two<\/li>/.test(form
 check('markdown wrapper survives sanitising', formatted.html.includes('class="markdown-body"'))
 
 const wrapped = render('first line\nsecond line')
-check('plain-text line breaks are preserved', wrapped.html.includes('first line<br>second line'))
+check('plain-text line breaks are preserved', /first line<br>\s*second line/.test(wrapped.html))
 
 const gfm = render(
   '| Name | State |\n| --- | --- |\n| sync | done |\n\n~~old~~ https://example.com',
@@ -52,8 +52,14 @@ check('fenced code converted', /<pre><code class="language-ts">/.test(code.html)
 
 console.log('safety')
 const rawHtml = render('<script>alert(1)</script><img src=x onerror=alert(2)>hello')
-check('raw HTML is not emitted', !/<script|onerror/i.test(rawHtml.html))
-check('raw HTML text remains visible', rawHtml.html.includes('hello'))
+check(
+  'raw HTML is escaped',
+  /(?:&lt;|&#x3C;|&#60;)script/.test(rawHtml.html) && !/<script/i.test(rawHtml.html),
+)
+check(
+  'raw HTML text remains visible',
+  /(?:&lt;|&#x3C;|&#60;)img/.test(rawHtml.html) && rawHtml.html.includes('hello'),
+)
 
 const unsafeLink = render('[click](javascript:alert(1))')
 check('javascript link removed', !/javascript:/i.test(unsafeLink.html))

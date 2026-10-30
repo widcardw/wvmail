@@ -30,7 +30,28 @@ const refreshing = computed(() =>
     : accountsStore.refreshingOpenFolder,
 )
 const emails = computed(() => accountsStore.currentEmails)
-const selectedUid = computed(() => accountsStore.selectedEmailUid)
+/**
+ * Selection is account+folder+UID, not UID alone: aggregate and search views can
+ * contain the same UID in several mailboxes, and comparing only the number marked
+ * unrelated rows as selected.
+ */
+const selectedEmailKey = computed(() => {
+  const uid = accountsStore.selectedEmailUid
+  const accountId = accountsStore.selectedEmailAccountId
+  const folder = accountsStore.selectedEmailFolder
+  return uid != null && accountId && folder ? `${accountId}\u200b${folder}\u200b${uid}` : ''
+})
+
+function emailKey(email: { uid: number; account_id?: string; folder_name?: string }): string {
+  const accountId = email.account_id || accountsStore.selectedAccountId
+  const folder = email.folder_name || accountsStore.selectedFolder
+  return accountId && folder ? `${accountId}\u200b${folder}\u200b${email.uid}` : ''
+}
+
+function isSelected(email: { uid: number; account_id?: string; folder_name?: string }): boolean {
+  return selectedEmailKey.value !== '' && selectedEmailKey.value === emailKey(email)
+}
+
 const pageCount = computed(() => {
   const total = accountsStore.currentTotal
   const ps = accountsStore.pageSize
@@ -106,7 +127,7 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
           v-for="email in emails"
           :key="`${email.account_id || accountsStore.selectedAccountId}:${email.folder_name || accountsStore.selectedFolder}:${email.uid}`"
           :email="email"
-          :selected="selectedUid === email.uid"
+          :selected="isSelected(email)"
           :smart="accountsStore.isSmartFolder"
           @select="handleClick"
         />

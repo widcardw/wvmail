@@ -1,6 +1,6 @@
 import { unified } from 'unified'
 import rehypeStringify from 'rehype-stringify'
-import type { Root, Element, Text, Comment, Doctype } from 'hast'
+import type { Root, RootContent, Element, Text, Comment, Doctype } from 'hast'
 // Explicit `.ts` so the Node-run tests can resolve it (see tsconfig).
 import { findDateMentions } from '../date-mentions/index.ts'
 import type { DateMention } from '../date-mentions/index.ts'
@@ -92,7 +92,7 @@ function walkDateMentions(node: Root | Element, options: MentionRenderOptions): 
   if (!('children' in node)) return
   if (node.type === 'element' && NO_MENTION_TAGS.has(node.tagName)) return
 
-  const newChildren: (Text | Element | Comment | Doctype)[] = []
+  const newChildren: RootContent[] = []
   let changed = false
 
   for (const child of node.children) {
@@ -165,7 +165,7 @@ function walkAndLink(node: Root | Element): void {
   if (!('children' in node)) return
   if (node.type === 'element' && NO_LINK_TAGS.has(node.tagName)) return
 
-  const newChildren: (Text | Element | Comment | Doctype)[] = []
+  const newChildren: RootContent[] = []
   let changed = false
 
   for (const child of node.children) {

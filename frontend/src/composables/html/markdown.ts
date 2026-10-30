@@ -21,8 +21,35 @@ const markdown = unified()
   // Plain-text mail usually hard-wraps lines. CommonMark would fold those into
   // spaces; breaks keeps the sender's visible line breaks.
   .use(remarkBreaks)
+  .use(literalHtmlAsText)
   .use(remarkRehype)
   .use(rehypeStringify)
+
+interface MarkdownNode {
+  type: string
+  value?: string
+  children?: MarkdownNode[]
+}
+
+/**
+ * A text/plain message may legitimately contain `<foo>` as text. Markdown treats
+ * it as raw HTML and remark-rehype would drop it; turn HTML nodes back into text
+ * so they are escaped and visible instead.
+ */
+function literalHtmlAsText() {
+  return (tree: unknown) => {
+    if (!tree || typeof tree !== 'object') return
+
+    const walk = (node: MarkdownNode) => {
+      if (node.type === 'html') {
+        node.type = 'text'
+        return
+      }
+      for (const child of node.children ?? []) walk(child)
+    }
+    walk(tree as MarkdownNode)
+  }
+}
 
 const MARKDOWN_CSS = `
 .markdown-body > :first-child { margin-top: 0; }
@@ -93,7 +120,7 @@ const MARKDOWN_CSS = `
 
 export function markdownToHtml(text: string): string {
   if (!text.trim()) return ''
-  return `<div class="markdown-body">${String(markdown.processSync(text))}</div>`
+  return String(markdown.processSync(text))
 }
 
 /** Render a text/plain MIME body as Markdown, then apply the mail sanitiser. */
@@ -101,7 +128,12 @@ export function sanitizePlainTextEmail(
   text: string,
   options: EmailSanitizeOptions = {},
 ): EmailSanitizeResult {
-  const result = sanitizeEmailHtml(markdownToHtml(text), options)
-  if (!result.html) return result
-  return { ...result, html: `${result.html}<style>${MARKDOWN_CSS}</style>` }
+  const html = markdownToHtml(text)
+  if (!html) return { html: '', blockedRemote: 0, cssArt: 0 }
+  const result = sanitizeEmailHtml(html, options)
+  return {
+    ...result,
+    // Added after sanitising so the layout wrapper and its class always survive.
+    html: `<div class="markdown-body">${result.html}</div><style>${MARKDOWN_CSS}</style>`,
+  }
 }

@@ -20,7 +20,6 @@ export const emailSchema: Schema = {
     div: [
       ...(defaultSchema.attributes?.div ?? []),
       ['className', 'email-table-scroll'] as PropertyDefinition,
-      ['className', 'markdown-body'] as PropertyDefinition,
     ],
   },
   protocols: {
