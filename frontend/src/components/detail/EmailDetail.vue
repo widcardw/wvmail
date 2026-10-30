@@ -21,6 +21,7 @@ import EmailCssArtNotice from './EmailCssArtNotice.vue'
 import EmailSecurityNotice from './EmailSecurityNotice.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -258,7 +259,7 @@ const showAttachments = computed(
       @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
     />
 
-    <div class="scroll">
+    <UiScrollArea class="scroll">
       <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
       <div v-if="accountsStore.detailError" class="alert alert--err with-x">
         <span>{{ accountsStore.detailError }}</span>
@@ -310,7 +311,7 @@ const showAttachments = computed(
           @dismiss-error="translationError = null"
         />
       </template>
-    </div>
+    </UiScrollArea>
 
     <div v-if="loading" class="detail-progress" aria-hidden="true" />
   </div>
@@ -368,7 +369,6 @@ const showAttachments = computed(
 .scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
 }
 .centerpad {
   display: flex;

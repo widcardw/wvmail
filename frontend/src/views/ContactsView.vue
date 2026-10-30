@@ -8,6 +8,7 @@ import { useContactsStore } from '~/stores/contacts'
 import { useFeedbackStore } from '~/stores/feedback'
 import UiDialog from '~/components/ui/UiDialog.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import type { Contact } from '~/types/contact'
 
 const { t, tf } = useI18n()
@@ -92,7 +93,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="contacts-view">
+  <UiScrollArea class="contacts-view">
     <div class="contacts-shell">
       <header class="contacts-head">
         <div>
@@ -215,9 +216,7 @@ onMounted(() => {
       :open="!!deleteTarget"
       :title="t['contacts.delete']"
       :description="
-        deleteTarget
-          ? tf('contacts.deleteConfirm', { name: displayName(deleteTarget) })
-          : undefined
+        deleteTarget ? tf('contacts.deleteConfirm', { name: displayName(deleteTarget) }) : undefined
       "
       :confirm-label="t['contacts.delete']"
       danger
@@ -225,13 +224,12 @@ onMounted(() => {
       @update:open="(open) => (!open ? (deleteTarget = null) : undefined)"
       @confirm="confirmDelete"
     />
-  </div>
+  </UiScrollArea>
 </template>
 
 <style scoped>
 .contacts-view {
   height: 100%;
-  overflow-y: auto;
   padding: 24px;
   color: var(--n-text-color);
 }

@@ -146,6 +146,15 @@ button {
   border-radius: var(--radius-md);
 }
 
+/* ScrollArea is a plain inline surface, not an overlay card. Its own wrapper
+   supplies the exact pane/page styling; inheriting the generic overlay border
+   made every scroll pane look newly boxed off. */
+[data-scope='scroll-area'][data-part='content'] {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
 /* Ark marks closed overlay parts (`Dialog.Content`, `Dialog.Backdrop`, popover/menu content)
  * with the `hidden` attribute instead of unmounting them. The UA stylesheet's
  * `[hidden] { display: none }` loses to *any* author rule that sets `display` — our

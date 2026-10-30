@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { JsonTreeView } from '@ark-ui/vue/json-tree-view'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const props = defineProps<{
   body: string
@@ -34,7 +35,9 @@ const parsedBody = computed<object | null>(() => {
         </template>
       </JsonTreeView.Tree>
     </JsonTreeView.Root>
-    <pre v-else>{{ props.body }}</pre>
+    <UiScrollArea v-else class="response-scroll">
+      <pre>{{ props.body }}</pre>
+    </UiScrollArea>
   </details>
 </template>
 
@@ -47,11 +50,12 @@ const parsedBody = computed<object | null>(() => {
   user-select: none;
 }
 .response pre {
-  max-height: 180px;
-  overflow: auto;
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.response-scroll {
+  max-height: 180px;
 }
 .response-tree {
   width: 100%;

@@ -1,6 +1,6 @@
 import { unified } from 'unified'
 import rehypeStringify from 'rehype-stringify'
-import type { Root, RootContent, Element, Text, Comment, Doctype } from 'hast'
+import type { Root, RootContent, Element, Text, Comment } from 'hast'
 // Explicit `.ts` so the Node-run tests can resolve it (see tsconfig).
 import { findDateMentions } from '../date-mentions/index.ts'
 import type { DateMention } from '../date-mentions/index.ts'

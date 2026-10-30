@@ -5,6 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
 import { extractNoteTitle } from '~/composables/note-text'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import type { Note } from '~/stores/notes'
 
 // The editing half of a note: the TipTap instance, its toolbar, and the debounced
@@ -198,9 +199,9 @@ defineExpose({ flush, discard })
       </span>
     </div>
 
-    <div class="editor-content-wrapper">
+    <UiScrollArea class="editor-content-wrapper">
       <EditorContent :editor="editor" class="editor-content" />
-    </div>
+    </UiScrollArea>
   </div>
 </template>
 
@@ -280,7 +281,6 @@ defineExpose({ flush, discard })
 .editor-content-wrapper {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
 }
 .editor-content {
   /* At least the pane's height, so the editable box reaches the bottom; a taller note

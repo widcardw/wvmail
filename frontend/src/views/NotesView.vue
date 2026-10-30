@@ -4,6 +4,7 @@ import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
 import { formatNoteDate, noteHtmlToText, notePreviewText } from '~/composables/note-text'
 import NoteEditor from '~/components/notes/NoteEditor.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 // The list half of Notes. Everything about editing a single note (editor instance,
 // toolbar, autosave) lives in components/notes/NoteEditor.vue, which this view mounts
@@ -85,7 +86,7 @@ onMounted(() => {
           <i class="i-ri:close-line" aria-hidden="true" />
         </button>
       </div>
-      <div class="scroll">
+      <UiScrollArea class="scroll">
         <p v-if="visibleNotes.length === 0" class="empty-pad">
           {{ filter.trim() ? t['notes.noMatch'] : t['notes.empty'] }}
         </p>
@@ -116,7 +117,7 @@ onMounted(() => {
             <template v-else>{{ t['notes.delete'] }}?</template>
           </span>
         </button>
-      </div>
+      </UiScrollArea>
     </div>
 
     <!-- Editor: one instance per note (see NoteEditor.vue for why the key matters) -->
@@ -252,7 +253,6 @@ onMounted(() => {
 .scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
 }
 
 .note-item {

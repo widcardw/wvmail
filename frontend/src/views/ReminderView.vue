@@ -6,6 +6,7 @@ import { Tabs } from '@ark-ui/vue/tabs'
 import { useI18n } from '~/i18n'
 import ReminderTimeline from '~/components/reminder/ReminderTimeline.vue'
 import UiDialog from '~/components/ui/UiDialog.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import { useRemindersStore } from '~/stores/reminders'
 import type { Reminder } from '~/types/reminder'
 import {
@@ -75,7 +76,7 @@ async function submitAdd() {
 </script>
 
 <template>
-  <div class="content">
+  <UiScrollArea class="content">
     <section class="surface">
       <header class="surface__head">
         <h2>{{ t['reminders.title'] }}</h2>
@@ -147,14 +148,13 @@ async function submitAdd() {
         </button>
       </div>
     </UiDialog>
-  </div>
+  </UiScrollArea>
 </template>
 
 <style scoped>
 .content {
   height: 100%;
   padding: 16px;
-  overflow-y: auto;
   color: var(--n-text-color);
 }
 .surface {

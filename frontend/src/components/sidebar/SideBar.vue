@@ -16,6 +16,7 @@ import styles from './SideBar.module.css'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 import FolderTreeNodeView from './FolderTreeNode.vue'
 import UiBadge from '~/components/ui/UiBadge.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t, tf, locale } = useI18n()
 const store = useAccountsStore()
@@ -312,7 +313,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
 
     <div class="divider" />
 
-    <div class="tree-wrap">
+    <UiScrollArea class="tree-wrap">
       <p v-if="store.accounts.length === 0" class="empty">{{ t['settings.accounts.empty'] }}</p>
 
       <TreeView.Root
@@ -389,7 +390,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
           </template>
         </TreeView.Tree>
       </TreeView.Root>
-    </div>
+    </UiScrollArea>
 
     <div class="divider" />
 
@@ -453,7 +454,6 @@ watch(() => router.currentRoute.value.path, syncSelected)
 .tree-wrap {
   flex: 1;
   min-height: 0;
-  overflow: auto;
 }
 
 .empty {

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '~/i18n'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -40,9 +41,9 @@ function go(key: string) {
       </button>
     </nav>
     <div class="settings__body">
-      <div class="settings__scroll">
+      <UiScrollArea class="settings__scroll">
         <RouterView />
-      </div>
+      </UiScrollArea>
     </div>
   </div>
 </template>
@@ -92,6 +93,5 @@ function go(key: string) {
 }
 .settings__scroll {
   height: 100%;
-  overflow-y: auto;
 }
 </style>

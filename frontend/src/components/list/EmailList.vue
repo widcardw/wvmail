@@ -6,6 +6,7 @@ import { useSearchStore } from '~/stores/search'
 import { getFolderDisplay } from '~/types/email'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
@@ -118,7 +119,7 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
       @page-change="accountsStore.goToPage"
     />
 
-    <div class="body">
+    <UiScrollArea class="body">
       <div v-if="loading" class="spin-row"><span class="spinner" /></div>
       <p v-else-if="emails.length === 0" class="empty">{{ t['mail.noEmails'] }}</p>
 
@@ -132,7 +133,7 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
           @select="handleClick"
         />
       </template>
-    </div>
+    </UiScrollArea>
   </div>
 </template>
 
@@ -148,7 +149,6 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
 .body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
 }
 .spin-row {
   padding: 32px 0;
