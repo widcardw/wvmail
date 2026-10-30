@@ -175,6 +175,13 @@ export interface TranslationSchema {
   'settings.remote.hint': string
   'settings.remote.empty': string
   'settings.remote.remove': string
+  'settings.remote.add': string
+  'settings.remote.add_placeholder': string
+  'settings.remote.add_invalid': string
+  'settings.remote.duplicate': string
+  'settings.remote.edit': string
+  'settings.remote.save': string
+  'settings.remote.cancel': string
   'settings.proxy': string
   'settings.proxy.title': string
   'settings.proxy.global': string
@@ -213,6 +220,10 @@ export interface TranslationSchema {
   'settings.common.actionOnClose': string
   'settings.common.detectDates': string
   'settings.common.detectDatesHint': string
+  'settings.common.collapseSmartFolders': string
+  'settings.common.collapseSmartFoldersHint': string
+  'settings.common.collapseUtilities': string
+  'settings.common.collapseUtilitiesHint': string
   'settings.accounts': string
   'settings.accounts.add': string
   'settings.accounts.edit': string

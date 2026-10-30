@@ -78,7 +78,7 @@ async function save() {
 </script>
 
 <template>
-  <UiDialog :open="props.open" @update:open="emit('update:open', $event)">
+  <UiDialog :open="props.open" flush @update:open="emit('update:open', $event)">
     <header class="dlg-head">
       <Dialog.Title class="dlg-title">{{ t['mail.remind.title'] }}</Dialog.Title>
       <Dialog.CloseTrigger type="button" class="dlg-close" :aria-label="t['cancel']" @click="close">

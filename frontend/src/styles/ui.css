@@ -558,6 +558,12 @@ button.model-tag:hover {
   padding: 10vh 16px 16px;
   overflow: auto;
 }
+/* The top dialog's body owns a nested ScrollArea. Give the card a definite
+   height so the body can flex-shrink and the ScrollArea's 100% height resolves;
+   max-height alone leaves both at content height and the card merely clips. */
+.dlg-pos--top .dlg-card {
+  height: 100%;
+}
 .dlg-card {
   pointer-events: auto;
   width: min(440px, 100%);
@@ -629,6 +635,11 @@ button.model-tag:hover {
   padding: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+/* Stacked fields carry a bottom margin for the next field. The body already
+   supplies the closing padding, so the final field should not double it. */
+.dlg-body > .field:last-child {
+  margin-bottom: 0;
 }
 .dlg-foot {
   display: flex;

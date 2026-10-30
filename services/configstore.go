@@ -376,9 +376,10 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 // time cannot lose each other's update.
 // Supported fields: "language", "theme", "primary_color",
 // "scan_external_safety", "search_tag_delete_presses", "allow_remote_content",
-// "minimize_when_close", "detect_dates_in_mail", "proxy" (a JSON
-// {"enabled":bool,"url":string}) and "allowed_remote_senders" (a JSON array of
-// strings).
+// "minimize_when_close", "detect_dates_in_mail",
+// "collapse_sidebar_smart_folders", "collapse_sidebar_utilities", "proxy" (a
+// JSON {"enabled":bool,"url":string}) and "allowed_remote_senders" (a JSON
+// array of strings).
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	configWriteMu.Lock()
 	languageChanged, err := saveConfigFieldLocked(field, value)
@@ -446,6 +447,18 @@ func saveConfigFieldLocked(field, value string) (bool, error) {
 			return false, fmt.Errorf("invalid boolean value for detect_dates_in_mail: %s", value)
 		}
 		cfg.DetectDatesInMail = b
+	case "collapse_sidebar_smart_folders":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("invalid boolean value for collapse_sidebar_smart_folders: %s", value)
+		}
+		cfg.CollapseSidebarSmartFolders = b
+	case "collapse_sidebar_utilities":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("invalid boolean value for collapse_sidebar_utilities: %s", value)
+		}
+		cfg.CollapseSidebarUtilities = b
 	case "proxy":
 		var p ProxyConfig
 		if err := json.Unmarshal([]byte(value), &p); err != nil {

@@ -4,6 +4,7 @@ import { useVirtualList } from '@vueuse/core'
 import { ConfigService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import UiCheckbox from '~/components/ui/UiCheckbox.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import type { LLMConfig } from '~/types/config'
 
 const props = defineProps<{
@@ -113,7 +114,7 @@ function clearAll() {
     <p v-else-if="available.length === 0" class="picker__state">
       {{ t['settings.llm.modelsHint'] }}
     </p>
-    <div v-else v-bind="containerProps" class="picker__scroll">
+    <UiScrollArea v-else class="picker__scroll" :viewport-props="containerProps">
       <div v-bind="wrapperProps">
         <UiCheckbox
           v-for="item in list"
@@ -127,7 +128,7 @@ function clearAll() {
           {{ item.data }}
         </UiCheckbox>
       </div>
-    </div>
+    </UiScrollArea>
 
     <div class="picker__foot">
       <span class="picker__count">

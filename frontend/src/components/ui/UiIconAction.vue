@@ -9,7 +9,7 @@ import { Tooltip } from '@ark-ui/vue/tooltip'
  * which one is "translate". This primitive keeps the icon geometry in one place
  * while every caller supplies the accessible name and the action.
  */
-withDefaults(
+const props = withDefaults(
   defineProps<{
     label: string
     icon: string
@@ -17,13 +17,19 @@ withDefaults(
     /** A spinner replaces the glyph while the action is running. */
     busy?: boolean
     active?: boolean
+    /** Match the neutral sidebar selection instead of the warning-tinted action. */
+    activeTone?: 'warning' | 'sidebar'
     danger?: boolean
+    /** Preferred tooltip side; the sidebar uses bottom for its top row and top below. */
+    placement?: 'top' | 'bottom' | 'left' | 'right'
   }>(),
   {
     disabled: false,
     busy: false,
     active: false,
+    activeTone: 'warning',
     danger: false,
+    placement: 'bottom',
   },
 )
 
@@ -33,13 +39,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <Tooltip.Root :open-delay="250" :close-delay="80" :positioning="{ placement: 'bottom' }">
+  <Tooltip.Root :open-delay="250" :close-delay="80" :positioning="{ placement: props.placement }">
     <Tooltip.Trigger as-child>
       <button
         type="button"
         class="icon-btn detail-action"
         :class="{
-          'detail-action--active': active,
+          'detail-action--active': active && activeTone === 'warning',
+          'detail-action--active-sidebar': active && activeTone === 'sidebar',
           'detail-action--danger': danger,
         }"
         :disabled="disabled || busy"
@@ -67,6 +74,10 @@ const emit = defineEmits<{
 .detail-action--active {
   color: var(--color-warning);
   background: var(--color-warning-bg);
+}
+.detail-action--active-sidebar {
+  color: var(--n-text-color);
+  background: var(--n-sidebar-active);
 }
 .detail-action--danger {
   color: var(--color-danger);

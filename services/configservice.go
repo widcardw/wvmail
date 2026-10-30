@@ -40,6 +40,12 @@ type AppConfig struct {
 	// the user turn one into a reminder. Defaults to on (see defaultConfig), hence
 	// no `omitempty` — an explicit "off" has to be written.
 	DetectDatesInMail bool `yaml:"detect_dates_in_mail"`
+	// CollapseSidebarSmartFolders turns the top smart-folder links into a row of
+	// icon buttons. Off by default so existing sidebars keep their text labels.
+	CollapseSidebarSmartFolders bool `yaml:"collapse_sidebar_smart_folders"`
+	// CollapseSidebarUtilities does the same for the utility links at the bottom
+	// of the sidebar, independently of the smart-folder setting.
+	CollapseSidebarUtilities bool `yaml:"collapse_sidebar_utilities"`
 	// Proxy is the app-wide proxy (Settings → Proxy). Off by default: a config
 	// written before this option existed must keep connecting directly.
 	Proxy ProxyConfig `yaml:"proxy,omitempty"`
@@ -53,8 +59,10 @@ type RemoteContentConfig struct {
 	// zero value (false) blocks by default, so configs written before this
 	// option existed keep the safe behaviour.
 	AllowRemoteContent bool `yaml:"allow_remote_content,omitempty"`
-	// AllowedSenders lists senders whose remote content is always loaded
-	// (lower-cased email addresses; a leading "@" matches a whole domain).
+	// AllowedSenders lists senders whose remote content is always loaded.
+	// Entries are lower-cased addresses; a leading "@" matches a whole domain
+	// and its subdomains, while "*" matches one dot-separated domain label
+	// (for example "news@*.example.com" or "user@example.*").
 	AllowedSenders []string `yaml:"allowed_senders,omitempty"`
 }
 
@@ -114,9 +122,9 @@ type EmailAccount struct {
 	// (default, IMAPPass) or "oauth2" (OAuthRefreshToken exchanged for
 	// short-lived access tokens, SASL XOAUTH2). OAuthClientID is the client the
 	// refresh token was issued to and must be replayed on every refresh.
-	AuthType          string `yaml:"auth_type,omitempty"`          // "password" | "oauth2"
-	OAuthProvider     string `yaml:"oauth_provider,omitempty"`     // google | microsoft
-	OAuthClientID     string `yaml:"oauth_client_id,omitempty"`    // client the token was issued to
+	AuthType          string `yaml:"auth_type,omitempty"`           // "password" | "oauth2"
+	OAuthProvider     string `yaml:"oauth_provider,omitempty"`      // google | microsoft
+	OAuthClientID     string `yaml:"oauth_client_id,omitempty"`     // client the token was issued to
 	OAuthRefreshToken string `yaml:"oauth_refresh_token,omitempty"` // AES-256-GCM encrypted on disk
 	// Sync settings
 	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
@@ -188,10 +196,12 @@ func defaultConfig() AppConfig {
 			DefaultTargetLang: "zh-CN",
 			DefaultEngine:     "llm",
 		},
-		ScanExternalSafety:     true,
-		SearchTagDeletePresses: 2,
-		DetectDatesInMail:      true,
-		EmailAccounts:          []EmailAccount{},
+		ScanExternalSafety:          true,
+		SearchTagDeletePresses:      2,
+		DetectDatesInMail:           true,
+		CollapseSidebarSmartFolders: false,
+		CollapseSidebarUtilities:    false,
+		EmailAccounts:               []EmailAccount{},
 	}
 }
 

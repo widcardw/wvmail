@@ -8,6 +8,7 @@ import { useAccountHealthStore } from '~/stores/accountHealth'
 import type { AccountMarker } from '~/stores/accountHealth'
 import { useConnectionStore } from '~/stores/connection'
 import { useFeedbackStore } from '~/stores/feedback'
+import { usePreferencesStore } from '~/stores/preferences'
 import { buildFolderTree } from '~/composables/folder-tree'
 import { getFolderDisplay } from '~/types/email'
 import type { FolderTreeNode } from '~/composables/folder-tree'
@@ -16,6 +17,7 @@ import styles from './SideBar.module.css'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 import FolderTreeNodeView from './FolderTreeNode.vue'
 import UiBadge from '~/components/ui/UiBadge.vue'
+import UiIconAction from '~/components/ui/UiIconAction.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t, tf, locale } = useI18n()
@@ -23,6 +25,7 @@ const store = useAccountsStore()
 const health = useAccountHealthStore()
 const connection = useConnectionStore()
 const feedback = useFeedbackStore()
+const preferences = usePreferencesStore()
 const router = useRouter()
 
 /**
@@ -299,19 +302,33 @@ watch(() => router.currentRoute.value.path, syncSelected)
 
 <template>
   <div class="side space-y-1px">
-    <button
-      v-for="row in smartRows"
-      :key="row.key"
-      type="button"
-      class="row"
-      :class="{ 'row--active': smartPathActive(row.key) }"
-      @click="onSmart(row.key)"
-    >
-      <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />
-      <span>{{ t[row.labelKey] }}</span>
-    </button>
+    <div v-if="preferences.collapseSidebarSmartFolders" class="compact-nav compact-nav--top">
+      <UiIconAction
+        v-for="row in smartRows"
+        :key="row.key"
+        :label="t[row.labelKey]"
+        :icon="row.icon"
+        :active="smartPathActive(row.key)"
+        active-tone="sidebar"
+        placement="bottom"
+        @click="onSmart(row.key)"
+      />
+    </div>
+    <template v-else>
+      <button
+        v-for="row in smartRows"
+        :key="row.key"
+        type="button"
+        class="row"
+        :class="{ 'row--active': smartPathActive(row.key) }"
+        @click="onSmart(row.key)"
+      >
+        <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />
+        <span>{{ t[row.labelKey] }}</span>
+      </button>
+    </template>
 
-    <div class="divider" />
+    <div v-if="!preferences.collapseSidebarSmartFolders" class="divider" />
 
     <UiScrollArea class="tree-wrap">
       <p v-if="store.accounts.length === 0" class="empty">{{ t['settings.accounts.empty'] }}</p>
@@ -392,20 +409,34 @@ watch(() => router.currentRoute.value.path, syncSelected)
       </TreeView.Root>
     </UiScrollArea>
 
-    <div class="divider" />
+    <div v-if="!preferences.collapseSidebarUtilities" class="divider" />
 
     <div class="util space-y-1px">
-      <button
-        v-for="row in utilRows"
-        :key="row.key"
-        type="button"
-        class="row"
-        :class="{ 'row--active': activePath(row.path) }"
-        @click="goNav(row.path)"
-      >
-        <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />
-        <span>{{ t[row.labelKey] }}</span>
-      </button>
+      <div v-if="preferences.collapseSidebarUtilities" class="compact-nav compact-nav--bottom">
+        <UiIconAction
+          v-for="row in utilRows"
+          :key="row.key"
+          :label="t[row.labelKey]"
+          :icon="row.icon"
+          :active="activePath(row.path)"
+          active-tone="sidebar"
+          placement="top"
+          @click="goNav(row.path)"
+        />
+      </div>
+      <template v-else>
+        <button
+          v-for="row in utilRows"
+          :key="row.key"
+          type="button"
+          class="row"
+          :class="{ 'row--active': activePath(row.path) }"
+          @click="goNav(row.path)"
+        >
+          <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />
+          <span>{{ t[row.labelKey] }}</span>
+        </button>
+      </template>
     </div>
   </div>
 </template>
@@ -442,6 +473,29 @@ watch(() => router.currentRoute.value.path, syncSelected)
 .row-icon {
   flex: 0 0 16px;
   font-size: 16px;
+}
+
+.compact-nav {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-evenly;
+  height: var(--pane-header-height);
+  padding: 0 8px;
+}
+.compact-nav--top {
+  margin: -6px -6px 0;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.compact-nav--bottom {
+  margin: 0 -6px -6px;
+  border-top: 1px solid var(--n-border-color);
+}
+.compact-nav :deep(.detail-action) {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
 }
 
 .divider {

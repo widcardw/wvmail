@@ -118,23 +118,35 @@ async function submitAdd() {
 
     <!-- Ark's render strategy replaces the old `v-if="showAdd"`: the content stays
          unmounted until the first open and is unmounted again on close. -->
-    <UiDialog :open="showAdd" size="narrow" @update:open="showAdd = $event">
-      <Dialog.Title class="dlg-title">{{ t['reminders.new'] }}</Dialog.Title>
-      <Field.Root class="d-field">
-        <Field.Label class="d-label">{{ t['reminders.field.title'] }}</Field.Label>
-        <Field.Input
-          v-model="newTitle"
-          class="input d-input"
-          type="text"
-          :placeholder="t['reminders.placeholder.title']"
-          @keydown.enter="submitAdd"
-        />
-      </Field.Root>
-      <Field.Root class="d-field">
-        <Field.Label class="d-label">{{ t['reminders.field.time'] }}</Field.Label>
-        <Field.Input v-model="newTime" class="input d-input datetime" type="datetime-local" />
-      </Field.Root>
-      <div class="dlg-actions">
+    <UiDialog :open="showAdd" size="narrow" flush @update:open="showAdd = $event">
+      <header class="dlg-head">
+        <Dialog.Title class="dlg-title">{{ t['reminders.new'] }}</Dialog.Title>
+        <Dialog.CloseTrigger
+          type="button"
+          class="dlg-close"
+          :aria-label="t['cancel']"
+          @click="showAdd = false"
+        >
+          <i class="i-ri:close-line" aria-hidden="true" />
+        </Dialog.CloseTrigger>
+      </header>
+      <div class="dlg-body">
+        <Field.Root class="field">
+          <Field.Label class="field__label">{{ t['reminders.field.title'] }}</Field.Label>
+          <Field.Input
+            v-model="newTitle"
+            class="input d-input"
+            type="text"
+            :placeholder="t['reminders.placeholder.title']"
+            @keydown.enter="submitAdd"
+          />
+        </Field.Root>
+        <Field.Root class="field">
+          <Field.Label class="field__label">{{ t['reminders.field.time'] }}</Field.Label>
+          <Field.Input v-model="newTime" class="input d-input datetime" type="datetime-local" />
+        </Field.Root>
+      </div>
+      <footer class="dlg-foot">
         <button type="button" class="btn" @click="showAdd = false">
           {{ t['cancel'] }}
         </button>
@@ -146,7 +158,7 @@ async function submitAdd() {
         >
           {{ t['reminders.submit'] }}
         </button>
-      </div>
+      </footer>
     </UiDialog>
   </UiScrollArea>
 </template>
@@ -219,21 +231,6 @@ async function submitAdd() {
   outline: none;
 }
 
-.dlg-title {
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid var(--n-border-color);
-}
-.d-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-.d-label {
-  font-size: 12px;
-  color: var(--color-text-2);
-}
 .d-input {
   width: 100%;
 }

@@ -2,24 +2,31 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { AppConfig } from '~/types/config'
 import { ConfigService } from '#/wvmail/services'
+import {
+  appendRemoteSenderPattern,
+  isValidRemoteSenderPattern,
+  normalizeSender,
+  replaceRemoteSenderPattern,
+  senderMatchesPattern,
+} from '~/composables/remote-senders'
+import type { RemoteSenderListResult } from '~/composables/remote-senders'
 
 export type TagDeletePresses = 1 | 2
-
-/** Lower-cased comparison key for a sender address. */
-function normalizeSender(sender: string): string {
-  return sender.trim().toLowerCase()
-}
 
 export const usePreferencesStore = defineStore('preferences', () => {
   const tagDeletePresses = ref<TagDeletePresses>(2)
   /** Load remote images/fonts/CSS in every message. Default false — block. */
   const allowRemoteContent = ref(false)
-  /** Senders whose remote content always loads (address, or "@domain"). */
+  /** Senders whose remote content always loads (address, "@domain", or pattern). */
   const allowedRemoteSenders = ref<string[]>([])
 
   const minimizeWhenClose = ref(false)
   /** Highlight date/time mentions in email bodies (and offer to remind on click). */
   const detectDatesInMail = ref(true)
+  /** Render the top smart-folder links as one row of icon buttons. */
+  const collapseSidebarSmartFolders = ref(false)
+  /** Render the bottom utility links as one row of icon buttons. */
+  const collapseSidebarUtilities = ref(false)
   /**
    * Hold suspicious mail behind the "show the body" bar. Default true: the gate
    * has always been on, and a config written before this option existed must keep
@@ -44,6 +51,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     allowedRemoteSenders.value = [...(config.RemoteContent?.AllowedSenders ?? [])]
     minimizeWhenClose.value = config.MinimizeWhenClose
     detectDatesInMail.value = config.DetectDatesInMail !== false
+    collapseSidebarSmartFolders.value = config.CollapseSidebarSmartFolders === true
+    collapseSidebarUtilities.value = config.CollapseSidebarUtilities === true
     blockSuspiciousMail.value = config.ScanExternalSafety !== false
     proxyEnabled.value = config.Proxy?.Enabled === true
     proxyUrl.value = config.Proxy?.URL ?? ''
@@ -73,6 +82,24 @@ export const usePreferencesStore = defineStore('preferences', () => {
       await ConfigService.SaveConfigField('detect_dates_in_mail', String(value))
     } catch (error) {
       console.error('Failed to save date detection preference', error)
+    }
+  }
+
+  async function setCollapseSidebarSmartFolders(value: boolean) {
+    collapseSidebarSmartFolders.value = value
+    try {
+      await ConfigService.SaveConfigField('collapse_sidebar_smart_folders', String(value))
+    } catch (error) {
+      console.error('Failed to save smart-folder sidebar preference', error)
+    }
+  }
+
+  async function setCollapseSidebarUtilities(value: boolean) {
+    collapseSidebarUtilities.value = value
+    try {
+      await ConfigService.SaveConfigField('collapse_sidebar_utilities', String(value))
+    } catch (error) {
+      console.error('Failed to save utility sidebar preference', error)
     }
   }
 
@@ -122,20 +149,42 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function isRemoteSenderAllowed(sender: string): boolean {
     const key = normalizeSender(sender)
     if (!key) return false
-    return allowedRemoteSenders.value.some((entry) =>
-      entry.startsWith('@') ? key.endsWith(entry) : key === entry,
-    )
+    return allowedRemoteSenders.value.some((entry) => senderMatchesPattern(key, entry))
+  }
+  async function addRemoteSenderPattern(sender: string): Promise<RemoteSenderListResult['status']> {
+    const result = appendRemoteSenderPattern(allowedRemoteSenders.value, sender)
+    if (result.status !== 'added') return result.status
+    allowedRemoteSenders.value = result.senders
+    await persistAllowedSenders()
+    return result.status
+  }
+
+  async function updateAllowedRemoteSender(
+    oldSender: string,
+    newSender: string,
+  ): Promise<RemoteSenderListResult['status']> {
+    const result = replaceRemoteSenderPattern(allowedRemoteSenders.value, oldSender, newSender)
+    if (result.status !== 'updated') return result.status
+    allowedRemoteSenders.value = result.senders
+    await persistAllowedSenders()
+    return result.status
   }
 
   async function allowRemoteSender(sender: string) {
     const key = normalizeSender(sender)
     if (!key || isRemoteSenderAllowed(key)) return
-    allowedRemoteSenders.value = [...allowedRemoteSenders.value, key]
+    // The reader's button always supplies a real address; save it unchanged.
+    const result = appendRemoteSenderPattern(allowedRemoteSenders.value, key)
+    if (result.status !== 'added') return
+    allowedRemoteSenders.value = result.senders
     await persistAllowedSenders()
   }
 
   async function removeAllowedRemoteSender(sender: string) {
-    allowedRemoteSenders.value = allowedRemoteSenders.value.filter((entry) => entry !== sender)
+    const key = normalizeSender(sender)
+    allowedRemoteSenders.value = allowedRemoteSenders.value.filter(
+      (entry) => normalizeSender(entry) !== key,
+    )
     await persistAllowedSenders()
   }
 
@@ -158,6 +207,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setMinimizeWhenClose,
     detectDatesInMail,
     setDetectDatesInMail,
+    collapseSidebarSmartFolders,
+    setCollapseSidebarSmartFolders,
+    collapseSidebarUtilities,
+    setCollapseSidebarUtilities,
     blockSuspiciousMail,
     setBlockSuspiciousMail,
     proxyEnabled,
@@ -167,6 +220,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagDeletePresses,
     setAllowRemoteContent,
     isRemoteSenderAllowed,
+    isValidRemoteSenderPattern,
+    addRemoteSenderPattern,
+    updateAllowedRemoteSender,
     allowRemoteSender,
     removeAllowedRemoteSender,
   }

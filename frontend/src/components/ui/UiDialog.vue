@@ -17,8 +17,18 @@ const props = withDefaults(
     role?: 'dialog' | 'alertdialog'
     /** Set while the caller's action runs: stops Escape/outside-click dismissal. */
     busy?: boolean
+    /** Allow clicking the backdrop to dismiss the dialog. */
+    closeOnInteractOutside?: boolean
+    /** Remove the card padding for dialogs that provide dlg-head/body/foot themselves. */
+    flush?: boolean
   }>(),
-  { size: 'default', role: undefined, busy: false },
+  {
+    size: 'default',
+    role: undefined,
+    busy: false,
+    closeOnInteractOutside: true,
+    flush: false,
+  },
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -42,7 +52,7 @@ const cardClass = {
     :open="props.open"
     :role="props.role"
     :close-on-escape="!props.busy"
-    :close-on-interact-outside="!props.busy"
+    :close-on-interact-outside="!props.busy && props.closeOnInteractOutside"
     lazy-mount
     unmount-on-exit
     @update:open="onOpenChange"
@@ -50,7 +60,7 @@ const cardClass = {
     <Teleport to="body">
       <Dialog.Backdrop class="dlg-back" />
       <Dialog.Positioner class="dlg-pos" :class="{ 'dlg-pos--top': props.size === 'top' }">
-        <Dialog.Content :class="cardClass[props.size]">
+        <Dialog.Content :class="[cardClass[props.size], { 'dlg-card--flush': props.flush }]">
           <slot />
         </Dialog.Content>
       </Dialog.Positioner>

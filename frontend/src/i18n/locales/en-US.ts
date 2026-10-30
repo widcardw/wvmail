@@ -181,6 +181,13 @@ const enUS: TranslationSchema = {
   'settings.remote.hint': 'Allowed senders',
   'settings.remote.empty': 'None yet — use “Always allow this sender” inside a message.',
   'settings.remote.remove': 'Remove',
+  'settings.remote.add': 'Add',
+  'settings.remote.add_placeholder': 'user@example.com, @example.com, or news@*.example.com',
+  'settings.remote.add_invalid': 'Invalid sender or wildcard pattern',
+  'settings.remote.duplicate': 'That sender or rule is already in the list',
+  'settings.remote.edit': 'Edit',
+  'settings.remote.save': 'Save',
+  'settings.remote.cancel': 'Cancel',
   'settings.proxy': 'Proxy',
   'settings.proxy.title': 'Proxy server',
   'settings.proxy.global': 'Use a proxy for everything',
@@ -223,6 +230,12 @@ const enUS: TranslationSchema = {
   'settings.common.detectDates': 'Detect dates in mail',
   'settings.common.detectDatesHint':
     'Highlight dates and times in the body; click one to add a reminder',
+  'settings.common.collapseSmartFolders': 'Collapse quick folders to icons',
+  'settings.common.collapseSmartFoldersHint':
+    'Show Inbox, Sent, Drafts and Starred as a horizontal icon row with hover labels',
+  'settings.common.collapseUtilities': 'Collapse utilities to icons',
+  'settings.common.collapseUtilitiesHint':
+    'Show Reminders, Contacts, Notes and Settings as a horizontal icon row with hover labels',
   'settings.accounts': 'Accounts',
   'settings.accounts.add': 'Add Account',
   'settings.accounts.edit': 'Edit Account',

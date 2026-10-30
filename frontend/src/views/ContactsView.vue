@@ -171,33 +171,52 @@ onMounted(() => {
       </section>
     </div>
 
-    <UiDialog :open="dialogOpen" :busy="saving" @update:open="dialogOpen = $event">
-      <Dialog.Title class="dlg-title">
-        {{ editing ? t['contacts.edit'] : t['contacts.new'] }}
-      </Dialog.Title>
-      <Field.Root class="contact-field">
-        <Field.Label class="contact-label">{{ t['contacts.name'] }}</Field.Label>
-        <Field.Input
-          v-model="formName"
-          class="input contact-input"
-          type="text"
-          :placeholder="t['contacts.namePlaceholder']"
-        />
-      </Field.Root>
-      <Field.Root class="contact-field">
-        <Field.Label class="contact-label">{{ t['contacts.email'] }}</Field.Label>
-        <Field.Input
-          v-model="formEmail"
-          class="input contact-input"
-          type="email"
-          :placeholder="t['contacts.emailPlaceholder']"
-          @keydown.enter="save"
-        />
-        <span v-if="formEmail.trim() && !emailValid" class="field-error">
-          {{ t['contacts.invalidEmail'] }}
-        </span>
-      </Field.Root>
-      <div class="dlg-actions">
+    <UiDialog
+      :open="dialogOpen"
+      :busy="saving"
+      size="narrow"
+      flush
+      @update:open="dialogOpen = $event"
+    >
+      <header class="dlg-head">
+        <Dialog.Title class="dlg-title">
+          {{ editing ? t['contacts.edit'] : t['contacts.new'] }}
+        </Dialog.Title>
+        <Dialog.CloseTrigger
+          type="button"
+          class="dlg-close"
+          :aria-label="t['cancel']"
+          :disabled="saving"
+          @click="dialogOpen = false"
+        >
+          <i class="i-ri:close-line" aria-hidden="true" />
+        </Dialog.CloseTrigger>
+      </header>
+      <div class="dlg-body">
+        <Field.Root class="field">
+          <Field.Label class="field__label">{{ t['contacts.name'] }}</Field.Label>
+          <Field.Input
+            v-model="formName"
+            class="input contact-input"
+            type="text"
+            :placeholder="t['contacts.namePlaceholder']"
+          />
+        </Field.Root>
+        <Field.Root class="field">
+          <Field.Label class="field__label">{{ t['contacts.email'] }}</Field.Label>
+          <Field.Input
+            v-model="formEmail"
+            class="input contact-input"
+            type="email"
+            :placeholder="t['contacts.emailPlaceholder']"
+            @keydown.enter="save"
+          />
+          <span v-if="formEmail.trim() && !emailValid" class="field-error">
+            {{ t['contacts.invalidEmail'] }}
+          </span>
+        </Field.Root>
+      </div>
+      <footer class="dlg-foot">
         <button type="button" class="btn" :disabled="saving" @click="dialogOpen = false">
           {{ t['cancel'] }}
         </button>
@@ -209,7 +228,7 @@ onMounted(() => {
         >
           {{ t['contacts.save'] }}
         </button>
-      </div>
+      </footer>
     </UiDialog>
 
     <ConfirmDialog
@@ -406,16 +425,6 @@ onMounted(() => {
 }
 .state--empty p {
   margin: 0;
-}
-.contact-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 14px;
-}
-.contact-label {
-  font-size: 12px;
-  color: var(--color-text-2);
 }
 .contact-input {
   width: 100%;

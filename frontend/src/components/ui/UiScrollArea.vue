@@ -12,6 +12,8 @@ defineOptions({ inheritAttrs: false })
 defineProps<{
   /** Show a horizontal scrollbar in addition to the vertical one. */
   horizontal?: boolean
+  /** Props/events for Ark's scrollable viewport (for example useVirtualList). */
+  viewportProps?: Record<string, unknown>
 }>()
 
 const attrs = useAttrs()
@@ -21,10 +23,15 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
 
 <template>
   <ScrollArea.Root class="scroll-area" :class="rootClass" :style="rootStyle">
-    <ScrollArea.Viewport class="scroll-area__viewport">
-      <ScrollArea.Content class="scroll-area__content">
-        <slot />
-      </ScrollArea.Content>
+    <ScrollArea.Viewport as-child>
+      <!-- Keep the viewport as a real DOM node. Template refs supplied through
+           `viewportProps` (notably useVirtualList) need scrollTop/clientHeight,
+           not the Ark component instance. -->
+      <div v-bind="viewportProps" class="scroll-area__viewport">
+        <ScrollArea.Content class="scroll-area__content">
+          <slot />
+        </ScrollArea.Content>
+      </div>
     </ScrollArea.Viewport>
 
     <ScrollArea.Scrollbar class="scroll-area__bar" orientation="vertical">
@@ -50,6 +57,10 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
 .scroll-area__viewport {
   display: block;
   height: 100%;
+  /* A caller that only sets `max-height` leaves the root height auto, so the
+     percentage above cannot form a scroll box by itself. Carry the cap onto the
+     viewport as well; Ark's viewport already owns `overflow: auto`. */
+  max-height: inherit;
   min-width: 0;
   min-height: 0;
   outline: none;

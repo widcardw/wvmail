@@ -82,8 +82,10 @@ function splitMsg(message: string) {
 }
 
 function clearTestResults() {
+  testOk.value = false
   testSummary.value = ''
   testBody.value = ''
+  testChatOk.value = false
   testChatSummary.value = ''
   testChatBody.value = ''
   testChatModel.value = ''
@@ -190,9 +192,18 @@ async function runTest(kind: 'conn' | 'chat', model?: string) {
   // chat test is the only case that sends a model (the one picked in the dialog).
   const config = { ...form.value, Model: kind === 'chat' ? (model ?? form.value.Model) : '' }
 
-  if (kind === 'conn') testing.value = true
-  else testingChat.value = true
-  if (kind === 'chat') testChatModel.value = config.Model
+  if (kind === 'conn') {
+    testing.value = true
+    testOk.value = false
+    testSummary.value = ''
+    testBody.value = ''
+  } else {
+    testingChat.value = true
+    testChatOk.value = false
+    testChatSummary.value = ''
+    testChatBody.value = ''
+    testChatModel.value = config.Model
+  }
 
   try {
     const [ok, message] = await ConfigService.TestLLMConnection(config)

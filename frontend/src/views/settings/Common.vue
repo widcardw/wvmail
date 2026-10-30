@@ -80,6 +80,14 @@ async function openConfigFolder() {
 function onDetectDatesChange(checked: boolean) {
   void preferences.setDetectDatesInMail(checked)
 }
+
+function onCollapseSmartFoldersChange(checked: boolean) {
+  void preferences.setCollapseSidebarSmartFolders(checked)
+}
+
+function onCollapseUtilitiesChange(checked: boolean) {
+  void preferences.setCollapseSidebarUtilities(checked)
+}
 </script>
 
 <template>
@@ -140,6 +148,24 @@ function onDetectDatesChange(checked: boolean) {
         :hint="t['settings.common.detectDatesHint']"
       >
         <UiSwitch :checked="preferences.detectDatesInMail" @update:checked="onDetectDatesChange" />
+      </UiFieldRow>
+      <UiFieldRow
+        :label="t['settings.common.collapseSmartFolders']"
+        :hint="t['settings.common.collapseSmartFoldersHint']"
+      >
+        <UiSwitch
+          :checked="preferences.collapseSidebarSmartFolders"
+          @update:checked="onCollapseSmartFoldersChange"
+        />
+      </UiFieldRow>
+      <UiFieldRow
+        :label="t['settings.common.collapseUtilities']"
+        :hint="t['settings.common.collapseUtilitiesHint']"
+      >
+        <UiSwitch
+          :checked="preferences.collapseSidebarUtilities"
+          @update:checked="onCollapseUtilitiesChange"
+        />
       </UiFieldRow>
 
       <div class="actions">

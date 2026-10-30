@@ -46,7 +46,7 @@ onMounted(async () => {
       <div class="app__body">
         <Splitter.Root
           :class="splitStyles.root"
-          :panels="[{ id: 'side', minSize: 8, maxSize: 34 }, { id: 'main' }]"
+          :panels="[{ id: 'side', minSize: 11, maxSize: 34 }, { id: 'main' }]"
           :default-size="[16, 84]"
         >
           <Splitter.Panel :class="splitStyles.panel" id="side">

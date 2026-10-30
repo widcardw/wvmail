@@ -20,21 +20,22 @@ const parsedBody = computed<object | null>(() => {
 <template>
   <details v-if="props.body" class="response">
     <summary>Response body</summary>
-    <JsonTreeView.Root
-      v-if="parsedBody"
-      :key="props.body"
-      class="response-tree font-mono"
-      :data="parsedBody"
-      :default-expanded-depth="2"
-      :expand-on-click="true"
-      quotes-on-keys
-    >
-      <JsonTreeView.Tree class="response-tree__tree" indent-guide>
-        <template #arrow>
-          <span class="response-tree__arrow" aria-hidden="true">›</span>
-        </template>
-      </JsonTreeView.Tree>
-    </JsonTreeView.Root>
+    <UiScrollArea v-if="parsedBody" class="response-tree-scroll">
+      <JsonTreeView.Root
+        :key="props.body"
+        class="response-tree font-mono"
+        :data="parsedBody"
+        :default-expanded-depth="2"
+        :expand-on-click="true"
+        quotes-on-keys
+      >
+        <JsonTreeView.Tree class="response-tree__tree" indent-guide>
+          <template #arrow>
+            <span class="response-tree__arrow" aria-hidden="true">›</span>
+          </template>
+        </JsonTreeView.Tree>
+      </JsonTreeView.Root>
+    </UiScrollArea>
     <UiScrollArea v-else class="response-scroll">
       <pre>{{ props.body }}</pre>
     </UiScrollArea>
@@ -60,6 +61,11 @@ const parsedBody = computed<object | null>(() => {
 .response-tree {
   width: 100%;
   color: var(--n-text-color);
+}
+.response-tree-scroll {
+  max-height: 340px;
+  margin-top: 6px;
+  padding: 6px 0;
 }
 .response-tree :deep([data-part='branch-content']) {
   position: relative;
@@ -123,10 +129,6 @@ const parsedBody = computed<object | null>(() => {
 .response-tree__tree {
   display: flex;
   flex-direction: column;
-  max-height: 340px;
-  margin-top: 6px;
-  overflow: auto;
-  padding: 6px 0;
   font-size: 12px;
   line-height: 1.8;
 }
