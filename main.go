@@ -87,6 +87,12 @@ func main() {
 	// Sequoia (Darwin 24) or older.
 	macos.SetWindowCornerRadiusPreference(10)
 
+	// Wails acquires the single-instance lock inside application.New, before the
+	// window exists. Hold second-instance callbacks until startup has finished so
+	// they never race the window assignment below.
+	var win *application.WebviewWindow
+	windowReady := make(chan struct{})
+
 	// Create shared service instances. We keep references so the background
 	// sync service can use ConfigService and EmailService.
 	cfgSvc := &services.ConfigService{}
@@ -127,6 +133,19 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "wvmail",
 		Description: "A cross-platform desktop mail client",
+		// One running wvmail per machine. A second launch exits immediately and
+		// asks this instance to bring its window to the front.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "win.widcard.wvmail",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				<-windowReady
+				if win.IsMinimised() {
+					win.UnMinimise()
+				}
+				win.Show()
+				win.Focus()
+			},
+		},
 		Services: []application.Service{
 			application.NewService(services.NewOsService(requestQuit)),
 			application.NewService(cfgSvc),
@@ -164,7 +183,7 @@ func main() {
 	// 'Mac' options tailor the window when running on macOS.
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
-	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
+	win = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "WVMail",
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
@@ -308,6 +327,8 @@ func main() {
 	app.KeyBinding.Add("Ctrl+,", func(window application.Window) {
 		window.EmitEvent("navigate:settings", nil)
 	})
+
+	close(windowReady)
 
 	// Run the application. This blocks until the application has been exited.
 	if err := app.Run(); err != nil {
