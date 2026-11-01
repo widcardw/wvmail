@@ -10,6 +10,11 @@ import { formatDate } from '~/composables/formats'
 import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
+import {
+  buildReplyEnvelope,
+  escapeHTML,
+  type ReplyMode,
+} from '~/composables/reply'
 import { ComposeService, EmailService, OsService } from '#/wvmail/services'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailActionBar from './EmailActionBar.vue'
@@ -23,7 +28,7 @@ import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const accountsStore = useAccountsStore()
 const themeStore = useThemeStore()
 const fb = useFeedbackStore()
@@ -186,6 +191,73 @@ async function handleExportOriginal() {
   }
 }
 
+function quotedBodyHTML(mail: NonNullable<typeof detail.value>): string {
+  if (spamGated.value) return ''
+  if (sanitizedBodyHtml.value) return `<blockquote>${sanitizedBodyHtml.value}</blockquote>`
+  if (!mail.body_text) return ''
+  return `<blockquote><p>${escapeHTML(mail.body_text).replaceAll('\n', '<br>')}</p></blockquote>`
+}
+
+function replyBodyHTML(
+  mail: NonNullable<typeof detail.value>,
+  mode: ReplyMode,
+): { html: string; text: string } {
+  const sender = mail.from_name || mail.from_addr || mail.from
+  const date = formatDate(mail.date, localeStore.current)
+  const quote = quotedBodyHTML(mail)
+  if (mode !== 'forward') {
+    const intro = tf('compose.reply_intro', { date, sender })
+    return {
+      html: `<p><br></p><p>${escapeHTML(intro)}</p>${quote}`,
+      text: `\n\n${intro}\n${mail.body_text}`,
+    }
+  }
+
+  const recipients = [...(mail.to ?? []), ...(mail.cc ?? [])].join(', ')
+  const rows = [
+    [t.value['compose.forward_from'], sender],
+    [t.value['compose.forward_date'], date],
+    [t.value['compose.forward_subject'], mail.subject || t.value['mail.noSubject']],
+    [t.value['compose.forward_to'], recipients],
+  ]
+  const htmlRows = rows
+    .map(([label, value]) => `${escapeHTML(label)}: ${escapeHTML(value)}`)
+    .join('<br>')
+  const textRows = rows.map(([label, value]) => `${label}: ${value}`).join('\n')
+  return {
+    html: `<p><br></p><p>${escapeHTML(t.value['compose.forward_header'])}</p><p>${htmlRows}</p>${quote}`,
+    text: `\n\n${t.value['compose.forward_header']}\n${textRows}\n\n${mail.body_text}`,
+  }
+}
+
+async function openReply(mode: ReplyMode) {
+  const mail = detail.value
+  if (!mail) return
+  const envelope = buildReplyEnvelope(
+    mail,
+    mode,
+    accountsStore.selectedEmailAccount?.Email ?? '',
+  )
+  if (mode !== 'forward' && envelope.To.length === 0) {
+    fb.error(t.value['mail.reply_unavailable'])
+    return
+  }
+  const body = replyBodyHTML(mail, mode)
+  try {
+    const result = await ComposeService.OpenCompose({
+      AccountID:
+        accountsStore.selectedEmailAccountId ?? accountsStore.selectedAccountId ?? '',
+      ...envelope,
+      Text: body.text,
+      HTML: body.html,
+    })
+    if (result.Warning) fb.info(result.Warning)
+  } catch (e) {
+    fb.error(t.value['compose.open_failed'])
+    console.error('Failed to open reply compose draft', e)
+  }
+}
+
 const linkOpen = ref(false)
 const pendingUrl = ref('')
 
@@ -266,6 +338,9 @@ const showAttachments = computed(
       :has-translation="hasTranslation"
       :flagged="accountsStore.selectedEmailFlagged"
       :flagging="accountsStore.selectedEmailFlagging"
+      @reply="openReply('reply')"
+      @reply-all="openReply('reply-all')"
+      @forward="openReply('forward')"
       @refresh="handleRefresh"
       @export-original="handleExportOriginal"
       @toggle-translation="toggleTranslation"

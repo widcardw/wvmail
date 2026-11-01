@@ -157,6 +157,13 @@ export interface TranslationSchema {
   'compose.underline': string
   'compose.link': string
   'compose.link_prompt': string
+  'compose.reply_intro': string
+  'compose.forward_header': string
+  'compose.forward_from': string
+  'compose.forward_date': string
+  'compose.forward_subject': string
+  'compose.forward_to': string
+  'mail.reply_unavailable': string
   'notes.title': string
   'notes.empty': string
   'notes.clearSearch': string

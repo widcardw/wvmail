@@ -13,6 +13,9 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
+  reply: []
+  'reply-all': []
+  forward: []
   refresh: []
   'export-original': []
   'toggle-translation': []
@@ -29,16 +32,19 @@ const { t } = useI18n()
         :label="t['mail.reply']"
         icon="ri:reply-line"
         :disabled="!hasDetail"
+        @click="emit('reply')"
       />
       <UiIconAction
         :label="t['mail.reply_all']"
         icon="ri:reply-all-line"
         :disabled="!hasDetail"
+        @click="emit('reply-all')"
       />
       <UiIconAction
         :label="t['mail.forward']"
         icon="ri:share-forward-line"
         :disabled="!hasDetail"
+        @click="emit('forward')"
       />
     </div>
 
