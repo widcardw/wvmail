@@ -200,3 +200,121 @@ func TestTagSuggestionPreviewIsExactRequestPrompt(t *testing.T) {
 		t.Fatalf("prompt override was not sent verbatim\ngot:\n%s\nwant:\n%s", sentPrompt, request.PromptOverride)
 	}
 }
+
+func TestBuildTagSuggestionSamplesDeduplicatesNormalizedSubjects(t *testing.T) {
+	emails := []CachedEmail{
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        1,
+			MessageID:  "<aaai-old>",
+			Subject:    "AAAI 2027 author responses now open",
+			FromAddr:   "first@example.com",
+			Date:       "2026-10-01T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        2,
+			MessageID:  "<aaai-new>",
+			Subject:    "Re:   AAAI 2027 AUTHOR responses now open",
+			FromAddr:   "second@example.com",
+			Date:       "2026-10-02T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        3,
+			MessageID:  "<kdd>",
+			Subject:    "KDD 2027 call for papers",
+			FromAddr:   "third@example.com",
+			Date:       "2026-10-03T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        4,
+			MessageID:  "<empty-one>",
+			Date:       "2026-10-04T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        5,
+			MessageID:  "<empty-two>",
+			Date:       "2026-10-05T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        6,
+			MessageID:  "<aaai-cn>",
+			Subject:    "回复： AAAI 2027 author responses now open",
+			Date:       "2026-09-30T10:00:00Z",
+		},
+	}
+
+	samples := buildTagSuggestionSamples(
+		emails,
+		nil,
+		map[string]bool{"acct": true},
+		[]string{"subject", "from_address"},
+		10,
+	)
+	if len(samples) != 4 {
+		t.Fatalf("got %d samples, want 4 after subject deduplication: %+v", len(samples), samples)
+	}
+	subjects := make(map[string]int)
+	for _, sample := range samples {
+		subjects[tagSuggestionSubjectKey(sample.Subject)]++
+	}
+	if subjects["aaai 2027 author responses now open"] != 1 {
+		t.Fatalf("normalized AAAI subject was not deduplicated: %+v", samples)
+	}
+	if subjects[""] != 2 {
+		t.Fatalf("empty subjects must remain separate: %+v", samples)
+	}
+}
+
+func TestBuildTagSuggestionSamplesAppliesLimitAfterSubjectDeduplication(t *testing.T) {
+	emails := []CachedEmail{
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        1,
+			MessageID:  "<duplicate-old>",
+			Subject:    "Weekly digest",
+			Date:       "2026-10-01T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        2,
+			MessageID:  "<duplicate-new>",
+			Subject:    "Fwd: Weekly digest",
+			Date:       "2026-10-02T10:00:00Z",
+		},
+		{
+			AccountID:  "acct",
+			FolderName: "INBOX",
+			UID:        3,
+			MessageID:  "<unique>",
+			Subject:    "Scholarship notice",
+			Date:       "2026-09-30T10:00:00Z",
+		},
+	}
+
+	samples := buildTagSuggestionSamples(
+		emails,
+		nil,
+		map[string]bool{"acct": true},
+		[]string{"subject"},
+		2,
+	)
+	if len(samples) != 2 {
+		t.Fatalf("got %d samples, want 2 unique subjects: %+v", len(samples), samples)
+	}
+	if samples[0].Subject != "Fwd: Weekly digest" || samples[1].Subject != "Scholarship notice" {
+		t.Fatalf("unexpected sample order/content: %+v", samples)
+	}
+}

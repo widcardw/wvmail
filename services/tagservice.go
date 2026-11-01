@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -22,6 +23,9 @@ const (
 )
 
 var (
+	tagSuggestionSubjectPrefixRE = regexp.MustCompile(
+		`(?i)^\s*(?:(?:re|fwd?|aw|sv)\s*(?:\[\d+\])?\s*[:：]\s*|(?:回复|转发)\s*[:：]\s*)+`,
+	)
 	allTagFields = []string{tagFieldSubject, tagFieldFrom, tagFieldDomain, tagFieldBody}
 	aiTagFields  = []string{
 		tagFieldSubject,
@@ -535,17 +539,25 @@ func buildTagSuggestionSamples(
 	sortEmailsNewestFirst(summaries)
 
 	out := make([]tagSuggestionSample, 0, limit)
-	seen := make(map[string]bool)
+	seenMessages := make(map[string]bool)
+	seenSubjects := make(map[string]bool)
 	for _, summary := range summaries {
 		if len(out) >= limit {
 			break
 		}
 		email := byKey[tagMessageKeyFromSummary(summary)]
 		key := tagMessageKey(email)
-		if seen[key] {
+		if seenMessages[key] {
 			continue
 		}
-		seen[key] = true
+		subjectKey := tagSuggestionSubjectKey(summary.Subject)
+		if subjectKey != "" && seenSubjects[subjectKey] {
+			continue
+		}
+		seenMessages[key] = true
+		if subjectKey != "" {
+			seenSubjects[subjectKey] = true
+		}
 		sample := tagSuggestionSample{
 			Date:       summary.Date,
 			Subject:    summary.Subject,
@@ -573,6 +585,17 @@ func buildTagSuggestionSamples(
 		out = append(out, sample)
 	}
 	return out
+}
+
+// tagSuggestionSubjectKey collapses repeated mail into one prompt example.
+// Reply/forward prefixes and formatting differences do not add useful signal for
+// category discovery. Empty subjects stay separate because unrelated messages
+// commonly omit the subject entirely.
+func tagSuggestionSubjectKey(subject string) string {
+	normalized := strings.Join(strings.Fields(subject), " ")
+	normalized = tagSuggestionSubjectPrefixRE.ReplaceAllString(normalized, "")
+	normalized = strings.Join(strings.Fields(normalized), " ")
+	return strings.ToLower(normalized)
 }
 
 func buildTagSuggestionPrompt(

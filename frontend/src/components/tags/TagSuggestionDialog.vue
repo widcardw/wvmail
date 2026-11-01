@@ -18,6 +18,7 @@ import UiCheckbox from '~/components/ui/UiCheckbox.vue'
 import UiDialog from '~/components/ui/UiDialog.vue'
 import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
 
 const props = defineProps<{ open: boolean }>()
@@ -232,173 +233,180 @@ function matchFieldLabel(field: TagMatchField): string {
       @close="emit('update:open', false)"
     />
     <div class="dlg-body suggestion-body">
-      <p class="intro">{{ t['tags.ai.intro'] }}</p>
-      <div class="privacy-warning">
-        <i class="i-ri:shield-keyhole-line" aria-hidden="true" />
-        <span>{{ t['tags.ai.warning'] }}</span>
-      </div>
-
-      <div v-if="loadingConfig" class="loading-row"><span class="spinner" /></div>
-      <div v-else-if="configs.length === 0" class="no-config">
-        {{ t['tags.ai.noLlm'] }}
-      </div>
-      <template v-else>
-        <div class="settings-grid">
-          <label class="field">
-            <span class="field__label">{{ t['tags.ai.llmConfig'] }}</span>
-            <UiSelect
-              :options="configOptions"
-              :model-value="selectedConfigName"
-              width="100%"
-              @update:model-value="selectedConfigName = $event"
-            />
-          </label>
-          <label class="field">
-            <span class="field__label">{{ t['tags.ai.model'] }}</span>
-            <UiSelect
-              :options="modelOptions"
-              :model-value="selectedModel"
-              width="100%"
-              @update:model-value="selectedModel = $event"
-            />
-          </label>
-          <label class="field">
-            <span class="field__label">{{ t['tags.ai.sampleLimit'] }}</span>
-            <UiNumberInput
-              :value="sampleLimit"
-              :min="1"
-              :max="300"
-              :step="10"
-              width="100%"
-              @value="sampleLimit = $event"
-            />
-          </label>
+      <UiScrollArea class="suggestion-scroll">
+        <p class="intro">{{ t['tags.ai.intro'] }}</p>
+        <div class="privacy-warning">
+          <i class="i-ri:shield-keyhole-line" aria-hidden="true" />
+          <span>{{ t['tags.ai.warning'] }}</span>
         </div>
 
-        <section class="choice-section">
-          <h3>{{ t['tags.ai.accounts'] }}</h3>
-          <div class="choice-grid">
-            <UiCheckbox
-              v-for="account in accounts"
-              :key="account.ID"
-              class="checkbox-row"
-              label-class="checkbox-row__label"
-              :checked="selectedAccountIDs.includes(account.ID)"
-              @update:checked="toggleAccount(account.ID, $event)"
-            >
-              {{ account.Name || account.Email }}
-            </UiCheckbox>
-          </div>
-        </section>
-
-        <section class="choice-section">
-          <h3>{{ t['tags.ai.fields'] }}</h3>
-          <div class="choice-grid">
-            <UiCheckbox class="checkbox-row" label-class="checkbox-row__label" checked disabled>
-              {{ t['tags.ai.field.subject'] }}
-            </UiCheckbox>
-            <UiCheckbox
-              v-for="field in optionalFieldOptions"
-              :key="field"
-              class="checkbox-row"
-              label-class="checkbox-row__label"
-              :checked="optionalFields.includes(field)"
-              @update:checked="toggleField(field, $event)"
-            >
-              {{ fieldLabel(field) }}
-            </UiCheckbox>
-          </div>
-        </section>
-
-        <div class="preview-action">
-          <BusyButton
-            class="btn"
-            :label="t['tags.ai.preview']"
-            :busy="previewing"
-            :disabled="!canPreview"
-            @click="loadPreview"
-          />
+        <div v-if="loadingConfig" class="loading-row"><span class="spinner" /></div>
+        <div v-else-if="configs.length === 0" class="no-config">
+          {{ t['tags.ai.noLlm'] }}
         </div>
-
-        <template v-if="preview">
-          <div class="preview-meta">
-            <span v-if="preview.account_names.length">
-              {{ preview.account_names.join(', ') }}
-            </span>
-            <span>{{ tf('tags.ai.samples', { count: preview.sample_count }) }}</span>
-            <span v-if="preview.sample_from && preview.sample_to">
-              {{
-                tf('tags.ai.range', {
-                  from: preview.sample_from,
-                  to: preview.sample_to,
-                })
-              }}
-            </span>
+        <template v-else>
+          <div class="settings-grid">
+            <label class="field">
+              <span class="field__label">{{ t['tags.ai.llmConfig'] }}</span>
+              <UiSelect
+                :options="configOptions"
+                :model-value="selectedConfigName"
+                width="100%"
+                @update:model-value="selectedConfigName = $event"
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">{{ t['tags.ai.model'] }}</span>
+              <UiSelect
+                :options="modelOptions"
+                :model-value="selectedModel"
+                width="100%"
+                @update:model-value="selectedModel = $event"
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">{{ t['tags.ai.sampleLimit'] }}</span>
+              <UiNumberInput
+                :value="sampleLimit"
+                :min="1"
+                :max="300"
+                :step="10"
+                width="100%"
+                @value="sampleLimit = $event"
+              />
+            </label>
           </div>
-          <p v-if="preview.sample_count === 0" class="no-config">
-            {{ t['tags.ai.noSamples'] }}
-          </p>
-          <label class="field prompt-field">
-            <span class="field__label">{{ t['tags.ai.prompt'] }}</span>
-            <textarea v-model="promptDraft" class="input prompt-preview" spellcheck="false" />
-            <span class="field__hint">{{ t['tags.ai.promptHint'] }}</span>
-          </label>
+
+          <section class="choice-section">
+            <h3>{{ t['tags.ai.accounts'] }}</h3>
+            <div class="choice-grid">
+              <UiCheckbox
+                v-for="account in accounts"
+                :key="account.ID"
+                class="checkbox-row"
+                label-class="checkbox-row__label"
+                :checked="selectedAccountIDs.includes(account.ID)"
+                @update:checked="toggleAccount(account.ID, $event)"
+              >
+                {{ account.Name || account.Email }}
+              </UiCheckbox>
+            </div>
+          </section>
+
+          <section class="choice-section">
+            <h3>{{ t['tags.ai.fields'] }}</h3>
+            <div class="choice-grid">
+              <UiCheckbox class="checkbox-row" label-class="checkbox-row__label" checked disabled>
+                {{ t['tags.ai.field.subject'] }}
+              </UiCheckbox>
+              <UiCheckbox
+                v-for="field in optionalFieldOptions"
+                :key="field"
+                class="checkbox-row"
+                label-class="checkbox-row__label"
+                :checked="optionalFields.includes(field)"
+                @update:checked="toggleField(field, $event)"
+              >
+                {{ fieldLabel(field) }}
+              </UiCheckbox>
+            </div>
+          </section>
+
           <div class="preview-action">
             <BusyButton
-              class="btn btn--primary"
-              :label="
-                tf('tags.ai.send', {
-                  provider: preview.llm_name || selectedConfigName,
-                  model: preview.llm_model || selectedModel,
-                })
-              "
-              :busy="generating"
-              :disabled="preview.sample_count === 0 || !promptDraft.trim()"
-              @click="generate"
+              class="btn"
+              :label="t['tags.ai.preview']"
+              :busy="previewing"
+              :disabled="!canPreview"
+              @click="loadPreview"
             />
           </div>
-        </template>
 
-        <p v-if="error" class="suggestion-error">{{ error }}</p>
-
-        <section v-if="suggestions.length" class="suggestion-results">
-          <h3>{{ t['tags.ai.generated'] }}</h3>
-          <div class="suggestion-list">
-            <UiCheckbox
-              v-for="suggestion in suggestions"
-              :key="suggestion.label"
-              class="suggestion"
-              label-class="suggestion-label"
-              :checked="suggestion.selected"
-              @update:checked="suggestion.selected = $event"
-            >
-              <span class="suggestion-color" :style="{ background: suggestion.color }" />
-              <span class="suggestion-main">
-                <strong>{{ suggestion.label }}</strong>
-                <span>{{ suggestion.keywords.join(', ') }}</span>
-                <small>{{ suggestion.fields.map(matchFieldLabel).join(' · ') }}</small>
+          <template v-if="preview">
+            <div class="preview-meta">
+              <span v-if="preview.account_names.length">
+                {{ preview.account_names.join(', ') }}
               </span>
-            </UiCheckbox>
-          </div>
-          <div class="preview-action">
-            <button
-              type="button"
-              class="btn btn--primary"
-              :disabled="saving || selectedSuggestionCount === 0"
-              @click="saveSelected"
-            >
-              {{ t['tags.ai.saveSelected'] }}
-              <span v-if="selectedSuggestionCount">({{ selectedSuggestionCount }})</span>
-            </button>
-          </div>
-        </section>
-      </template>
+              <span>{{ tf('tags.ai.samples', { count: preview.sample_count }) }}</span>
+              <span v-if="preview.sample_from && preview.sample_to">
+                {{
+                  tf('tags.ai.range', {
+                    from: preview.sample_from,
+                    to: preview.sample_to,
+                  })
+                }}
+              </span>
+            </div>
+            <p v-if="preview.sample_count === 0" class="no-config">
+              {{ t['tags.ai.noSamples'] }}
+            </p>
+            <label class="field prompt-field">
+              <span class="field__label">{{ t['tags.ai.prompt'] }}</span>
+              <textarea v-model="promptDraft" class="input prompt-preview" spellcheck="false" />
+              <span class="field__hint">{{ t['tags.ai.promptHint'] }}</span>
+            </label>
+            <div class="preview-action">
+              <BusyButton
+                class="btn btn--primary"
+                :label="
+                  tf('tags.ai.send', {
+                    provider: preview.llm_name || selectedConfigName,
+                    model: preview.llm_model || selectedModel,
+                  })
+                "
+                :busy="generating"
+                :disabled="preview.sample_count === 0 || !promptDraft.trim()"
+                @click="generate"
+              />
+            </div>
+          </template>
+
+          <p v-if="error" class="suggestion-error">{{ error }}</p>
+
+          <section v-if="suggestions.length" class="suggestion-results">
+            <h3>{{ t['tags.ai.generated'] }}</h3>
+            <div class="suggestion-list">
+              <UiCheckbox
+                v-for="suggestion in suggestions"
+                :key="suggestion.label"
+                class="suggestion"
+                label-class="suggestion-label"
+                :checked="suggestion.selected"
+                @update:checked="suggestion.selected = $event"
+              >
+                <span class="suggestion-color" :style="{ background: suggestion.color }" />
+                <span class="suggestion-main">
+                  <strong>{{ suggestion.label }}</strong>
+                  <span>{{ suggestion.keywords.join(', ') }}</span>
+                  <small>{{ suggestion.fields.map(matchFieldLabel).join(' · ') }}</small>
+                </span>
+              </UiCheckbox>
+            </div>
+            <div class="preview-action">
+              <button
+                type="button"
+                class="btn btn--primary"
+                :disabled="saving || selectedSuggestionCount === 0"
+                @click="saveSelected"
+              >
+                {{ t['tags.ai.saveSelected'] }}
+                <span v-if="selectedSuggestionCount">({{ selectedSuggestionCount }})</span>
+              </button>
+            </div>
+          </section>
+        </template>
+      </UiScrollArea>
     </div>
   </UiDialog>
 </template>
 
 <style scoped>
 .suggestion-body {
+  padding: 0;
+  overflow: hidden;
+}
+.suggestion-scroll {
+  height: 100%;
   padding: 18px 20px 22px;
 }
 .intro {

@@ -76,14 +76,19 @@ The AI path is opt-in only:
 1. The user chooses accounts, sample limit, LLM/model, and optional fields.
 2. Subject is always included; sender name, address, domain, date and a bounded
    body excerpt are off by default.
-3. `PreviewTagSuggestionPrompt` returns the exact prompt and sample/account
+3. Prompt samples are deduplicated by message identity and by normalized subject.
+   Subject comparison ignores case, repeated whitespace, and common reply/forward
+   prefixes (`Re:`, `Fwd:`, `回复:`, `回复：`, `转发:`, `转发：`). Empty subjects
+   remain separate, and the sample limit is applied after subject deduplication.
+4. `PreviewTagSuggestionPrompt` returns the exact prompt and sample/account
    metadata. Opening or previewing never sends anything.
-4. The dialog shows a prominent leakage warning and the full prompt in an editable,
+5. The dialog uses the shared `UiScrollArea` for its full-height body, shows a
+   prominent leakage warning, and keeps the full prompt in an editable,
    line-preserving textarea.
-5. Only the explicit send button calls `GenerateTagSuggestions`; it sends
+6. Only the explicit send button calls `GenerateTagSuggestions`; it sends
    `prompt_override` verbatim when present.
-6. The backend strips Markdown fences, validates rules, and returns suggestions.
-7. The user reviews selected suggestions before `SaveMailTag` writes them.
+7. The backend strips Markdown fences, validates rules, and returns suggestions.
+8. The user reviews selected suggestions before `SaveMailTag` writes them.
 
 API keys are never inserted into prompts. Prompts, addresses and AI responses are
 not logged.
@@ -99,5 +104,6 @@ than copying request code.
 
 - `services/tagservice_test.go`: OR matching, field scope, Gmail deduplication,
   explicit exclusion, response validation, preview/sent prompt equality, and
-  verbatim prompt overrides.
+  verbatim prompt overrides, normalized-subject sample deduplication, and applying
+  the sample limit after deduplication.
 - Run `GOCACHE=/tmp/wvmail-gocache go test ./...`.
