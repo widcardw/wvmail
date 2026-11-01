@@ -9,11 +9,7 @@ import ComposeEditor from '~/components/compose/ComposeEditor.vue'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
-import {
-  formatRecipientText,
-  isImageFilename,
-  parseRecipientText,
-} from '~/composables/compose'
+import { formatRecipientText, isImageFilename, parseRecipientText } from '~/composables/compose'
 
 const route = useRoute()
 const { t, tf } = useI18n()
@@ -92,9 +88,13 @@ async function persistDraft() {
   await ComposeService.UpdateDraft(currentDraft())
 }
 
-watch([accountID, toText, ccText, bccText, subject, html, text, attachments, inlineImages], setDirty, {
-  deep: true,
-})
+watch(
+  [accountID, toText, ccText, bccText, subject, html, text, attachments, inlineImages],
+  setDirty,
+  {
+    deep: true,
+  },
+)
 
 async function attachFiles() {
   try {
@@ -173,7 +173,8 @@ async function onFilesDropped(event: { data?: unknown }) {
     | undefined
   if (!payload || payload.draftID !== draftID.value || !payload.files?.length) return
   const inline =
-    payload.targetID === 'compose-editor-drop' && payload.files.every((file) => isImageFilename(file))
+    payload.targetID === 'compose-editor-drop' &&
+    payload.files.every((file) => isImageFilename(file))
   try {
     const added = await ComposeService.ImportFiles(draftID.value, payload.files, inline)
     if (inline) {
@@ -322,32 +323,27 @@ onBeforeUnmount(() => {
           ref="editorRef"
           v-model="html"
           @update:text="text = $event"
+          @pick-attachment="attachFiles"
           @pick-image="attachInlineImage"
         />
       </div>
 
-      <div class="compose-attachments">
-        <div class="attachment-actions">
-          <button type="button" class="attach-btn" @click="attachFiles">
-            <i class="i-ri:attachment-2" aria-hidden="true" />
-            {{ t['compose.attach'] }}
-          </button>
-          <button type="button" class="attach-btn" @click="attachInlineImage">
-            <i class="i-ri:image-add-line" aria-hidden="true" />
-            {{ t['compose.insert_image'] }}
-          </button>
-          <span v-if="attachments.length + inlineImages.length" class="attachment-count">
-            {{ tf('compose.attachment_count', { count: attachments.length + inlineImages.length }) }}
-          </span>
-        </div>
-
-        <div v-if="attachments.length || inlineImages.length" class="attachment-list">
+      <div v-if="attachments.length || inlineImages.length" class="compose-attachments">
+        <span class="attachment-count">
+          {{ tf('compose.attachment_count', { count: attachments.length + inlineImages.length }) }}
+        </span>
+        <div class="attachment-list">
           <div
             v-for="item in [...inlineImages, ...attachments]"
             :key="item.ID"
             class="attachment-chip"
           >
-            <img v-if="item.Preview" :src="item.Preview" :alt="item.Name" class="attachment-thumb" />
+            <img
+              v-if="item.Preview"
+              :src="item.Preview"
+              :alt="item.Name"
+              class="attachment-thumb"
+            />
             <i v-else class="i-ri:file-3-line" aria-hidden="true" />
             <span class="attachment-name" :title="item.Name">{{ item.Name }}</span>
             <span class="attachment-size">{{ formatSize(item.Size) }}</span>
@@ -522,31 +518,9 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   padding-top: 8px;
 }
-.attachment-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.attach-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 7px;
-  color: var(--color-text-2);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-}
-.attach-btn:hover {
-  color: var(--n-text-color);
-  background: var(--n-sidebar-hover);
-  border-color: var(--n-border-color);
-}
 .attachment-count {
-  margin-left: auto;
+  display: block;
+  margin-bottom: 6px;
   color: var(--color-text-3);
   font-size: 11px;
 }

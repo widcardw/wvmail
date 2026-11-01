@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:text': [value: string]
+  'pick-attachment': []
   'pick-image': []
 }>()
 
@@ -185,8 +186,21 @@ onBeforeUnmount(() => {
       >
         <i class="i-ri:link" aria-hidden="true" />
       </button>
-      <button type="button" class="tb" :title="t['compose.insert_image']" @click="emit('pick-image')">
+      <button
+        type="button"
+        class="tb"
+        :title="t['compose.insert_image']"
+        @click="emit('pick-image')"
+      >
         <i class="i-ri:image-add-line" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="tb"
+        :title="t['compose.attach']"
+        @click="emit('pick-attachment')"
+      >
+        <i class="i-ri:attachment-2" aria-hidden="true" />
       </button>
       <span class="toolbar-sep" />
       <button
@@ -229,8 +243,13 @@ onBeforeUnmount(() => {
   gap: 2px;
   min-height: 38px;
   padding: 4px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid var(--n-border-color);
-  background: color-mix(in srgb, var(--n-body-color) 92%, var(--n-primary-color));
+  scrollbar-width: none;
+}
+.compose-toolbar::-webkit-scrollbar {
+  display: none;
 }
 .tb {
   display: inline-flex;
@@ -273,39 +292,44 @@ onBeforeUnmount(() => {
 }
 .editor-content {
   min-height: 100%;
-  padding: 18px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  color: var(--n-text-color);
 }
-.editor-content :deep(.tiptap) {
-  min-height: 100%;
+.editor-content :deep(.ProseMirror) {
+  flex: 1;
+  min-height: 200px;
+  padding: 18px 24px 48px;
   outline: none;
+  cursor: text;
   font-size: 14px;
   line-height: 1.72;
 }
-.editor-content :deep(.tiptap > :first-child) {
+.editor-content :deep(.ProseMirror > :first-child) {
   margin-top: 0;
 }
-.editor-content :deep(.tiptap p) {
+.editor-content :deep(.ProseMirror p) {
   margin: 0 0 0.85em;
 }
-.editor-content :deep(.tiptap h1),
-.editor-content :deep(.tiptap h2),
-.editor-content :deep(.tiptap h3) {
+.editor-content :deep(.ProseMirror h1),
+.editor-content :deep(.ProseMirror h2),
+.editor-content :deep(.ProseMirror h3) {
   margin: 1.1em 0 0.45em;
   line-height: 1.25;
 }
-.editor-content :deep(.tiptap blockquote) {
+.editor-content :deep(.ProseMirror blockquote) {
   margin: 0.8em 0;
   padding-left: 12px;
   border-left: 3px solid var(--n-primary-color);
   color: var(--color-text-2);
 }
-.editor-content :deep(.tiptap pre) {
+.editor-content :deep(.ProseMirror pre) {
   padding: 10px 12px;
   overflow: auto;
   border-radius: 6px;
   background: var(--n-action-color);
 }
-.editor-content :deep(.tiptap img) {
+.editor-content :deep(.ProseMirror img) {
   display: inline-block;
   max-width: min(100%, 560px);
   max-height: 360px;
@@ -314,12 +338,12 @@ onBeforeUnmount(() => {
   object-fit: contain;
   vertical-align: middle;
 }
-.editor-content :deep(.tiptap a) {
+.editor-content :deep(.ProseMirror a) {
   color: var(--n-primary-color);
   text-decoration: underline;
 }
-.editor-content :deep(.tiptap ul),
-.editor-content :deep(.tiptap ol) {
+.editor-content :deep(.ProseMirror ul),
+.editor-content :deep(.ProseMirror ol) {
   padding-left: 1.6em;
 }
 </style>
