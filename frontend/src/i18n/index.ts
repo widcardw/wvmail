@@ -140,6 +140,7 @@ export interface TranslationSchema {
   'compose.subject_placeholder': string
   'compose.recipient_placeholder': string
   'compose.recipient_required': string
+  'compose.recipient_invalid': string
   'compose.add_cc': string
   'compose.add_bcc': string
   'compose.send': string

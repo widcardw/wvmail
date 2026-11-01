@@ -10,7 +10,13 @@ import ComposeRecipientInput from '~/components/compose/ComposeRecipientInput.vu
 import BusyButton from '~/components/ui/BusyButton.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
-import { formatRecipientText, isImageFilename, parseRecipientText } from '~/composables/compose'
+import {
+  formatRecipientText,
+  isImageFilename,
+  parseRecipientText,
+  parseRecipientTextDetailed,
+  splitRecipientText,
+} from '~/composables/compose'
 
 const route = useRoute()
 const { t, tf } = useI18n()
@@ -50,9 +56,9 @@ const accountOptions = computed(() =>
 const canSend = computed(
   () =>
     Boolean(accountID.value) &&
-    (parseRecipientText(toText.value).length > 0 ||
-      parseRecipientText(ccText.value).length > 0 ||
-      parseRecipientText(bccText.value).length > 0),
+    [toText.value, ccText.value, bccText.value].some(
+      (value) => splitRecipientText(value).length > 0,
+    ),
 )
 
 function setDirty() {
@@ -146,6 +152,20 @@ async function send() {
   error.value = ''
   if (!canSend.value) {
     error.value = t.value['compose.recipient_required']
+    return
+  }
+  const recipientFields = [
+    { label: t.value['compose.to'], value: toText.value },
+    { label: t.value['compose.cc'], value: ccText.value },
+    { label: t.value['compose.bcc'], value: bccText.value },
+  ]
+  const unrecognized = recipientFields.flatMap(({ label, value }) =>
+    parseRecipientTextDetailed(value).unrecognized.map((item) => `${label}: ${item}`),
+  )
+  if (unrecognized.length > 0) {
+    error.value = tf('compose.recipient_invalid', {
+      items: [...new Set(unrecognized)].join('; '),
+    })
     return
   }
   sending.value = true

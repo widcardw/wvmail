@@ -63,20 +63,42 @@ export function completeCurrentRecipient(
   return appendSeparator ? `${completed}, ` : completed
 }
 
-/** Parse display names and bare addresses into the backend's address shape. */
-export function parseRecipientText(value: string): EmailAddress[] {
-  const result: EmailAddress[] = []
+export interface ParsedRecipientText {
+  addresses: EmailAddress[]
+  unrecognized: string[]
+}
+
+/**
+ * Parse recipient text into addresses and surface fragments that cannot be
+ * recognized at all. Full RFC mailbox validation stays in the Go sender.
+ */
+export function parseRecipientTextDetailed(value: string): ParsedRecipientText {
+  const addresses: EmailAddress[] = []
+  const unrecognized: string[] = []
   for (const item of splitRecipientText(value)) {
     const match = item.match(/^\s*(?:"?([^"<]*?)"?\s*)?<([^<>]+)>\s*$/)
     if (match) {
       const name = (match[1] ?? '').trim()
       const address = match[2].trim()
-      if (address) result.push({ Name: name, Address: address } as EmailAddress)
+      if (address.includes('@')) {
+        addresses.push({ Name: name, Address: address } as EmailAddress)
+      } else {
+        unrecognized.push(item)
+      }
       continue
     }
-    if (item.includes('@')) result.push({ Name: '', Address: item } as EmailAddress)
+    if (!item.includes('<') && !item.includes('>') && item.includes('@')) {
+      addresses.push({ Name: '', Address: item } as EmailAddress)
+    } else {
+      unrecognized.push(item)
+    }
   }
-  return result
+  return { addresses, unrecognized }
+}
+
+/** Parse display names and bare addresses into the backend's address shape. */
+export function parseRecipientText(value: string): EmailAddress[] {
+  return parseRecipientTextDetailed(value).addresses
 }
 
 export function formatRecipientText(addresses: EmailAddress[] | undefined): string {

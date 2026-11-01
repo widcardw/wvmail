@@ -139,6 +139,7 @@ const zhCN: TranslationSchema = {
   'compose.subject_placeholder': '邮件主题',
   'compose.recipient_placeholder': 'name@example.com，多个地址用逗号分隔',
   'compose.recipient_required': '请至少填写一个收件人、抄送或密送地址',
+  'compose.recipient_invalid': '以下收件人无法识别：{items}',
   'compose.add_cc': '添加抄送',
   'compose.add_bcc': '添加密送',
   'compose.send': '发送',

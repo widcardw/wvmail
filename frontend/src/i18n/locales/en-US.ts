@@ -145,6 +145,7 @@ const enUS: TranslationSchema = {
   'compose.subject_placeholder': 'Subject',
   'compose.recipient_placeholder': 'name@example.com, separate multiple addresses with commas',
   'compose.recipient_required': 'Add at least one To, Cc or Bcc recipient',
+  'compose.recipient_invalid': 'Unrecognized recipients: {items}',
   'compose.add_cc': 'Add Cc',
   'compose.add_bcc': 'Add Bcc',
   'compose.send': 'Send',

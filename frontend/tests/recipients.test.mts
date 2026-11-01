@@ -3,6 +3,7 @@ import {
   completeCurrentRecipient,
   currentRecipientQuery,
   parseRecipientText,
+  parseRecipientTextDetailed,
   splitRecipientText,
 } from '../src/composables/compose.ts'
 
@@ -55,6 +56,23 @@ check(
 check(
   'completed recipients retain display names',
   parseRecipientText('"Doe, Jane" <jane@example.com>')[0]?.Name === 'Doe, Jane',
+)
+{
+  const mixed = parseRecipientTextDetailed('a@example.com, typo')
+  check('valid recipients survive an invalid neighbour', mixed.addresses.length === 1)
+  check('a fragment without a mailbox is reported', mixed.unrecognized[0] === 'typo')
+}
+check(
+  'angle brackets without a mailbox are reported',
+  parseRecipientTextDetailed('Alice <not-an-email>').unrecognized[0] === 'Alice <not-an-email>',
+)
+check(
+  'an unmatched angle bracket is reported',
+  parseRecipientTextDetailed('Alice <alice@example.com').unrecognized.length === 1,
+)
+check(
+  'valid angle-bracket recipients are not reported',
+  parseRecipientTextDetailed('Alice <alice@example.com>').unrecognized.length === 0,
 )
 
 // Everything fits: no chip, every address visible.
