@@ -4,6 +4,7 @@ import { useI18n } from '~/i18n'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiFieldRow from '~/components/ui/UiFieldRow.vue'
+import UiAlert from '~/components/ui/UiAlert.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 import { useFeedbackStore } from '~/stores/feedback'
 import { ConfigService } from '#/wvmail/services'
@@ -108,9 +109,13 @@ function onSelectConfig(name: string) {
         <h2>{{ t['settings.translation.title'] }}</h2>
       </header>
 
-      <div v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'" class="warning">
+      <UiAlert
+        v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'"
+        class="translation-warning"
+        tone="warning"
+      >
         {{ t['settings.translation.no_llm'] }}
-      </div>
+      </UiAlert>
 
       <UiFieldRow :label="t['settings.translation.target_lang']">
         <UiSelect
@@ -168,13 +173,7 @@ function onSelectConfig(name: string) {
 </template>
 
 <style scoped>
-.warning {
+.translation-warning {
   margin: 14px 18px 0;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--n-text-color);
-  background: rgba(240, 160, 32, 0.15);
-  border-left: 3px solid #f0a020;
-  border-radius: 4px;
 }
 </style>

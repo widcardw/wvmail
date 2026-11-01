@@ -106,80 +106,82 @@ onMounted(() => {
     class="contacts-view"
     :class="{ 'contacts-view--embedded': props.embedded }"
   >
-    <div class="contacts-shell">
-      <header class="contacts-head">
-        <div>
+    <div class="wrap">
+      <section class="surface">
+        <header class="surface__head contacts-head">
           <div class="title-row">
-            <h1>{{ t['contacts.title'] }}</h1>
+            <h2>{{ t['contacts.title'] }}</h2>
             <span class="local-chip">
               <i class="i-ri:hard-drive-2-line" aria-hidden="true" />
               {{ t['contacts.localOnly'] }}
             </span>
           </div>
-        </div>
-        <button type="button" class="btn btn--primary" @click="openAdd">
-          <i class="i-ri:user-add-line" aria-hidden="true" />
-          {{ t['contacts.add'] }}
-        </button>
-      </header>
+          <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
+            <i class="i-ri:user-add-line" aria-hidden="true" />
+            {{ t['contacts.add'] }}
+          </button>
+        </header>
 
-      <div class="contact-search">
-        <i class="i-ri:search-line" aria-hidden="true" />
-        <input
-          v-model="filter"
-          type="search"
-          spellcheck="false"
-          :placeholder="t['contacts.search']"
-          :aria-label="t['contacts.search']"
-        />
-        <button
-          v-if="filter"
-          type="button"
-          class="search-clear"
-          :aria-label="t['contacts.clearSearch']"
-          @click="filter = ''"
-        >
-          <i class="i-ri:close-line" aria-hidden="true" />
-        </button>
-      </div>
-
-      <section class="contact-list">
-        <div v-if="contactsStore.loading" class="state">
-          <span class="spinner" />
-        </div>
-        <div v-else-if="visibleContacts.length === 0" class="state state--empty">
-          <i class="i-ri:contacts-book-2-line" aria-hidden="true" />
-          <p>{{ filter.trim() ? t['contacts.noMatch'] : t['contacts.empty'] }}</p>
-        </div>
-        <template v-else>
-          <div v-for="contact in visibleContacts" :key="contact.id" class="contact-row">
-            <span class="contact-avatar" aria-hidden="true">{{ initials(contact) }}</span>
-            <div class="contact-info">
-              <strong>{{ displayName(contact) }}</strong>
-              <span>{{ contact.email }}</span>
-            </div>
-            <div class="contact-actions">
-              <button
-                type="button"
-                class="icon-btn"
-                :title="t['contacts.edit']"
-                :aria-label="t['contacts.edit']"
-                @click="openEdit(contact)"
-              >
-                <i class="i-ri:edit-2-line" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                class="icon-btn contact-delete"
-                :title="t['contacts.delete']"
-                :aria-label="t['contacts.delete']"
-                @click="deleteTarget = contact"
-              >
-                <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
-              </button>
-            </div>
+        <div class="contact-toolbar">
+          <div class="contact-search">
+            <i class="i-ri:search-line" aria-hidden="true" />
+            <input
+              v-model="filter"
+              type="search"
+              spellcheck="false"
+              :placeholder="t['contacts.search']"
+              :aria-label="t['contacts.search']"
+            />
+            <button
+              v-if="filter"
+              type="button"
+              class="search-clear"
+              :aria-label="t['contacts.clearSearch']"
+              @click="filter = ''"
+            >
+              <i class="i-ri:close-line" aria-hidden="true" />
+            </button>
           </div>
-        </template>
+        </div>
+
+        <section class="contact-list">
+          <div v-if="contactsStore.loading" class="state">
+            <span class="spinner" />
+          </div>
+          <div v-else-if="visibleContacts.length === 0" class="state state--empty">
+            <i class="i-ri:contacts-book-2-line" aria-hidden="true" />
+            <p>{{ filter.trim() ? t['contacts.noMatch'] : t['contacts.empty'] }}</p>
+          </div>
+          <template v-else>
+            <div v-for="contact in visibleContacts" :key="contact.id" class="contact-row">
+              <span class="contact-avatar" aria-hidden="true">{{ initials(contact) }}</span>
+              <div class="contact-info">
+                <strong>{{ displayName(contact) }}</strong>
+                <span>{{ contact.email }}</span>
+              </div>
+              <div class="contact-actions">
+                <button
+                  type="button"
+                  class="icon-btn"
+                  :title="t['contacts.edit']"
+                  :aria-label="t['contacts.edit']"
+                  @click="openEdit(contact)"
+                >
+                  <i class="i-ri:edit-2-line" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn contact-delete"
+                  :title="t['contacts.delete']"
+                  :aria-label="t['contacts.delete']"
+                  @click="deleteTarget = contact"
+                >
+                  <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </template>
+        </section>
       </section>
     </div>
 
@@ -247,35 +249,22 @@ onMounted(() => {
 <style scoped>
 .contacts-view {
   height: 100%;
-  padding: 24px;
   color: var(--n-text-color);
 }
 .contacts-view--embedded {
   height: auto;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 16px;
-}
-.contacts-shell {
-  width: min(880px, 100%);
-  margin: 0 auto;
 }
 .contacts-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 12px;
 }
 .title-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
-.contacts-head h1 {
+.contacts-head h2 {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
 }
 .local-chip {
   display: inline-flex;
@@ -288,17 +277,20 @@ onMounted(() => {
   border: 1px solid var(--n-border-color);
   border-radius: 999px;
 }
+.contact-toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+}
 .contact-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 10px;
-  margin-bottom: 12px;
+  height: 30px;
+  padding: 0 8px;
   color: var(--color-text-3);
   background: var(--n-action-color);
   border: 1px solid var(--n-border-color);
-  border-radius: 7px;
+  border-radius: 6px;
 }
 .contact-search:focus-within {
   color: var(--n-text-color);
@@ -341,17 +333,14 @@ onMounted(() => {
   background: var(--n-sidebar-hover);
 }
 .contact-list {
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: 8px;
+  min-height: 0;
 }
 .contact-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 60px;
-  padding: 9px 14px;
+  min-height: 56px;
+  padding: 9px 16px;
   border-bottom: 1px solid var(--n-border-color);
 }
 .contact-row:last-child {
@@ -365,8 +354,8 @@ onMounted(() => {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   color: var(--n-primary-color);
   background: color-mix(in srgb, var(--n-primary-color) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--n-primary-color) 28%, var(--n-border-color));
@@ -400,12 +389,6 @@ onMounted(() => {
   flex: none;
   align-items: center;
   gap: 2px;
-  opacity: 0.45;
-  transition: opacity 0.12s ease;
-}
-.contact-row:hover .contact-actions,
-.contact-actions:focus-within {
-  opacity: 1;
 }
 .contact-delete:hover {
   color: var(--color-danger);
@@ -413,15 +396,15 @@ onMounted(() => {
 }
 .state {
   display: flex;
-  min-height: 150px;
   align-items: center;
   justify-content: center;
+  padding: 34px 16px;
+  color: var(--color-text-3);
+  font-size: 13px;
 }
 .state--empty {
   flex-direction: column;
   gap: 8px;
-  color: var(--color-text-3);
-  font-size: 13px;
 }
 .state--empty i {
   font-size: 26px;
@@ -435,9 +418,6 @@ onMounted(() => {
   color: var(--color-danger);
 }
 @media (max-width: 640px) {
-  .contacts-view {
-    padding: 16px;
-  }
   .contacts-head {
     align-items: flex-start;
     flex-direction: column;

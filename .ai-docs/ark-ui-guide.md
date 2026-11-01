@@ -86,6 +86,7 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/ui/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
 | `components/ui/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
 | `components/ui/UiScrollArea.vue` | `ScrollArea.Root/.Viewport/.Content/.Scrollbar/.Thumb/.Corner` | component；5px thumb 只在内容溢出且指针悬停、滚动或拖动时显示，不因焦点残留而常驻 |
+| `components/ui/UiAlert.vue` | **nothing — Ark has no inline alert** | shared `info/success/warning/error` inline notices with optional dismissal and icon override; use it instead of page-specific alert boxes |
 | `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
 | `components/ui/UiDialog.vue` | `Dialog.Root/.Backdrop/.Positioner/.Content` | shared shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--padded)`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Cards are flush by default; pass `padded` only for compact dialogs without the standard head/body/foot. Always pass **`lazy-mount` + `unmount-on-exit`** |
 | `components/ui/UiDialogHeader.vue` | `Dialog.Title/.CloseTrigger` | standard `.dlg-head` / `.dlg-title` / `.dlg-close` row. Use it for every normal dialog header; only specialised headers (confirm, crop) compose Ark directly |
@@ -297,6 +298,9 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
 - ✓ Transient messages: one module-level `toaster = createToaster({ placement: 'top-end', … })` in
   `stores/feedback.ts`; components keep calling `feedback.success/error/info/warn` and a single
   `<ToastHost/>` (Ark `Toaster` + `Toast.Root`) renders them anywhere in the app. There is no per-component toast state.
+- Persistent inline request/validation context uses `components/ui/UiAlert.vue`; do not hand-roll
+  another bordered red/warning box. Settings pages keep the shared `wrap → surface → surface__head`
+  hierarchy, including Contacts.
 - The toast root needs Ark's documented runtime styling (`width` — its group is a zero-width fixed flex column, so a
   content-sized root collapses CJK text one glyph per line — plus `translate: var(--x) var(--y)`, `scale`, `z-index`,
   `height`, `opacity`). It lives in `styles/ui.css` under `[data-scope='toast'][data-part='root']`.

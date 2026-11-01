@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Toast, Toaster } from '@ark-ui/vue/toast'
 import { toaster } from '~/stores/feedback'
+import { useI18n } from '~/i18n'
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -11,7 +14,7 @@ import { toaster } from '~/stores/feedback'
         <Toast.Description v-if="toast.description" class="toast__text">
           {{ toast.description }}
         </Toast.Description>
-        <Toast.CloseTrigger type="button" class="toast__close" aria-label="close">
+        <Toast.CloseTrigger type="button" class="toast__close" :aria-label="t['cancel']">
           <i class="i-ri:close-line" />
         </Toast.CloseTrigger>
       </Toast.Root>

@@ -20,6 +20,7 @@ import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
+import UiAlert from '~/components/ui/UiAlert.vue'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -234,10 +235,14 @@ function matchFieldLabel(field: TagMatchField): string {
     <div class="dlg-body suggestion-body">
       <UiScrollArea class="suggestion-scroll">
         <p class="intro">{{ t['tags.ai.intro'] }}</p>
-        <div class="privacy-warning">
-          <i class="i-ri:shield-keyhole-line" aria-hidden="true" />
-          <span>{{ t['tags.ai.warning'] }}</span>
-        </div>
+        <UiAlert
+          class="privacy-warning"
+          tone="warning"
+          icon="i-ri:shield-keyhole-line"
+          role="status"
+        >
+          {{ t['tags.ai.warning'] }}
+        </UiAlert>
 
         <div v-if="loadingConfig" class="loading-row"><span class="spinner" /></div>
         <template v-else>
@@ -312,18 +317,18 @@ function matchFieldLabel(field: TagMatchField): string {
                 }}
               </span>
             </div>
-            <p v-if="preview.sample_count === 0" class="no-config">
+            <UiAlert v-if="preview.sample_count === 0" class="no-config" tone="warning">
               {{ t['tags.ai.noSamples'] }}
-            </p>
+            </UiAlert>
             <label class="field prompt-field">
               <span class="field__label">{{ t['tags.ai.prompt'] }}</span>
               <textarea v-model="promptDraft" class="input prompt-preview" spellcheck="false" />
               <span class="field__hint">{{ t['tags.ai.promptHint'] }}</span>
             </label>
             <div class="send-config">
-              <div v-if="configs.length === 0" class="no-config">
+              <UiAlert v-if="configs.length === 0" class="no-config" tone="warning">
                 {{ t['tags.ai.noLlm'] }}
-              </div>
+              </UiAlert>
               <template v-else>
                 <div class="settings-grid send-grid">
                   <label class="field">
@@ -363,7 +368,16 @@ function matchFieldLabel(field: TagMatchField): string {
             </div>
           </template>
 
-          <p v-if="error" class="suggestion-error">{{ error }}</p>
+          <UiAlert
+            v-if="error"
+            class="suggestion-error"
+            tone="error"
+            dismissible
+            :close-label="t['cancel']"
+            @dismiss="error = ''"
+          >
+            {{ error }}
+          </UiAlert>
 
           <section v-if="suggestions.length" class="suggestion-results">
             <h3>{{ t['tags.ai.generated'] }}</h3>
@@ -417,21 +431,7 @@ function matchFieldLabel(field: TagMatchField): string {
   font-size: 13px;
 }
 .privacy-warning {
-  display: flex;
-  gap: 9px;
   margin-bottom: 16px;
-  padding: 10px 12px;
-  color: var(--color-warning);
-  background: var(--color-warning-bg);
-  border: 1px solid color-mix(in srgb, var(--color-warning) 28%, transparent);
-  border-radius: 7px;
-  font-size: 12px;
-  line-height: 1.55;
-}
-.privacy-warning i {
-  flex: none;
-  margin-top: 1px;
-  font-size: 16px;
 }
 .settings-grid {
   display: grid;
@@ -506,11 +506,6 @@ function matchFieldLabel(field: TagMatchField): string {
 .suggestion-error,
 .no-config {
   margin: 10px 0;
-  padding: 10px 12px;
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
-  border-radius: 6px;
-  font-size: 12px;
 }
 .loading-row {
   display: flex;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '~/i18n'
 import EmailShadowBody from './EmailShadowBody.vue'
+import UiAlert from '~/components/ui/UiAlert.vue'
 
 // The translation result panels (HTML layout or plain text) plus the error the
 // translator can return. Purely presentational: the parent decides whether the
@@ -32,12 +33,16 @@ const { t } = useI18n()
       <div class="td">{{ t['mail.translation.label'] }}</div>
       <div class="body-text">{{ text }}</div>
     </div>
-    <div v-if="error" class="alert alert--err with-x">
-      <span>{{ error }}</span>
-      <button type="button" class="alert__close" aria-label="close" @click="emit('dismiss-error')">
-        <i class="i-ri:close-line" aria-hidden="true" />
-      </button>
-    </div>
+    <UiAlert
+      v-if="error"
+      class="translated-alert"
+      tone="error"
+      dismissible
+      :close-label="t['cancel']"
+      @dismiss="emit('dismiss-error')"
+    >
+      {{ error }}
+    </UiAlert>
   </div>
 </template>
 
@@ -47,6 +52,9 @@ const { t } = useI18n()
   line-height: 1.6;
   font-size: 14px;
   word-break: break-word;
+}
+.translated-alert {
+  margin: 12px;
 }
 .body-text {
   font-family: inherit;

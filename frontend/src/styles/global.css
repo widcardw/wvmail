@@ -49,6 +49,9 @@
   --color-danger-bg: rgba(208, 48, 80, 0.18);
   --color-warning: #f0a020;
   --color-warning-bg: rgba(240, 160, 32, 0.14);
+  --color-json-string: #16a34a;
+  --color-json-number: #d97706;
+  --color-json-boolean: #2563eb;
 
   /* blocked-image placeholder stripes (injected into the email shadow root) */
   --blocked-stripe-a: rgba(128, 128, 128, 0.1);
@@ -102,6 +105,9 @@
   --color-danger-bg: rgba(232, 128, 128, 0.16);
   --color-warning: #f2c97d;
   --color-warning-bg: rgba(242, 201, 125, 0.16);
+  --color-json-string: #63e2b7;
+  --color-json-number: #f2c97d;
+  --color-json-boolean: #70c0e8;
 
   --blocked-stripe-a: rgba(255, 255, 255, 0.06);
   --blocked-stripe-b: rgba(255, 255, 255, 0.16);

@@ -9,6 +9,7 @@ import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import UiAlert from '~/components/ui/UiAlert.vue'
 import { getLLMProviderLimits, LLM_PROVIDER_DEFAULTS } from '~/types/config'
 import type { LLMConfig, LLMProvider } from '~/types/config'
 import JsonResponseViewer from '~/components/settings/JsonResponseViewer.vue'
@@ -334,11 +335,15 @@ watch(
           </Field.HelperText>
         </Field.Root>
 
-        <div v-if="props.testSummary" class="result" :class="props.testOk ? 'ok' : 'bad'">
+        <UiAlert v-if="props.testSummary" class="result" :tone="props.testOk ? 'success' : 'error'">
           <strong>{{ t['settings.llm.test_connection'] }}: {{ props.testSummary }}</strong>
           <JsonResponseViewer v-if="props.testBody" :body="props.testBody" />
-        </div>
-        <div v-if="props.testChatSummary" class="result" :class="props.testChatOk ? 'ok' : 'bad'">
+        </UiAlert>
+        <UiAlert
+          v-if="props.testChatSummary"
+          class="result"
+          :tone="props.testChatOk ? 'success' : 'error'"
+        >
           <strong>
             {{ t['settings.llm.test_chat'] }}
             <template v-if="props.testChatModel">· {{ props.testChatModel }}</template
@@ -346,7 +351,7 @@ watch(
             {{ props.testChatSummary }}
           </strong>
           <JsonResponseViewer v-if="props.testChatBody" :body="props.testChatBody" />
-        </div>
+        </UiAlert>
       </UiScrollArea>
     </div>
 
@@ -402,21 +407,5 @@ watch(
 }
 .result {
   margin-top: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-}
-/* Same treatment as the list's test button: matching text, border and tint. The
-   embedded JSON tree keeps its own syntax colours. */
-.result.ok {
-  color: var(--color-success);
-  background: var(--color-success-bg);
-  border-color: var(--color-success);
-}
-.result.bad {
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
-  border-color: var(--color-danger);
 }
 </style>

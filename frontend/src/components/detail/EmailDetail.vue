@@ -25,6 +25,7 @@ import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import UiAlert from '~/components/ui/UiAlert.vue'
 import TagChip from '~/components/tags/TagChip.vue'
 import EmailTagDialog from '~/components/tags/EmailTagDialog.vue'
 
@@ -391,12 +392,16 @@ const showAttachments = computed(
 
     <UiScrollArea class="scroll">
       <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
-      <div v-if="accountsStore.detailError" class="alert alert--err with-x">
-        <span>{{ accountsStore.detailError }}</span>
-        <button type="button" class="alert__close" aria-label="close" @click="closeError()">
-          <i class="i-ri:close-line" aria-hidden="true" />
-        </button>
-      </div>
+      <UiAlert
+        v-if="accountsStore.detailError"
+        class="detail-alert"
+        tone="error"
+        dismissible
+        :close-label="t['cancel']"
+        @dismiss="closeError()"
+      >
+        {{ accountsStore.detailError }}
+      </UiAlert>
 
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
 
@@ -489,6 +494,9 @@ const showAttachments = computed(
 </template>
 
 <style scoped>
+.detail-alert {
+  margin: 12px;
+}
 .email-detail {
   position: relative;
   display: flex;

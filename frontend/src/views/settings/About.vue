@@ -207,7 +207,7 @@ async function handleOpenRepository() {
   padding: 10px 18px 4px;
   font-size: 13px;
   font-weight: 800;
-  color: var(--color-text-1);
+  color: var(--color-text-2);
   border-top: 1px solid var(--n-border-color);
 }
 .actions {

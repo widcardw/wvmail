@@ -136,13 +136,13 @@ const parsedBody = computed<object | null>(() => {
   color: var(--n-primary-color);
 }
 .response-tree__tree :deep([data-type='string']) {
-  color: #16a34a;
+  color: var(--color-json-string);
 }
 .response-tree__tree :deep([data-type='number']) {
-  color: #d97706;
+  color: var(--color-json-number);
 }
 .response-tree__tree :deep([data-type='boolean']) {
-  color: #2563eb;
+  color: var(--color-json-boolean);
 }
 .response-tree__tree :deep([data-type='null']),
 .response-tree__tree :deep([data-type='undefined']) {

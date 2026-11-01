@@ -10,6 +10,7 @@ import ComposeRecipientInput from '~/components/compose/ComposeRecipientInput.vu
 import BusyButton from '~/components/ui/BusyButton.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
+import UiAlert from '~/components/ui/UiAlert.vue'
 import {
   formatRecipientText,
   isImageFilename,
@@ -273,12 +274,16 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <div v-if="error" class="compose-alert">
-      <span>{{ error }}</span>
-      <button type="button" class="alert-close" :aria-label="t['cancel']" @click="error = ''">
-        <i class="i-ri:close-line" aria-hidden="true" />
-      </button>
-    </div>
+    <UiAlert
+      v-if="error"
+      class="compose-alert"
+      tone="error"
+      dismissible
+      :close-label="t['cancel']"
+      @dismiss="error = ''"
+    >
+      {{ error }}
+    </UiAlert>
 
     <div v-if="loading" class="compose-loading">{{ t['mail.loading'] }}</div>
     <div v-else class="compose-form">
@@ -433,36 +438,7 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 .compose-alert {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin: 10px 16px 0;
-  padding: 8px 10px;
-  color: #b42318;
-  background: color-mix(in srgb, #f04438 12%, var(--n-body-color));
-  border: 1px solid color-mix(in srgb, #f04438 32%, transparent);
-  border-radius: 6px;
-  font-size: 12px;
-}
-.compose-alert span {
-  flex: 1;
-  min-width: 0;
-}
-.alert-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  color: inherit;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.alert-close:hover {
-  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 .compose-loading {
   padding: 48px;
