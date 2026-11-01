@@ -938,11 +938,18 @@ export const useAccountsStore = defineStore('accounts', () => {
     // `emailsByFolder`, but their `is_read` value is still the best local signal.
     const wasUnread = row ? !row.is_read : false
     const folderKey = `${account.ID}:${folder}`
+    const selectionStillCurrent = () =>
+      selectedEmailAccountId.value === account.ID &&
+      selectedEmailFolder.value === folder &&
+      selectedEmailUid.value === uid
 
     deletingSelectedEmail.value = true
     try {
       await EmailService.DeleteEmail(account, folder, uid)
-      detailRequestId++
+      // The delete can outlive a folder/email switch. Only cancel the detail
+      // request and clear the pane if it still shows the message we deleted.
+      const stillSelected = selectionStillCurrent()
+      if (stillSelected) detailRequestId++
 
       const folderRows = emailsByFolder.value[folderKey]
       if (folderRows) {
@@ -961,14 +968,16 @@ export const useAccountsStore = defineStore('accounts', () => {
       if (status?.messages != null && status.messages > 0) status.messages--
       if (wasUnread) adjustUnread(account.ID, folder, -1)
 
-      selectedEmailUid.value = null
-      selectedEmailAccountId.value = null
-      selectedEmailFolder.value = null
-      selectedEmailDetail.value = null
-      detailError.value = null
+      if (stillSelected) {
+        selectedEmailUid.value = null
+        selectedEmailAccountId.value = null
+        selectedEmailFolder.value = null
+        selectedEmailDetail.value = null
+        detailError.value = null
+      }
 
       feedback.success(i18n.value['mail.deleted'])
-      if (next) {
+      if (stillSelected && next) {
         // Search and aggregate rows can come from a different account. Resolve
         // the account from the row rather than reusing the deleted message's
         // account, which would fetch the same UID from the wrong mailbox.
