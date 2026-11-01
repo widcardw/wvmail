@@ -481,20 +481,20 @@ watch(() => router.currentRoute.value.path, syncSelected)
   align-items: center;
   justify-content: space-evenly;
   height: var(--pane-header-height);
-  padding: 0 8px;
+  padding: 0 8px 2px;
 }
 .compact-nav--top {
-  margin: -6px -6px 0;
+  margin: -6px -6px 4px;
   border-bottom: 1px solid var(--n-border-color);
 }
 .compact-nav--bottom {
-  margin: 0 -6px -6px;
+  margin: 4px -6px -6px;
   border-top: 1px solid var(--n-border-color);
 }
 .compact-nav :deep(.detail-action) {
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
   border-radius: 5px;
 }
 
