@@ -94,11 +94,18 @@ The AI path is opt-in only:
    can otherwise spend the entire completion budget before returning visible JSON.
    Empty or truncated responses produce an actionable error instead of the generic
    "no JSON array" message.
-8. The backend strips Markdown fences, validates rules, and returns suggestions.
-9. The user reviews selected suggestions before `SaveMailTag` writes them.
+8. Development builds log the complete LLM prompt and raw provider response even
+   when the configured log level would normally hide it. These diagnostics are
+   compiled out under the `production` build tag and have no UI setting. They can
+   contain private mail metadata and must only be used locally.
+9. The backend strips Markdown fences, repairs common model formatting slips
+   (trailing commas and a missing closing object brace before the array end),
+   validates rules, and returns suggestions.
+10. The user reviews selected suggestions before `SaveMailTag` writes them.
 
 API keys are never inserted into prompts. Prompts, addresses and AI responses are
-not logged.
+not logged in production; the development-only diagnostics described above are
+compiled out of release builds.
 
 ## Shared LLM transport
 

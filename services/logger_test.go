@@ -54,7 +54,7 @@ func TestRotatingWriterArchivesAfterTenRotations(t *testing.T) {
 			t.Errorf("archived file still on disk: %s", p)
 		}
 	}
-	if _, err := os.Stat(base+".1"); err != nil {
+	if _, err := os.Stat(base + ".1"); err != nil {
 		t.Errorf("expected fresh app.log.1: %v", err)
 	}
 
@@ -175,6 +175,21 @@ func TestAppHandlerAccountValue(t *testing.T) {
 		if strings.Contains(line, secret) {
 			t.Errorf("secret %q leaked into line: %q", secret, line)
 		}
+	}
+}
+
+func TestForceLogBypassesConfiguredLevel(t *testing.T) {
+	old := slog.Default()
+	defer slog.SetDefault(old)
+
+	var buf bytes.Buffer
+	slog.SetDefault(slog.New(newAppHandler(&buf, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	})))
+	forceLog("llm: full response", slog.String("response", "complete payload"))
+
+	if !strings.Contains(buf.String(), "complete payload") {
+		t.Fatalf("forced diagnostic was filtered: %q", buf.String())
 	}
 }
 

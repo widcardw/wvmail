@@ -13,7 +13,9 @@ package services
 //     human recognises (and never its passwords).
 //   - Levels: Debug for per-message internals, Info for state changes the
 //     user can act on, Warn for recoverable failures, Error for lost work.
-//   - Never log secrets (passwords, API keys) or full mail bodies.
+//   - Never log secrets (passwords, API keys) or full mail bodies in production.
+//     Development builds additionally log complete LLM prompts/responses from
+//     llm_debug_dev.go; the production build compiles those calls to no-ops.
 //
 // Line format is "[time][LEVEL] message key=value …" (see appHandler), not
 // slog's default time=/level= key=value text — the prefix tags are noise for
@@ -123,6 +125,15 @@ func (h *appHandler) Handle(_ context.Context, r slog.Record) error {
 	defer h.mu.Unlock()
 	_, err := h.out.Write(buf.Bytes())
 	return err
+}
+
+// forceLog bypasses the configured minimum level. It exists only for
+// development-build diagnostics that must be visible even when the user chose
+// warn/error; production builds compile those callers to no-ops.
+func forceLog(message string, attrs ...slog.Attr) {
+	record := slog.NewRecord(time.Now(), slog.LevelDebug, message, 0)
+	record.AddAttrs(attrs...)
+	_ = slog.Default().Handler().Handle(context.Background(), record)
 }
 
 // sourceTag renders the caller's file:line when AddSource is on.

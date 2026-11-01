@@ -690,13 +690,17 @@ func parseTagSuggestions(output string) ([]TagSuggestion, error) {
 	raw = strings.TrimSuffix(raw, "```")
 	raw = strings.TrimSpace(raw)
 	start := strings.Index(raw, "[")
-	end := strings.LastIndex(raw, "]")
+	end := matchingJSONArrayEnd(raw, start)
 	if start < 0 || end <= start {
 		return nil, fmt.Errorf("the LLM response did not contain a JSON array")
 	}
+	candidate := raw[start : end+1]
 	var suggestions []TagSuggestion
-	if err := json.Unmarshal([]byte(raw[start:end+1]), &suggestions); err != nil {
-		return nil, fmt.Errorf("parse LLM tag suggestions: %w", err)
+	if err := json.Unmarshal([]byte(candidate), &suggestions); err != nil {
+		repaired, ok := repairTagSuggestionJSON(candidate)
+		if !ok || json.Unmarshal(repaired, &suggestions) != nil {
+			return nil, fmt.Errorf("parse LLM tag suggestions: %w", err)
+		}
 	}
 
 	out := make([]TagSuggestion, 0, len(suggestions))
@@ -730,6 +734,121 @@ func parseTagSuggestions(output string) ([]TagSuggestion, error) {
 		return nil, fmt.Errorf("the LLM returned no usable tag rules")
 	}
 	return out, nil
+}
+
+// matchingJSONArrayEnd finds the bracket that closes the first JSON array,
+// ignoring brackets inside strings. Using the last "]" in the response can
+// include trailing explanations or an unrelated bracket in malformed output.
+func matchingJSONArrayEnd(raw string, start int) int {
+	if start < 0 || start >= len(raw) || raw[start] != '[' {
+		return -1
+	}
+	depth := 0
+	inString := false
+	escaped := false
+	for i := start; i < len(raw); i++ {
+		ch := raw[i]
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			switch ch {
+			case '\\':
+				escaped = true
+			case '"':
+				inString = false
+			}
+			continue
+		}
+		switch ch {
+		case '"':
+			inString = true
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// repairTagSuggestionJSON handles two common model formatting slips without
+// accepting arbitrary broken JSON: trailing commas and a missing closing brace
+// immediately before the outer array bracket. Any other structural mismatch is
+// left alone and still fails validation.
+func repairTagSuggestionJSON(raw string) ([]byte, bool) {
+	out := make([]byte, 0, len(raw)+8)
+	stack := make([]byte, 0, 8)
+	inString := false
+	escaped := false
+	changed := false
+
+	trimComma := func() {
+		for len(out) > 0 {
+			switch out[len(out)-1] {
+			case ' ', '\t', '\r', '\n':
+				out = out[:len(out)-1]
+			default:
+				if out[len(out)-1] == ',' {
+					out = out[:len(out)-1]
+					changed = true
+				}
+				return
+			}
+		}
+	}
+
+	for i := 0; i < len(raw); i++ {
+		ch := raw[i]
+		if inString {
+			out = append(out, ch)
+			if escaped {
+				escaped = false
+			} else if ch == '\\' {
+				escaped = true
+			} else if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		switch ch {
+		case '"':
+			inString = true
+			out = append(out, ch)
+		case '{':
+			stack = append(stack, '}')
+			out = append(out, ch)
+		case '[':
+			stack = append(stack, ']')
+			out = append(out, ch)
+		case '}', ']':
+			if ch == ']' {
+				for len(stack) > 0 && stack[len(stack)-1] == '}' {
+					trimComma()
+					out = append(out, '}')
+					stack = stack[:len(stack)-1]
+					changed = true
+				}
+			}
+			if len(stack) == 0 || stack[len(stack)-1] != ch {
+				return nil, false
+			}
+			trimComma()
+			stack = stack[:len(stack)-1]
+			out = append(out, ch)
+		default:
+			out = append(out, ch)
+		}
+	}
+	if inString || len(stack) != 0 {
+		return nil, false
+	}
+	return out, changed
 }
 
 func normalizeMailTag(tag MailTag) (MailTag, error) {

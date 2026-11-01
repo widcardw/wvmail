@@ -122,6 +122,39 @@ func TestParseTagSuggestionsAcceptsFencesAndRejectsInvalidRules(t *testing.T) {
 	}
 }
 
+func TestParseTagSuggestionsRepairsMissingClosingBrace(t *testing.T) {
+	got, err := parseTagSuggestions(
+		`[{"label":"AAAI","color":"#8e6bbf","keywords":["aaai 2027"],"fields":["subject"]]`,
+	)
+	if err != nil {
+		t.Fatalf("parseTagSuggestions: %v", err)
+	}
+	if len(got) != 1 || got[0].Label != "AAAI" {
+		t.Fatalf("unexpected repaired suggestions: %#v", got)
+	}
+}
+
+func TestParseTagSuggestionsRepairsTrailingCommas(t *testing.T) {
+	got, err := parseTagSuggestions(
+		`[{"label":"KDD","color":"#2f7d6d","keywords":["kdd"],"fields":["subject"],},]`,
+	)
+	if err != nil {
+		t.Fatalf("parseTagSuggestions: %v", err)
+	}
+	if len(got) != 1 || got[0].Label != "KDD" {
+		t.Fatalf("unexpected repaired suggestions: %#v", got)
+	}
+}
+
+func TestParseTagSuggestionsStillRejectsBrokenStructure(t *testing.T) {
+	if _, err := parseTagSuggestions(
+		`[{"label":"AAAI","keywords":["aaai"],"fields":["subject"]},` +
+			`{"label":"KDD","keywords":["kdd"],"fields":]`,
+	); err == nil {
+		t.Fatal("expected malformed JSON to remain rejected")
+	}
+}
+
 func TestParseTagSuggestionsRejectsEmptyResponse(t *testing.T) {
 	if _, err := parseTagSuggestions("   "); err == nil ||
 		!strings.Contains(err.Error(), "empty response") {

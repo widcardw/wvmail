@@ -110,6 +110,7 @@ func requestLLMChat(cfg *LLMConfig, prompt string, maxOutputTokens int) (string,
 		return "", fmt.Errorf("create LLM request: %w", err)
 	}
 
+	logLLMRequest(cfg.Provider, cfg.Model, prompt)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("%s request failed: %w", cfg.Provider, err)

@@ -143,6 +143,7 @@ func parseOpenAIResponse(resp *http.Response) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read response: %w", err)
 	}
+	logLLMResponse("openai-compatible", string(respBody))
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("API error (HTTP %d): %s", resp.StatusCode, string(respBody))
 	}
@@ -177,6 +178,7 @@ func parseAnthropicResponse(resp *http.Response) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read response: %w", err)
 	}
+	logLLMResponse("anthropic", string(respBody))
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("anthropic API error (HTTP %d): %s", resp.StatusCode, string(respBody))
 	}
@@ -202,6 +204,7 @@ func parseGeminiResponse(resp *http.Response) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read response: %w", err)
 	}
+	logLLMResponse("gemini", string(respBody))
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("gemini API error (HTTP %d): %s", resp.StatusCode, string(respBody))
 	}
