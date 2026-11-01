@@ -201,6 +201,10 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	sawHTMLPart := false
 	sawTextPart := false
 	if buf.BodyStructure != nil {
+		if err := enrichBodyStructureMIMEHeaders(client, uidSet, buf.BodyStructure); err != nil {
+			slog.Warn("body: failed to enrich MIME part headers",
+				"account", account, "folder", folder, "uid", uid, "error", err)
+		}
 		buf.BodyStructure.Walk(func(path []int, part imap.BodyStructure) bool {
 			mt := part.MediaType()
 			switch p := part.(type) {

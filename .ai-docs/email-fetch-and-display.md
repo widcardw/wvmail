@@ -111,6 +111,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | # | 触发 | 回退行为 |
 |---|---|---|
 | 1 | BodyStructure 为 nil，或走完没发现任何正文 part / 附件 | **抓整封**（`FetchItemBodySection{Peek:true}`）当纯文本，并走 `decodeBodyPart`（本次修正：原先直接 `string(raw)`，会漏掉 CTE/字符集解码） |
+| 1b | `BODYSTRUCTURE` 的叶子 part 没给 disposition / filename / Content-ID | 对这类 metadata 不完整的 part 再取 `BODY[part.MIME]`，从**真实 MIME header** 恢复 `Content-Disposition`、`filename` 和 `Content-Type.name`，再走附件/正文分类（腾讯 QQ / Exmail 会省略这些字段） |
 | 2 | 只预取正文 part + inline(CID) 图片 part | 下载型附件**不预取**，点下载时才单独连一次 |
 | 3 | base64 解码失败 | 去掉换行/空白前后再试一次；再失败 → **用原始字节** |
 | 4 | quoted-printable 解码中途出错（`invalid unescaped byte`） | **保留已解出的部分**（`mime/quotedprintable` 是流式的，出错点之前的内容是好的）；只有一字未解才回退原始字节 |
@@ -288,6 +289,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | 改动 | 位置 | 原因 |
 |---|---|---|
 | 附件/正文判定顺序：`Content-Disposition: attachment` 优先 | `services/emailattachments.go` `hasAttachmentDisposition` + 遍历分支 | 原先带 `.txt`/`.html` 附件的邮件会把附件当正文渲染，甚至覆盖真实正文 |
+| **从 MIME part header 恢复缺失的附件 metadata** | `services/emailbody.go` `RefreshEmailBody` → `enrichBodyStructureMIMEHeaders`；新 `services/emailmimeheaders.go`；测试 `services/emailmimeheaders_test.go` | 腾讯 Exmail 返回的 `BODYSTRUCTURE` 把 `README.md` 描述成普通的 `text/plain` 叶子，省略了 `Content-Disposition: attachment; filename="README.md"`，于是正文遍历把它当正文候选、附件列表为空。现在对 metadata 不明确的叶子额外取 `BODY[part.MIME]` 并合并真实 header；真实病例重新获取后恢复为 `README.md`（1576 字节）。没有 disposition 的普通正文不会被误标成附件 |
 | 字符集三级兜底（声明 → UTF-8 校验 → GB18030） | `decodeCharset`（新） | 原先 charset 缺失/未知时直接原样返回字节中文邮件变乱码 |
 | 整封兜底正文也走 `decodeBodyPart` | `RefreshEmailBody` 兜底分支 | 原先 `string(raw)` 漏掉 CTE/字符集解码 |
 | **误标 CTE 的自愈解码**：声明 7bit/8bit（或没声明）但正文明显是 quoted-printable 时先解码 | `services/emaildecode.go` `tryQuotedPrintable` | 批量邮件把 QP 内容当 `8bit` 发时界面会直接显示 `style=3D"…"`、`=09`、`=E8=AE=A1`（保险措施，不是下面那条的实际成因） |
