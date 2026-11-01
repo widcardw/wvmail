@@ -59,6 +59,19 @@ macOS 26 上这条私有路径**静默失效**。本机实测（macOS 26.7 / Bui
 - Wails 的 Go 调用（`#/wvmail/services`）在浏览器里不可用会报错，但 `App.vue` 的初始化已经 try/catch，界面仍会渲染；
 - 需要真实后端数据时再回到应用窗口。
 
+## 开发时部分 UnoCSS 图标突然消失
+
+这是 WKWebView + Vite/UnoCSS HMR 的偶发重绘问题，不是图标 class 没生成，也不是布局遮挡。
+
+排查时已经确认：
+
+- 消失的 `<i>` 有正常的宽高和 `currentColor`；
+- `mask-image` 是有效的 `data:image/svg+xml`；
+- `document.elementFromPoint()` 命中的就是图标本身，没有其他图层覆盖；
+- 在应用窗口按 `Cmd+R` 完整刷新后，标题栏、折叠侧栏和文件夹树里的图标会一起恢复。
+
+因此遇到“只有一部分图标不见”时，先完整刷新页面，不要在图标组件上直接加边框、背景或 `position` 修补。若刷新后仍缺失，再检查 `uno.config.ts` 的 `safelist`；动态拼出来的 `i-${...}` class 必须列入 safelist。
+
 ## 什么时候能恢复快捷键
 
 需要 WebKit 修好应用内 inspector，或 Wails 换实现（目前**没有**公开 API 能「以编程方式打开 inspector」，`isInspectable` 只是让 Safari 能看到它）。跟踪点：
