@@ -492,6 +492,7 @@ const zhCN: TranslationSchema = {
   'tags.ai.model': '模型',
   'tags.ai.preview': '预览将要发送的内容',
   'tags.ai.prompt': '将要发送的完整提示词',
+  'tags.ai.promptHint': '可以直接编辑；发送时会原样使用这里的内容，换行也会保留。',
   'tags.ai.send': '我已了解并发送给 {provider} / {model}',
   'tags.ai.sending': '正在请求标签建议…',
   'tags.ai.generated': 'AI 建议的标签规则',

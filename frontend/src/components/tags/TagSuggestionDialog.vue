@@ -34,6 +34,7 @@ const selectedAccountIDs = ref<string[]>([])
 const sampleLimit = ref(120)
 const optionalFields = ref<string[]>([])
 const preview = ref<TagSuggestionPreview | null>(null)
+const promptDraft = ref('')
 const suggestions = ref<Array<TagSuggestion & { selected: boolean }>>([])
 const previewing = ref(false)
 const generating = ref(false)
@@ -100,6 +101,7 @@ watch([selectedModel, selectedAccountIDs, sampleLimit, optionalFields], () => in
 
 function reset() {
   preview.value = null
+  promptDraft.value = ''
   suggestions.value = []
   error.value = ''
   optionalFields.value = []
@@ -108,6 +110,7 @@ function reset() {
 
 function invalidatePreview() {
   preview.value = null
+  promptDraft.value = ''
   suggestions.value = []
   error.value = ''
 }
@@ -124,13 +127,14 @@ function toggleField(field: string, checked: boolean) {
     : optionalFields.value.filter((value) => value !== field)
 }
 
-function request(): TagSuggestionRequest {
+function request(promptOverride = ''): TagSuggestionRequest {
   return {
     account_ids: [...selectedAccountIDs.value],
     sample_limit: sampleLimit.value,
     fields: ['subject', ...optionalFields.value],
     llm_config_name: selectedConfigName.value,
     llm_model: selectedModel.value,
+    prompt_override: promptOverride,
   }
 }
 
@@ -140,7 +144,9 @@ async function loadPreview() {
   error.value = ''
   suggestions.value = []
   try {
-    preview.value = await TagService.PreviewTagSuggestionPrompt(request())
+    const result = await TagService.PreviewTagSuggestionPrompt(request())
+    preview.value = result
+    promptDraft.value = result.prompt
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -149,11 +155,20 @@ async function loadPreview() {
 }
 
 async function generate() {
-  if (!preview.value || generating.value || preview.value.sample_count === 0) return
+  if (
+    !preview.value ||
+    generating.value ||
+    preview.value.sample_count === 0 ||
+    !promptDraft.value.trim()
+  ) {
+    return
+  }
   generating.value = true
   error.value = ''
   try {
-    const result = (await TagService.GenerateTagSuggestions(request())) as TagSuggestion[]
+    const result = (await TagService.GenerateTagSuggestions(
+      request(promptDraft.value),
+    )) as TagSuggestion[]
     suggestions.value = result.map((suggestion) => ({ ...suggestion, selected: true }))
   } catch (e) {
     error.value = String(e)
@@ -325,7 +340,8 @@ function matchFieldLabel(field: TagMatchField): string {
           </p>
           <label class="field prompt-field">
             <span class="field__label">{{ t['tags.ai.prompt'] }}</span>
-            <textarea class="input prompt-preview" readonly :value="preview.prompt" />
+            <textarea v-model="promptDraft" class="input prompt-preview" spellcheck="false" />
+            <span class="field__hint">{{ t['tags.ai.promptHint'] }}</span>
           </label>
           <div class="preview-action">
             <BusyButton
@@ -337,7 +353,7 @@ function matchFieldLabel(field: TagMatchField): string {
                 })
               "
               :busy="generating"
-              :disabled="preview.sample_count === 0"
+              :disabled="preview.sample_count === 0 || !promptDraft.trim()"
               @click="generate"
             />
           </div>
@@ -448,7 +464,8 @@ function matchFieldLabel(field: TagMatchField): string {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   line-height: 1.5;
-  white-space: pre;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .suggestion-error,
 .no-config {

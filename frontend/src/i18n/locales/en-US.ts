@@ -507,6 +507,8 @@ const enUS: TranslationSchema = {
   'tags.ai.model': 'Model',
   'tags.ai.preview': 'Preview what will be sent',
   'tags.ai.prompt': 'Exact prompt to be sent',
+  'tags.ai.promptHint':
+    'You can edit this directly. The text and line breaks will be sent as shown.',
   'tags.ai.send': 'I understand — send to {provider} / {model}',
   'tags.ai.sending': 'Requesting tag suggestions…',
   'tags.ai.generated': 'Suggested tag rules',

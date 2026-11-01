@@ -124,7 +124,7 @@ async function save() {
         <input v-model="label" class="input" maxlength="64" placeholder="arXiv" />
       </label>
 
-      <div class="field tag-fields-field">
+      <div class="field">
         <span class="field__label">{{ t['tags.color'] }}</span>
         <UiColorPicker
           variant="field"
@@ -151,7 +151,7 @@ async function save() {
         <span class="field__hint">{{ t['tags.keywordsHint'] }}</span>
       </label>
 
-      <div class="field">
+      <div class="field tag-fields-field">
         <span class="field__label">{{ t['tags.fields'] }}</span>
         <div class="field-grid">
           <UiCheckbox

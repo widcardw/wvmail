@@ -20,7 +20,7 @@ mail is never moved on the server.
 | `GetEmailTagState(accountID, folder, uid)` | Effective tags plus automatic matches for one message |
 | `SetEmailTags(accountID, folder, uid, selectedTagIDs)` | Store only manual differences from the rules |
 | `PreviewTagSuggestionPrompt(request)` | Build the exact AI prompt without a network request |
-| `GenerateTagSuggestions(request)` | Send that same prompt and validate the JSON rules |
+| `GenerateTagSuggestions(request)` | Send the generated prompt or the user-edited `prompt_override`, then validate the JSON rules |
 
 ### Rule semantics
 
@@ -78,8 +78,10 @@ The AI path is opt-in only:
    body excerpt are off by default.
 3. `PreviewTagSuggestionPrompt` returns the exact prompt and sample/account
    metadata. Opening or previewing never sends anything.
-4. The dialog shows a prominent leakage warning and the full prompt.
-5. Only the explicit send button calls `GenerateTagSuggestions`.
+4. The dialog shows a prominent leakage warning and the full prompt in an editable,
+   line-preserving textarea.
+5. Only the explicit send button calls `GenerateTagSuggestions`; it sends
+   `prompt_override` verbatim when present.
 6. The backend strips Markdown fences, validates rules, and returns suggestions.
 7. The user reviews selected suggestions before `SaveMailTag` writes them.
 
@@ -96,5 +98,6 @@ than copying request code.
 ## Tests
 
 - `services/tagservice_test.go`: OR matching, field scope, Gmail deduplication,
-  explicit exclusion, response validation, and preview/sent prompt equality.
+  explicit exclusion, response validation, preview/sent prompt equality, and
+  verbatim prompt overrides.
 - Run `GOCACHE=/tmp/wvmail-gocache go test ./...`.

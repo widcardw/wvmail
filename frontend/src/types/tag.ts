@@ -22,6 +22,7 @@ export interface TagSuggestionRequest {
   fields: string[]
   llm_config_name: string
   llm_model: string
+  prompt_override: string
 }
 
 export interface TagSuggestionPreview {

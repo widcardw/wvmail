@@ -54,17 +54,19 @@ type EmailTagState struct {
 }
 
 // TagSuggestionRequest controls the exact data sent to the LLM. Subject lines
-// are always included; every other field is opt-in.
+// are always included; every other field is opt-in. PromptOverride lets the user
+// edit the reviewed preview before sending it verbatim.
 type TagSuggestionRequest struct {
-	AccountIDs    []string `json:"account_ids"`
-	SampleLimit   int      `json:"sample_limit"`
-	Fields        []string `json:"fields"`
-	LLMConfigName string   `json:"llm_config_name"`
-	LLMModel      string   `json:"llm_model"`
+	AccountIDs     []string `json:"account_ids"`
+	SampleLimit    int      `json:"sample_limit"`
+	Fields         []string `json:"fields"`
+	LLMConfigName  string   `json:"llm_config_name"`
+	LLMModel       string   `json:"llm_model"`
+	PromptOverride string   `json:"prompt_override,omitempty"`
 }
 
-// TagSuggestionPreview is shown before any network request. Prompt is the exact
-// string GenerateTagSuggestions sends when called with the same request.
+// TagSuggestionPreview is shown before any network request. Prompt is the
+// generated string sent when PromptOverride is empty.
 type TagSuggestionPreview struct {
 	Prompt       string   `json:"prompt"`
 	AccountNames []string `json:"account_names"`
@@ -302,9 +304,9 @@ func (s *TagService) PreviewTagSuggestionPrompt(
 	return prepared.preview, nil
 }
 
-// GenerateTagSuggestions sends the exact prompt returned by
-// PreviewTagSuggestionPrompt for the same request. AI is never called by local
-// classification or mail sync.
+// GenerateTagSuggestions sends PromptOverride when present, otherwise the exact
+// prompt returned by PreviewTagSuggestionPrompt for the same request. AI is
+// never called by local classification or mail sync.
 func (s *TagService) GenerateTagSuggestions(
 	request TagSuggestionRequest,
 ) ([]TagSuggestion, error) {
@@ -312,9 +314,13 @@ func (s *TagService) GenerateTagSuggestions(
 	if err != nil {
 		return nil, err
 	}
+	prompt := prepared.preview.Prompt
+	if strings.TrimSpace(request.PromptOverride) != "" {
+		prompt = request.PromptOverride
+	}
 	output, err := requestLLMChat(
 		&prepared.config,
-		prepared.preview.Prompt,
+		prompt,
 		prepared.config.MaxOutputTokens,
 	)
 	if err != nil {

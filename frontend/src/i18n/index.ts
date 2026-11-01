@@ -478,6 +478,7 @@ export interface TranslationSchema {
   'tags.ai.model': string
   'tags.ai.preview': string
   'tags.ai.prompt': string
+  'tags.ai.promptHint': string
   'tags.ai.send': string
   'tags.ai.sending': string
   'tags.ai.generated': string

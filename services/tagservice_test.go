@@ -191,4 +191,12 @@ func TestTagSuggestionPreviewIsExactRequestPrompt(t *testing.T) {
 	if sentPrompt != preview.Prompt {
 		t.Fatalf("preview and request prompt differ\npreview:\n%s\nsent:\n%s", preview.Prompt, sentPrompt)
 	}
+
+	request.PromptOverride = "Edited prompt\nwith a preserved line break"
+	if _, err := svc.GenerateTagSuggestions(request); err != nil {
+		t.Fatalf("GenerateTagSuggestions with override: %v", err)
+	}
+	if sentPrompt != request.PromptOverride {
+		t.Fatalf("prompt override was not sent verbatim\ngot:\n%s\nwant:\n%s", sentPrompt, request.PromptOverride)
+	}
 }
