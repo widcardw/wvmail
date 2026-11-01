@@ -34,6 +34,7 @@ export interface EmailSummary {
   date: string
   flags: string[]
   is_read: boolean
+  tag_ids?: string[]
   account_id?: string
   folder_name?: string
 }

@@ -13,6 +13,7 @@ const items = computed(() => [
   { key: 'security', label: t.value['settings.security'], icon: 'ri:shield-check-line' },
   { key: 'proxy', label: t.value['settings.proxy'], icon: 'ri:route-line' },
   { key: 'llm', label: t.value['settings.llm'], icon: 'ri:robot-2-line' },
+  { key: 'tags', label: t.value['settings.tags'], icon: 'ri:price-tag-3-line' },
   { key: 'translation', label: t.value['settings.translation'], icon: 'ri:translate-2' },
   { key: 'about', label: t.value['settings.about'], icon: 'ri:information-line' },
 ])

@@ -13,6 +13,7 @@ import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/s
 import type { AccountProxy } from '#/wvmail/services'
 import { reportFetchFailure, useFeedbackStore } from '~/stores/feedback'
 import { useSearchStore } from '~/stores/search'
+import { useTagsStore } from '~/stores/tags'
 import { useAccountHealthStore } from '~/stores/accountHealth'
 import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
@@ -57,6 +58,7 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   // Search lives in its own store (stores/search.ts); the list reads it below.
   const searchStore = useSearchStore()
+  const tagsStore = useTagsStore()
 
   // Smart folder (aggregate view across all accounts)
   const smartFolder = ref<string | null>(null)
@@ -716,6 +718,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     if (knownUnread) adjustUnread(account.ID, folder, -1)
     try {
       await EmailService.MarkEmailRead(account, folder, uid)
+      tagsStore.setEmailRead(account.ID, folder, uid)
     } catch (e) {
       if (summary) summary.is_read = false
       if (knownUnread) adjustUnread(account.ID, folder, 1)
@@ -949,6 +952,7 @@ export const useAccountsStore = defineStore('accounts', () => {
           !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
       )
       searchStore.removeEmail(account.ID, folder, uid)
+      tagsStore.removeEmail(account.ID, folder, uid)
 
       const status = folderStatusByAccount.value[account.ID]?.[folder]
       if (status?.messages != null && status.messages > 0) status.messages--
@@ -1037,6 +1041,14 @@ export const useAccountsStore = defineStore('accounts', () => {
     smartFolderLoading.value = true
     smartFolderRefreshing.value = false
     smartCurrentPage.value = 1
+
+    // The category view is a local tag query, not an IMAP aggregate. Its list
+    // component owns loading/paging; this shared selection only clears the
+    // previous folder/detail state.
+    if (smartType === 'classified') {
+      smartFolderLoading.value = false
+      return
+    }
 
     try {
       if (smartType === 'starred') {

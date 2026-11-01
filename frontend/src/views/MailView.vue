@@ -4,6 +4,7 @@ import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useSearchStore } from '~/stores/search'
 import EmailList from '~/components/list/EmailList.vue'
+import ClassifiedEmailList from '~/components/list/ClassifiedEmailList.vue'
 import EmailDetail from '~/components/detail/EmailDetail.vue'
 import styles from '~/components/mail-split.module.css'
 
@@ -24,7 +25,8 @@ const active = () =>
       :default-size="[28, 72]"
     >
       <Splitter.Panel :class="styles.panel" id="list">
-        <EmailList />
+        <ClassifiedEmailList v-if="accountsStore.smartFolder === 'classified'" />
+        <EmailList v-else />
       </Splitter.Panel>
 
       <Splitter.ResizeTrigger :class="styles.trigger" id="list:detail" aria-label="resize split">

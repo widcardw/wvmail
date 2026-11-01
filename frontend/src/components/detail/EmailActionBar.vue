@@ -21,6 +21,7 @@ const emit = defineEmits<{
   'export-original': []
   'toggle-translation': []
   'toggle-flag': []
+  'edit-tags': []
   delete: []
 }>()
 
@@ -66,6 +67,12 @@ const { t } = useI18n()
         :label="t['mail.mark.unread']"
         icon="ri:mail-unread-line"
         :disabled="!hasDetail"
+      />
+      <UiIconAction
+        :label="t['mail.tags.edit']"
+        icon="ri:price-tag-3-line"
+        :disabled="!hasDetail"
+        @click="emit('edit-tags')"
       />
     </div>
 

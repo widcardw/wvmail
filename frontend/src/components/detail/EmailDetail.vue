@@ -11,7 +11,8 @@ import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
 import { buildReplyEnvelope, escapeHTML, type ReplyMode } from '~/composables/reply'
-import { ComposeService, EmailService, OsService } from '#/wvmail/services'
+import { ComposeService, EmailService, OsService, TagService } from '#/wvmail/services'
+import { useTagsStore } from '~/stores/tags'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailActionBar from './EmailActionBar.vue'
 import EmailHeader from './EmailHeader.vue'
@@ -24,6 +25,8 @@ import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import TagChip from '~/components/tags/TagChip.vue'
+import EmailTagDialog from '~/components/tags/EmailTagDialog.vue'
 
 const { t, tf } = useI18n()
 const accountsStore = useAccountsStore()
@@ -31,6 +34,7 @@ const themeStore = useThemeStore()
 const fb = useFeedbackStore()
 const preferences = usePreferencesStore()
 const localeStore = useLocaleStore()
+const tagsStore = useTagsStore()
 
 const isDarkMode = computed(() => themeStore.effectiveTheme === 'dark')
 const detail = computed(() => accountsStore.selectedEmailDetail)
@@ -40,6 +44,9 @@ const exportingOriginal = ref(false)
 const suspiciousRevealed = ref(false)
 const attachmentsOpen = ref(false)
 const deleteOpen = ref(false)
+const tagDialogOpen = ref(false)
+const selectedEmailTagIDs = ref<string[]>([])
+let tagStateRequestId = 0
 /** Revealed for this message only; reset whenever another email is opened. */
 const remoteRevealed = ref(false)
 
@@ -138,7 +145,40 @@ watch(detail, () => {
   attachmentsOpen.value = false
   remindOpen.value = false
   deleteOpen.value = false
+  tagDialogOpen.value = false
 })
+
+watch(
+  () => [
+    accountsStore.selectedEmailAccountId,
+    accountsStore.selectedEmailFolder,
+    accountsStore.selectedEmailUid,
+  ],
+  async () => {
+    const requestId = ++tagStateRequestId
+    selectedEmailTagIDs.value = []
+    const accountId = accountsStore.selectedEmailAccountId
+    const folder = accountsStore.selectedEmailFolder
+    const uid = accountsStore.selectedEmailUid
+    if (!accountId || !folder || uid == null) return
+    try {
+      if (tagsStore.tags.length === 0) await tagsStore.loadTags()
+      const state = await TagService.GetEmailTagState(accountId, folder, uid)
+      if (requestId === tagStateRequestId) selectedEmailTagIDs.value = [...state.selected_tag_ids]
+    } catch (error) {
+      console.error('Failed to load tags for the open message', error)
+    }
+  },
+  { immediate: true },
+)
+
+const selectedEmailTags = computed(() =>
+  selectedEmailTagIDs.value.map((id) => tagsStore.tagByID[id]).filter(Boolean),
+)
+
+function onEmailTagsSaved(tagIds: string[]) {
+  selectedEmailTagIDs.value = [...tagIds]
+}
 
 /** Load this message's remote content once (nothing is remembered). */
 function revealRemoteContent() {
@@ -345,6 +385,7 @@ const showAttachments = computed(
       @export-original="handleExportOriginal"
       @toggle-translation="toggleTranslation"
       @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
+      @edit-tags="tagDialogOpen = true"
       @delete="deleteOpen = true"
     />
 
@@ -361,6 +402,18 @@ const showAttachments = computed(
 
       <template v-if="detail">
         <EmailHeader :detail="detail" />
+        <div v-if="selectedEmailTags.length" class="detail-tags">
+          <button
+            v-for="tag in selectedEmailTags"
+            :key="tag.id"
+            type="button"
+            class="detail-tags__button"
+            :title="t['mail.tags.edit']"
+            @click="tagDialogOpen = true"
+          >
+            <TagChip :tag="tag" />
+          </button>
+        </div>
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
         <EmailSecurityNotice v-if="spamGated" @reveal="suspiciousRevealed = true" />
@@ -422,6 +475,14 @@ const showAttachments = computed(
       danger
       @update:open="deleteOpen = $event"
       @confirm="handleDelete"
+    />
+    <EmailTagDialog
+      v-if="accountsStore.selectedEmailAccountId && accountsStore.selectedEmailFolder"
+      v-model:open="tagDialogOpen"
+      :account-id="accountsStore.selectedEmailAccountId"
+      :folder="accountsStore.selectedEmailFolder"
+      :uid="accountsStore.selectedEmailUid"
+      @saved="onEmailTagsSaved"
     />
   </Teleport>
 </template>
@@ -489,5 +550,20 @@ const showAttachments = computed(
   line-height: 1.6;
   font-size: 14px;
   word-break: break-word;
+}
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 22px 0;
+}
+.detail-tags__button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.detail-tags__button:hover {
+  opacity: 0.8;
 }
 </style>

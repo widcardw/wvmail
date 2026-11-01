@@ -54,6 +54,7 @@ export interface TranslationSchema {
   'sidebar.all_sent': string
   'sidebar.all_drafts': string
   'sidebar.all_starred': string
+  'sidebar.classified': string
   'sidebar.unread': string
   'sidebar.conn_down': string
   'sidebar.conn_suspect': string
@@ -133,6 +134,12 @@ export interface TranslationSchema {
   'mail.translation.close': string
   'mail.translation.empty': string
   'mail.translation.cancel': string
+  'mail.tags.edit': string
+  'mail.tags.title': string
+  'mail.tags.automatic': string
+  'mail.tags.none': string
+  'mail.tags.saved': string
+  'mail.tags.failed': string
   'compose.new': string
   'compose.title': string
   'compose.from': string
@@ -418,6 +425,68 @@ export interface TranslationSchema {
   'settings.translation.deepl_key': string
   'settings.translation.llm_config': string
   'settings.translation.llm_model': string
+  'settings.tags': string
+  'tags.title': string
+  'tags.classified': string
+  'tags.subtitle': string
+  'tags.add': string
+  'tags.edit': string
+  'tags.empty': string
+  'tags.noMatch': string
+  'tags.noTagsYet': string
+  'tags.filter': string
+  'tags.selectTags': string
+  'tags.allTags': string
+  'tags.clearTags': string
+  'tags.selectedTags': string
+  'tags.label': string
+  'tags.color': string
+  'tags.keywords': string
+  'tags.keywordsHint': string
+  'tags.fields': string
+  'tags.field.subject': string
+  'tags.field.from': string
+  'tags.field.domain': string
+  'tags.field.body': string
+  'tags.enabled': string
+  'tags.save': string
+  'tags.saved': string
+  'tags.saveFailed': string
+  'tags.delete': string
+  'tags.deleteConfirm': string
+  'tags.deleted': string
+  'tags.deleteFailed': string
+  'tags.actions': string
+  'tags.auto': string
+  'tags.ai.open': string
+  'tags.ai.title': string
+  'tags.ai.intro': string
+  'tags.ai.warning': string
+  'tags.ai.accounts': string
+  'tags.ai.allAccounts': string
+  'tags.ai.sampleLimit': string
+  'tags.ai.fields': string
+  'tags.ai.field.subject': string
+  'tags.ai.field.from_name': string
+  'tags.ai.field.from_address': string
+  'tags.ai.field.domain': string
+  'tags.ai.field.date': string
+  'tags.ai.field.body_excerpt': string
+  'tags.ai.llmConfig': string
+  'tags.ai.model': string
+  'tags.ai.preview': string
+  'tags.ai.prompt': string
+  'tags.ai.send': string
+  'tags.ai.sending': string
+  'tags.ai.generated': string
+  'tags.ai.saveSelected': string
+  'tags.ai.saveSuccess': string
+  'tags.ai.saveFailed': string
+  'tags.ai.noLlm': string
+  'tags.ai.noSamples': string
+  'tags.ai.samples': string
+  'tags.ai.range': string
+  'tags.ai.selected': string
   'busy.seconds': string
   cancel: string
 }

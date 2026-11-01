@@ -13,6 +13,7 @@ import SettingsAccount from '../views/settings/Account.vue'
 import SettingsAbout from '../views/settings/About.vue'
 import SettingsLLM from '../views/settings/LLM.vue'
 import SettingsTranslation from '../views/settings/Translation.vue'
+import SettingsTags from '../views/settings/Tags.vue'
 
 // NOTE: Headless-migration — shell '/', Notes, Reminder and Settings family are live.
 // Mail (MailView/EmailList/EmailDetail) re-enters after conversion.
@@ -36,6 +37,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'security', name: 'settings-security', component: SettingsSecurity },
       { path: 'proxy', name: 'settings-proxy', component: SettingsProxy },
       { path: 'llm', name: 'settings-llm', component: SettingsLLM },
+      { path: 'tags', name: 'settings-tags', component: SettingsTags },
       { path: 'translation', name: 'settings-translation', component: SettingsTranslation },
       { path: 'about', name: 'settings-about', component: SettingsAbout },
     ],

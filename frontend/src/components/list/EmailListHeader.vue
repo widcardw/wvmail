@@ -55,6 +55,7 @@ function onPageCommit(details: unknown) {
 <template>
   <div class="list-header">
     <span class="folder-label" :title="title">{{ label }}</span>
+    <slot name="filters" />
     <button
       v-if="showRefresh"
       type="button"

@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { formatDateRecent, displaySender, truncateSubject } from '~/composables/formats'
 import { useLocaleStore } from '~/stores/locale'
+import { useTagsStore } from '~/stores/tags'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
+import TagChip from '~/components/tags/TagChip.vue'
 import { isFlagged } from '~/composables/mail-flags'
 import type { EmailSummary } from '~/types/email'
 
@@ -22,6 +25,14 @@ const emit = defineEmits<{
 
 /** Dates follow the app language, like every Ark component in the app. */
 const localeStore = useLocaleStore()
+const tagsStore = useTagsStore()
+const visibleTags = computed(() =>
+  (props.email.tag_ids ?? [])
+    .map((id) => tagsStore.tagByID[id])
+    .filter(Boolean)
+    .slice(0, 3),
+)
+const hiddenTagCount = computed(() => Math.max(0, (props.email.tag_ids?.length ?? 0) - 3))
 </script>
 
 <template>
@@ -47,6 +58,10 @@ const localeStore = useLocaleStore()
           }}</span>
         </span>
         <span class="email-subject">{{ truncateSubject(props.email.subject) }}</span>
+        <span v-if="visibleTags.length" class="email-tags">
+          <TagChip v-for="tag in visibleTags" :key="tag.id" :tag="tag" compact />
+          <span v-if="hiddenTagCount" class="email-tags__more">+{{ hiddenTagCount }}</span>
+        </span>
       </span>
     </div>
   </div>
@@ -126,6 +141,19 @@ const localeStore = useLocaleStore()
   -webkit-line-clamp: 1;
   line-clamp: 1;
   margin-top: 2px;
+}
+.email-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.email-tags__more {
+  flex: none;
+  color: var(--color-text-3);
+  font-size: 10px;
 }
 .email-item.unread .email-from {
   font-weight: 700;
