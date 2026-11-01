@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // Cached mail bodies: one serialized row per message, holding the rendered text,
@@ -81,7 +82,7 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 		FromAddr:        cached.FromAddr,
 		To:              to,
 		Cc:              cc,
-		Date:            cached.Date,
+		Date:            sanitizeCachedEmailDate(cached.Date, time.Now()),
 		BodyText:        cached.BodyText,
 		BodyHTML:        cached.BodyHTML,
 		BodyIsPlainText: cached.BodyIsPlainText,

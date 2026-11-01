@@ -108,3 +108,30 @@ func TestEmailBodyPlainTextFlagRoundTrips(t *testing.T) {
 		t.Errorf("body text = %q, want %q", got.BodyText, want.BodyText)
 	}
 }
+
+func TestSaveEmailsRefreshesCachedBodyDate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	db := NewDBManager()
+	if err := db.SaveEmailBody("account", "INBOX", &EmailDetail{
+		UID:  7,
+		Date: "2612-01-18T15:55:30Z",
+	}); err != nil {
+		t.Fatalf("SaveEmailBody: %v", err)
+	}
+	if err := db.SaveEmails("account", "INBOX", []EmailSummary{{
+		UID:  7,
+		Date: "2026-10-31T08:42:31Z",
+	}}); err != nil {
+		t.Fatalf("SaveEmails: %v", err)
+	}
+
+	got, err := db.LoadEmailBody("account", "INBOX", 7)
+	if err != nil {
+		t.Fatalf("LoadEmailBody: %v", err)
+	}
+	const want = "2026-10-31T08:42:31Z"
+	if got.Date != want {
+		t.Fatalf("cached body date = %q, want %q", got.Date, want)
+	}
+}

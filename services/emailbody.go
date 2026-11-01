@@ -147,13 +147,9 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		Subject:   decodeMimeHeader(buf.Envelope.Subject),
 		Flags:     make([]string, len(buf.Flags)),
 	}
-	// UTC, like the list rows: a missing Date header leaves the field empty for
-	// the InternalDate fallback rather than printing year 1.
-	if !buf.Envelope.Date.IsZero() {
-		detail.Date = buf.Envelope.Date.UTC().Format(time.RFC3339)
-	} else if !buf.InternalDate.IsZero() {
-		detail.Date = buf.InternalDate.UTC().Format(time.RFC3339)
-	}
+	// UTC, like the list rows. Resolve Date and InternalDate together so a
+	// malformed sender date falls back to the server arrival time.
+	detail.Date = resolveEmailDate(buf.Envelope.Date, buf.InternalDate, time.Now())
 
 	// Copy flags from IMAP response
 	for i, f := range buf.Flags {

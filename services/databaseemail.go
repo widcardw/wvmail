@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -108,6 +109,15 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 		if err := db.Create(&ce).Error; err != nil {
 			return fmt.Errorf("failed to save email uid=%d: %w", e.UID, err)
 		}
+		// A cached body carries its own copy of the date. Keep it in sync when
+		// a list refresh replaces an implausible sender Date with InternalDate.
+		if e.Date != "" {
+			if err := db.Model(&CachedEmailBody{}).
+				Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
+				Update("date", e.Date).Error; err != nil {
+				return fmt.Errorf("failed to update cached body date for uid=%d: %w", e.UID, err)
+			}
+		}
 	}
 	return nil
 }
@@ -131,8 +141,9 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 	}
 
 	emails := make([]EmailSummary, 0, len(cached))
+	now := time.Now()
 	for _, c := range cached {
-		emails = append(emails, cachedEmailSummary(c))
+		emails = append(emails, cachedEmailSummary(c, now))
 	}
 	// SQL can only order by arrival here: `date` is a string carrying each
 	// sender's own offset, so ORDER BY date compares clock faces (see
@@ -180,8 +191,9 @@ func (m *DBManager) SearchEmails(query EmailSearchQuery) ([]EmailSummary, error)
 	}
 
 	results := make([]EmailSummary, 0, len(cached))
+	now := time.Now()
 	for _, c := range cached {
-		summary := cachedEmailSummary(c)
+		summary := cachedEmailSummary(c, now)
 		summary.AccountID = c.AccountID
 		summary.FolderName = c.FolderName
 		body := bodyByKey[emailCacheKey(c.AccountID, c.FolderName, c.UID)]
@@ -334,7 +346,7 @@ func parseCachedContact(raw string) (address, name string) {
 	return address, name
 }
 
-func cachedEmailSummary(c CachedEmail) EmailSummary {
+func cachedEmailSummary(c CachedEmail, now time.Time) EmailSummary {
 	var flags, to []string
 	if c.Flags != "" {
 		json.Unmarshal([]byte(c.Flags), &flags)
@@ -350,7 +362,7 @@ func cachedEmailSummary(c CachedEmail) EmailSummary {
 		FromName:  c.FromName,
 		FromAddr:  c.FromAddr,
 		To:        to,
-		Date:      c.Date,
+		Date:      sanitizeCachedEmailDate(c.Date, now),
 		Flags:     flags,
 		IsRead:    c.IsRead,
 	}

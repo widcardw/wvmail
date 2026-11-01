@@ -1,6 +1,9 @@
 package services
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // A cached date keeps the sender's own UTC offset, so ordering the column as a
 // string orders clock faces instead of instants. The reported symptom: a mail
@@ -145,6 +148,52 @@ func TestParseEmailTimeReadsOffsets(t *testing.T) {
 	}
 	if _, ok := parseEmailTime("2026-10-24 21:32"); ok {
 		t.Error("a non-RFC3339 string must report no timestamp")
+	}
+}
+
+func TestResolveEmailDateFallsBackFromImplausibleFutureDate(t *testing.T) {
+	now := time.Date(2026, time.November, 1, 12, 0, 0, 0, time.UTC)
+	envelopeDate := time.Date(2612, time.January, 18, 15, 55, 30, 0, time.UTC)
+	internalDate := time.Date(2026, time.October, 31, 8, 42, 31, 0, time.UTC)
+
+	got := resolveEmailDate(envelopeDate, internalDate, now)
+	const want = "2026-10-31T08:42:31Z"
+	if got != want {
+		t.Fatalf("resolved date = %q, want InternalDate %q", got, want)
+	}
+}
+
+func TestResolveEmailDateKeepsPlausibleSenderDate(t *testing.T) {
+	now := time.Date(2026, time.November, 1, 12, 0, 0, 0, time.UTC)
+	envelopeDate := time.Date(2026, time.October, 31, 9, 30, 0, 0, time.FixedZone("CST", 8*60*60))
+	internalDate := time.Date(2026, time.October, 31, 2, 0, 0, 0, time.UTC)
+
+	got := resolveEmailDate(envelopeDate, internalDate, now)
+	const want = "2026-10-31T01:30:00Z"
+	if got != want {
+		t.Fatalf("resolved date = %q, want sender Date %q", got, want)
+	}
+}
+
+func TestResolveEmailDateRejectsImplausibleCandidates(t *testing.T) {
+	now := time.Date(2026, time.November, 1, 12, 0, 0, 0, time.UTC)
+	got := resolveEmailDate(
+		time.Date(2612, time.January, 18, 15, 55, 30, 0, time.UTC),
+		time.Date(1969, time.December, 31, 23, 59, 59, 0, time.UTC),
+		now,
+	)
+	if got != "" {
+		t.Fatalf("resolved date = %q, want an empty undated value", got)
+	}
+}
+
+func TestSanitizeCachedEmailDateHidesImplausibleFutureDate(t *testing.T) {
+	now := time.Date(2026, time.November, 1, 12, 0, 0, 0, time.UTC)
+	if got := sanitizeCachedEmailDate("2612-01-18T15:55:30Z", now); got != "" {
+		t.Fatalf("cached future date = %q, want empty", got)
+	}
+	if got := sanitizeCachedEmailDate("2026-10-31T08:42:31Z", now); got != "2026-10-31T08:42:31Z" {
+		t.Fatalf("cached plausible date = %q, want unchanged", got)
 	}
 }
 

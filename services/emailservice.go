@@ -448,19 +448,15 @@ func emailSummaryFromBuffer(buf *imapclient.FetchMessageBuffer) EmailSummary {
 		UID:   uint32(buf.UID),
 		Flags: make([]string, len(buf.Flags)),
 	}
+	var envelopeDate time.Time
 	if buf.Envelope != nil {
 		summary.Subject = decodeMimeHeader(buf.Envelope.Subject)
 		summary.MessageID = strings.TrimSpace(buf.Envelope.MessageID)
-		// Stored in UTC so the column is homogeneous: an absent Date header
-		// leaves the zero time, which must not be formatted into
-		// "0001-01-01T00:00:00Z" and hide the InternalDate fallback below.
-		if !buf.Envelope.Date.IsZero() {
-			summary.Date = buf.Envelope.Date.UTC().Format(time.RFC3339)
-		}
+		envelopeDate = buf.Envelope.Date
 	}
-	if summary.Date == "" && !buf.InternalDate.IsZero() {
-		summary.Date = buf.InternalDate.UTC().Format(time.RFC3339)
-	}
+	// Stored in UTC so the column is homogeneous. Date and InternalDate are
+	// validated together because malformed Date headers do occur in real mail.
+	summary.Date = resolveEmailDate(envelopeDate, buf.InternalDate, time.Now())
 	if summary.Subject == "" {
 		summary.Subject = "(No Subject)"
 	}

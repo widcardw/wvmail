@@ -90,7 +90,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 1 | QQ/Foxmail 刚变更后瞬时 `NumMessages==0` | 等 300ms 后**重试 SELECT 一次** |
 | 2 | 重试后仍为 0，且此前缓存过非零总数 | **返回错误**「keeping previous list」——故意不返回空列表，让上层保留旧数据 |
 | 3 | ENVELOPE 解析失败（腾讯 WeCom 等畸形响应） | **去掉 Envelope 重取一次**，主题/发件人/日期改用默认值 |
-| 4 | `Envelope.Date` 为空 | 退回 `InternalDate`；仍为空则空字符串 |
+| 4 | `Envelope.Date` 为空、早于 1970 年，或比当前时间超前 24 小时以上 | 退回 `InternalDate`；两者都不可信则空字符串 |
 | 5 | 主题为空 | `"(No Subject)"`（硬编码英文，未走 i18n） |
 | 6 | 发件人为空 | `name <addr>` → `addr` → 空 |
 | 7 | 缓存写入失败 | `slog.Warn`，**不影响返回**（缓存是 best-effort） |
@@ -110,6 +110,8 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `DBManager.SuggestEmailContacts` | 发件人补全「最近的优先」，`limit` 取前 N 行，顺序错了就补错人 |
 
 同时两处**写入**改成 `UTC().Format(time.RFC3339)`（`fetchEmailsOn` 与 `RefreshEmailBody`），让新行不再携带偏移、整列趋于同构；老行仍带偏移，读侧排序已能正确处理，所以不做数据回填。附带修掉一个真 bug：`Envelope.Date` 为空时原先会被格式化成 `0001-01-01T00:00:00Z`（非空字符串），导致下面第 4 条的 `InternalDate` 兜底**永远不会触发**。
+
+**畸形未来日期**：真实 Gmail 通知出现过 `Date: Sat, 18 Jan 2612 15:55:30 GMT`，但同一封邮件的 `Received` 与 IMAP `InternalDate` 都是 2026 年。`resolveEmailDate` 现在会校验发件人日期；明显不合理的未来值改取服务器 `InternalDate`。读取旧缓存时 `sanitizeCachedEmailDate` 会先隐藏畸形值，下一次列表刷新会把修正后的日期同时写回摘要和正文缓存。
 
 ### 2.4 正文/附件阶段：`RefreshEmailBody` 的兜底
 

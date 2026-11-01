@@ -15,6 +15,11 @@ import (
 // 22:51 mail whose sender wrote UTC, and stays glued to the top of the list for
 // the rest of the day. Every list therefore orders on the parsed instant.
 
+const (
+	earliestPlausibleEmailYear = 1970
+	maxEmailFutureSkew         = 24 * time.Hour
+)
+
 // parseEmailTime parses a cached date string. The bool reports whether it held a
 // real timestamp: rows whose message carried no Date header are stored empty, and
 // those must sort as the oldest instead of silently becoming 1970 and beating
@@ -31,6 +36,39 @@ func parseEmailTime(raw string) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+// plausibleEmailTime rejects timestamps that cannot be trusted as a message
+// date. Some senders put absurd values in Date (one real Gmail notification said
+// 2612); falling back to the server's InternalDate is more useful than surfacing
+// a date centuries in the future.
+func plausibleEmailTime(t, now time.Time) bool {
+	if t.IsZero() || t.Year() < earliestPlausibleEmailYear {
+		return false
+	}
+	return !t.After(now.Add(maxEmailFutureSkew))
+}
+
+// resolveEmailDate prefers the sender's Date header and falls back to the
+// server arrival time when that header is missing or implausible.
+func resolveEmailDate(envelopeDate, internalDate, now time.Time) string {
+	for _, candidate := range []time.Time{envelopeDate, internalDate} {
+		if plausibleEmailTime(candidate, now) {
+			return candidate.UTC().Format(time.RFC3339)
+		}
+	}
+	return ""
+}
+
+// sanitizeCachedEmailDate keeps old cache rows from continuing to show a date
+// that is now known to be implausible. A later server refresh can replace the
+// empty value with the corrected InternalDate.
+func sanitizeCachedEmailDate(raw string, now time.Time) string {
+	t, ok := parseEmailTime(raw)
+	if !ok || !plausibleEmailTime(t, now) {
+		return ""
+	}
+	return raw
 }
 
 // newestFirst reports whether a belongs above b in a mail list.
