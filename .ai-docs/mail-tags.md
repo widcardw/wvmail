@@ -81,11 +81,14 @@ The AI path is opt-in only:
    prefixes (`Re:`, `Fwd:`, `回复:`, `回复：`, `转发:`, `转发：`). Empty subjects
    remain separate, and the sample limit is applied after subject deduplication.
 4. `PreviewTagSuggestionPrompt` returns the exact prompt and sample/account
-   metadata. Opening or previewing never sends anything.
+   metadata. It does not require an LLM configuration: users can assemble and
+   review the prompt before choosing where it will be sent.
 5. The dialog uses the shared `UiScrollArea` for its full-height body, shows a
    prominent leakage warning, and keeps the full prompt in an editable,
-   line-preserving textarea.
-6. Only the explicit send button calls `GenerateTagSuggestions`; it sends
+   line-preserving textarea. LLM/model selectors appear below the prompt and do
+   not invalidate it when changed.
+6. Only the explicit send button calls `GenerateTagSuggestions`; it requires the
+   selected LLM/model and sends
    `prompt_override` verbatim when present.
 7. The backend strips Markdown fences, validates rules, and returns suggestions.
 8. The user reviews selected suggestions before `SaveMailTag` writes them.
@@ -105,5 +108,6 @@ than copying request code.
 - `services/tagservice_test.go`: OR matching, field scope, Gmail deduplication,
   explicit exclusion, response validation, preview/sent prompt equality, and
   verbatim prompt overrides, normalized-subject sample deduplication, and applying
-  the sample limit after deduplication.
+  the sample limit after deduplication. It also verifies that previewing works
+  without an LLM while generation still requires one.
 - Run `GOCACHE=/tmp/wvmail-gocache go test ./...`.

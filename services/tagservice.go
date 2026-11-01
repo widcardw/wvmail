@@ -297,11 +297,12 @@ func (s *TagService) SetEmailTags(
 }
 
 // PreviewTagSuggestionPrompt builds the privacy-reviewed request without making
-// any network call.
+// any network call. The LLM is selected only after this preview, so an absent or
+// stale LLM configuration must not block prompt generation.
 func (s *TagService) PreviewTagSuggestionPrompt(
 	request TagSuggestionRequest,
 ) (TagSuggestionPreview, error) {
-	prepared, err := s.prepareTagSuggestion(request)
+	prepared, err := s.prepareTagSuggestion(request, false)
 	if err != nil {
 		return TagSuggestionPreview{}, err
 	}
@@ -314,7 +315,7 @@ func (s *TagService) PreviewTagSuggestionPrompt(
 func (s *TagService) GenerateTagSuggestions(
 	request TagSuggestionRequest,
 ) ([]TagSuggestion, error) {
-	prepared, err := s.prepareTagSuggestion(request)
+	prepared, err := s.prepareTagSuggestion(request, true)
 	if err != nil {
 		return nil, err
 	}
@@ -379,6 +380,7 @@ func (s *TagService) loadTaggingBody(accountID, folder string, uid uint32) (stri
 
 func (s *TagService) prepareTagSuggestion(
 	request TagSuggestionRequest,
+	requireLLM bool,
 ) (preparedTagSuggestion, error) {
 	cfg, err := s.cfg.GetConfig()
 	if err != nil {
@@ -386,7 +388,10 @@ func (s *TagService) prepareTagSuggestion(
 	}
 	llmCfg, err := findLLMConfig(cfg.LLMConfigs, request.LLMConfigName, request.LLMModel)
 	if err != nil {
-		return preparedTagSuggestion{}, err
+		if requireLLM {
+			return preparedTagSuggestion{}, err
+		}
+		llmCfg = LLMConfig{}
 	}
 
 	emails, err := s.db.LoadTaggingEmails()

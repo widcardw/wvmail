@@ -201,6 +201,41 @@ func TestTagSuggestionPreviewIsExactRequestPrompt(t *testing.T) {
 	}
 }
 
+func TestTagSuggestionPreviewDoesNotRequireLLM(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	db := NewDBManager()
+	if err := db.SaveEmails("acct", "INBOX", []EmailSummary{{
+		UID:      1,
+		Subject:  "New arXiv paper",
+		From:     "arXiv <no-reply@arxiv.org>",
+		FromAddr: "no-reply@arxiv.org",
+		Date:     "2026-10-31T09:00:00Z",
+	}}); err != nil {
+		t.Fatalf("SaveEmails: %v", err)
+	}
+
+	svc := NewTagService(&ConfigService{})
+	request := TagSuggestionRequest{
+		AccountIDs:  []string{"acct"},
+		SampleLimit: 20,
+		Fields:      []string{"subject"},
+	}
+	preview, err := svc.PreviewTagSuggestionPrompt(request)
+	if err != nil {
+		t.Fatalf("PreviewTagSuggestionPrompt without an LLM: %v", err)
+	}
+	if preview.SampleCount != 1 || !strings.Contains(preview.Prompt, "New arXiv paper") {
+		t.Fatalf("preview did not include the cached sample: %+v", preview)
+	}
+	if preview.LLMName != "" || preview.LLMModel != "" {
+		t.Fatalf("an absent LLM must not be reported as configured: %+v", preview)
+	}
+	if _, err := svc.GenerateTagSuggestions(request); err == nil {
+		t.Fatal("generation must still require an LLM configuration")
+	}
+}
+
 func TestBuildTagSuggestionSamplesDeduplicatesNormalizedSubjects(t *testing.T) {
 	emails := []CachedEmail{
 		{

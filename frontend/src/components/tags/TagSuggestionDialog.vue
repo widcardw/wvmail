@@ -60,11 +60,12 @@ const selectedConfig = computed(
 const modelOptions = computed(() =>
   llmModels(selectedConfig.value ?? undefined).map((model) => ({ label: model, value: model })),
 )
-const canPreview = computed(
+const canPreview = computed(() => selectedAccountIDs.value.length > 0 && sampleLimit.value > 0)
+const canGenerate = computed(
   () =>
     Boolean(selectedConfig.value && selectedModel.value) &&
-    selectedAccountIDs.value.length > 0 &&
-    sampleLimit.value > 0,
+    Boolean(preview.value && preview.value.sample_count > 0) &&
+    Boolean(promptDraft.value.trim()),
 )
 const selectedSuggestionCount = computed(
   () => suggestions.value.filter((suggestion) => suggestion.selected).length,
@@ -93,10 +94,11 @@ watch(
 
 watch(selectedConfigName, () => {
   selectedModel.value = llmModels(selectedConfig.value ?? undefined)[0] ?? ''
-  invalidatePreview()
+  clearGeneratedResults()
 })
 
-watch([selectedModel, selectedAccountIDs, sampleLimit, optionalFields], () => invalidatePreview(), {
+watch(selectedModel, clearGeneratedResults)
+watch([selectedAccountIDs, sampleLimit, optionalFields], () => invalidatePreview(), {
   deep: true,
 })
 
@@ -112,6 +114,10 @@ function reset() {
 function invalidatePreview() {
   preview.value = null
   promptDraft.value = ''
+  clearGeneratedResults()
+}
+
+function clearGeneratedResults() {
   suggestions.value = []
   error.value = ''
 }
@@ -156,14 +162,7 @@ async function loadPreview() {
 }
 
 async function generate() {
-  if (
-    !preview.value ||
-    generating.value ||
-    preview.value.sample_count === 0 ||
-    !promptDraft.value.trim()
-  ) {
-    return
-  }
+  if (!canGenerate.value || generating.value) return
   generating.value = true
   error.value = ''
   try {
@@ -241,42 +240,7 @@ function matchFieldLabel(field: TagMatchField): string {
         </div>
 
         <div v-if="loadingConfig" class="loading-row"><span class="spinner" /></div>
-        <div v-else-if="configs.length === 0" class="no-config">
-          {{ t['tags.ai.noLlm'] }}
-        </div>
         <template v-else>
-          <div class="settings-grid">
-            <label class="field">
-              <span class="field__label">{{ t['tags.ai.llmConfig'] }}</span>
-              <UiSelect
-                :options="configOptions"
-                :model-value="selectedConfigName"
-                width="100%"
-                @update:model-value="selectedConfigName = $event"
-              />
-            </label>
-            <label class="field">
-              <span class="field__label">{{ t['tags.ai.model'] }}</span>
-              <UiSelect
-                :options="modelOptions"
-                :model-value="selectedModel"
-                width="100%"
-                @update:model-value="selectedModel = $event"
-              />
-            </label>
-            <label class="field">
-              <span class="field__label">{{ t['tags.ai.sampleLimit'] }}</span>
-              <UiNumberInput
-                :value="sampleLimit"
-                :min="1"
-                :max="300"
-                :step="10"
-                width="100%"
-                @value="sampleLimit = $event"
-              />
-            </label>
-          </div>
-
           <section class="choice-section">
             <h3>{{ t['tags.ai.accounts'] }}</h3>
             <div class="choice-grid">
@@ -312,7 +276,18 @@ function matchFieldLabel(field: TagMatchField): string {
             </div>
           </section>
 
-          <div class="preview-action">
+          <div class="preview-options">
+            <label class="field preview-limit">
+              <span class="field__label">{{ t['tags.ai.sampleLimit'] }}</span>
+              <UiNumberInput
+                :value="sampleLimit"
+                :min="1"
+                :max="300"
+                :step="10"
+                width="100%"
+                @value="sampleLimit = $event"
+              />
+            </label>
             <BusyButton
               class="btn"
               :label="t['tags.ai.preview']"
@@ -345,19 +320,46 @@ function matchFieldLabel(field: TagMatchField): string {
               <textarea v-model="promptDraft" class="input prompt-preview" spellcheck="false" />
               <span class="field__hint">{{ t['tags.ai.promptHint'] }}</span>
             </label>
-            <div class="preview-action">
-              <BusyButton
-                class="btn btn--primary"
-                :label="
-                  tf('tags.ai.send', {
-                    provider: preview.llm_name || selectedConfigName,
-                    model: preview.llm_model || selectedModel,
-                  })
-                "
-                :busy="generating"
-                :disabled="preview.sample_count === 0 || !promptDraft.trim()"
-                @click="generate"
-              />
+            <div class="send-config">
+              <div v-if="configs.length === 0" class="no-config">
+                {{ t['tags.ai.noLlm'] }}
+              </div>
+              <template v-else>
+                <div class="settings-grid send-grid">
+                  <label class="field">
+                    <span class="field__label">{{ t['tags.ai.llmConfig'] }}</span>
+                    <UiSelect
+                      :options="configOptions"
+                      :model-value="selectedConfigName"
+                      width="100%"
+                      @update:model-value="selectedConfigName = $event"
+                    />
+                  </label>
+                  <label class="field">
+                    <span class="field__label">{{ t['tags.ai.model'] }}</span>
+                    <UiSelect
+                      :options="modelOptions"
+                      :model-value="selectedModel"
+                      width="100%"
+                      @update:model-value="selectedModel = $event"
+                    />
+                  </label>
+                </div>
+                <div class="preview-action send-action">
+                  <BusyButton
+                    class="btn btn--primary"
+                    :label="
+                      tf('tags.ai.send', {
+                        provider: selectedConfigName,
+                        model: selectedModel,
+                      })
+                    "
+                    :busy="generating"
+                    :disabled="!canGenerate"
+                    @click="generate"
+                  />
+                </div>
+              </template>
             </div>
           </template>
 
@@ -436,6 +438,21 @@ function matchFieldLabel(field: TagMatchField): string {
   grid-template-columns: 1.1fr 1.3fr 0.7fr;
   gap: 12px;
 }
+.preview-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+}
+.preview-limit {
+  width: min(180px, 100%);
+  margin-bottom: 0;
+}
+.preview-options .btn {
+  margin-left: auto;
+}
 .choice-section {
   margin: 4px 0 14px;
 }
@@ -455,6 +472,17 @@ function matchFieldLabel(field: TagMatchField): string {
   display: flex;
   justify-content: flex-end;
   margin: 10px 0;
+}
+.send-config {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--n-border-color);
+}
+.send-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.send-action {
+  margin-bottom: 0;
 }
 .preview-meta {
   display: flex;
