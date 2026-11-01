@@ -77,6 +77,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   const flagging = ref<Record<string, boolean>>({})
+  const deletingSelectedEmail = ref(false)
   const flaggedInflight = new Map<string, Promise<EmailSummary[]>>()
 
   const isSmartFolder = computed(() => smartFolder.value !== null)
@@ -905,6 +906,94 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  /**
+   * Delete the message currently open in the reading pane. The backend moves it
+   * to Trash (or expunges it when it is already there); the UI removes the local
+   * row only after the server accepts the operation, then opens the next message
+   * so the pane does not stay on a message that no longer exists.
+   */
+  async function deleteSelectedEmail(): Promise<boolean> {
+    const account = selectedEmailAccount.value
+    const folder = selectedEmailFolder.value
+    const uid = selectedEmailUid.value
+    const detail = selectedEmailDetail.value
+    if (!account || !folder || uid == null || !detail) {
+      feedback.info(i18n.value['mail.noEmailSelected'])
+      return false
+    }
+    if (deletingSelectedEmail.value) return false
+
+    const rows = currentEmails.value.slice()
+    const index = rows.findIndex(
+      (email) =>
+        email.uid === uid &&
+        (email.account_id == null || email.account_id === account.ID) &&
+        (email.folder_name == null || email.folder_name === folder),
+    )
+    const row = index >= 0 ? rows[index] : undefined
+    const next = index >= 0 ? (rows[index + 1] ?? rows[index - 1]) : undefined
+    // `markEmailRead` updates the folder-list row before deleting. Use that row
+    // instead of the detail flags so an already-seen message does not decrement
+    // the unread badge a second time. Search/aggregate rows are not in
+    // `emailsByFolder`, but their `is_read` value is still the best local signal.
+    const wasUnread = row ? !row.is_read : false
+    const folderKey = `${account.ID}:${folder}`
+
+    deletingSelectedEmail.value = true
+    try {
+      await EmailService.DeleteEmail(account, folder, uid)
+      detailRequestId++
+
+      const folderRows = emailsByFolder.value[folderKey]
+      if (folderRows) {
+        emailsByFolder.value[folderKey] = folderRows.filter((email) => email.uid !== uid)
+      }
+      if (emailTotalByFolder.value[folderKey] != null) {
+        emailTotalByFolder.value[folderKey] = Math.max(0, emailTotalByFolder.value[folderKey] - 1)
+      }
+      smartEmails.value = smartEmails.value.filter(
+        (email) =>
+          !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
+      )
+      searchStore.removeEmail(account.ID, folder, uid)
+
+      const status = folderStatusByAccount.value[account.ID]?.[folder]
+      if (status?.messages != null && status.messages > 0) status.messages--
+      if (wasUnread) adjustUnread(account.ID, folder, -1)
+
+      selectedEmailUid.value = null
+      selectedEmailAccountId.value = null
+      selectedEmailFolder.value = null
+      selectedEmailDetail.value = null
+      detailError.value = null
+
+      feedback.success(i18n.value['mail.deleted'])
+      if (next) {
+        // Search and aggregate rows can come from a different account. Resolve
+        // the account from the row rather than reusing the deleted message's
+        // account, which would fetch the same UID from the wrong mailbox.
+        const nextAccountId = next.account_id || account.ID
+        const nextAccount = accounts.value.find((candidate) => candidate.ID === nextAccountId)
+        if (nextAccount) {
+          await selectEmail(nextAccount, next.folder_name || folder, next.uid)
+        }
+      }
+      if (!searchStore.searchActive && !smartFolder.value) {
+        void loadEmails(account, folder, currentPageByFolder.value[folderKey] || 1)
+      }
+      // The move changes both source and destination counts (especially Trash's
+      // unseen count), so do not accept a cached status here.
+      void loadFolderStatuses(account, 0)
+      return true
+    } catch (e) {
+      feedback.error(i18n.value['mail.delete.failed'])
+      console.error('Failed to delete email', e)
+      return false
+    } finally {
+      deletingSelectedEmail.value = false
+    }
+  }
+
   function goToPage(page: number) {
     // A search on screen owns its own paging: the same store the list reads above.
     if (searchStore.searchActive) {
@@ -1113,6 +1202,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailFolder,
     selectedEmailFlagged,
     selectedEmailFlagging,
+    deletingSelectedEmail,
     selectedEmailDetail,
     loadingDetail,
     detailError,
@@ -1132,6 +1222,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectSmartFolder,
     refreshStarred,
     toggleSelectedEmailFlagged,
+    deleteSelectedEmail,
     loadAccounts,
     addAccount,
     removeAccount,

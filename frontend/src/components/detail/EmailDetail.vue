@@ -22,6 +22,7 @@ import EmailCssArtNotice from './EmailCssArtNotice.vue'
 import EmailSecurityNotice from './EmailSecurityNotice.vue'
 import EmailLinkDialog from './EmailLinkDialog.vue'
 import RemindFromMailDialog from './RemindFromMailDialog.vue'
+import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t, tf } = useI18n()
@@ -38,6 +39,7 @@ const exportingOriginal = ref(false)
 
 const suspiciousRevealed = ref(false)
 const attachmentsOpen = ref(false)
+const deleteOpen = ref(false)
 /** Revealed for this message only; reset whenever another email is opened. */
 const remoteRevealed = ref(false)
 
@@ -135,6 +137,7 @@ watch(detail, () => {
   remoteRevealed.value = false
   attachmentsOpen.value = false
   remindOpen.value = false
+  deleteOpen.value = false
 })
 
 /** Load this message's remote content once (nothing is remembered). */
@@ -185,6 +188,11 @@ async function handleExportOriginal() {
   } finally {
     exportingOriginal.value = false
   }
+}
+
+async function handleDelete() {
+  const deleted = await accountsStore.deleteSelectedEmail()
+  if (deleted) deleteOpen.value = false
 }
 
 function quotedBodyHTML(mail: NonNullable<typeof detail.value>): string {
@@ -329,6 +337,7 @@ const showAttachments = computed(
       :has-translation="hasTranslation"
       :flagged="accountsStore.selectedEmailFlagged"
       :flagging="accountsStore.selectedEmailFlagging"
+      :deleting="accountsStore.deletingSelectedEmail"
       @reply="openReply('reply')"
       @reply-all="openReply('reply-all')"
       @forward="openReply('forward')"
@@ -336,6 +345,7 @@ const showAttachments = computed(
       @export-original="handleExportOriginal"
       @toggle-translation="toggleTranslation"
       @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
+      @delete="deleteOpen = true"
     />
 
     <UiScrollArea class="scroll">
@@ -402,6 +412,16 @@ const showAttachments = computed(
       :text="remindText"
       :zone="remindZone"
       :suggested-title="detail?.subject || ''"
+    />
+    <ConfirmDialog
+      :open="deleteOpen"
+      :title="t['mail.delete']"
+      :description="t['mail.delete.confirm_body']"
+      :confirm-label="t['mail.delete']"
+      :busy="accountsStore.deletingSelectedEmail"
+      danger
+      @update:open="deleteOpen = $event"
+      @confirm="handleDelete"
     />
   </Teleport>
 </template>

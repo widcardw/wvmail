@@ -411,6 +411,32 @@ func (m *DBManager) SetEmailFlagged(accountID, folderName string, uid uint32, fl
 	return nil
 }
 
+// DeleteEmail removes one message from the summary and body caches and updates
+// the folder's cached total. The server operation happens first in EmailService;
+// this only mirrors an already accepted move/delete.
+func (m *DBManager) DeleteEmail(accountID, folderName string, uid uint32) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("account_id = ? AND folder_name = ? AND uid = ?",
+			accountID, folderName, uid).
+			Delete(&CachedEmail{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("account_id = ? AND folder_name = ? AND uid = ?",
+			accountID, folderName, uid).
+			Delete(&CachedEmailBody{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&CachedFolderMeta{}).
+			Where("account_id = ? AND folder_name = ?", accountID, folderName).
+			UpdateColumn("total", gorm.Expr("CASE WHEN total > 0 THEN total - 1 ELSE 0 END")).Error
+	})
+}
+
 // flagsWith adds or removes one IMAP flag without changing the order of the
 // others. IMAP flag names are case-insensitive.
 func flagsWith(flags []string, flag string, enabled bool) []string {

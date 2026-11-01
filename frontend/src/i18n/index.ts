@@ -86,6 +86,9 @@ export interface TranslationSchema {
   'mail.forward': string
   'mail.mark.unread': string
   'mail.delete': string
+  'mail.delete.confirm_body': string
+  'mail.deleted': string
+  'mail.delete.failed': string
   'mail.flag.add': string
   'mail.flag.remove': string
   'mail.flag.added': string

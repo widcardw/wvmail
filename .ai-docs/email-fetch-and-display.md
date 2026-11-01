@@ -325,6 +325,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **收件人/抄送超过一行折叠**：「等 N 个收件人」chip 双向切换 | 新 `components/detail/RecipientList.vue` + `composables/recipients.ts`，`EmailHeader.vue` 改用它；i18n `mail.recipients.more` / `.less` | 企业邮件几十个地址原先整段铺开，把主题和正文顶出屏幕。判据是实测第一行能放几个（见 §3.1b），不是固定个数 |
 | 抄送标签从硬编码 `"Cc:"` 改为 i18n `search.cc`；`to`/`cc` 为空时整行不渲染 | `EmailHeader.vue` | 英文界面里 `Cc:` 与中文混排；空行只剩一个孤零零的标签 |
 | **邮件列表长主题单行省略** | `components/list/EmailListItem.vue` | `.email-subject` 改用 WebKit 单行 clamp 并补齐宽度约束；原先长主题会在列表边缘被硬裁、没有 `…`，还会把右侧日期挤出可视区域 |
+| **详情页删除邮件** | `services/emaildelete.go`、`EmailService.DeleteEmail`、`stores/accounts.ts`、`EmailDetail.vue`、`EmailActionBar.vue` | 普通文件夹使用 IMAP `MOVE` 移到垃圾箱；邮件已在垃圾箱时永久删除。成功后清理摘要/正文缓存、星标快照、聚合/搜索列表和角标，并自动打开相邻邮件。前端先弹现有 `ConfirmDialog`，删除期间锁定按钮与对话框。`services/emaildelete_test.go` 用内存 IMAP 服务器覆盖移动到 Trash 与 Trash 内永久删除 |
 
 ---
 

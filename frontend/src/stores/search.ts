@@ -87,6 +87,18 @@ export const useSearchStore = defineStore('search', () => {
     if (row) row.flags = withMailFlag(row.flags, flag, enabled)
   }
 
+  /** Drop a deleted message from the current result page and its total. */
+  function removeEmail(accountId: string, folder: string, uid: number) {
+    const before = searchResults.value.length
+    searchResults.value = searchResults.value.filter(
+      (email) =>
+        !(email.account_id === accountId && email.folder_name === folder && email.uid === uid),
+    )
+    if (searchResults.value.length !== before) {
+      searchTotal.value = Math.max(0, searchTotal.value - 1)
+    }
+  }
+
   /** Paging while a search is on screen: re-runs the stored query for that page. */
   function goToPage(page: number) {
     const id = ++requestId
@@ -126,6 +138,7 @@ export const useSearchStore = defineStore('search', () => {
     searchEmails,
     clearSearch,
     setFlag,
+    removeEmail,
     goToPage,
   }
 })

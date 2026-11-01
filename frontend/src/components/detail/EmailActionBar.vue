@@ -10,6 +10,7 @@ defineProps<{
   hasTranslation: boolean
   flagged: boolean
   flagging: boolean
+  deleting: boolean
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +21,7 @@ const emit = defineEmits<{
   'export-original': []
   'toggle-translation': []
   'toggle-flag': []
+  delete: []
 }>()
 
 const { t } = useI18n()
@@ -104,7 +106,9 @@ const { t } = useI18n()
         :label="t['mail.delete']"
         icon="ri:delete-bin-5-line"
         danger
-        :disabled="!hasDetail"
+        :disabled="!hasDetail || deleting"
+        :busy="deleting"
+        @click="emit('delete')"
       />
     </div>
   </div>

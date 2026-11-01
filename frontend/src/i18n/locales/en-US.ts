@@ -84,6 +84,10 @@ const enUS: TranslationSchema = {
   'mail.forward': 'Forward',
   'mail.mark.unread': 'Mark as unread',
   'mail.delete': 'Delete',
+  'mail.delete.confirm_body':
+    'This message will move to Trash. If it is already in Trash, it will be deleted permanently.',
+  'mail.deleted': 'Message deleted',
+  'mail.delete.failed': 'Could not delete the message',
   'mail.flag.add': 'Star',
   'mail.flag.remove': 'Remove star',
   'mail.flag.added': 'Starred',
