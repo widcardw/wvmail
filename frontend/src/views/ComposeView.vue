@@ -6,6 +6,7 @@ import { useI18n } from '~/i18n'
 import { ComposeService, ConfigService } from '#/wvmail/services'
 import type { ComposeAttachment, ComposeDraft, EmailAccount } from '#/wvmail/services'
 import ComposeEditor from '~/components/compose/ComposeEditor.vue'
+import ComposeRecipientInput from '~/components/compose/ComposeRecipientInput.vue'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
@@ -273,12 +274,12 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="compose-field compose-recipient-row">
-        <label class="compose-label">{{ t['compose.to'] }}</label>
-        <input
+        <label class="compose-label" for="compose-to">{{ t['compose.to'] }}</label>
+        <ComposeRecipientInput
+          id="compose-to"
           v-model="toText"
-          class="compose-input"
+          :label="t['compose.to']"
           :placeholder="t['compose.recipient_placeholder']"
-          autocomplete="off"
         />
         <button v-if="!showCc" type="button" class="link-btn" @click="showCc = true">
           {{ t['compose.add_cc'] }}
@@ -289,22 +290,22 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="showCc" class="compose-field compose-recipient-row">
-        <label class="compose-label">{{ t['compose.cc'] }}</label>
-        <input
+        <label class="compose-label" for="compose-cc">{{ t['compose.cc'] }}</label>
+        <ComposeRecipientInput
+          id="compose-cc"
           v-model="ccText"
-          class="compose-input"
+          :label="t['compose.cc']"
           :placeholder="t['compose.recipient_placeholder']"
-          autocomplete="off"
         />
       </div>
 
       <div v-if="showBcc" class="compose-field compose-recipient-row">
-        <label class="compose-label">{{ t['compose.bcc'] }}</label>
-        <input
+        <label class="compose-label" for="compose-bcc">{{ t['compose.bcc'] }}</label>
+        <ComposeRecipientInput
+          id="compose-bcc"
           v-model="bccText"
-          class="compose-input"
+          :label="t['compose.bcc']"
           :placeholder="t['compose.recipient_placeholder']"
-          autocomplete="off"
         />
       </div>
 

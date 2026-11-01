@@ -1,4 +1,10 @@
 import { layoutRecipients } from '../src/composables/recipients.ts'
+import {
+  completeCurrentRecipient,
+  currentRecipientQuery,
+  parseRecipientText,
+  splitRecipientText,
+} from '../src/composables/compose.ts'
 
 let pass = 0
 let fail = 0
@@ -15,6 +21,41 @@ function check(name: string, cond: boolean) {
 
 const layout = (widths: number[], available: number, chip = 60, sep = 6) =>
   layoutRecipients(widths, available, chip, sep)
+
+// Compose recipient autocomplete edits only the fragment after the last real
+// separator, even when an earlier display name contains a comma.
+{
+  const value = '"Doe, Jane" <jane@example.com>, bo'
+  check('recipient query follows the last separator', currentRecipientQuery(value) === 'bo')
+  check(
+    'completing a contact preserves earlier recipients',
+    completeCurrentRecipient(value, 'Bob <bob@example.com>') ===
+      '"Doe, Jane" <jane@example.com>, Bob <bob@example.com>',
+  )
+  check(
+    'semicolons are valid recipient separators',
+    completeCurrentRecipient('a@example.com; bo', 'Bob <bob@example.com>') ===
+      'a@example.com; Bob <bob@example.com>',
+  )
+  check(
+    'a first recipient needs no separator',
+    completeCurrentRecipient('bo', 'Bob <bob@example.com>') === 'Bob <bob@example.com>',
+  )
+  check(
+    'accepting a contact leaves the field ready for the next recipient',
+    completeCurrentRecipient('bo', 'Bob <bob@example.com>', true) ===
+      'Bob <bob@example.com>, ',
+  )
+}
+
+check(
+  'recipient splitting still respects quoted commas',
+  splitRecipientText('"Doe, Jane" <jane@example.com>, bob@example.com').length === 2,
+)
+check(
+  'completed recipients retain display names',
+  parseRecipientText('"Doe, Jane" <jane@example.com>')[0]?.Name === 'Doe, Jane',
+)
 
 // Everything fits: no chip, every address visible.
 {

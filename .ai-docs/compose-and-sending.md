@@ -51,8 +51,9 @@ Vue 3、Tiptap `3.22.5`。
 | `services/composeservice.go` | 单例写信窗口、内存草稿、附件暂存、关闭确认 |
 | `services/composehtml.go` | 发送前把 `data-compose-image-id` 图片替换成 `cid:` |
 | `frontend/src/views/ComposeView.vue` | 写信表单、自动保存、拖放、发送/放弃 |
+| `frontend/src/components/compose/ComposeRecipientInput.vue` | To/Cc/Bcc 联系人自动补全、键盘选择与多收件人文本编辑 |
 | `frontend/src/components/compose/ComposeEditor.vue` | Tiptap 编辑器与格式工具栏 |
-| `frontend/src/composables/compose.ts` | 收件人文本解析与格式化 |
+| `frontend/src/composables/compose.ts` | 收件人文本解析、当前片段定位与格式化 |
 | `frontend/src/composables/reply.ts` | 回复/回复全部/转发的纯函数规则 |
 | `frontend/src/App.vue` | 应用级 `mailto:` 点击兜底和 `compose:sent` toast |
 | `frontend/src/components/detail/EmailDetail.vue` | 阅读窗格中的回复、回复全部、转发与正文引用 |
@@ -69,6 +70,19 @@ Vue 3、Tiptap `3.22.5`。
 
 窗口 URL 只传 `draftID`。收件人、HTML 和附件不会塞进 URL，避免长度限制和泄漏。
 当前版本没有持久化草稿：进程退出或确认放弃后内容即丢失。
+
+### 3.1b 收件人从本地联系人自动补全
+
+To/Cc/Bcc 共用 `ComposeRecipientInput.vue`，数据源是联系人页维护的本地
+`contacts` store：
+
+- 聚焦空输入框时列出前 6 位联系人；输入后按姓名或邮箱做大小写不敏感匹配；
+- 上下方向键移动，`Enter` / `Tab` 选中，`Esc` 收起；
+- 只替换最后一个逗号/分号之后的当前片段，前面的多收件人内容保持不变；
+- 选中后插入 `Name <email>, `，可直接继续输入下一位收件人；
+- 已经出现在同一字段中的地址不会重复建议。
+
+当前不把邮件历史联系人混入写信补全，避免未保存到地址簿的地址被误当成联系人。
 
 ### 3.2 只有一个写信窗口
 
@@ -305,7 +319,6 @@ macOS/Windows 的 URL scheme 注册。
 - 不支持 Markdown/富文本模式切换；当前只提供 Tiptap 富文本。
 - 不支持定时发送、撤销发送、签名、模板。
 - 转发不附带原附件，回复不带原附件。
-- 收件人输入只做轻量解析，没有地址簿自动补全。
 - 发送成功后依赖 IMAP 刷新看到 Sent 副本；没有本地乐观插入。
 - 没有 OS 级 `mailto:` 默认客户端注册。
 
@@ -328,7 +341,7 @@ pnpm build
   单纯文本、mailto 解析、Sent 文件夹识别、HTML → plain；
 - Go：编辑器预览图 → CID 替换，以及无图片 HTML 保持不变；
 - 前端：回复/回复全部/转发收件人规则、去重、线程头、主题前缀、HTML 转义；
-- 前端：收件人文本解析和现有全部邮件渲染/安全测试。
+- 前端：收件人文本解析、当前收件人片段替换、联系人匹配和现有全部邮件渲染/安全测试。
 
 ### 12.2 手工发送矩阵
 
