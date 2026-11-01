@@ -437,6 +437,30 @@ func (m *DBManager) DeleteEmail(accountID, folderName string, uid uint32) error 
 	})
 }
 
+// PruneEmails removes cache rows that the server no longer reports in a folder.
+// Unlike DeleteEmail, it must not touch the cached folder total: that total has
+// already been refreshed from the server.
+func (m *DBManager) PruneEmails(accountID, folderName string, uids []uint32) error {
+	if len(uids) == 0 {
+		return nil
+	}
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("account_id = ? AND folder_name = ? AND uid IN ?",
+			accountID, folderName, uids).
+			Delete(&CachedEmail{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("account_id = ? AND folder_name = ? AND uid IN ?",
+			accountID, folderName, uids).
+			Delete(&CachedEmailBody{}).Error
+	})
+}
+
 // flagsWith adds or removes one IMAP flag without changing the order of the
 // others. IMAP flag names are case-insensitive.
 func flagsWith(flags []string, flag string, enabled bool) []string {

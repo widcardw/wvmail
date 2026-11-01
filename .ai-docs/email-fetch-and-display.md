@@ -46,7 +46,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `ListFolders` | **是**（缓存非空即返回，**无 TTL**） | 60s（走 Refresh） | 只有缓存为空才 `RefreshFolders` |
 | `RefreshFolders` | 否 | 60s | `LIST "" *`，成功后写缓存 |
 | `ListEmails` | **是**（仅 page ≤ 1） | 60s（走 Refresh） | 缓存缺 folder meta 或 total==0 时强制刷新；命中缓存的返回带 `from_cache: true`，前端据此决定「刚打开的文件夹还要不要再刷一次」 |
-| `RefreshEmails` | 否 | 60s | 抓摘要页 + 合并缓存 |
+| `RefreshEmails` | 否 | 60s | 抓摘要页 + 合并缓存 + 校验缓存 UID 是否仍存在 |
 | `SearchEmails` | **仅缓存** | — | `db.SearchEmails`，**没有 IMAP SEARCH 兜底** |
 | `FetchEmail` | **是** | — | 命中 `LoadEmailBody` 直接返回 |
 | `RefreshEmailBody` | 否 | 60s | 两趟抓取：先 BodyStructure，再正文/inline 段 |
@@ -54,7 +54,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `UnseenCount` | 否 | 60s | 单个文件夹的 `STATUS UNSEEN`（托盘红点用） |
 | `FolderStatuses` | **否（必须问服务器）** | 60s | 一次连接、**流水线**发出全部 `STATUS MESSAGES UIDNEXT UNSEEN`，返回 `map[文件夹]{messages,uid_next,unseen}`；既供侧边栏 badge，也供「打开的文件夹到底变没变」判断 |
 
-**缓存策略要点**：`SaveEmails` 按 UID 合并、不删旧行，所以翻到更早的页不会丢掉已缓存的邮件；`RefreshEmails` 的返回页可能来自「服务器新抓的页 + 缓存旧行」合并结果（page 1 总是如此）。
+**缓存策略要点**：`SaveEmails` 按 UID 合并、不删旧行，所以翻到更早的页不会丢掉已缓存的邮件；`RefreshEmails` 的返回页可能来自「服务器新抓的页 + 缓存旧行」合并结果（page 1 总是如此）。合并前会用一次 `UID SEARCH` 只查询**已缓存 UID**，把服务器已经不存在的摘要和正文删掉；否则网页版/其他客户端删除邮件后，本地旧 UID 会永远留在列表里，甚至点击删除时 `MOVE` 失败。
 
 **未读计数不能来自缓存**：`cached_emails.is_read` 只覆盖 UI 已经翻到过的那些页，用它统计会让任何大于一页的邮箱**少算**，所以侧边栏 badge 走 `FolderStatuses`（服务器 `STATUS`）。成本控制：只连一次、把所有 `STATUS` 先发出去再逐个 `Wait`（go-imap 在同一连接上流水线化命令，见其 `Client` 文档），因此整个文件夹列表是**一个 RTT**而不是每文件夹一个。`\Noselect`/`\NonExistent` 的容器文件夹跳过（`STATUS` 对它们是报错而不是 0），服务器拒绝回答的文件夹**不出现在 map 里** —— 前端把「缺键」读作「没有要 badge 的」。
 
@@ -325,7 +325,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **收件人/抄送超过一行折叠**：「等 N 个收件人」chip 双向切换 | 新 `components/detail/RecipientList.vue` + `composables/recipients.ts`，`EmailHeader.vue` 改用它；i18n `mail.recipients.more` / `.less` | 企业邮件几十个地址原先整段铺开，把主题和正文顶出屏幕。判据是实测第一行能放几个（见 §3.1b），不是固定个数 |
 | 抄送标签从硬编码 `"Cc:"` 改为 i18n `search.cc`；`to`/`cc` 为空时整行不渲染 | `EmailHeader.vue` | 英文界面里 `Cc:` 与中文混排；空行只剩一个孤零零的标签 |
 | **邮件列表长主题单行省略** | `components/list/EmailListItem.vue` | `.email-subject` 改用 WebKit 单行 clamp 并补齐宽度约束；原先长主题会在列表边缘被硬裁、没有 `…`，还会把右侧日期挤出可视区域 |
-| **详情页删除邮件** | `services/emaildelete.go`、`EmailService.DeleteEmail`、`stores/accounts.ts`、`EmailDetail.vue`、`EmailActionBar.vue` | 普通文件夹使用 IMAP `MOVE` 移到垃圾箱；邮件已在垃圾箱时永久删除。成功后清理摘要/正文缓存、星标快照、聚合/搜索列表和角标，并清空阅读区，不自动打开相邻邮件。前端先弹现有 `ConfirmDialog`，删除期间锁定按钮与对话框。`services/emaildelete_test.go` 用内存 IMAP 服务器覆盖移动到 Trash 与 Trash 内永久删除 |
+| **详情页删除邮件** | `services/emaildelete.go`、`EmailService.DeleteEmail`、`stores/accounts.ts`、`EmailDetail.vue`、`EmailActionBar.vue` | 普通文件夹使用 IMAP `MOVE` 移到垃圾箱；邮件已在垃圾箱时永久删除。删除前先确认 UID 仍在源文件夹；如果已被网页版/其他客户端移走，则只清理本地陈旧缓存并视为成功。成功后清理摘要/正文缓存、星标快照、聚合/搜索列表和角标，并清空阅读区，不自动打开相邻邮件。前端先弹现有 `ConfirmDialog`，删除期间锁定按钮与对话框。`services/emaildelete_test.go` 用内存 IMAP 服务器覆盖移动到 Trash、Trash 内永久删除，以及陈旧 UID 清理 |
+| **刷新时清理服务器已删除的缓存行** | `services/emailservice.go` `pruneStaleCachedEmails`、`services/databaseemail.go` `PruneEmails`、测试 `emaildelete_test.go` | `SaveEmails` 仍按 UID upsert 以保留翻页缓存，但刷新后会检查已缓存 UID；网页版删除邮件后，下一次刷新会移除本地旧行，不再出现「网页已删除但列表仍在」 |
 
 ---
 

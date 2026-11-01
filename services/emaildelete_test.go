@@ -101,21 +101,150 @@ func TestDeleteEmailClearsCacheAndUpdatesFolderTotal(t *testing.T) {
 	}
 }
 
+func TestDeleteEmailTreatsMissingServerUIDAsStaleCache(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	_, account := startTestIMAP(t, func(user *imapmemserver.User) {
+		if err := user.Create("INBOX", nil); err != nil {
+			t.Fatalf("Create(INBOX): %v", err)
+		}
+		if err := user.Create("Trash", nil); err != nil {
+			t.Fatalf("Create(Trash): %v", err)
+		}
+	})
+
+	db := NewDBManager()
+	if err := db.SaveEmails(account.ID, "INBOX", []EmailSummary{{UID: 99, Subject: "already moved"}}); err != nil {
+		t.Fatalf("SaveEmails: %v", err)
+	}
+	if err := db.SaveFolderMeta(account.ID, "INBOX", FolderMeta{Total: 1, UIDNext: 100}); err != nil {
+		t.Fatalf("SaveFolderMeta: %v", err)
+	}
+
+	service := NewEmailService()
+	if err := service.DeleteEmail(account, "INBOX", 99); err != nil {
+		t.Fatalf("DeleteEmail: %v", err)
+	}
+
+	emails, err := db.LoadEmails(account.ID, "INBOX")
+	if err != nil {
+		t.Fatalf("LoadEmails: %v", err)
+	}
+	if len(emails) != 0 {
+		t.Errorf("remaining emails = %+v, want the stale row removed", emails)
+	}
+	meta, err := db.LoadFolderMeta(account.ID, "INBOX")
+	if err != nil {
+		t.Fatalf("LoadFolderMeta: %v", err)
+	}
+	if meta.Total != 1 {
+		t.Errorf("folder total = %d, want it unchanged because the server was already current", meta.Total)
+	}
+}
+
+func TestRefreshEmailsPrunesMessagesDeletedElsewhere(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	_, account := startTestIMAP(t, func(user *imapmemserver.User) {
+		if err := user.Create("INBOX", nil); err != nil {
+			t.Fatalf("Create(INBOX): %v", err)
+		}
+		message := []byte("From: sender@example.com\r\nTo: user@example.com\r\nSubject: still here\r\n\r\nbody")
+		if _, err := user.Append("INBOX", bytes.NewReader(message), &imap.AppendOptions{}); err != nil {
+			t.Fatalf("Append(INBOX): %v", err)
+		}
+	})
+
+	db := NewDBManager()
+	if err := db.SaveEmails(account.ID, "INBOX", []EmailSummary{{UID: 99, Subject: "deleted elsewhere"}}); err != nil {
+		t.Fatalf("SaveEmails: %v", err)
+	}
+	if err := db.SaveEmailBody(account.ID, "INBOX", &EmailDetail{
+		UID: 99, Subject: "deleted elsewhere", BodyText: "stale body",
+	}); err != nil {
+		t.Fatalf("SaveEmailBody: %v", err)
+	}
+
+	service := NewEmailService()
+	resp, err := service.RefreshEmails(account, "INBOX", 1, 20)
+	if err != nil {
+		t.Fatalf("RefreshEmails: %v", err)
+	}
+	if len(resp.Emails) != 1 || resp.Emails[0].Subject != "still here" {
+		t.Errorf("refresh returned %+v, want only the server message", resp.Emails)
+	}
+
+	emails, err := db.LoadEmails(account.ID, "INBOX")
+	if err != nil {
+		t.Fatalf("LoadEmails: %v", err)
+	}
+	if len(emails) != 1 || emails[0].Subject != "still here" {
+		t.Errorf("cached emails = %+v, want the stale row pruned", emails)
+	}
+	if _, err := db.LoadEmailBody(account.ID, "INBOX", 99); err == nil {
+		t.Error("stale cached body survived the refresh")
+	}
+}
+
 func TestDeleteEmailMovesMessageToTrashOverIMAP(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
+	user, account := startTestIMAP(t, func(user *imapmemserver.User) {
+		if err := user.Create("INBOX", nil); err != nil {
+			t.Fatalf("Create(INBOX): %v", err)
+		}
+		if err := user.Create("Trash", nil); err != nil {
+			t.Fatalf("Create(Trash): %v", err)
+		}
+		message := []byte("From: sender@example.com\r\nTo: user@example.com\r\nSubject: delete me\r\n\r\nbody")
+		if _, err := user.Append("INBOX", bytes.NewReader(message), &imap.AppendOptions{}); err != nil {
+			t.Fatalf("Append(INBOX): %v", err)
+		}
+	})
+
+	service := NewEmailService()
+	if err := service.DeleteEmail(account, "INBOX", 1); err != nil {
+		t.Fatalf("DeleteEmail: %v", err)
+	}
+
+	inbox, err := user.Status("INBOX", &imap.StatusOptions{NumMessages: true})
+	if err != nil {
+		t.Fatalf("Status(INBOX): %v", err)
+	}
+	if inbox.NumMessages == nil || *inbox.NumMessages != 0 {
+		t.Errorf("INBOX messages = %v, want 0", inbox.NumMessages)
+	}
+	trash, err := user.Status("Trash", &imap.StatusOptions{NumMessages: true})
+	if err != nil {
+		t.Fatalf("Status(Trash): %v", err)
+	}
+	if trash.NumMessages == nil || *trash.NumMessages != 1 {
+		t.Errorf("Trash messages = %v, want 1", trash.NumMessages)
+	}
+
+	// Deleting from Trash must expunge the message rather than moving it onto
+	// itself. The destination UID is 1 because Trash started empty.
+	if err := service.DeleteEmail(account, "Trash", 1); err != nil {
+		t.Fatalf("DeleteEmail(Trash): %v", err)
+	}
+	trash, err = user.Status("Trash", &imap.StatusOptions{NumMessages: true})
+	if err != nil {
+		t.Fatalf("Status(Trash after permanent delete): %v", err)
+	}
+	if trash.NumMessages == nil || *trash.NumMessages != 0 {
+		t.Errorf("Trash messages after permanent delete = %v, want 0", trash.NumMessages)
+	}
+}
+
+func startTestIMAP(
+	t *testing.T,
+	setup func(user *imapmemserver.User),
+) (*imapmemserver.User, EmailAccount) {
+	t.Helper()
+
 	memServer := imapmemserver.New()
 	user := imapmemserver.NewUser("user", "pass")
-	if err := user.Create("INBOX", nil); err != nil {
-		t.Fatalf("Create(INBOX): %v", err)
-	}
-	if err := user.Create("Trash", nil); err != nil {
-		t.Fatalf("Create(Trash): %v", err)
-	}
-	message := []byte("From: sender@example.com\r\nTo: user@example.com\r\nSubject: delete me\r\n\r\nbody")
-	if _, err := user.Append("INBOX", bytes.NewReader(message), &imap.AppendOptions{}); err != nil {
-		t.Fatalf("Append(INBOX): %v", err)
-	}
+	setup(user)
 	memServer.AddUser(user)
 
 	server := imapserver.New(&imapserver.Options{
@@ -154,37 +283,5 @@ func TestDeleteEmailMovesMessageToTrashOverIMAP(t *testing.T) {
 		IMAPUser: "user",
 		IMAPPass: "pass",
 	}
-
-	service := NewEmailService()
-	if err := service.DeleteEmail(account, "INBOX", 1); err != nil {
-		t.Fatalf("DeleteEmail: %v", err)
-	}
-
-	inbox, err := user.Status("INBOX", &imap.StatusOptions{NumMessages: true})
-	if err != nil {
-		t.Fatalf("Status(INBOX): %v", err)
-	}
-	if inbox.NumMessages == nil || *inbox.NumMessages != 0 {
-		t.Errorf("INBOX messages = %v, want 0", inbox.NumMessages)
-	}
-	trash, err := user.Status("Trash", &imap.StatusOptions{NumMessages: true})
-	if err != nil {
-		t.Fatalf("Status(Trash): %v", err)
-	}
-	if trash.NumMessages == nil || *trash.NumMessages != 1 {
-		t.Errorf("Trash messages = %v, want 1", trash.NumMessages)
-	}
-
-	// Deleting from Trash must expunge the message rather than moving it onto
-	// itself. The destination UID is 1 because Trash started empty.
-	if err := service.DeleteEmail(account, "Trash", 1); err != nil {
-		t.Fatalf("DeleteEmail(Trash): %v", err)
-	}
-	trash, err = user.Status("Trash", &imap.StatusOptions{NumMessages: true})
-	if err != nil {
-		t.Fatalf("Status(Trash after permanent delete): %v", err)
-	}
-	if trash.NumMessages == nil || *trash.NumMessages != 0 {
-		t.Errorf("Trash messages after permanent delete = %v, want 0", trash.NumMessages)
-	}
+	return user, account
 }

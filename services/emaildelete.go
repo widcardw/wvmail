@@ -54,6 +54,20 @@ func (s *EmailService) DeleteEmail(account EmailAccount, folder string, uid uint
 	}
 
 	uidSet := imap.UIDSetNum(imap.UID(uid))
+	found, err := client.UIDSearch(&imap.SearchCriteria{
+		UID: []imap.UIDSet{uidSet},
+	}, nil).Wait()
+	if err != nil {
+		return wrapIMAPError("checking the message failed", err)
+	}
+	if len(found.AllUIDs()) == 0 {
+		// The cache can outlive a message deleted or moved by another client.
+		// Treat that as a successful cleanup of the stale local row instead of
+		// sending MOVE/STORE for a UID the server no longer has.
+		s.finalizeEmailRemoval(client, account, folder, uid, false)
+		return nil
+	}
+
 	if strings.EqualFold(folder, trash.Name) {
 		if err := deletePermanently(client, uidSet); err != nil {
 			return wrapIMAPError("permanently deleting the message failed", err)
@@ -62,7 +76,27 @@ func (s *EmailService) DeleteEmail(account EmailAccount, folder string, uid uint
 		return wrapIMAPError("moving the message to Trash failed", err)
 	}
 
-	if err := s.db.DeleteEmail(account.ID, folder, uid); err != nil {
+	s.finalizeEmailRemoval(client, account, folder, uid, true)
+	return nil
+}
+
+// finalizeEmailRemoval mirrors an accepted removal into the local cache. A
+// stale UID that was already absent on the server must not decrement the cached
+// folder total, because the server total was already correct.
+func (s *EmailService) finalizeEmailRemoval(
+	client *imapclient.Client,
+	account EmailAccount,
+	folder string,
+	uid uint32,
+	serverChanged bool,
+) {
+	var err error
+	if serverChanged {
+		err = s.db.DeleteEmail(account.ID, folder, uid)
+	} else {
+		err = s.db.PruneEmails(account.ID, folder, []uint32{uid})
+	}
+	if err != nil {
 		// The server is authoritative; a stale cache row is preferable to telling
 		// the user the delete failed after it already happened.
 		slog.Warn("cache: failed to remove deleted email",
@@ -80,7 +114,6 @@ func (s *EmailService) DeleteEmail(account EmailAccount, folder string, uid uint
 			s.reportUnseen(account.ID, int(*status.NumUnseen))
 		}
 	}
-	return nil
 }
 
 func deletePermanently(client *imapclient.Client, uidSet imap.UIDSet) error {

@@ -357,6 +357,16 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	// that page completely.
 	responseEmails := summaries
 	if cached, cacheErr := s.db.LoadEmails(account.ID, folder); cacheErr == nil && len(cached) > 0 {
+		// SaveEmails intentionally upserts instead of replacing the folder, so
+		// messages deleted in another client would otherwise stay in the cache
+		// forever. Check only the cached UIDs: the cache is much smaller than a
+		// large mailbox and this keeps reconciliation proportional to it.
+		if pruned, pruneErr := s.pruneStaleCachedEmails(client, account, folder, cached); pruneErr != nil {
+			slog.Warn("cache: failed to prune stale emails",
+				"account", account, "folder", folder, "error", pruneErr)
+		} else {
+			cached = pruned
+		}
 		cacheCoversPage := page <= 1 || len(cached) >= page*pageSize || len(cached) >= total
 		if cacheCoversPage {
 			responseEmails = s.paginate(cached, page, pageSize)
@@ -368,6 +378,55 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		Total:   total,
 		UIDNext: uint32(mbox.UIDNext),
 	}, nil
+}
+
+// pruneStaleCachedEmails checks the cached UIDs against the selected mailbox.
+// It asks only about cached UIDs rather than fetching SEARCH ALL, so the cost is
+// proportional to the pages this client has actually stored.
+func (s *EmailService) pruneStaleCachedEmails(
+	client *imapclient.Client,
+	account EmailAccount,
+	folder string,
+	cached []EmailSummary,
+) ([]EmailSummary, error) {
+	if len(cached) == 0 {
+		return cached, nil
+	}
+
+	var cachedUIDs imap.UIDSet
+	for _, email := range cached {
+		cachedUIDs.AddNum(imap.UID(email.UID))
+	}
+	data, err := client.UIDSearch(&imap.SearchCriteria{
+		UID: []imap.UIDSet{cachedUIDs},
+	}, nil).Wait()
+	if err != nil {
+		return cached, fmt.Errorf("searching cached UIDs failed: %w", err)
+	}
+
+	existing := make(map[uint32]struct{}, len(data.AllUIDs()))
+	for _, uid := range data.AllUIDs() {
+		existing[uint32(uid)] = struct{}{}
+	}
+
+	stale := make([]uint32, 0)
+	kept := make([]EmailSummary, 0, len(cached))
+	for _, email := range cached {
+		if _, ok := existing[email.UID]; ok {
+			kept = append(kept, email)
+		} else {
+			stale = append(stale, email.UID)
+		}
+	}
+	if len(stale) == 0 {
+		return cached, nil
+	}
+	if err := s.db.PruneEmails(account.ID, folder, stale); err != nil {
+		return cached, fmt.Errorf("removing stale cached emails failed: %w", err)
+	}
+	slog.Debug("cache: pruned stale emails",
+		"account", account, "folder", folder, "count", len(stale))
+	return kept, nil
 }
 
 // emailSummaryFromBuffer is shared by the folder page fetch and the flagged-mail
