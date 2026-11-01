@@ -406,19 +406,22 @@ const showAttachments = computed(
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
 
       <template v-if="detail">
-        <EmailHeader :detail="detail" />
-        <div v-if="selectedEmailTags.length" class="detail-tags">
-          <button
-            v-for="tag in selectedEmailTags"
-            :key="tag.id"
-            type="button"
-            class="detail-tags__button"
-            :title="t['mail.tags.edit']"
-            @click="tagDialogOpen = true"
-          >
-            <TagChip :tag="tag" />
-          </button>
-        </div>
+        <EmailHeader :detail="detail">
+          <template #after-meta>
+            <div v-if="selectedEmailTags.length" class="detail-tags">
+              <button
+                v-for="tag in selectedEmailTags"
+                :key="tag.id"
+                type="button"
+                class="detail-tags__button"
+                :title="t['mail.tags.edit']"
+                @click="tagDialogOpen = true"
+              >
+                <TagChip :tag="tag" />
+              </button>
+            </div>
+          </template>
+        </EmailHeader>
 
         <!-- One bar stack above the body: the spam gate, then what the sanitiser dropped. -->
         <EmailSecurityNotice v-if="spamGated" @reveal="suspiciousRevealed = true" />
@@ -564,7 +567,7 @@ const showAttachments = computed(
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  padding: 8px 22px 0;
+  padding-top: 8px;
 }
 .detail-tags__button {
   padding: 0;

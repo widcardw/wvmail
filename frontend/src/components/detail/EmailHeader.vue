@@ -149,6 +149,8 @@ onMounted(() => {
         :addresses="detail.cc"
       />
     </div>
+
+    <slot name="after-meta" />
   </div>
 </template>
 
