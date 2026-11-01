@@ -81,13 +81,15 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function deleteNote(id: string) {
+  async function deleteNote(id: string): Promise<boolean> {
     try {
       await NotesService.DeleteNote(id)
+      notes.value = notes.value.filter((note) => note.id !== id)
       if (selectedId.value === id) selectedId.value = null
-      await loadNotes()
+      return true
     } catch (e) {
       console.error('Failed to delete note', e)
+      return false
     }
   }
 

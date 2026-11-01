@@ -1,20 +1,31 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { Menu } from '@ark-ui/vue/menu'
 import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
+import { useFeedbackStore } from '~/stores/feedback'
 import { formatNoteDate, noteHtmlToText, notePreviewText } from '~/composables/note-text'
 import NoteEditor from '~/components/notes/NoteEditor.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
+import type { Note } from '~/stores/notes'
 
 // The list half of Notes. Everything about editing a single note (editor instance,
 // toolbar, autosave) lives in components/notes/NoteEditor.vue, which this view mounts
 // with `:key="note.id"` so each note gets its own editor — and its own undo history.
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const notesStore = useNotesStore()
+const feedback = useFeedbackStore()
 
 const filter = ref('')
-const confirmingDelete = ref<string | null>(null)
-const editorRef = ref<{ flush: () => Promise<void>; discard: () => void } | null>(null)
+const openMenuId = ref<string | null>(null)
+const deleteTarget = ref<Note | null>(null)
+const deleting = ref(false)
+const editorRef = ref<{
+  flush: () => Promise<void>
+  discard: () => void
+  restore: () => void
+} | null>(null)
 
 /** Client-side filter over the loaded notes (the backend has no note search). */
 const visibleNotes = computed(() => {
@@ -30,24 +41,46 @@ async function handleNewNote() {
   await notesStore.createNote()
 }
 
-async function confirmAndDelete(id: string) {
-  if (confirmingDelete.value !== id) {
-    // Two-press delete: the first press arms, the second acts.
-    confirmingDelete.value = id
-    setTimeout(() => {
-      if (confirmingDelete.value === id) confirmingDelete.value = null
-    }, 2500)
-    return
+function onMenuOpenChange(note: Note, open: boolean) {
+  if (open) {
+    openMenuId.value = note.id
+  } else if (openMenuId.value === note.id) {
+    openMenuId.value = null
   }
-  confirmingDelete.value = null
+}
+
+function onMenuSelect(note: Note, value: string | undefined) {
+  if (value !== 'delete') return
+  // The item's own click handler also calls this; keep the two paths idempotent.
+  if (deleteTarget.value?.id === note.id) return
+  // The dialog is modal; dismiss the popup before its backdrop appears.
+  openMenuId.value = null
+  deleteTarget.value = note
+}
+
+async function confirmDelete() {
+  const target = deleteTarget.value
+  if (!target || deleting.value) return
+
+  deleting.value = true
   // The editor may be holding an unsaved edit for this note; discarding it stops the
   // unmount flush from writing the note back right after it was deleted.
-  if (notesStore.selectedId === id) editorRef.value?.discard()
-  await notesStore.deleteNote(id)
+  if (notesStore.selectedId === target.id) editorRef.value?.discard()
+  const deleted = await notesStore.deleteNote(target.id)
+  deleting.value = false
+
+  if (!deleted) {
+    // A failed delete leaves the note open, so restore its pending autosave.
+    if (notesStore.selectedId === target.id) editorRef.value?.restore()
+    feedback.error(t.value['notes.deleteFailed'])
+    return
+  }
+
+  deleteTarget.value = null
+  feedback.success(t.value['notes.deleted'])
 }
 
 function switchNote(id: string) {
-  confirmingDelete.value = null
   notesStore.selectNote(id)
 }
 
@@ -90,33 +123,52 @@ onMounted(() => {
         <p v-if="visibleNotes.length === 0" class="empty-pad">
           {{ filter.trim() ? t['notes.noMatch'] : t['notes.empty'] }}
         </p>
-        <button
+        <Menu.Root
           v-for="note in visibleNotes"
           :key="note.id"
-          type="button"
-          class="note-item"
-          :class="{ selected: note.id === notesStore.selectedId }"
-          @click="switchNote(note.id)"
+          :open="openMenuId === note.id"
+          :positioning="{ placement: 'bottom-start', gutter: 4 }"
+          lazy-mount
+          unmount-on-exit
+          @open-change="
+            (details: unknown) => onMenuOpenChange(note, !!(details as { open?: boolean })?.open)
+          "
+          @select="
+            (details: unknown) =>
+              onMenuSelect(note, (details as { value?: string })?.value ?? undefined)
+          "
         >
-          <span class="note-item-content">
-            <span class="note-title">{{ notePreviewText(note.content, t['notes.untitled']) }}</span>
-            <span class="note-date">{{ formatNoteDate(note.updated_at) }}</span>
-          </span>
-          <span
-            class="delete-btn"
-            :class="{ 'delete-btn--confirm': confirmingDelete === note.id }"
-            role="button"
-            tabindex="0"
-            @click.stop="confirmAndDelete(note.id)"
-          >
-            <i
-              v-if="confirmingDelete !== note.id"
-              class="i-ri:delete-bin-5-line"
-              aria-hidden="true"
-            />
-            <template v-else>{{ t['notes.delete'] }}?</template>
-          </span>
-        </button>
+          <Menu.ContextTrigger as-child>
+            <button
+              type="button"
+              class="note-item"
+              :class="{ selected: note.id === notesStore.selectedId }"
+              @click="switchNote(note.id)"
+            >
+              <span class="note-item-content">
+                <span class="note-title">
+                  {{ notePreviewText(note.content, t['notes.untitled']) }}
+                </span>
+                <span class="note-date">{{ formatNoteDate(note.updated_at) }}</span>
+              </span>
+            </button>
+          </Menu.ContextTrigger>
+
+          <Teleport to="body">
+            <Menu.Positioner class="note-menu-pos">
+              <Menu.Content class="note-menu">
+                <Menu.Item
+                  value="delete"
+                  class="note-menu__item note-menu__item--danger"
+                  @click="onMenuSelect(note, 'delete')"
+                >
+                  <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
+                  <Menu.ItemText>{{ t['notes.delete'] }}</Menu.ItemText>
+                </Menu.Item>
+              </Menu.Content>
+            </Menu.Positioner>
+          </Teleport>
+        </Menu.Root>
       </UiScrollArea>
     </div>
 
@@ -131,6 +183,23 @@ onMounted(() => {
     <div v-else class="editor-placeholder">
       <p class="empty-pad">{{ t['notes.empty'] }}</p>
     </div>
+
+    <ConfirmDialog
+      :open="!!deleteTarget"
+      :title="t['notes.delete']"
+      :description="
+        deleteTarget
+          ? tf('notes.deleteConfirm', {
+              title: notePreviewText(deleteTarget.content, t['notes.untitled']),
+            })
+          : undefined
+      "
+      :confirm-label="t['notes.delete']"
+      danger
+      :busy="deleting"
+      @update:open="(open) => (!open ? (deleteTarget = null) : undefined)"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -296,23 +365,44 @@ onMounted(() => {
   font-size: 11px;
   opacity: 0.5;
 }
-.delete-btn {
-  visibility: hidden;
-  margin-right: 6px;
-  padding: 2px 6px;
-  font-size: 11px;
+
+/* Portalled to <body>, so the scoped attribute is carried by these nodes themselves. */
+.note-menu-pos {
+  z-index: 1000;
+}
+.note-menu {
+  min-width: 152px;
+  padding: 4px;
+  color: var(--n-text-color);
+  background: var(--color-surface);
+  border: 1px solid var(--n-border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
+}
+.note-menu__item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  color: var(--n-text-color);
+  font-size: 13px;
+  background: transparent;
   border-radius: 4px;
-  color: var(--color-danger, #d03050);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
 }
-.note-item:hover .delete-btn,
-.delete-btn--confirm {
-  visibility: visible;
-}
-.delete-btn:hover {
+.note-menu__item[data-highlighted] {
   background: var(--n-sidebar-hover);
 }
-.delete-btn--confirm {
-  background: rgba(208, 48, 80, 0.15);
+.note-menu__item--danger {
+  color: var(--color-danger);
+}
+.note-menu__item--danger[data-highlighted] {
+  background: var(--color-danger-bg);
 }
 
 .editor-placeholder {

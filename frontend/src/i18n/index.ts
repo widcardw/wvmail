@@ -178,6 +178,9 @@ export interface TranslationSchema {
   'notes.search': string
   'notes.new': string
   'notes.delete': string
+  'notes.deleteConfirm': string
+  'notes.deleted': string
+  'notes.deleteFailed': string
   'notes.untitled': string
   'notes.bold': string
   'notes.italic': string

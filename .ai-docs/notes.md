@@ -5,7 +5,7 @@ description: How the Notes view is put together — one editor per note (why Tip
 # Notes
 
 ```
-views/NotesView.vue            list: filter, select, new, two-press delete
+views/NotesView.vue            list: filter, select, new, context-menu delete
   └─ components/notes/NoteEditor.vue   :key="note.id" → editor + toolbar + autosave
         └─ stores/notes.ts             loadNotes / createNote / saveNote(id, …) / deleteNote
               └─ NotesService (Go)     notes table (GORM): id, title, content, created_at, updated_at
@@ -51,7 +51,16 @@ bug this doc exists to prevent:
 | save by **explicit id** (`saveNote(id, title, content)`) | the flush runs while the selection has already moved on; keying off `selectedId` wrote into the next note |
 | `flush()` on unmount (switch or leaving the view) | the previous version cleared the debounce timer on unmount and **dropped** the last edits |
 | `discard()` before deleting the selected note | the unmount flush would otherwise re-insert the deleted note (GORM's `Save` upserts) |
+| `restore()` when deletion fails | the note remains open, so a cancelled pending autosave must resume |
 | "unsaved" / "saving" indicator in the toolbar | autosave with no feedback looks like nothing was saved |
+
+## Delete flow
+
+Right-clicking a note opens an Ark context menu. Its delete item closes the menu and
+opens the shared `ConfirmDialog`; the dialog stays open while the backend request runs
+and only closes after success. The selected editor is discarded before the request so
+its unmount flush cannot recreate the row. If the request fails, `restore()` puts the
+editor back into its normal autosave state and the error is reported with a toast.
 
 ## The editor fills the pane
 

@@ -39,6 +39,8 @@ const openingCompose = ref(false)
 const pendingHtml = ref(props.note.content || '')
 /** Set by the parent when the note is being deleted: a pending save must not resurrect it. */
 let discarded = false
+/** Whether `discard()` cancelled a real pending edit, so a failed delete can restore it. */
+let discardedDirty = false
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 const editor = useEditor({
@@ -85,12 +87,24 @@ async function flush() {
 
 /** Drop the pending edit: the note is going away, so saving would re-create it. */
 function discard() {
+  if (!discarded) discardedDirty = dirty.value
   discarded = true
   if (saveTimer) {
     clearTimeout(saveTimer)
     saveTimer = null
   }
   dirty.value = false
+}
+
+/** Put the editor back into its normal autosave state when deletion fails. */
+function restore() {
+  if (!discarded) return
+  discarded = false
+  if (discardedDirty) {
+    dirty.value = true
+    saveTimer = setTimeout(() => void save(), SAVE_DEBOUNCE_MS)
+  }
+  discardedDirty = false
 }
 
 async function sendToCompose() {
@@ -129,7 +143,7 @@ onBeforeUnmount(() => {
   editor.value?.destroy()
 })
 
-defineExpose({ flush, discard })
+defineExpose({ flush, discard, restore })
 </script>
 
 <template>
