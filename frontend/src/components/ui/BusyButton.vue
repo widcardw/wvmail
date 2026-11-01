@@ -95,6 +95,10 @@ const idleSizer = computed(() => props.sizerLabel || props.label)
 }
 .busy-btn__cell {
   grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
   white-space: nowrap;
 }
 .busy-btn__sizer {
