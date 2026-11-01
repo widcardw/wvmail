@@ -18,6 +18,8 @@
     "@ark-ui/vue": "^5.39.1",
     "@lobehub/icons-static-avatar": "^1.11.0",
     "@lobehub/icons-static-svg": "^1.91.0",
+    "@tiptap/core": "3.22.5",
+    "@tiptap/extension-image": "3.22.5",
     "@vueuse/core": "^14.3.0",
     "@wailsio/runtime": "3.0.0-beta.26",
     "chrono-node": "^2.10.2",

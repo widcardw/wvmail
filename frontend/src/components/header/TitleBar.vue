@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Menu } from '@ark-ui/vue/menu'
-import { OsService } from '#/wvmail/services'
+import { ComposeService, OsService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useThemeStore, type ThemeMode } from '~/stores/theme'
+import { useAccountsStore } from '~/stores/accounts'
+import { useFeedbackStore } from '~/stores/feedback'
 import SearchBar from './SearchBar.vue'
 import ConnectionStatus from '~/components/icon/ConnectionStatus.vue'
 
 const { t } = useI18n()
 const themeStore = useThemeStore()
+const accountsStore = useAccountsStore()
+const feedback = useFeedbackStore()
 
 const themeMode = computed<ThemeMode>({
   get: () => themeStore.mode,
@@ -35,6 +39,27 @@ onMounted(() => {
     if (os === 'darwin') lm.value = 80
   })
 })
+
+async function openCompose() {
+  const accountID =
+    accountsStore.selectedAccountId ?? accountsStore.accounts[0]?.ID ?? ''
+  try {
+    const result = await ComposeService.OpenCompose({
+      AccountID: accountID,
+      To: [],
+      Cc: [],
+      Bcc: [],
+      Subject: '',
+      Text: '',
+      HTML: '',
+      InReplyTo: '',
+      References: [],
+    })
+    if (result.Warning) feedback.info(result.Warning)
+  } catch (e) {
+    feedback.error(String(e))
+  }
+}
 </script>
 
 <template>
@@ -48,6 +73,15 @@ onMounted(() => {
     </div>
 
     <div class="titlebar-right">
+      <button
+        type="button"
+        class="icon-btn"
+        :title="t['compose.new']"
+        :aria-label="t['compose.new']"
+        @click="openCompose"
+      >
+        <i class="i-ri:quill-pen-line" aria-hidden="true" />
+      </button>
       <ConnectionStatus />
       <Menu.Root :positioning="{ placement: 'bottom-end', gutter: 8 }" lazy-mount unmount-on-exit>
         <Menu.Trigger

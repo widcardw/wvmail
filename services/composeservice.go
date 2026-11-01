@@ -242,6 +242,10 @@ func (s *ComposeService) SendDraft(id string) (*SendEmailResult, error) {
 	draft := cloneDraft(s.state.draft)
 	s.mu.Unlock()
 
+	htmlBody, err := replaceComposeImageSources(draft.HTML, draft.InlineImages)
+	if err != nil {
+		return nil, err
+	}
 	req := SendEmailRequest{
 		AccountID:  draft.AccountID,
 		To:         draft.To,
@@ -249,7 +253,7 @@ func (s *ComposeService) SendDraft(id string) (*SendEmailResult, error) {
 		Bcc:        draft.Bcc,
 		Subject:    draft.Subject,
 		Text:       draft.Text,
-		HTML:       draft.HTML,
+		HTML:       htmlBody,
 		InReplyTo:  draft.InReplyTo,
 		References: draft.References,
 	}
@@ -278,6 +282,13 @@ func (s *ComposeService) SendDraft(id string) (*SendEmailResult, error) {
 		s.state.allowClose = true
 	}
 	s.mu.Unlock()
+	if app := application.Get(); app != nil {
+		app.Event.Emit("compose:sent", map[string]any{
+			"accountID": draft.AccountID,
+			"messageID": result.MessageID,
+			"warning":   result.Warning,
+		})
+	}
 	s.closeWindow()
 	s.removeDraft(id)
 

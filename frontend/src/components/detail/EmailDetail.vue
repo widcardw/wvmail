@@ -10,7 +10,7 @@ import { formatDate } from '~/composables/formats'
 import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
-import { EmailService, OsService } from '#/wvmail/services'
+import { ComposeService, EmailService, OsService } from '#/wvmail/services'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailActionBar from './EmailActionBar.vue'
 import EmailHeader from './EmailHeader.vue'
@@ -226,7 +226,20 @@ async function handleLinkClick(event: MouseEvent) {
   if (!el || !(el instanceof HTMLAnchorElement)) return
   const href = el.getAttribute('href')
   if (!href) return
-  if (href.startsWith('mailto:')) return
+  if (href.toLowerCase().startsWith('mailto:')) {
+    event.preventDefault()
+    try {
+      const result = await ComposeService.OpenMailto(
+        el.href,
+        accountsStore.selectedEmailAccountId ?? accountsStore.selectedAccountId ?? '',
+      )
+      if (result.Warning) fb.info(result.Warning)
+    } catch (e) {
+      fb.error(t.value['compose.open_failed'])
+      console.error('Failed to open mailto compose draft', e)
+    }
+    return
+  }
   if (href.startsWith('#') && !href.startsWith('http')) return
 
   event.preventDefault()

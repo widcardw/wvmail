@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { LocaleProvider } from '@ark-ui/vue/locale'
 import { Splitter } from '@ark-ui/vue/splitter'
 import { Events } from '@wailsio/runtime'
 import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'
 import { usePreferencesStore } from './stores/preferences'
+import { useFeedbackStore } from './stores/feedback'
+import { useI18n } from './i18n'
 import { ConfigService } from '#/wvmail/services'
 import TitleBar from './components/header/TitleBar.vue'
 import SideBar from './components/sidebar/SideBar.vue'
@@ -17,7 +20,12 @@ import splitStyles from './components/mail-split.module.css'
 const theme = useThemeStore()
 const localeStore = useLocaleStore()
 const preferences = usePreferencesStore()
+const feedback = useFeedbackStore()
+const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
+const isCompose = computed(() => route.name === 'compose')
+let unlistenComposeSent: (() => void) | null = null
 
 onMounted(async () => {
   try {
@@ -32,14 +40,26 @@ onMounted(async () => {
 
   // Listen for global keyboard shortcut to navigate to settings
   Events.On('navigate:settings', () => {
+    if (isCompose.value) return
     router.push('/settings')
   })
+
+  unlistenComposeSent = Events.On('compose:sent', (event) => {
+    const payload = event.data as { warning?: string } | undefined
+    if (payload?.warning) feedback.error(payload.warning)
+    else feedback.success(t.value['compose.sent'])
+  })
+})
+
+onUnmounted(() => {
+  unlistenComposeSent?.()
 })
 </script>
 
 <template>
   <LocaleProvider :locale="localeStore.current">
-    <div class="app">
+    <RouterView v-if="isCompose" />
+    <div v-else class="app">
       <header class="app__titlebar">
         <TitleBar />
       </header>

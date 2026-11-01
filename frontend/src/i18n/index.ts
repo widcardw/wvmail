@@ -130,6 +130,33 @@ export interface TranslationSchema {
   'mail.translation.close': string
   'mail.translation.empty': string
   'mail.translation.cancel': string
+  'compose.new': string
+  'compose.title': string
+  'compose.from': string
+  'compose.to': string
+  'compose.cc': string
+  'compose.bcc': string
+  'compose.subject': string
+  'compose.subject_placeholder': string
+  'compose.recipient_placeholder': string
+  'compose.recipient_required': string
+  'compose.add_cc': string
+  'compose.add_bcc': string
+  'compose.send': string
+  'compose.sending': string
+  'compose.sent': string
+  'compose.discard': string
+  'compose.attach': string
+  'compose.insert_image': string
+  'compose.attachment_count': string
+  'compose.remove_attachment': string
+  'compose.close_title': string
+  'compose.close_body': string
+  'compose.open_failed': string
+  'compose.editor_toolbar': string
+  'compose.underline': string
+  'compose.link': string
+  'compose.link_prompt': string
   'notes.title': string
   'notes.empty': string
   'notes.clearSearch': string

@@ -4,6 +4,7 @@ import MailView from '../views/MailView.vue'
 import ReminderView from '../views/ReminderView.vue'
 import NotesView from '../views/NotesView.vue'
 import ContactsView from '../views/ContactsView.vue'
+import ComposeView from '../views/ComposeView.vue'
 import SettingsMain from '../views/settings/SettingsMain.vue'
 import SettingsCommon from '../views/settings/Common.vue'
 import SettingsSecurity from '../views/settings/Security.vue'
@@ -21,6 +22,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/reminder', name: 'reminder', component: ReminderView },
   { path: '/notes', name: 'notes', component: NotesView },
   { path: '/contacts', name: 'contacts', component: ContactsView },
+  // Opened in a separate Wails window. The draft id is the only URL state;
+  // recipients, HTML and attachments live in ComposeService.
+  { path: '/compose', name: 'compose', component: ComposeView },
   {
     path: '/settings',
     name: 'settings',
