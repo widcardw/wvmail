@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, unref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { ShallowRef } from 'vue'
 import { Dialog } from '@ark-ui/vue/dialog'
+import { Field } from '@ark-ui/vue/field'
 import UiColorPicker from './UiColorPicker.vue'
 import UiDialog from './UiDialog.vue'
 
@@ -146,7 +147,7 @@ onBeforeUnmount(() => {
     </button>
   </span>
 
-  <UiDialog :open="linkOpen" size="narrow" @update:open="linkOpen = $event">
+  <UiDialog :open="linkOpen" size="narrow" flush @update:open="linkOpen = $event">
     <header class="dlg-head">
       <Dialog.Title class="dlg-title">{{ linkLabel }}</Dialog.Title>
       <Dialog.CloseTrigger
@@ -158,27 +159,26 @@ onBeforeUnmount(() => {
         <i class="i-ri:close-line" aria-hidden="true" />
       </Dialog.CloseTrigger>
     </header>
-    <form @submit.prevent="applyLink">
-      <div class="dlg-body">
-        <label class="link-field">
-          <span>{{ linkPrompt }}</span>
-          <input
-            v-model="linkUrl"
-            class="ctl"
-            type="url"
-            inputmode="url"
-            placeholder="https://"
-            autofocus
-          />
-        </label>
-      </div>
-      <footer class="dlg-foot">
-        <button type="button" class="btn" @click="linkOpen = false">{{ cancelLabel }}</button>
-        <button type="submit" class="btn btn--primary" :disabled="!linkUrl.trim()">
-          {{ linkLabel }}
-        </button>
-      </footer>
-    </form>
+    <div class="dlg-body">
+      <Field.Root class="field">
+        <Field.Label class="field__label">{{ linkPrompt }}</Field.Label>
+        <Field.Input
+          v-model="linkUrl"
+          class="ctl"
+          type="url"
+          inputmode="url"
+          placeholder="https://"
+          autofocus
+          @keydown.enter.prevent="applyLink"
+        />
+      </Field.Root>
+    </div>
+    <footer class="dlg-foot">
+      <button type="button" class="btn" @click="linkOpen = false">{{ cancelLabel }}</button>
+      <button type="button" class="btn btn--primary" :disabled="!linkUrl.trim()" @click="applyLink">
+        {{ linkLabel }}
+      </button>
+    </footer>
   </UiDialog>
 </template>
 
@@ -214,10 +214,7 @@ onBeforeUnmount(() => {
 .tb i {
   font-size: 16px;
 }
-.link-field {
-  display: grid;
-  gap: 7px;
-  color: var(--color-text-2);
-  font-size: 12px;
+.ctl {
+  width: 100%;
 }
 </style>

@@ -281,6 +281,10 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
 - Confirmation: Dialog (`.Root` with open) or popover; replace `NPopconfirm`. Dialogs share the `.dlg-*` shell in
   `styles/ui.css` instead of re-declaring backdrop/positioner/card CSS per component, and each one opts into Ark's
   render strategy (`lazy-mount` + `unmount-on-exit`) so its content only exists while open.
+- **Dialogs that provide `dlg-head` / `dlg-body` / `dlg-foot` must pass `flush`** and keep those three nodes as direct
+  children of `UiDialog`. Without `flush`, the card padding stacks on top of the body padding; an extra `<form>` wrapper
+  also breaks the card's flex layout and makes the dialog look unlike the other form dialogs. Handle Enter on the field
+  and the confirm button directly instead of relying on a wrapper form.
 - **Closed overlays are hidden with the `hidden` attribute, not unmounted** (`Dialog.Content`/`Backdrop`, popover/menu
   content). The UA `[hidden] { display: none }` loses to *any* author rule that sets `display`, and our
   `.dlg-card { display: flex }` did exactly that — a closed-but-mounted dialog stayed painted on top of the page.
