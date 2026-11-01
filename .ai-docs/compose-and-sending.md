@@ -53,7 +53,8 @@ Vue 3、Tiptap `3.22.5`。
 | `frontend/src/views/ComposeView.vue` | 写信表单、自动保存、拖放、发送/放弃 |
 | `frontend/src/components/compose/ComposeRecipientInput.vue` | To/Cc/Bcc 联系人自动补全、键盘选择与多收件人文本编辑 |
 | `frontend/src/components/compose/ComposeEditor.vue` | Tiptap 编辑器与格式工具栏 |
-| `frontend/src/components/compose/ComposeColorPicker.vue` | 写信工具栏的文字颜色 / 底纹颜色弹出面板 |
+| `frontend/src/components/ui/UiRichTextToolbar.vue` | 写信与笔记共用的颜色、底纹、链接工具 |
+| `frontend/src/components/ui/UiColorPicker.vue` | 预设色 / 自定义色 / 恢复默认的颜色弹出面板 |
 | `frontend/src/composables/compose.ts` | 收件人文本解析、当前片段定位与格式化 |
 | `frontend/src/composables/reply.ts` | 回复/回复全部/转发的纯函数规则 |
 | `frontend/src/App.vue` | 应用级 `mailto:` 点击兜底和 `compose:sent` toast |
@@ -234,7 +235,9 @@ Bcc: bcc@example.com       ← 不写
 
 - 工具栏左侧分组为加粗 / 斜体 / 下划线 / 删除线、H1/H2/H3、文字颜色、底纹颜色和插入链接；
 - 图片与附件独立在右侧分组，不和链接混排；
-- `ComposeColorPicker.vue` 提供 10 个预设色、原生颜色选择器和恢复默认；
+- `UiColorPicker.vue` 提供 10 个预设色、原生颜色选择器和恢复默认；
+- `UiRichTextToolbar.vue` 由写信和笔记共用，链接使用 Ark 对话框输入，
+  不依赖 Wails WebView 中不会显示的原生 `window.prompt`；
 - 颜色输出为 `<span style="color:...;background-color:...">`，邮件读取端的
   sanitizer 已允许全局 `style` 属性，无需引入 `<mark>` 或新的白名单标签；
 - 发送前的纯文本 fallback 由 `htmlToPlainText` 从 HTML 派生。

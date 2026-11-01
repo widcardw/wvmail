@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import { BackgroundColor, Color, TextStyle } from '@tiptap/extension-text-style'
 import { useI18n } from '~/i18n'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
-import ComposeColorPicker from './ComposeColorPicker.vue'
+import UiRichTextToolbar from '~/components/ui/UiRichTextToolbar.vue'
 
 const props = defineProps<{
   modelValue: string
@@ -63,37 +63,6 @@ const editor = useEditor({
   },
 })
 
-const textColor = computed(
-  () => editor.value?.getAttributes('textStyle').color as string | undefined,
-)
-const backgroundColor = computed(
-  () => editor.value?.getAttributes('textStyle').backgroundColor as string | undefined,
-)
-const textColorPresets = [
-  '#111827',
-  '#374151',
-  '#dc2626',
-  '#ea580c',
-  '#ca8a04',
-  '#16a34a',
-  '#0891b2',
-  '#2563eb',
-  '#7c3aed',
-  '#db2777',
-]
-const backgroundColorPresets = [
-  '#ffffff',
-  '#fef3c7',
-  '#fee2e2',
-  '#ffedd5',
-  '#dcfce7',
-  '#cffafe',
-  '#dbeafe',
-  '#ede9fe',
-  '#fce7f3',
-  '#e5e7eb',
-]
-
 watch(
   () => props.modelValue,
   (value) => {
@@ -117,28 +86,6 @@ function insertImage(image: { id: string; preview: string; name: string; content
       },
     })
     .run()
-}
-
-function setLink() {
-  const url = window.prompt(t.value['compose.link_prompt'])
-  if (!url) return
-  editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-}
-
-function setTextColor(color: string) {
-  editor.value?.chain().focus().setColor(color).run()
-}
-
-function unsetTextColor() {
-  editor.value?.chain().focus().unsetColor().run()
-}
-
-function setBackgroundColor(color: string) {
-  editor.value?.chain().focus().setBackgroundColor(color).run()
-}
-
-function unsetBackgroundColor() {
-  editor.value?.chain().focus().unsetBackgroundColor().run()
 }
 
 function focus() {
@@ -204,37 +151,16 @@ onBeforeUnmount(() => {
         H{{ lvl }}
       </button>
       <span class="toolbar-sep" />
-      <ComposeColorPicker
-        :label="t['compose.text_color']"
-        :custom-label="t['compose.color_custom']"
-        :default-label="t['compose.color_default']"
-        icon="i-ri:font-color"
-        :value="textColor"
-        fallback="#dc2626"
-        :presets="textColorPresets"
-        @select="setTextColor"
-        @reset="unsetTextColor"
+      <UiRichTextToolbar
+        :editor="editor"
+        :text-color-label="t['compose.text_color']"
+        :background-color-label="t['compose.background_color']"
+        :custom-color-label="t['compose.color_custom']"
+        :default-color-label="t['compose.color_default']"
+        :link-label="t['compose.link']"
+        :link-prompt="t['compose.link_prompt']"
+        :cancel-label="t['cancel']"
       />
-      <ComposeColorPicker
-        :label="t['compose.background_color']"
-        :custom-label="t['compose.color_custom']"
-        :default-label="t['compose.color_default']"
-        icon="i-ri:mark-pen-line"
-        :value="backgroundColor"
-        fallback="#fef3c7"
-        :presets="backgroundColorPresets"
-        @select="setBackgroundColor"
-        @reset="unsetBackgroundColor"
-      />
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('link') }"
-        :title="t['compose.link']"
-        @click="setLink"
-      >
-        <i class="i-ri:link" aria-hidden="true" />
-      </button>
       <span class="toolbar-sep" />
       <button
         type="button"

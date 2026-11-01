@@ -41,6 +41,12 @@ check(
 )
 check('headings break too', noteHtmlToText('<h1>Title</h1><p>body</p>') === 'Title\nbody')
 check('inline markup does not break', noteHtmlToText('<p>a <strong>b</strong> c</p>') === 'a b c')
+check(
+  'inline colour styles do not break text extraction',
+  noteHtmlToText(
+    '<p>a <span style="color:#dc2626;background-color:#fef3c7">coloured</span> c</p>',
+  ) === 'a coloured c',
+)
 check('an empty note is empty text', noteHtmlToText('') === '')
 check('empty paragraphs disappear', noteHtmlToText('<p></p><p>real</p>') === 'real')
 check('nbsp becomes a space, not a line', noteHtmlToText('<p>a&nbsp;b</p>') === 'a b')

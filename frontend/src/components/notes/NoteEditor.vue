@@ -2,12 +2,14 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
+import { BackgroundColor, Color, TextStyle } from '@tiptap/extension-text-style'
 import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
 import { useAccountsStore } from '~/stores/accounts'
 import { useFeedbackStore } from '~/stores/feedback'
 import { extractNoteTitle } from '~/composables/note-text'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import UiRichTextToolbar from '~/components/ui/UiRichTextToolbar.vue'
 import type { Note } from '~/stores/notes'
 import { ComposeService } from '#/wvmail/services'
 
@@ -45,6 +47,9 @@ const editor = useEditor({
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
     }),
+    TextStyle,
+    Color,
+    BackgroundColor,
   ],
   onUpdate: ({ editor: ed }) => {
     const html = ed.getHTML()
@@ -151,6 +156,15 @@ defineExpose({ flush, discard })
       <button
         type="button"
         class="tb"
+        :class="{ active: editor?.isActive('underline') }"
+        :title="t['compose.underline']"
+        @click="editor?.chain().focus().toggleUnderline().run()"
+      >
+        <i class="i-ri:underline" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="tb"
         :class="{ active: editor?.isActive('strike') }"
         :title="t['notes.strike']"
         @click="editor?.chain().focus().toggleStrike().run()"
@@ -169,6 +183,17 @@ defineExpose({ flush, discard })
       >
         H{{ lvl }}
       </button>
+      <span class="toolbar-sep" />
+      <UiRichTextToolbar
+        :editor="editor"
+        :text-color-label="t['compose.text_color']"
+        :background-color-label="t['compose.background_color']"
+        :custom-color-label="t['compose.color_custom']"
+        :default-color-label="t['compose.color_default']"
+        :link-label="t['compose.link']"
+        :link-prompt="t['compose.link_prompt']"
+        :cancel-label="t['cancel']"
+      />
       <span class="toolbar-sep" />
       <button
         type="button"

@@ -12,6 +12,20 @@ views/NotesView.vue            list: filter, select, new, two-press delete
 composables/note-text.ts       pure helpers: title / preview / date (tests/note-text.test.mts)
 ```
 
+## Rich-text toolbar
+
+`NoteEditor.vue` and `ComposeEditor.vue` share
+`components/ui/UiRichTextToolbar.vue` for the editor-level controls:
+
+- text color / background color (`UiColorPicker.vue`), with presets, a native color
+  picker, and reset-to-default;
+- link editing through an Ark dialog rather than `window.prompt`;
+- the same Tiptap `TextStyle`, `Color`, and `BackgroundColor` extensions.
+
+Compose still owns its extra media controls (inline images and attachments), while
+Notes owns the “send this note to…” action. The common formatting behavior therefore
+does not drift between the two editors.
+
 ## One editor per note is load-bearing
 
 `NoteEditor.vue` is mounted with `:key="note.id"`, so every note gets a **fresh TipTap
