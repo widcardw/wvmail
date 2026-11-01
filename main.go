@@ -106,6 +106,8 @@ func main() {
 	}
 
 	emailSvc := services.NewEmailService()
+	sendSvc := services.NewEmailSendService(cfgSvc, emailSvc)
+	composeSvc := services.NewComposeService(cfgSvc, sendSvc)
 	accountHealth := services.NewAccountHealthReporter()
 	emailSvc.SetAccountHealthReporter(accountHealth)
 	syncSvc := services.NewEmailSyncService(cfgSvc, emailSvc)
@@ -150,6 +152,9 @@ func main() {
 			application.NewService(services.NewOsService(requestQuit)),
 			application.NewService(cfgSvc),
 			application.NewService(emailSvc),
+			// Outbound SMTP and the compose window share one draft/send path.
+			application.NewService(sendSvc),
+			application.NewService(composeSvc),
 			application.NewService(services.NewNotesService()),
 			application.NewService(services.NewRemindersService()),
 			application.NewService(services.NewContactsService()),
