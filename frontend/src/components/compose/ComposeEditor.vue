@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
+import { BackgroundColor, Color, TextStyle } from '@tiptap/extension-text-style'
 import { useI18n } from '~/i18n'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import ComposeColorPicker from './ComposeColorPicker.vue'
 
 const props = defineProps<{
   modelValue: string
@@ -17,7 +19,7 @@ const emit = defineEmits<{
   'pick-image': []
 }>()
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const editor = useEditor({
   content: props.modelValue || '<p></p>',
   extensions: [
@@ -51,12 +53,46 @@ const editor = useEditor({
         }
       },
     }),
+    TextStyle,
+    Color,
+    BackgroundColor,
   ],
   onUpdate: ({ editor: ed }) => {
     emit('update:modelValue', ed.getHTML())
     emit('update:text', ed.getText({ blockSeparator: '\n\n' }))
   },
 })
+
+const textColor = computed(
+  () => editor.value?.getAttributes('textStyle').color as string | undefined,
+)
+const backgroundColor = computed(
+  () => editor.value?.getAttributes('textStyle').backgroundColor as string | undefined,
+)
+const textColorPresets = [
+  '#111827',
+  '#374151',
+  '#dc2626',
+  '#ea580c',
+  '#ca8a04',
+  '#16a34a',
+  '#0891b2',
+  '#2563eb',
+  '#7c3aed',
+  '#db2777',
+]
+const backgroundColorPresets = [
+  '#ffffff',
+  '#fef3c7',
+  '#fee2e2',
+  '#ffedd5',
+  '#dcfce7',
+  '#cffafe',
+  '#dbeafe',
+  '#ede9fe',
+  '#fce7f3',
+  '#e5e7eb',
+]
 
 watch(
   () => props.modelValue,
@@ -87,6 +123,22 @@ function setLink() {
   const url = window.prompt(t.value['compose.link_prompt'])
   if (!url) return
   editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+}
+
+function setTextColor(color: string) {
+  editor.value?.chain().focus().setColor(color).run()
+}
+
+function unsetTextColor() {
+  editor.value?.chain().focus().unsetColor().run()
+}
+
+function setBackgroundColor(color: string) {
+  editor.value?.chain().focus().setBackgroundColor(color).run()
+}
+
+function unsetBackgroundColor() {
+  editor.value?.chain().focus().unsetBackgroundColor().run()
 }
 
 function focus() {
@@ -141,6 +193,50 @@ onBeforeUnmount(() => {
       </button>
       <span class="toolbar-sep" />
       <button
+        v-for="lvl in [1, 2, 3] as const"
+        :key="lvl"
+        type="button"
+        class="tb tb--text"
+        :class="{ active: editor?.isActive('heading', { level: lvl }) }"
+        :title="tf('notes.heading', { level: lvl })"
+        @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
+      >
+        H{{ lvl }}
+      </button>
+      <span class="toolbar-sep" />
+      <ComposeColorPicker
+        :label="t['compose.text_color']"
+        :custom-label="t['compose.color_custom']"
+        :default-label="t['compose.color_default']"
+        icon="i-ri:font-color"
+        :value="textColor"
+        fallback="#dc2626"
+        :presets="textColorPresets"
+        @select="setTextColor"
+        @reset="unsetTextColor"
+      />
+      <ComposeColorPicker
+        :label="t['compose.background_color']"
+        :custom-label="t['compose.color_custom']"
+        :default-label="t['compose.color_default']"
+        icon="i-ri:mark-pen-line"
+        :value="backgroundColor"
+        fallback="#fef3c7"
+        :presets="backgroundColorPresets"
+        @select="setBackgroundColor"
+        @reset="unsetBackgroundColor"
+      />
+      <button
+        type="button"
+        class="tb"
+        :class="{ active: editor?.isActive('link') }"
+        :title="t['compose.link']"
+        @click="setLink"
+      >
+        <i class="i-ri:link" aria-hidden="true" />
+      </button>
+      <span class="toolbar-sep" />
+      <button
         type="button"
         class="tb"
         :class="{ active: editor?.isActive('bulletList') }"
@@ -177,15 +273,6 @@ onBeforeUnmount(() => {
         <i class="i-ri:code-box-line" aria-hidden="true" />
       </button>
       <span class="toolbar-sep" />
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('link') }"
-        :title="t['compose.link']"
-        @click="setLink"
-      >
-        <i class="i-ri:link" aria-hidden="true" />
-      </button>
       <button
         type="button"
         class="tb"
@@ -280,6 +367,12 @@ onBeforeUnmount(() => {
 .tb i {
   font-size: 16px;
 }
+.tb--text {
+  width: auto;
+  padding: 0 5px;
+  font-size: 10.5px;
+  font-weight: 650;
+}
 .toolbar-sep {
   width: 1px;
   height: 16px;
@@ -316,6 +409,15 @@ onBeforeUnmount(() => {
 .editor-content :deep(.ProseMirror h3) {
   margin: 1.1em 0 0.45em;
   line-height: 1.25;
+}
+.editor-content :deep(.ProseMirror h1) {
+  font-size: 24px;
+}
+.editor-content :deep(.ProseMirror h2) {
+  font-size: 20px;
+}
+.editor-content :deep(.ProseMirror h3) {
+  font-size: 17px;
 }
 .editor-content :deep(.ProseMirror blockquote) {
   margin: 0.8em 0;

@@ -10,11 +10,7 @@ import { formatDate } from '~/composables/formats'
 import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
 import { useMailTranslation } from '~/composables/mail-translation'
-import {
-  buildReplyEnvelope,
-  escapeHTML,
-  type ReplyMode,
-} from '~/composables/reply'
+import { buildReplyEnvelope, escapeHTML, type ReplyMode } from '~/composables/reply'
 import { ComposeService, EmailService, OsService } from '#/wvmail/services'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailActionBar from './EmailActionBar.vue'
@@ -233,11 +229,7 @@ function replyBodyHTML(
 async function openReply(mode: ReplyMode) {
   const mail = detail.value
   if (!mail) return
-  const envelope = buildReplyEnvelope(
-    mail,
-    mode,
-    accountsStore.selectedEmailAccount?.Email ?? '',
-  )
+  const envelope = buildReplyEnvelope(mail, mode, accountsStore.selectedEmailAccount?.Email ?? '')
   if (mode !== 'forward' && envelope.To.length === 0) {
     fb.error(t.value['mail.reply_unavailable'])
     return
@@ -245,8 +237,7 @@ async function openReply(mode: ReplyMode) {
   const body = replyBodyHTML(mail, mode)
   try {
     const result = await ComposeService.OpenCompose({
-      AccountID:
-        accountsStore.selectedEmailAccountId ?? accountsStore.selectedAccountId ?? '',
+      AccountID: accountsStore.selectedEmailAccountId ?? accountsStore.selectedAccountId ?? '',
       ...envelope,
       Text: body.text,
       HTML: body.html,

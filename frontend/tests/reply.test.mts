@@ -60,10 +60,22 @@ const detail = {
 {
   const replyAll = buildReplyEnvelope(detail, 'reply-all', 'ME@example.com')
   check('reply all keeps the sender in To', replyAll.To[0]?.Address === 'alice@example.com')
-  check('reply all excludes the current account', !replyAll.Cc.some((a) => a.Address === 'me@example.com'))
-  check('reply all deduplicates the sender from Cc', !replyAll.Cc.some((a) => a.Address === 'alice@example.com'))
-  check('reply all keeps other recipients', replyAll.Cc.some((a) => a.Address === 'bob@example.com'))
-  check('reply all keeps original Cc', replyAll.Cc.some((a) => a.Address === 'carol@example.com'))
+  check(
+    'reply all excludes the current account',
+    !replyAll.Cc.some((a) => a.Address === 'me@example.com'),
+  )
+  check(
+    'reply all deduplicates the sender from Cc',
+    !replyAll.Cc.some((a) => a.Address === 'alice@example.com'),
+  )
+  check(
+    'reply all keeps other recipients',
+    replyAll.Cc.some((a) => a.Address === 'bob@example.com'),
+  )
+  check(
+    'reply all keeps original Cc',
+    replyAll.Cc.some((a) => a.Address === 'carol@example.com'),
+  )
 }
 
 {
@@ -74,7 +86,10 @@ const detail = {
 
 {
   check('reply subject gets a prefix', subjectWithPrefix('Hello', 'reply') === 'Re: Hello')
-  check('reply subject does not duplicate Re', subjectWithPrefix('Re: Hello', 'reply') === 'Re: Hello')
+  check(
+    'reply subject does not duplicate Re',
+    subjectWithPrefix('Re: Hello', 'reply') === 'Re: Hello',
+  )
   check('forward subject gets a prefix', subjectWithPrefix('Hello', 'forward') === 'Fwd: Hello')
   check(
     'forward subject does not duplicate Fwd',
@@ -84,7 +99,10 @@ const detail = {
 
 {
   const escaped = escapeHTML(`<b>"A&B"</b>`)
-  check('HTML escaping protects quoted headers', escaped === '&lt;b&gt;&quot;A&amp;B&quot;&lt;/b&gt;')
+  check(
+    'HTML escaping protects quoted headers',
+    escaped === '&lt;b&gt;&quot;A&amp;B&quot;&lt;/b&gt;',
+  )
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

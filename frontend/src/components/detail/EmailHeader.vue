@@ -51,7 +51,8 @@ const sender = computed(() => {
   const display = senderDisplay(props.detail)
   const raw = props.detail.from_addr || props.detail.from || display.addr || display.fallback || ''
   return {
-    name: display.name || (display.fallback && !display.fallback.includes('@') ? display.fallback : ''),
+    name:
+      display.name || (display.fallback && !display.fallback.includes('@') ? display.fallback : ''),
     email: extractAddress(raw),
   }
 })
@@ -117,11 +118,7 @@ onMounted(() => {
                 <i class="i-ri:file-copy-line" aria-hidden="true" />
                 <Menu.ItemText>{{ t['contacts.copyEmail'] }}</Menu.ItemText>
               </Menu.Item>
-              <Menu.Item
-                value="add-contact"
-                class="sender-menu__item"
-                :disabled="senderIsContact"
-              >
+              <Menu.Item value="add-contact" class="sender-menu__item" :disabled="senderIsContact">
                 <i
                   :class="senderIsContact ? 'i-ri:check-line' : 'i-ri:user-add-line'"
                   aria-hidden="true"

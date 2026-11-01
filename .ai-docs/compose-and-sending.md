@@ -53,6 +53,7 @@ Vue 3、Tiptap `3.22.5`。
 | `frontend/src/views/ComposeView.vue` | 写信表单、自动保存、拖放、发送/放弃 |
 | `frontend/src/components/compose/ComposeRecipientInput.vue` | To/Cc/Bcc 联系人自动补全、键盘选择与多收件人文本编辑 |
 | `frontend/src/components/compose/ComposeEditor.vue` | Tiptap 编辑器与格式工具栏 |
+| `frontend/src/components/compose/ComposeColorPicker.vue` | 写信工具栏的文字颜色 / 底纹颜色弹出面板 |
 | `frontend/src/composables/compose.ts` | 收件人文本解析、当前片段定位与格式化 |
 | `frontend/src/composables/reply.ts` | 回复/回复全部/转发的纯函数规则 |
 | `frontend/src/App.vue` | 应用级 `mailto:` 点击兜底和 `compose:sent` toast |
@@ -225,6 +226,29 @@ Bcc: bcc@example.com       ← 不写
 - `References` 当前只写这个 `Message-ID`；`EmailDetail` 尚未暴露原始
   References 链，因此不会伪造完整历史链。
 - 转发不写线程头。
+
+### 6.4 正文格式与颜色
+
+`ComposeEditor.vue` 使用 StarterKit 的 H1/H2/H3 节点，并额外启用
+`@tiptap/extension-text-style` 的 `TextStyle`、`Color`、`BackgroundColor`：
+
+- 工具栏左侧分组为加粗 / 斜体 / 下划线 / 删除线、H1/H2/H3、文字颜色、底纹颜色和插入链接；
+- 图片与附件独立在右侧分组，不和链接混排；
+- `ComposeColorPicker.vue` 提供 10 个预设色、原生颜色选择器和恢复默认；
+- 颜色输出为 `<span style="color:...;background-color:...">`，邮件读取端的
+  sanitizer 已允许全局 `style` 属性，无需引入 `<mark>` 或新的白名单标签；
+- 发送前的纯文本 fallback 由 `htmlToPlainText` 从 HTML 派生。
+
+### 6.5 从笔记打开写信窗口
+
+`NoteEditor.vue` 工具栏右侧的「将该笔记发送到…」不会直接发送邮件。它会：
+
+1. 先 `flush()` 保存当前笔记的未落盘编辑；
+2. 调用 `ComposeService.OpenCompose`；
+3. 使用当前邮件 / 当前文件夹 / 第一个配置账户作为发件账户；
+4. 将笔记标题写入 Subject，将笔记 HTML 写入正文。
+
+如果已有脏写信草稿，后端保持现有保守策略：聚焦旧窗口并提示用户先处理该草稿。
 
 ## 7. Sent 副本
 

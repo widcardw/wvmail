@@ -4,9 +4,12 @@ import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
+import { useAccountsStore } from '~/stores/accounts'
+import { useFeedbackStore } from '~/stores/feedback'
 import { extractNoteTitle } from '~/composables/note-text'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import type { Note } from '~/stores/notes'
+import { ComposeService } from '#/wvmail/services'
 
 // The editing half of a note: the TipTap instance, its toolbar, and the debounced
 // autosave. The parent (NotesView) mounts this with `:key="note.id"`.
@@ -23,10 +26,13 @@ const SAVE_DEBOUNCE_MS = 2000
 
 const { t, tf } = useI18n()
 const notesStore = useNotesStore()
+const accountsStore = useAccountsStore()
+const feedback = useFeedbackStore()
 
 const title = ref(extractNoteTitle(props.note.content || '', t.value['notes.untitled']))
 const dirty = ref(false)
 const saving = ref(false)
+const openingCompose = ref(false)
 /** Latest editor HTML; the debounce saves this, not a re-read of the editor. */
 const pendingHtml = ref(props.note.content || '')
 /** Set by the parent when the note is being deleted: a pending save must not resurrect it. */
@@ -80,6 +86,35 @@ function discard() {
     saveTimer = null
   }
   dirty.value = false
+}
+
+async function sendToCompose() {
+  if (openingCompose.value) return
+  openingCompose.value = true
+  try {
+    await flush()
+    const result = await ComposeService.OpenCompose({
+      AccountID:
+        accountsStore.selectedEmailAccountId ??
+        accountsStore.selectedAccountId ??
+        accountsStore.accounts[0]?.ID ??
+        '',
+      To: [],
+      Cc: [],
+      Bcc: [],
+      Subject: title.value.trim() || t.value['notes.untitled'],
+      Text: '',
+      HTML: pendingHtml.value || '<p></p>',
+      InReplyTo: '',
+      References: [],
+    })
+    if (result.Warning) feedback.info(result.Warning)
+  } catch (e) {
+    console.error('Failed to open compose for note', e)
+    feedback.error(t.value['notes.send_to_failed'])
+  } finally {
+    openingCompose.value = false
+  }
 }
 
 onBeforeUnmount(() => {
@@ -194,6 +229,16 @@ defineExpose({ flush, discard })
         <i class="i-ri:arrow-go-forward-line" aria-hidden="true" />
       </button>
       <span class="toolbar-spacer" />
+      <button
+        type="button"
+        class="tb"
+        :title="t['notes.send_to']"
+        :aria-label="t['notes.send_to']"
+        :disabled="openingCompose"
+        @click="sendToCompose"
+      >
+        <i class="i-ri:mail-send-line" aria-hidden="true" />
+      </button>
       <span v-if="saving || dirty" class="save-state">
         {{ saving ? t['notes.saving'] : t['notes.unsaved'] }}
       </span>

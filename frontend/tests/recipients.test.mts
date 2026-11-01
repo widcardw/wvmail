@@ -44,8 +44,7 @@ const layout = (widths: number[], available: number, chip = 60, sep = 6) =>
   )
   check(
     'accepting a contact leaves the field ready for the next recipient',
-    completeCurrentRecipient('bo', 'Bob <bob@example.com>', true) ===
-      'Bob <bob@example.com>, ',
+    completeCurrentRecipient('bo', 'Bob <bob@example.com>', true) === 'Bob <bob@example.com>, ',
   )
 }
 

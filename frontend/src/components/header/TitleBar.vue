@@ -41,8 +41,7 @@ onMounted(() => {
 })
 
 async function openCompose() {
-  const accountID =
-    accountsStore.selectedAccountId ?? accountsStore.accounts[0]?.ID ?? ''
+  const accountID = accountsStore.selectedAccountId ?? accountsStore.accounts[0]?.ID ?? ''
   try {
     const result = await ComposeService.OpenCompose({
       AccountID: accountID,

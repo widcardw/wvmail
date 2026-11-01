@@ -37,7 +37,9 @@ export const useContactsStore = defineStore('contacts', () => {
 
   function hasEmail(email: string): boolean {
     const needle = email.trim().toLowerCase()
-    return Boolean(needle) && contacts.value.some((contact) => contact.email.toLowerCase() === needle)
+    return (
+      Boolean(needle) && contacts.value.some((contact) => contact.email.toLowerCase() === needle)
+    )
   }
 
   async function saveContact(contact: Omit<Contact, 'created_at' | 'updated_at'>) {

@@ -32,9 +32,7 @@ let unlistenComposeSent: (() => void) | null = null
 async function handleApplicationMailto(event: MouseEvent) {
   if (isCompose.value || event.defaultPrevented || event.button !== 0) return
   const path = event.composedPath()
-  const anchor = path.find(
-    (node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement,
-  )
+  const anchor = path.find((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement)
   const href = anchor?.getAttribute('href') ?? ''
   if (!href.toLowerCase().startsWith('mailto:')) return
   event.preventDefault()

@@ -158,6 +158,10 @@ export interface TranslationSchema {
   'compose.underline': string
   'compose.link': string
   'compose.link_prompt': string
+  'compose.text_color': string
+  'compose.background_color': string
+  'compose.color_custom': string
+  'compose.color_default': string
   'compose.reply_intro': string
   'compose.forward_header': string
   'compose.forward_from': string
@@ -185,6 +189,8 @@ export interface TranslationSchema {
   'notes.saving': string
   'notes.unsaved': string
   'notes.noMatch': string
+  'notes.send_to': string
+  'notes.send_to_failed': string
   'reminders.title': string
   'reminders.empty': string
   'reminders.tab.today': string

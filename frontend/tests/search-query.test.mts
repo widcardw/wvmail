@@ -151,7 +151,10 @@ check(
   'saved contacts match by address',
   matchSavedContacts([...savedContacts], 'finance@')[0]?.name === '财务部',
 )
-check('an empty saved-contact query returns nothing', matchSavedContacts([...savedContacts], '').length === 0)
+check(
+  'an empty saved-contact query returns nothing',
+  matchSavedContacts([...savedContacts], '').length === 0,
+)
 
 check('a whole address completes', isCompleteEmail('alice@x.com'))
 check('…even with padding', isCompleteEmail('  alice@x.com '))

@@ -100,6 +100,14 @@ check('block: relative url untouched', block('<img src="/local.png">').html.incl
 check('block: cid: reference kept', block('<img src="cid:logo@example">').blockedRemote === 0)
 
 console.log('inline style')
+const tiptapColor = block(
+  '<h1><span style="color:#dc2626;background-color:#fef3c7">Colored heading</span></h1>',
+)
+check(
+  'compose inline colour styles survive',
+  tiptapColor.html.includes('color:#dc2626') &&
+    tiptapColor.html.includes('background-color:#fef3c7'),
+)
 const cssRemote = block('<div style="background:url(http://t.example/x.png)">x</div>')
 check(
   'block: remote url() -> none',

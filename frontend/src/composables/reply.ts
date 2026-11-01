@@ -28,9 +28,7 @@ export function senderAddress(detail: EmailDetail): EmailAddress | null {
 
 function uniqueAddresses(addresses: EmailAddress[], excluded: string[] = []): EmailAddress[] {
   const seen = new Set(
-    excluded
-      .map((address) => address.trim().toLowerCase())
-      .filter((address) => address.length > 0),
+    excluded.map((address) => address.trim().toLowerCase()).filter((address) => address.length > 0),
   )
   const result: EmailAddress[] = []
   for (const address of addresses) {
@@ -87,10 +85,7 @@ export function buildReplyEnvelope(
   const originalRecipients = parseAddressHeaders([...(detail.to ?? []), ...(detail.cc ?? [])])
   return {
     To: to,
-    Cc: uniqueAddresses(originalRecipients, [
-      accountEmail,
-      ...(sender ? [sender.Address] : []),
-    ]),
+    Cc: uniqueAddresses(originalRecipients, [accountEmail, ...(sender ? [sender.Address] : [])]),
     Bcc: [],
     Subject: subject,
     InReplyTo: inReplyTo,
