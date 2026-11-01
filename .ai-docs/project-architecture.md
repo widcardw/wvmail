@@ -84,6 +84,12 @@ API keys are encrypted with AES-256-GCM (master key in `<configDir>/.master.key`
 | `SaveLLMConfigs(configs)` | — | Replace the entire LLM config list |
 | `TestLLMConnection(cfg)` | `[bool, string]` | Test LLM provider connectivity |
 
+Field-level mutations go through `updateConfig(func(*AppConfig) error)` in
+`configstore.go`: it owns the config lock, fresh read, mutation and atomic write.
+Do not copy the lock/read/write sequence into a new service method. The exceptions
+are `SaveConfig` (already has a complete config) and `SaveConfigField` (it also
+reports whether the language changed for the tray event).
+
 **Opening config folder in file manager (frontend):**
 
 ```ts

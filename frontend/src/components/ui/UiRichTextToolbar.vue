@@ -2,10 +2,10 @@
 import { computed, onBeforeUnmount, ref, unref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { ShallowRef } from 'vue'
-import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import UiColorPicker from './UiColorPicker.vue'
 import UiDialog from './UiDialog.vue'
+import UiDialogHeader from './UiDialogHeader.vue'
 
 const props = defineProps<{
   editor: Editor | ShallowRef<Editor | undefined> | undefined
@@ -148,17 +148,7 @@ onBeforeUnmount(() => {
   </span>
 
   <UiDialog :open="linkOpen" size="narrow" flush @update:open="linkOpen = $event">
-    <header class="dlg-head">
-      <Dialog.Title class="dlg-title">{{ linkLabel }}</Dialog.Title>
-      <Dialog.CloseTrigger
-        type="button"
-        class="dlg-close"
-        :aria-label="cancelLabel"
-        @click="linkOpen = false"
-      >
-        <i class="i-ri:close-line" aria-hidden="true" />
-      </Dialog.CloseTrigger>
-    </header>
+    <UiDialogHeader :title="linkLabel" :close-label="cancelLabel" @close="linkOpen = false" />
     <div class="dlg-body">
       <Field.Root class="field">
         <Field.Label class="field__label">{{ linkPrompt }}</Field.Label>
@@ -213,8 +203,5 @@ onBeforeUnmount(() => {
 }
 .tb i {
   font-size: 16px;
-}
-.ctl {
-  width: 100%;
 }
 </style>

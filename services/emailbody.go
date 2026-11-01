@@ -106,17 +106,15 @@ func cachedHTMLHasCharsetCorruption(detail *EmailDetail) bool {
 // updates the cache. It first fetches the body structure (MIME tree) to
 // discover text/plain and text/html part paths, then fetches those sections.
 func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid uint32) (*EmailDetail, error) {
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("connection failed: %w", err)
+		return nil, err
 	}
 	defer client.Logout()
 
 	// Select the mailbox (read-only)
-	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
-	_, err = selectCmd.Wait()
-	if err != nil {
-		return nil, wrapIMAPError("select folder failed", err)
+	if _, err = selectMailbox(client, folder, true); err != nil {
+		return nil, err
 	}
 
 	// Build the UID set

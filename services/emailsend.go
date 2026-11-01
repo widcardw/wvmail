@@ -420,9 +420,9 @@ func (s *EmailSendService) appendToSent(account EmailAccount, raw []byte) (strin
 	if folder == "" {
 		return "", nil
 	}
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return folder, fmt.Errorf("connection failed: %w", err)
+		return folder, err
 	}
 	defer client.Logout()
 

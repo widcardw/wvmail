@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { COMPLETE_EMAIL_PATTERN } from '~/composables/search-query'
 import { useContactsStore } from '~/stores/contacts'
 import { useFeedbackStore } from '~/stores/feedback'
 import UiDialog from '~/components/ui/UiDialog.vue'
+import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import type { Contact } from '~/types/contact'
@@ -178,26 +178,18 @@ onMounted(() => {
       flush
       @update:open="dialogOpen = $event"
     >
-      <header class="dlg-head">
-        <Dialog.Title class="dlg-title">
-          {{ editing ? t['contacts.edit'] : t['contacts.new'] }}
-        </Dialog.Title>
-        <Dialog.CloseTrigger
-          type="button"
-          class="dlg-close"
-          :aria-label="t['cancel']"
-          :disabled="saving"
-          @click="dialogOpen = false"
-        >
-          <i class="i-ri:close-line" aria-hidden="true" />
-        </Dialog.CloseTrigger>
-      </header>
+      <UiDialogHeader
+        :title="editing ? t['contacts.edit'] : t['contacts.new']"
+        :close-label="t['cancel']"
+        :disabled="saving"
+        @close="dialogOpen = false"
+      />
       <div class="dlg-body">
         <Field.Root class="field">
           <Field.Label class="field__label">{{ t['contacts.name'] }}</Field.Label>
           <Field.Input
             v-model="formName"
-            class="input contact-input"
+            class="input"
             type="text"
             :placeholder="t['contacts.namePlaceholder']"
           />
@@ -206,7 +198,7 @@ onMounted(() => {
           <Field.Label class="field__label">{{ t['contacts.email'] }}</Field.Label>
           <Field.Input
             v-model="formEmail"
-            class="input contact-input"
+            class="input"
             type="email"
             :placeholder="t['contacts.emailPlaceholder']"
             @keydown.enter="save"
@@ -425,9 +417,6 @@ onMounted(() => {
 }
 .state--empty p {
   margin: 0;
-}
-.contact-input {
-  width: 100%;
 }
 .field-error {
   font-size: 11px;

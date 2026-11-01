@@ -49,6 +49,11 @@ export const useExampleStore = defineStore('example', () => {
 })
 ```
 
+Scalar settings that mirror one `config.yaml` field use
+`persistedSetting(ref, field, failureMessage)` in `stores/preferences.ts`. It owns
+the optimistic assignment, string conversion and shared error logging; add a new
+boolean/number/string preference by composing it instead of copying a setter.
+
 ## Ark UI Integration
 
 Ark UI adds no provider tree. Theme toggling is handled by `stores/theme.ts` (sets `data-theme` on `<html>`); design

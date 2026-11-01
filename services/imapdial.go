@@ -79,6 +79,28 @@ func dialIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, 
 	return dialIMAPWith(account, timeout, nil)
 }
 
+// connectIMAP is the normal mail-operation entry point. It adds the stable
+// user-facing connection context here instead of repeating the same wrap in
+// every service method.
+func connectIMAP(account EmailAccount, timeout time.Duration) (*imapclient.Client, error) {
+	client, err := dialIMAP(account, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	return client, nil
+}
+
+// selectMailbox selects a folder and applies the shared IMAP error context.
+// Read-only is explicit at every call site: flag writes and deletes must not
+// silently fall back to EXAMINE.
+func selectMailbox(client *imapclient.Client, folder string, readOnly bool) (*imap.SelectData, error) {
+	mailbox, err := client.Select(folder, &imap.SelectOptions{ReadOnly: readOnly}).Wait()
+	if err != nil {
+		return nil, wrapIMAPError("select folder failed", err)
+	}
+	return mailbox, nil
+}
+
 // dialIMAPWith is dialIMAP plus the unsolicited-response handler the IDLE
 // watcher needs. It has to be installed at dial time: the client routes
 // untagged EXISTS/EXPUNGE responses to it, and there is no way to attach one to

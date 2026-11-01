@@ -151,6 +151,11 @@
 .input:focus {
   border-color: var(--n-primary-color);
 }
+/* Text controls used as the main field inside dialogs/forms fill their row.
+   Inline controls (proxy addresses, compact rows) opt out with their own flex. */
+.ctl {
+  width: 100%;
+}
 
 /* --- Native date+time field (the reminder pickers) ---
    WKWebView's `input[type='datetime-local']` already edits date *and* time segments in
@@ -302,6 +307,9 @@
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--color-text-3);
+}
+.field__hint--warn {
+  color: var(--color-warning);
 }
 
 /* --- Ark's visually-hidden inputs --------------------------------------------
@@ -635,6 +643,9 @@ button.model-tag:hover {
   padding: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.dlg-body .input {
+  width: 100%;
 }
 /* Stacked fields carry a bottom margin for the next field. The body already
    supplies the closing padding, so the final field should not double it. */

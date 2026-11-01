@@ -67,9 +67,9 @@ func (s *EmailService) ListFlaggedEmails(account EmailAccount, refresh bool) (*F
 		}
 	}
 
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("connection failed: %w", err)
+		return nil, err
 	}
 	defer client.Logout()
 
@@ -143,14 +143,14 @@ func flaggedMessageKey(summary EmailSummary) string {
 // SetEmailFlagged adds or removes \Flagged on the server, then mirrors the
 // accepted result into the summary and body caches.
 func (s *EmailService) SetEmailFlagged(account EmailAccount, folder string, uid uint32, flagged bool) error {
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+		return err
 	}
 	defer client.Logout()
 
-	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
-		return wrapIMAPError("select folder failed", err)
+	if _, err := selectMailbox(client, folder, false); err != nil {
+		return err
 	}
 	op := imap.StoreFlagsDel
 	if flagged {
@@ -178,8 +178,8 @@ func (s *EmailService) SetEmailFlagged(account EmailAccount, folder string, uid 
 }
 
 func searchFlaggedFolder(client *imapclient.Client, account EmailAccount, folder string) ([]EmailSummary, error) {
-	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
-		return nil, wrapIMAPError("select folder failed", err)
+	if _, err := selectMailbox(client, folder, true); err != nil {
+		return nil, err
 	}
 	data, err := client.UIDSearch(&imap.SearchCriteria{
 		Flag: []imap.Flag{imap.FlagFlagged},

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import { Tabs } from '@ark-ui/vue/tabs'
 import { useI18n } from '~/i18n'
 import ReminderTimeline from '~/components/reminder/ReminderTimeline.vue'
 import UiDialog from '~/components/ui/UiDialog.vue'
+import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import { useRemindersStore } from '~/stores/reminders'
 import type { Reminder } from '~/types/reminder'
@@ -119,23 +119,17 @@ async function submitAdd() {
     <!-- Ark's render strategy replaces the old `v-if="showAdd"`: the content stays
          unmounted until the first open and is unmounted again on close. -->
     <UiDialog :open="showAdd" size="narrow" flush @update:open="showAdd = $event">
-      <header class="dlg-head">
-        <Dialog.Title class="dlg-title">{{ t['reminders.new'] }}</Dialog.Title>
-        <Dialog.CloseTrigger
-          type="button"
-          class="dlg-close"
-          :aria-label="t['cancel']"
-          @click="showAdd = false"
-        >
-          <i class="i-ri:close-line" aria-hidden="true" />
-        </Dialog.CloseTrigger>
-      </header>
+      <UiDialogHeader
+        :title="t['reminders.new']"
+        :close-label="t['cancel']"
+        @close="showAdd = false"
+      />
       <div class="dlg-body">
         <Field.Root class="field">
           <Field.Label class="field__label">{{ t['reminders.field.title'] }}</Field.Label>
           <Field.Input
             v-model="newTitle"
-            class="input d-input"
+            class="input"
             type="text"
             :placeholder="t['reminders.placeholder.title']"
             @keydown.enter="submitAdd"
@@ -143,7 +137,7 @@ async function submitAdd() {
         </Field.Root>
         <Field.Root class="field">
           <Field.Label class="field__label">{{ t['reminders.field.time'] }}</Field.Label>
-          <Field.Input v-model="newTime" class="input d-input datetime" type="datetime-local" />
+          <Field.Input v-model="newTime" class="input datetime" type="datetime-local" />
         </Field.Root>
       </div>
       <footer class="dlg-foot">
@@ -170,9 +164,7 @@ async function submitAdd() {
   color: var(--n-text-color);
 }
 .surface {
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
+  /* Frame, surface and radius come from the shared `.surface` in ui.css. */
   padding: 0;
   max-width: 720px;
 }
@@ -229,10 +221,6 @@ async function submitAdd() {
 }
 .tabs__content {
   outline: none;
-}
-
-.d-input {
-  width: 100%;
 }
 </style>
 

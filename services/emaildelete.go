@@ -43,14 +43,14 @@ func (s *EmailService) DeleteEmail(account EmailAccount, folder string, uid uint
 		return fmt.Errorf("delete failed: no Trash mailbox found for this account")
 	}
 
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+		return err
 	}
 	defer client.Logout()
 
-	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
-		return wrapIMAPError("select folder failed", err)
+	if _, err := selectMailbox(client, folder, false); err != nil {
+		return err
 	}
 
 	uidSet := imap.UIDSetNum(imap.UID(uid))
@@ -109,11 +109,7 @@ func (s *EmailService) finalizeEmailRemoval(
 
 	// Deleting an unread inbox message changes the tray badge. The mailbox is
 	// already selected, so one STATUS is enough.
-	if isInbox(folder) {
-		if status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait(); statusErr == nil && status.NumUnseen != nil {
-			s.reportUnseen(account.ID, int(*status.NumUnseen))
-		}
-	}
+	s.refreshUnseen(client, account.ID, folder)
 }
 
 func deletePermanently(client *imapclient.Client, uidSet imap.UIDSet) error {

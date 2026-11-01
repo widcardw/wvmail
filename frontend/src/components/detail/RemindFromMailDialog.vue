@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import { useRemindersStore } from '~/stores/reminders'
 import { useFeedbackStore } from '~/stores/feedback'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import UiDialog from '~/components/ui/UiDialog.vue'
+import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import { toLocalInputValue } from '~/composables/reminder-date'
 
 // Confirmation step for a date/time detected inside an email body. The detector is
@@ -79,12 +79,7 @@ async function save() {
 
 <template>
   <UiDialog :open="props.open" flush @update:open="emit('update:open', $event)">
-    <header class="dlg-head">
-      <Dialog.Title class="dlg-title">{{ t['mail.remind.title'] }}</Dialog.Title>
-      <Dialog.CloseTrigger type="button" class="dlg-close" :aria-label="t['cancel']" @click="close">
-        <i class="i-ri:close-line" aria-hidden="true" />
-      </Dialog.CloseTrigger>
-    </header>
+    <UiDialogHeader :title="t['mail.remind.title']" :close-label="t['cancel']" @close="close" />
 
     <div class="dlg-body">
       <Field.Root class="field" :disabled="true">
@@ -123,12 +118,3 @@ async function save() {
     </footer>
   </UiDialog>
 </template>
-
-<style scoped>
-.ctl {
-  width: 100%;
-}
-.field__hint--warn {
-  color: var(--color-warning);
-}
-</style>

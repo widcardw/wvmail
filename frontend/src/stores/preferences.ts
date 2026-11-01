@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import type { AppConfig } from '~/types/config'
 import { ConfigService } from '#/wvmail/services'
 import {
@@ -58,70 +58,67 @@ export const usePreferencesStore = defineStore('preferences', () => {
     proxyUrl.value = config.Proxy?.URL ?? ''
   }
 
-  async function setTagDeletePresses(value: TagDeletePresses) {
-    tagDeletePresses.value = value
+  async function saveConfigField(field: string, value: string, failureMessage: string) {
     try {
-      await ConfigService.SaveConfigField('search_tag_delete_presses', String(value))
+      await ConfigService.SaveConfigField(field, value)
     } catch (error) {
-      console.error('Failed to save tag delete preference', error)
+      console.error(failureMessage, error)
     }
   }
 
-  async function setMinimizeWhenClose(value: boolean) {
-    minimizeWhenClose.value = value
-    try {
-      await ConfigService.SaveConfigField('minimize_when_close', String(value))
-    } catch (error) {
-      console.error('Failed to save action on close preference', error)
+  /**
+   * Most preferences are optimistic local state plus one scalar config field.
+   * Keep that write path in one place so each setter cannot drift on string
+   * conversion or error reporting.
+   */
+  function persistedSetting<T extends string | number | boolean>(
+    target: Ref<T>,
+    field: string,
+    failureMessage: string,
+  ) {
+    return async (value: T) => {
+      target.value = value
+      await saveConfigField(field, String(value), failureMessage)
     }
   }
 
-  async function setDetectDatesInMail(value: boolean) {
-    detectDatesInMail.value = value
-    try {
-      await ConfigService.SaveConfigField('detect_dates_in_mail', String(value))
-    } catch (error) {
-      console.error('Failed to save date detection preference', error)
-    }
-  }
-
-  async function setCollapseSidebarSmartFolders(value: boolean) {
-    collapseSidebarSmartFolders.value = value
-    try {
-      await ConfigService.SaveConfigField('collapse_sidebar_smart_folders', String(value))
-    } catch (error) {
-      console.error('Failed to save smart-folder sidebar preference', error)
-    }
-  }
-
-  async function setCollapseSidebarUtilities(value: boolean) {
-    collapseSidebarUtilities.value = value
-    try {
-      await ConfigService.SaveConfigField('collapse_sidebar_utilities', String(value))
-    } catch (error) {
-      console.error('Failed to save utility sidebar preference', error)
-    }
-  }
-
-  async function setAllowRemoteContent(value: boolean) {
-    allowRemoteContent.value = value
-    try {
-      await ConfigService.SaveConfigField('allow_remote_content', String(value))
-    } catch (error) {
-      console.error('Failed to save remote content preference', error)
-    }
-  }
-
-  async function setBlockSuspiciousMail(value: boolean) {
-    blockSuspiciousMail.value = value
-    try {
-      // The YAML key predates this switch's move to Settings → Security; renaming
-      // it would silently drop the choice from every existing config.
-      await ConfigService.SaveConfigField('scan_external_safety', String(value))
-    } catch (error) {
-      console.error('Failed to save suspicious mail preference', error)
-    }
-  }
+  const setTagDeletePresses = persistedSetting(
+    tagDeletePresses,
+    'search_tag_delete_presses',
+    'Failed to save tag delete preference',
+  )
+  const setMinimizeWhenClose = persistedSetting(
+    minimizeWhenClose,
+    'minimize_when_close',
+    'Failed to save action on close preference',
+  )
+  const setDetectDatesInMail = persistedSetting(
+    detectDatesInMail,
+    'detect_dates_in_mail',
+    'Failed to save date detection preference',
+  )
+  const setCollapseSidebarSmartFolders = persistedSetting(
+    collapseSidebarSmartFolders,
+    'collapse_sidebar_smart_folders',
+    'Failed to save smart-folder sidebar preference',
+  )
+  const setCollapseSidebarUtilities = persistedSetting(
+    collapseSidebarUtilities,
+    'collapse_sidebar_utilities',
+    'Failed to save utility sidebar preference',
+  )
+  const setAllowRemoteContent = persistedSetting(
+    allowRemoteContent,
+    'allow_remote_content',
+    'Failed to save remote content preference',
+  )
+  const setBlockSuspiciousMail = persistedSetting(
+    blockSuspiciousMail,
+    // The YAML key predates this switch's move to Settings → Security; renaming
+    // it would silently drop the choice from every existing config.
+    'scan_external_safety',
+    'Failed to save suspicious mail preference',
+  )
 
   /**
    * Save the global proxy. Both halves travel in one field: they are one

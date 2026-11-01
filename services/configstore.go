@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -159,6 +160,9 @@ func (s *ConfigService) GetLogDir() (string, error) {
 // file, and read-modify-write callers use readConfig under the lock instead.
 var configWriteMu sync.Mutex
 
+// errConfigUnchanged lets a mutation validate a no-op without forcing a write.
+var errConfigUnchanged = errors.New("config unchanged")
+
 // GetConfig reads the application config from disk. If the file does not exist,
 // a default config is returned without error.
 func (s *ConfigService) GetConfig() (AppConfig, error) {
@@ -272,6 +276,25 @@ func readConfig() (AppConfig, error) {
 func (s *ConfigService) SaveConfig(cfg AppConfig) error {
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
+	return writeConfig(cfg)
+}
+
+// updateConfig applies one read-modify-write transaction under the config lock.
+// Every field-level saver uses this path so callers cannot accidentally write a
+// config they read before another setting changed.
+func updateConfig(update func(*AppConfig) error) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+	cfg, err := readConfig()
+	if err != nil {
+		return err
+	}
+	if err := update(&cfg); err != nil {
+		if errors.Is(err, errConfigUnchanged) {
+			return nil
+		}
+		return err
+	}
 	return writeConfig(cfg)
 }
 

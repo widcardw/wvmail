@@ -400,9 +400,9 @@ func (s *EmailIdleService) idleOnce(w *idleWatcher, account EmailAccount, connec
 	}
 
 	folder := s.inboxFolder(account)
-	mbox, err := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait()
+	mbox, err := selectMailbox(client, folder, true)
 	if err != nil {
-		return wrapIMAPError("select folder failed", err)
+		return err
 	}
 
 	idle, err := client.Idle()

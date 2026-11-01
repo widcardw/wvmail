@@ -86,11 +86,16 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/ui/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
 | `components/ui/UiScrollArea.vue` | `ScrollArea.Root/.Viewport/.Content/.Scrollbar/.Thumb/.Corner` | component；5px thumb 只在内容溢出且指针悬停、滚动或拖动时显示，不因焦点残留而常驻 |
 | `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
-| `.dlg-*` classes in `styles/ui.css` | `Dialog.Backdrop/.Positioner/.Content/.Title/.CloseTrigger` | shared dialog shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Always pass **`lazy-mount` + `unmount-on-exit`** |
+| `components/ui/UiDialog.vue` | `Dialog.Root/.Backdrop/.Positioner/.Content` | shared shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Always pass **`lazy-mount` + `unmount-on-exit`** |
+| `components/ui/UiDialogHeader.vue` | `Dialog.Title/.CloseTrigger` | standard `.dlg-head` / `.dlg-title` / `.dlg-close` row. Use it for every normal dialog header; only specialised headers (confirm, crop) compose Ark directly |
 
 `UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
 other controls. Bind with `:checked` + `@update:checked="…"`.
+
+Shared form sizing lives in `styles/ui.css`: `.ctl` is block-width by default, and
+`.dlg-body .input` makes ordinary inputs fill the dialog body. Do not re-declare
+`width: 100%` in each dialog/component.
 
 **Trap — `Splitter` + overlays.** Both splitters used `Splitter.createRegistry()` (its
 `hitAreaMargins` make a 1px seam easy to grab). The registry hit-tests every `pointerdown` from a

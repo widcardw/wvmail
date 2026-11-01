@@ -79,17 +79,15 @@ func isImageMime(mimeType string) bool {
 // DownloadAttachment fetches a specific MIME part from the IMAP server by its
 // part path and writes the decoded body bytes to the given file path.
 func (s *EmailService) DownloadAttachment(account EmailAccount, folder string, uid uint32, partPath []int, savePath string) error {
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+		return err
 	}
 	defer client.Logout()
 
 	// Select the mailbox (read-only)
-	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
-	_, err = selectCmd.Wait()
-	if err != nil {
-		return wrapIMAPError("select folder failed", err)
+	if _, err = selectMailbox(client, folder, true); err != nil {
+		return err
 	}
 
 	// Build the UID set
@@ -131,14 +129,14 @@ func (s *EmailService) ExportOriginalMessage(account EmailAccount, folder string
 		return fmt.Errorf("save path is empty")
 	}
 
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+		return err
 	}
 	defer client.Logout()
 
-	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
-		return wrapIMAPError("select folder failed", err)
+	if _, err := selectMailbox(client, folder, true); err != nil {
+		return err
 	}
 
 	var uidSet imap.UIDSet

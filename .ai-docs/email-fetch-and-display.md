@@ -78,6 +78,11 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 6. **错误翻译**：`wrapIMAPError` 把 `Unsafe Login`、`authentication failed` 等翻译成带排查提示的中文/英文文案。
 7. **分阶段日志**：`phase=connect|greeting|login|capability` + `elapsed`，失败用 `slog.Error`，成功用 `slog.Debug`。
 
+普通邮件操作统一从 `connectIMAP` 进入，它负责把拨号失败包成稳定的
+`connection failed` 文案；`selectMailbox` 则统一 SELECT/EXAMINE 与
+`select folder failed` 的错误翻译。新增邮件操作不要再复制
+`dialIMAP` + `client.Select(...).Wait()` 这两段。
+
 ### 2.3 列表/摘要阶段：`RefreshEmails` 的兜底
 
 | # | 触发 | 回退行为 |

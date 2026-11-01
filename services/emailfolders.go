@@ -27,9 +27,9 @@ func (s *EmailService) ListFolders(account EmailAccount) ([]FolderInfo, error) {
 
 // RefreshFolders fetches folders from the IMAP server and updates the cache.
 func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error) {
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("connection failed: %w", err)
+		return nil, err
 	}
 	defer client.Logout()
 
@@ -68,9 +68,9 @@ func (s *EmailService) RefreshFolders(account EmailAccount) ([]FolderInfo, error
 // it cannot be derived from whichever page the UI happens to have loaded; a
 // STATUS round trip is one cheap command that does not fetch any message.
 func (s *EmailService) UnseenCount(account EmailAccount, folder string) (int, error) {
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return 0, fmt.Errorf("connection failed: %w", err)
+		return 0, err
 	}
 	defer client.Logout()
 
@@ -135,14 +135,14 @@ func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderSt
 	if err != nil || len(folders) == 0 {
 		if folders, err = s.RefreshFolders(account); err != nil {
 			s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeFailure)
-			return nil, fmt.Errorf("connection failed: %w", err)
+			return nil, err
 		}
 	}
 
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
 		s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeFailure)
-		return nil, fmt.Errorf("connection failed: %w", err)
+		return nil, err
 	}
 	defer client.Logout()
 
@@ -201,15 +201,15 @@ func (s *EmailService) MarkEmailRead(account EmailAccount, folder string, uid ui
 			"account", account, "folder", folder, "uid", uid, "error", err)
 	}
 
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+		return err
 	}
 	defer client.Logout()
 
 	// STORE needs the mailbox opened read-write.
-	if _, err := client.Select(folder, &imap.SelectOptions{ReadOnly: false}).Wait(); err != nil {
-		return wrapIMAPError("select folder failed", err)
+	if _, err := selectMailbox(client, folder, false); err != nil {
+		return err
 	}
 	store := &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}
 	if err := client.Store(imap.UIDSetNum(imap.UID(uid)), store, nil).Close(); err != nil {
@@ -218,10 +218,6 @@ func (s *EmailService) MarkEmailRead(account EmailAccount, folder string, uid ui
 
 	// Keep the tray badge honest without waiting for the next inbox fetch: the
 	// connection is already open, so one STATUS is enough.
-	if isInbox(folder) {
-		if status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait(); statusErr == nil && status.NumUnseen != nil {
-			s.reportUnseen(account.ID, int(*status.NumUnseen))
-		}
-	}
+	s.refreshUnseen(client, account.ID, folder)
 	return nil
 }

@@ -69,6 +69,19 @@ func (s *EmailService) reportUnseen(accountID string, unseen int) {
 	}
 }
 
+// refreshUnseen updates the tray badge on an already-selected inbox. It is
+// deliberately best-effort: the mail operation that triggered it has already
+// succeeded, and a failed STATUS must not turn that into a user-facing error.
+func (s *EmailService) refreshUnseen(client *imapclient.Client, accountID, folder string) {
+	if !isInbox(folder) {
+		return
+	}
+	status, err := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
+	if err == nil && status.NumUnseen != nil {
+		s.reportUnseen(accountID, int(*status.NumUnseen))
+	}
+}
+
 // EmailSummary is a lightweight representation of an email for list views.
 type EmailSummary struct {
 	UID        uint32   `json:"uid"`
@@ -215,9 +228,9 @@ func cacheCoversPage(page, pageSize, total, cachedLen int) bool {
 // RefreshEmails fetches email summaries from the IMAP server and updates the
 // cache.
 func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
-	client, err := dialIMAP(account, 60*time.Second)
+	client, err := connectIMAP(account, 60*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("connection failed: %w", err)
+		return nil, err
 	}
 	defer client.Logout()
 
@@ -231,10 +244,9 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 // connection pressure IDLE is meant to remove).
 func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
 	// Select the mailbox (read-only)
-	selectCmd := client.Select(folder, &imap.SelectOptions{ReadOnly: true})
-	mbox, err := selectCmd.Wait()
+	mbox, err := selectMailbox(client, folder, true)
 	if err != nil {
-		return nil, wrapIMAPError("select folder failed", err)
+		return nil, err
 	}
 
 	// A successful SELECT reports NumMessages for the mailbox. QQ/Foxmail IMAP can
@@ -245,7 +257,7 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	priorTotal := priorMeta.Total
 	for retry := 0; mbox.NumMessages == 0 && priorTotal > 0 && retry < 1; retry++ {
 		time.Sleep(300 * time.Millisecond)
-		if rs, e2 := client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); e2 == nil {
+		if rs, e2 := selectMailbox(client, folder, true); e2 == nil {
 			mbox = rs
 		}
 	}
@@ -255,10 +267,9 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	// STATUS would double both the connection cost and the provider's throttling.
 	if isInbox(folder) {
 		status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
-		switch {
-		case statusErr != nil:
+		if statusErr != nil {
 			slog.Warn("sync: unseen count failed", "account", account, "folder", folder, "error", statusErr)
-		case status.NumUnseen != nil:
+		} else if status.NumUnseen != nil {
 			s.reportUnseen(account.ID, int(*status.NumUnseen))
 		}
 	}

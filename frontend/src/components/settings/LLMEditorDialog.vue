@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Dialog } from '@ark-ui/vue/dialog'
 import { Field } from '@ark-ui/vue/field'
 import { useI18n } from '~/i18n'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import UiDialog from '~/components/ui/UiDialog.vue'
+import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
@@ -172,19 +172,11 @@ watch(
     :close-on-interact-outside="false"
     @update:open="emit('update:open', $event)"
   >
-    <header class="dlg-head">
-      <Dialog.Title class="dlg-title">
-        {{ props.editing ? t['settings.llm.edit'] : t['settings.llm.add'] }}
-      </Dialog.Title>
-      <Dialog.CloseTrigger
-        type="button"
-        class="dlg-close"
-        :aria-label="t['settings.accounts.cancel']"
-        @click="close"
-      >
-        <i class="i-ri:close-line" aria-hidden="true" />
-      </Dialog.CloseTrigger>
-    </header>
+    <UiDialogHeader
+      :title="props.editing ? t['settings.llm.edit'] : t['settings.llm.add']"
+      :close-label="t['settings.accounts.cancel']"
+      @close="close"
+    />
 
     <div class="dlg-body llm-dialog-body">
       <UiScrollArea class="llm-dialog-scroll">
@@ -374,10 +366,7 @@ watch(
 </template>
 
 <style scoped>
-/* `.field` / `.field__label` / `.field__hint` come from ui.css. */
-.ctl {
-  width: 100%;
-}
+/* `.field` / `.field__label` / `.field__hint` / `.ctl` come from ui.css. */
 .llm-dialog-body {
   padding: 0;
   overflow: hidden;

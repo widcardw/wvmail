@@ -232,37 +232,25 @@ func notifyLanguageChanged(language string) {
 // value is normalized onto the allowed options (0 = never remove expired logs).
 func (s *ConfigService) SaveLogConfig(cfg LogConfig) error {
 	cfg.RetentionDays = normalizeRetentionDays(cfg.RetentionDays)
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	appCfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	appCfg.LogConfig = cfg
-	return writeConfig(appCfg)
+	return updateConfig(func(appCfg *AppConfig) error {
+		appCfg.LogConfig = cfg
+		return nil
+	})
 }
 
 // SaveTranslationConfig updates the translation settings in the config file.
 func (s *ConfigService) SaveTranslationConfig(cfg TranslationConfig) error {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	appCfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	appCfg.TranslationConfig = cfg
-	return writeConfig(appCfg)
+	return updateConfig(func(appCfg *AppConfig) error {
+		appCfg.TranslationConfig = cfg
+		return nil
+	})
 }
 
 func (s *ConfigService) SaveLLMConfigs(configs []LLMConfig) error {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	cfg.LLMConfigs = configs
-	return writeConfig(cfg)
+	return updateConfig(func(cfg *AppConfig) error {
+		cfg.LLMConfigs = configs
+		return nil
+	})
 }
 
 // GetAccounts returns all email accounts from the config.
@@ -276,14 +264,10 @@ func (s *ConfigService) GetAccounts() ([]EmailAccount, error) {
 
 // SaveAccounts replaces the entire email account list in the config file.
 func (s *ConfigService) SaveAccounts(accounts []EmailAccount) error {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	cfg.EmailAccounts = accounts
-	return writeConfig(cfg)
+	return updateConfig(func(cfg *AppConfig) error {
+		cfg.EmailAccounts = accounts
+		return nil
+	})
 }
 
 // AddAccount appends a new email account to the config.
@@ -291,14 +275,10 @@ func (s *ConfigService) AddAccount(account EmailAccount) error {
 	if err := validateAccountProxy(account); err != nil {
 		return err
 	}
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	cfg.EmailAccounts = append(cfg.EmailAccounts, account)
-	return writeConfig(cfg)
+	return updateConfig(func(cfg *AppConfig) error {
+		cfg.EmailAccounts = append(cfg.EmailAccounts, account)
+		return nil
+	})
 }
 
 // validateAccountProxy rejects a mode this build does not know, and a custom
@@ -341,24 +321,20 @@ func (s *ConfigService) RemoveAccount(id string) error {
 // removeAccountFromConfig performs the read-modify-write. Callers must not hold
 // configWriteMu; it is taken here, like every other mutation.
 func removeAccountFromConfig(id string) error {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	idx := -1
-	for i, a := range cfg.EmailAccounts {
-		if a.ID == id {
-			idx = i
-			break
+	return updateConfig(func(cfg *AppConfig) error {
+		idx := -1
+		for i, a := range cfg.EmailAccounts {
+			if a.ID == id {
+				idx = i
+				break
+			}
 		}
-	}
-	if idx == -1 {
-		return fmt.Errorf("account with id %q not found", id)
-	}
-	cfg.EmailAccounts = append(cfg.EmailAccounts[:idx], cfg.EmailAccounts[idx+1:]...)
-	return writeConfig(cfg)
+		if idx == -1 {
+			return fmt.Errorf("account with id %q not found", id)
+		}
+		cfg.EmailAccounts = append(cfg.EmailAccounts[:idx], cfg.EmailAccounts[idx+1:]...)
+		return nil
+	})
 }
 
 // UpdateAccount updates an existing email account identified by its ID.
@@ -366,19 +342,15 @@ func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
 	if err := validateAccountProxy(account); err != nil {
 		return err
 	}
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	for i, a := range cfg.EmailAccounts {
-		if a.ID == id {
-			cfg.EmailAccounts[i] = account
-			return writeConfig(cfg)
+	return updateConfig(func(cfg *AppConfig) error {
+		for i, a := range cfg.EmailAccounts {
+			if a.ID == id {
+				cfg.EmailAccounts[i] = account
+				return nil
+			}
 		}
-	}
-	return fmt.Errorf("account with id %q not found", id)
+		return fmt.Errorf("account with id %q not found", id)
+	})
 }
 
 // MoveAccount moves one email account by `offset` slots in the configured order,
@@ -389,38 +361,34 @@ func (s *ConfigService) UpdateAccount(id string, account EmailAccount) error {
 // Only the slice order changes: the entries themselves are read decrypted and
 // written back re-encrypted by readConfig/writeConfig like every other mutation.
 func (s *ConfigService) MoveAccount(id string, offset int) error {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return err
-	}
-	idx := -1
-	for i, a := range cfg.EmailAccounts {
-		if a.ID == id {
-			idx = i
-			break
+	return updateConfig(func(cfg *AppConfig) error {
+		idx := -1
+		for i, a := range cfg.EmailAccounts {
+			if a.ID == id {
+				idx = i
+				break
+			}
 		}
-	}
-	if idx == -1 {
-		return fmt.Errorf("account with id %q not found", id)
-	}
-	target := idx + offset
-	if offset == 0 || target < 0 || target >= len(cfg.EmailAccounts) {
+		if idx == -1 {
+			return fmt.Errorf("account with id %q not found", id)
+		}
+		target := idx + offset
+		if offset == 0 || target < 0 || target >= len(cfg.EmailAccounts) {
+			return errConfigUnchanged
+		}
+		accounts := cfg.EmailAccounts
+		moved := accounts[idx]
+		// Shift the entries between the old and the new slot over by one, then drop
+		// the moved account into the hole. copy() handles the overlap correctly for
+		// both directions, which a naive swap loop would not.
+		if offset > 0 {
+			copy(accounts[idx:target], accounts[idx+1:target+1])
+		} else {
+			copy(accounts[target+1:idx+1], accounts[target:idx])
+		}
+		accounts[target] = moved
 		return nil
-	}
-	accounts := cfg.EmailAccounts
-	moved := accounts[idx]
-	// Shift the entries between the old and the new slot over by one, then drop
-	// the moved account into the hole. copy() handles the overlap correctly for
-	// both directions, which a naive swap loop would not.
-	if offset > 0 {
-		copy(accounts[idx:target], accounts[idx+1:target+1])
-	} else {
-		copy(accounts[target+1:idx+1], accounts[target:idx])
-	}
-	accounts[target] = moved
-	return writeConfig(cfg)
+	})
 }
 
 // SaveAccountAvatar saves an avatar image for the given account ID.
@@ -435,19 +403,15 @@ func (s *ConfigService) SaveAccountAvatar(accountID string, fileData []byte, ext
 		return "", fmt.Errorf("failed to save avatar: %w", err)
 	}
 	// Update account config with the new avatar filename
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	cfg, err := readConfig()
-	if err != nil {
-		return "", err
-	}
-	for i := range cfg.EmailAccounts {
-		if cfg.EmailAccounts[i].ID == accountID {
-			cfg.EmailAccounts[i].Avatar = filename
-			break
+	if err := updateConfig(func(cfg *AppConfig) error {
+		for i := range cfg.EmailAccounts {
+			if cfg.EmailAccounts[i].ID == accountID {
+				cfg.EmailAccounts[i].Avatar = filename
+				break
+			}
 		}
-	}
-	if err := writeConfig(cfg); err != nil {
+		return nil
+	}); err != nil {
 		return "", err
 	}
 	return filename, nil
