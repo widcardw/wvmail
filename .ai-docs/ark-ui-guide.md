@@ -202,6 +202,9 @@ Use it for a compact "pick one mode" control; keep `Tabs` when the selection rea
 **There is no component-forest theme provider.** Toggle handled by `src/stores/theme.ts`:
 
 - mode Light / Dark / System.
+- System mode stores `matchMedia('(prefers-color-scheme: dark)').matches` in a reactive ref and updates it from the
+  query's `change` event. Do not call `matchMedia` inside the computed itself; it is not a Vue dependency, so the
+  resolved theme would remain stuck at its initial value.
 - `data-theme` toggled on `<html>` → all tokens below flip automatically. Theme styles therefore never import theme
   logic; they only consume variables.
 - primary color token `--color-primary` is configurable at runtime via existing `theme.setPrimaryColor`.

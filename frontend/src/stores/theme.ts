@@ -22,9 +22,13 @@ function normalizeHexColor(value: string): string | null {
   return null
 }
 
-function detectOsTheme(): ResolvedTheme {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+function getOsDarkQuery(): MediaQueryList | null {
+  if (typeof window === 'undefined' || !window.matchMedia) return null
+  return window.matchMedia('(prefers-color-scheme: dark)')
+}
+
+function resolveOsTheme(query: MediaQueryList | null): ResolvedTheme {
+  return query?.matches ? 'dark' : 'light'
 }
 
 function mixColor(color: string, target: string, amount: number): string {
@@ -49,6 +53,10 @@ function mixColor(color: string, target: string, amount: number): string {
 export const useThemeStore = defineStore('theme', () => {
   const mode = ref<ThemeMode>('System')
   const primaryColor = ref(DEFAULT_PRIMARY_COLOR)
+  const osDarkQuery = getOsDarkQuery()
+  // Keep the OS result reactive. Reading matchMedia directly inside the computed
+  // caches the old value because matchMedia itself is not a Vue dependency.
+  const systemTheme = ref<ResolvedTheme>(resolveOsTheme(osDarkQuery))
 
   /** Effective light/dark after resolving System against the OS preference. */
   const effectiveTheme = computed<ResolvedTheme>(() => {
@@ -56,7 +64,7 @@ export const useThemeStore = defineStore('theme', () => {
       case 'Dark':
         return 'dark'
       case 'System':
-        return detectOsTheme()
+        return systemTheme.value
       default:
         return 'light'
     }
@@ -113,9 +121,14 @@ export const useThemeStore = defineStore('theme', () => {
     switchTo(order[(idx + 1) % order.length])
   }
 
+  function syncSystemTheme() {
+    systemTheme.value = resolveOsTheme(osDarkQuery)
+    if (mode.value === 'System') apply()
+  }
+
   // Keep effective theme in sync when the OS preference changes while on System.
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => apply())
+  if (osDarkQuery) {
+    osDarkQuery.addEventListener('change', syncSystemTheme)
   }
 
   return {

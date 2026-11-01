@@ -186,8 +186,10 @@ documented in `.ai-docs/compose-and-sending.md`.
 ### Theming & CSS (no library theme)
 
 Ark UI provides no forest-level theme. `stores/theme.ts` resolves the effective mode (System syncs with OS dark via
-`window.matchMedia`) and sets `data-theme="light|dark"` on `<html>`. Design tokens in `src/styles/global.css` flip
-under both modes; runtime primary-color writes `--color-primary*`. See `.ai-docs/ark-ui-guide.md` / `arkui-vue.txt`.
+a reactive `window.matchMedia` result) and sets `data-theme="light|dark"` on `<html>`. The OS result must be stored in
+a `ref`: reading `matchMedia().matches` directly inside a computed caches it and prevents live system-appearance changes.
+Design tokens in `src/styles/global.css` flip under both modes; runtime primary-color writes `--color-primary*`.
+See `.ai-docs/ark-ui-guide.md` / `arkui-vue.txt`.
 
 ### Icons
 
