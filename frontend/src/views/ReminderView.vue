@@ -118,7 +118,7 @@ async function submitAdd() {
 
     <!-- Ark's render strategy replaces the old `v-if="showAdd"`: the content stays
          unmounted until the first open and is unmounted again on close. -->
-    <UiDialog :open="showAdd" size="narrow" flush @update:open="showAdd = $event">
+    <UiDialog :open="showAdd" size="narrow" @update:open="showAdd = $event">
       <UiDialogHeader
         :title="t['reminders.new']"
         :close-label="t['cancel']"

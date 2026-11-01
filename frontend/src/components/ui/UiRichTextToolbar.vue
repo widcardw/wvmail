@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
     </button>
   </span>
 
-  <UiDialog :open="linkOpen" size="narrow" flush @update:open="linkOpen = $event">
+  <UiDialog :open="linkOpen" size="narrow" @update:open="linkOpen = $event">
     <UiDialogHeader :title="linkLabel" :close-label="cancelLabel" @close="linkOpen = false" />
     <div class="dlg-body">
       <Field.Root class="field">

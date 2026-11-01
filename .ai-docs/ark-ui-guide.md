@@ -86,7 +86,7 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/ui/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
 | `components/ui/UiScrollArea.vue` | `ScrollArea.Root/.Viewport/.Content/.Scrollbar/.Thumb/.Corner` | component；5px thumb 只在内容溢出且指针悬停、滚动或拖动时显示，不因焦点残留而常驻 |
 | `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
-| `components/ui/UiDialog.vue` | `Dialog.Root/.Backdrop/.Positioner/.Content` | shared shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Always pass **`lazy-mount` + `unmount-on-exit`** |
+| `components/ui/UiDialog.vue` | `Dialog.Root/.Backdrop/.Positioner/.Content` | shared shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--padded)`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Cards are flush by default; pass `padded` only for compact dialogs without the standard head/body/foot. Always pass **`lazy-mount` + `unmount-on-exit`** |
 | `components/ui/UiDialogHeader.vue` | `Dialog.Title/.CloseTrigger` | standard `.dlg-head` / `.dlg-title` / `.dlg-close` row. Use it for every normal dialog header; only specialised headers (confirm, crop) compose Ark directly |
 
 `UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
@@ -296,10 +296,11 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
 - Confirmation: Dialog (`.Root` with open) or popover; replace `NPopconfirm`. Dialogs share the `.dlg-*` shell in
   `styles/ui.css` instead of re-declaring backdrop/positioner/card CSS per component, and each one opts into Ark's
   render strategy (`lazy-mount` + `unmount-on-exit`) so its content only exists while open.
-- **Dialogs that provide `dlg-head` / `dlg-body` / `dlg-foot` must pass `flush`** and keep those three nodes as direct
-  children of `UiDialog`. Without `flush`, the card padding stacks on top of the body padding; an extra `<form>` wrapper
-  also breaks the card's flex layout and makes the dialog look unlike the other form dialogs. Handle Enter on the field
-  and the confirm button directly instead of relying on a wrapper form.
+- **`UiDialog` cards are flush by default.** Keep `dlg-head` / `dlg-body` / `dlg-foot` as direct children of
+  `UiDialog`; their sections own all padding, so no extra prop is required. Only compact dialogs made from raw
+  title/description/actions content pass `padded` to restore the 16px card padding. An extra `<form>` wrapper breaks
+  the card's flex layout and makes the dialog look unlike the other form dialogs. Handle Enter on the field and the
+  confirm button directly instead of relying on a wrapper form.
 - **Closed overlays are hidden with the `hidden` attribute, not unmounted** (`Dialog.Content`/`Backdrop`, popover/menu
   content). The UA `[hidden] { display: none }` loses to *any* author rule that sets `display`, and our
   `.dlg-card { display: flex }` did exactly that — a closed-but-mounted dialog stayed painted on top of the page.

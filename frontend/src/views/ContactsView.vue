@@ -183,13 +183,7 @@ onMounted(() => {
       </section>
     </div>
 
-    <UiDialog
-      :open="dialogOpen"
-      :busy="saving"
-      size="narrow"
-      flush
-      @update:open="dialogOpen = $event"
-    >
+    <UiDialog :open="dialogOpen" :busy="saving" size="narrow" @update:open="dialogOpen = $event">
       <UiDialogHeader
         :title="editing ? t['contacts.edit'] : t['contacts.new']"
         :close-label="t['cancel']"

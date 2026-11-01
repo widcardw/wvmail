@@ -19,15 +19,15 @@ const props = withDefaults(
     busy?: boolean
     /** Allow clicking the backdrop to dismiss the dialog. */
     closeOnInteractOutside?: boolean
-    /** Remove the card padding for dialogs that provide dlg-head/body/foot themselves. */
-    flush?: boolean
+    /** Add card padding for compact dialogs that do not provide dlg-head/body/foot. */
+    padded?: boolean
   }>(),
   {
     size: 'default',
     role: undefined,
     busy: false,
     closeOnInteractOutside: true,
-    flush: false,
+    padded: false,
   },
 )
 
@@ -41,9 +41,9 @@ function onOpenChange(open: boolean) {
 const cardClass = {
   narrow: 'dlg-card dlg-card--narrow',
   default: 'dlg-card',
-  wide: 'dlg-card dlg-card--wide dlg-card--flush',
-  top: 'dlg-card dlg-card--wide dlg-card--flush',
-  crop: 'dlg-card dlg-card--crop dlg-card--flush',
+  wide: 'dlg-card dlg-card--wide',
+  top: 'dlg-card dlg-card--wide',
+  crop: 'dlg-card dlg-card--crop',
 } as const
 </script>
 
@@ -60,7 +60,7 @@ const cardClass = {
     <Teleport to="body">
       <Dialog.Backdrop class="dlg-back" />
       <Dialog.Positioner class="dlg-pos" :class="{ 'dlg-pos--top': props.size === 'top' }">
-        <Dialog.Content :class="[cardClass[props.size], { 'dlg-card--flush': props.flush }]">
+        <Dialog.Content :class="[cardClass[props.size], { 'dlg-card--padded': props.padded }]">
           <slot />
         </Dialog.Content>
       </Dialog.Positioner>

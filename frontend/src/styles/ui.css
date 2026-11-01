@@ -576,7 +576,7 @@ button.model-tag:hover {
   pointer-events: auto;
   width: min(440px, 100%);
   max-height: 100%;
-  padding: 16px;
+  padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -598,9 +598,9 @@ button.model-tag:hover {
   overflow: auto;
   box-shadow: 0 20px 50px rgb(0 0 0 / 30%);
 }
-/* For cards that supply their own head/body/foot padding. */
-.dlg-card--flush {
-  padding: 0;
+/* Compact dialogs without dlg-head/body/foot opt into card padding. */
+.dlg-card--padded {
+  padding: 16px;
 }
 .dlg-head {
   display: flex;

@@ -38,6 +38,7 @@ const { t } = useI18n()
     size="narrow"
     role="alertdialog"
     :busy="props.busy"
+    padded
     @update:open="emit('update:open', $event)"
   >
     <Dialog.Title class="dlg-title">{{ props.title }}</Dialog.Title>
