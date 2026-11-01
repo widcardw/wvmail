@@ -64,7 +64,9 @@ opened.
 
 - Sidebar smart row: `分类` / `Categories` (`smartFolder === "classified"`).
 - `ClassifiedEmailList.vue` uses the existing list/detail split and pagination.
-- `TagFilter.vue` is the multi-tag OR selector.
+- `TagFilter.vue` is the multi-tag OR selector. Its long tag list uses
+  `UiScrollArea`, so the popover keeps one opaque surface and shows only the
+  shared narrow scrollbar while hovered or scrolling.
 - `EmailListItem.vue` renders tag chips from `EmailSummary.tag_ids`.
 - The message toolbar has a tag button; `EmailTagDialog.vue` edits manual tags.
 - Settings → Tags (`views/settings/Tags.vue`) owns rule CRUD.

@@ -4,6 +4,7 @@ import { Popover } from '@ark-ui/vue/popover'
 import { useI18n } from '~/i18n'
 import { useTagsStore } from '~/stores/tags'
 import UiCheckbox from '~/components/ui/UiCheckbox.vue'
+import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t, tf } = useI18n()
 const tagsStore = useTagsStore()
@@ -26,7 +27,12 @@ function clearAll() {
 </script>
 
 <template>
-  <Popover.Root v-model:open="open" :positioning="{ placement: 'bottom-end', gutter: 6 }">
+  <Popover.Root
+    v-model:open="open"
+    :positioning="{ placement: 'bottom-end', gutter: 6 }"
+    lazy-mount
+    unmount-on-exit
+  >
     <Popover.Trigger as-child>
       <button
         type="button"
@@ -58,19 +64,21 @@ function clearAll() {
           <div v-if="tagsStore.enabledTags.length === 0" class="tag-filter-empty">
             {{ t['tags.noTagsYet'] }}
           </div>
-          <div v-else class="tag-filter-list">
-            <UiCheckbox
-              v-for="tag in tagsStore.enabledTags"
-              :key="tag.id"
-              class="tag-filter-row"
-              label-class="tag-filter-label"
-              :checked="tagsStore.selectedFilterIDs.includes(tag.id)"
-              @update:checked="toggle(tag.id, $event)"
-            >
-              <span class="tag-filter-dot" :style="{ background: tag.color }" />
-              <span>{{ tag.label }}</span>
-            </UiCheckbox>
-          </div>
+          <UiScrollArea v-else class="tag-filter-scroll">
+            <div class="tag-filter-list">
+              <UiCheckbox
+                v-for="tag in tagsStore.enabledTags"
+                :key="tag.id"
+                class="tag-filter-row"
+                label-class="tag-filter-label"
+                :checked="tagsStore.selectedFilterIDs.includes(tag.id)"
+                @update:checked="toggle(tag.id, $event)"
+              >
+                <span class="tag-filter-dot" :style="{ background: tag.color }" />
+                <span>{{ tag.label }}</span>
+              </UiCheckbox>
+            </div>
+          </UiScrollArea>
         </Popover.Content>
       </Popover.Positioner>
     </Teleport>
@@ -110,13 +118,18 @@ function clearAll() {
   z-index: 1100;
 }
 .tag-filter-content {
+  position: relative;
+  z-index: 1;
   width: 260px;
   padding: 8px;
+  overflow: hidden;
   color: var(--n-text-color);
   background: var(--color-surface);
   border: 1px solid var(--n-border-color);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 28px rgb(0 0 0 / 20%);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 26%),
+    0 2px 8px rgb(0 0 0 / 16%);
 }
 .tag-filter-head {
   display: flex;
@@ -139,12 +152,13 @@ function clearAll() {
   font-size: 11px;
   cursor: pointer;
 }
+.tag-filter-scroll {
+  max-height: 280px;
+}
 .tag-filter-list {
   display: flex;
-  max-height: 280px;
   flex-direction: column;
   gap: 1px;
-  overflow-y: auto;
 }
 .tag-filter-row {
   display: flex;
