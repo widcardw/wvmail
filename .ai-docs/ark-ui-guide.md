@@ -84,6 +84,7 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/ui/UiPasswordInput.vue` | `PasswordInput.Root/.Control/.Input/.VisibilityTrigger` | `styles/ui.css` (`.pw*`; the two eye icons swap on `[data-state='visible']`) |
 | `components/ui/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
 | `components/ui/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
+| `components/ui/UiScrollArea.vue` | `ScrollArea.Root/.Viewport/.Content/.Scrollbar/.Thumb/.Corner` | component；5px thumb 只在内容溢出且指针悬停、滚动或拖动时显示，不因焦点残留而常驻 |
 | `components/ToastHost.vue` | `@ark-ui/vue/toast` `Toaster`/`Toast.Root` | card in the component, Ark's required root styling in `styles/ui.css`, driven by `stores/feedback.ts` |
 | `.dlg-*` classes in `styles/ui.css` | `Dialog.Backdrop/.Positioner/.Content/.Title/.CloseTrigger` | shared dialog shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--flush)`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Always pass **`lazy-mount` + `unmount-on-exit`** |
 
@@ -98,7 +99,8 @@ check calls `getComputedStyle()` on the `document` node, throws, and is swallowe
 dialog could not stop a drag (`RemindFromMailDialog`: the sidebar seam stayed draggable behind the
 backdrop). `mail-split.module.css` now draws the seam with `::before` inside a 5px transparent
 trigger (2px negative margin each side ⇒ identical layout) and no registry is passed, so the drag
-starts from a real pointerdown that the `.dlg-back` overlay blocks.
+starts from a real pointerdown that the `.dlg-back` overlay blocks. Its center knob is hidden until
+hover/focus/resize so it does not read as a stray scrollbar.
 
 **Disabled state has one recipe** (`styles/ui.css`, "Disabled controls"): the fill drops to
 `--n-body-color`, the text to `--color-text-3`, and the cursor becomes `not-allowed`. Ark gives us

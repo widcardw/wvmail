@@ -123,12 +123,16 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
 }
 
 /* Show only when the content actually overflows and the pointer is inside the
-   pane. Ark removes `data-overflow-y/x` when there is nothing to scroll, so a
-   non-overflowing pane never draws the little top thumb seen before. */
+   pane, or while the pane is actively scrolling/dragging. Deliberately not
+   `:focus-within`: a clicked row keeps focus, which made the thumb linger after
+   the pointer left. Ark removes `data-overflow-y/x` when there is nothing to
+   scroll, so a non-overflowing pane never draws a thumb. */
 .scroll-area:hover .scroll-area__bar[data-overflow-y],
 .scroll-area:hover .scroll-area__bar[data-overflow-x],
-.scroll-area:focus-within .scroll-area__bar[data-overflow-y],
-.scroll-area:focus-within .scroll-area__bar[data-overflow-x] {
+.scroll-area__bar[data-overflow-y][data-scrolling],
+.scroll-area__bar[data-overflow-x][data-scrolling],
+.scroll-area__bar[data-overflow-y][data-dragging],
+.scroll-area__bar[data-overflow-x][data-dragging] {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
