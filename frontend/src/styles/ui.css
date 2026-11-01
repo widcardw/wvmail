@@ -687,6 +687,37 @@ button.model-tag:hover {
   line-height: 1;
 }
 
+/* Checkbox + label as one full clickable row. Ark's root is already a <label>;
+   this only supplies the shared geometry so controls cannot sit flush against
+   their text or drift vertically between settings forms. */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.checkbox-row:hover {
+  background: var(--n-sidebar-hover);
+}
+.checkbox-row__label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  line-height: 1.4;
+}
+.checkbox-row[data-disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.checkbox-row[data-disabled]:hover {
+  background: transparent;
+}
+
 /* Ark positions the toast stack itself; keep it clear of the in-page title bar.
    The group is a fixed, shrink-to-fit flex column whose children are all
    absolutely positioned, so it has no intrinsic width — each toast root has to

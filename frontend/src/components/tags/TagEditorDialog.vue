@@ -135,6 +135,8 @@ async function save() {
           <UiCheckbox
             v-for="field in TAG_FIELDS"
             :key="field"
+            class="checkbox-row"
+            label-class="checkbox-row__label"
             :checked="fields.includes(field)"
             @update:checked="toggleField(field, $event)"
           >
@@ -193,8 +195,7 @@ async function save() {
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 14px;
-  font-size: 13px;
+  gap: 2px 14px;
 }
 .switch-row {
   display: flex;

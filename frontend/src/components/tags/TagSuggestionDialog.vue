@@ -266,6 +266,8 @@ function matchFieldLabel(field: TagMatchField): string {
             <UiCheckbox
               v-for="account in accounts"
               :key="account.ID"
+              class="checkbox-row"
+              label-class="checkbox-row__label"
               :checked="selectedAccountIDs.includes(account.ID)"
               @update:checked="toggleAccount(account.ID, $event)"
             >
@@ -277,10 +279,14 @@ function matchFieldLabel(field: TagMatchField): string {
         <section class="choice-section">
           <h3>{{ t['tags.ai.fields'] }}</h3>
           <div class="choice-grid">
-            <UiCheckbox checked disabled>{{ t['tags.ai.field.subject'] }}</UiCheckbox>
+            <UiCheckbox class="checkbox-row" label-class="checkbox-row__label" checked disabled>
+              {{ t['tags.ai.field.subject'] }}
+            </UiCheckbox>
             <UiCheckbox
               v-for="field in optionalFieldOptions"
               :key="field"
+              class="checkbox-row"
+              label-class="checkbox-row__label"
               :checked="optionalFields.includes(field)"
               @update:checked="toggleField(field, $event)"
             >
@@ -342,15 +348,21 @@ function matchFieldLabel(field: TagMatchField): string {
         <section v-if="suggestions.length" class="suggestion-results">
           <h3>{{ t['tags.ai.generated'] }}</h3>
           <div class="suggestion-list">
-            <label v-for="suggestion in suggestions" :key="suggestion.label" class="suggestion">
-              <input v-model="suggestion.selected" type="checkbox" />
+            <UiCheckbox
+              v-for="suggestion in suggestions"
+              :key="suggestion.label"
+              class="suggestion"
+              label-class="suggestion-label"
+              :checked="suggestion.selected"
+              @update:checked="suggestion.selected = $event"
+            >
               <span class="suggestion-color" :style="{ background: suggestion.color }" />
               <span class="suggestion-main">
                 <strong>{{ suggestion.label }}</strong>
                 <span>{{ suggestion.keywords.join(', ') }}</span>
                 <small>{{ suggestion.fields.map(matchFieldLabel).join(' · ') }}</small>
               </span>
-            </label>
+            </UiCheckbox>
           </div>
           <div class="preview-action">
             <button
@@ -413,8 +425,7 @@ function matchFieldLabel(field: TagMatchField): string {
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
-  font-size: 13px;
+  gap: 2px 16px;
 }
 .preview-action {
   display: flex;
@@ -475,9 +486,15 @@ function matchFieldLabel(field: TagMatchField): string {
 .suggestion:hover {
   background: var(--n-sidebar-hover);
 }
-.suggestion input {
+.suggestion :deep(.checkbox) {
   margin-top: 2px;
-  accent-color: var(--n-primary-color);
+}
+.suggestion :deep(.suggestion-label) {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
 }
 .suggestion-color {
   width: 9px;

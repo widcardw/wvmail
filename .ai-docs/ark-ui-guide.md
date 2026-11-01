@@ -93,6 +93,11 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
 other controls. Bind with `:checked` + `@update:checked="…"`.
 
+`UiCheckbox` follows the same slot contract. For settings grids, opt into `.checkbox-row` +
+`label-class="checkbox-row__label"`: the root then supplies one consistent clickable row with
+vertical centering, an 8px control/text gap and hover/disabled states. Do not wrap it in another
+`<label>`; the Ark root is already the label.
+
 Shared form sizing lives in `styles/ui.css`: `.ctl` is block-width by default, and
 `.dlg-body .input` makes ordinary inputs fill the dialog body. Do not re-declare
 `width: 100%` in each dialog/component.
