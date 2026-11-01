@@ -58,12 +58,6 @@ const utilRows = [
     icon: 'ri:notification-2-line',
     path: '/reminder',
   },
-  {
-    key: 'contacts',
-    labelKey: 'contacts.title',
-    icon: 'ri:contacts-book-2-line',
-    path: '/contacts',
-  },
   { key: 'notes', labelKey: 'notes.title', icon: 'ri:pen-nib-line', path: '/notes' },
   { key: 'settings', labelKey: 'settings', icon: 'ri:settings-2-line', path: '/settings' },
 ] as const

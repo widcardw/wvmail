@@ -301,6 +301,9 @@ function matchFieldLabel(field: TagMatchField): string {
 
         <template v-if="preview">
           <div class="preview-meta">
+            <span v-if="preview.account_names.length">
+              {{ preview.account_names.join(', ') }}
+            </span>
             <span>{{ tf('tags.ai.samples', { count: preview.sample_count }) }}</span>
             <span v-if="preview.sample_from && preview.sample_to">
               {{

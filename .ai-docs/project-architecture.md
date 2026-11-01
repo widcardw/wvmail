@@ -35,7 +35,8 @@ All Go services live under `services/` as package `services` and are registered 
 | `services/emailservice.go` / `emailfolders.go` / `emailbody.go` / `emailattachments.go` / `emailsearch.go` / `emaildecode.go` / `imapdial.go` | `EmailService` | IMAP fetch, decode, cache-first paging; see `.ai-docs/email-fetch-and-display.md` |
 | `services/emailsend.go` / `emailmime.go` | `EmailSendService` | SMTP send, MIME/CID, best-effort Sent copy; see `.ai-docs/compose-and-sending.md` |
 | `services/composeservice.go` / `composehtml.go` | `ComposeService` | single compose window, in-memory drafts, attachment staging, reply/forward/mailto entry |
-| `services/database.go` / `databaseemail.go` / `databasebody.go` / `databasenotes.go` / `databasereminders.go` | (cache) | SQLite (GORM) cache behind `EmailService` |
+| `services/database.go` / `databaseemail.go` / `databasebody.go` / `databasenotes.go` / `databasereminders.go` / `databasetags.go` | (cache) | SQLite (GORM) cache behind `EmailService` and `TagService` |
+| `services/tagservice.go` / `llmchat.go` | `TagService` | local rule-based mail tags, OR classification, Gmail-view deduplication, privacy-reviewed AI suggestions; see `.ai-docs/mail-tags.md` |
 | `services/emailsyncservice.go` | `EmailSyncService` | background sync per account + the tray unread badge |
 | `services/networkservice.go` | `NetworkService` | reachability + latency probe behind the title-bar meter |
 | `services/osservice.go` | `OsService` | open file/folder/URL, native save dialog, `QuitApp` |

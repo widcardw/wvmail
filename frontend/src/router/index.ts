@@ -3,7 +3,6 @@ import type { RouteRecordRaw } from 'vue-router'
 import MailView from '../views/MailView.vue'
 import ReminderView from '../views/ReminderView.vue'
 import NotesView from '../views/NotesView.vue'
-import ContactsView from '../views/ContactsView.vue'
 import ComposeView from '../views/ComposeView.vue'
 import SettingsMain from '../views/settings/SettingsMain.vue'
 import SettingsCommon from '../views/settings/Common.vue'
@@ -14,6 +13,7 @@ import SettingsAbout from '../views/settings/About.vue'
 import SettingsLLM from '../views/settings/LLM.vue'
 import SettingsTranslation from '../views/settings/Translation.vue'
 import SettingsTags from '../views/settings/Tags.vue'
+import SettingsContacts from '../views/settings/Contacts.vue'
 
 // NOTE: Headless-migration — shell '/', Notes, Reminder and Settings family are live.
 // Mail (MailView/EmailList/EmailDetail) re-enters after conversion.
@@ -22,7 +22,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: MailView },
   { path: '/reminder', name: 'reminder', component: ReminderView },
   { path: '/notes', name: 'notes', component: NotesView },
-  { path: '/contacts', name: 'contacts', component: ContactsView },
+  { path: '/contacts', redirect: { name: 'settings-contacts' } },
   // Opened in a separate Wails window. The draft id is the only URL state;
   // recipients, HTML and attachments live in ComposeService.
   { path: '/compose', name: 'compose', component: ComposeView },
@@ -34,6 +34,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: 'common', name: 'settings-common', component: SettingsCommon },
       { path: 'accounts', name: 'settings-accounts', component: SettingsAccount },
+      { path: 'contacts', name: 'settings-contacts', component: SettingsContacts },
       { path: 'security', name: 'settings-security', component: SettingsSecurity },
       { path: 'proxy', name: 'settings-proxy', component: SettingsProxy },
       { path: 'llm', name: 'settings-llm', component: SettingsLLM },

@@ -10,6 +10,7 @@ const { t } = useI18n()
 const items = computed(() => [
   { key: 'common', label: t.value['settings.common'], icon: 'ri:home-2-line' },
   { key: 'accounts', label: t.value['settings.accounts'], icon: 'ri:account-circle-2-line' },
+  { key: 'contacts', label: t.value['contacts.title'], icon: 'ri:contacts-book-2-line' },
   { key: 'security', label: t.value['settings.security'], icon: 'ri:shield-check-line' },
   { key: 'proxy', label: t.value['settings.proxy'], icon: 'ri:route-line' },
   { key: 'llm', label: t.value['settings.llm'], icon: 'ri:robot-2-line' },

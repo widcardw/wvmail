@@ -11,6 +11,14 @@ import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import type { Contact } from '~/types/contact'
 
+const props = withDefaults(
+  defineProps<{
+    /** Embedded in Settings, whose page already owns the scroll container. */
+    embedded?: boolean
+  }>(),
+  { embedded: false },
+)
+
 const { t, tf } = useI18n()
 const contactsStore = useContactsStore()
 const feedback = useFeedbackStore()
@@ -93,7 +101,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <UiScrollArea class="contacts-view">
+  <component
+    :is="props.embedded ? 'div' : UiScrollArea"
+    class="contacts-view"
+    :class="{ 'contacts-view--embedded': props.embedded }"
+  >
     <div class="contacts-shell">
       <header class="contacts-head">
         <div>
@@ -235,7 +247,7 @@ onMounted(() => {
       @update:open="(open) => (!open ? (deleteTarget = null) : undefined)"
       @confirm="confirmDelete"
     />
-  </UiScrollArea>
+  </component>
 </template>
 
 <style scoped>
@@ -243,6 +255,12 @@ onMounted(() => {
   height: 100%;
   padding: 24px;
   color: var(--n-text-color);
+}
+.contacts-view--embedded {
+  height: auto;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px;
 }
 .contacts-shell {
   width: min(880px, 100%);
