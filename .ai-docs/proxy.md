@@ -105,8 +105,9 @@ port would not.
 ## Deliberate limits
 
 - **No PAC, no per-request rules, no bypass list.** One endpoint, on or off.
-- **SMTP is not wired.** There is no send path yet; when one is added it must use
-  `dialerForAccount` too.
+- **SMTP uses the same route.** `services/emailsend.go` calls
+  `dialerForAccount` before connecting, so sending follows the account/global proxy
+  exactly like IMAP. See `.ai-docs/compose-and-sending.md`.
 - **The proxy is not used for the webview itself.** Remote content in mail is
   fetched by the embedded browser, which follows the OS proxy settings.
 - Credentials are supported but stored in plain text inside `config.yaml` (unlike
@@ -120,6 +121,7 @@ port would not.
 |---|---|
 | `services/proxy.go` | config shape, address parsing, resolution, CONNECT + SOCKS5 dialers, `newHTTPClient` |
 | `services/imapdial.go` | dials through `dialerForAccount`, keeps TLS/STARTTLS/plaintext fallbacks |
+| `services/emailsend.go` | SMTP send through the same `dialerForAccount` route |
 | `services/networkservice.go` | `ProbeAccount`, `TestProxy` |
 | `services/configstore.go` | `proxy` field save (JSON, validated), publishes the snapshot |
 | `services/configservice.go` | `validateAccountProxy` on add/update |

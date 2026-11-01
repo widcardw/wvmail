@@ -33,6 +33,8 @@ All Go services live under `services/` as package `services` and are registered 
 |---|---|---|
 | `services/configservice.go` / `configstore.go` / `configllm.go` | `ConfigService` | YAML config, AES-256-GCM secrets, LLM connection test + model list |
 | `services/emailservice.go` / `emailfolders.go` / `emailbody.go` / `emailattachments.go` / `emailsearch.go` / `emaildecode.go` / `imapdial.go` | `EmailService` | IMAP fetch, decode, cache-first paging; see `.ai-docs/email-fetch-and-display.md` |
+| `services/emailsend.go` / `emailmime.go` | `EmailSendService` | SMTP send, MIME/CID, best-effort Sent copy; see `.ai-docs/compose-and-sending.md` |
+| `services/composeservice.go` / `composehtml.go` | `ComposeService` | single compose window, in-memory drafts, attachment staging, reply/forward/mailto entry |
 | `services/database.go` / `databaseemail.go` / `databasebody.go` / `databasenotes.go` / `databasereminders.go` | (cache) | SQLite (GORM) cache behind `EmailService` |
 | `services/emailsyncservice.go` | `EmailSyncService` | background sync per account + the tray unread badge |
 | `services/networkservice.go` | `NetworkService` | reachability + latency probe behind the title-bar meter |
@@ -139,6 +141,7 @@ frontend/
 │   ├── App.vue              # Root layout (title bar + sidebar + routed view)
 │   ├── components/          # one directory per area
 │   │   ├── ui/              # UiSelect / UiSwitch / UiBadge / … + BusyButton (design system)
+│   │   ├── compose/         # Tiptap compose editor
 │   │   ├── detail/ header/ icon/ list/ reminder/ settings/ sidebar/
 │   │   └── ToastHost.vue    # app-level singleton (mounted once in App.vue)
 │   ├── composables/
@@ -146,11 +149,11 @@ frontend/
 │   │   ├── icons/           # provider/brand/attachment icon helpers
 │   │   └── *.ts             # small pure helpers (badge, connection, formats, date-mentions…)
 │   ├── i18n/                # typed dictionary + message syntax (see .ai-docs/i18n.md)
-│   ├── router/              # Vue Router: mail, notes, reminder, settings
+│   ├── router/              # Vue Router: mail, compose window, notes, reminder, settings
 │   ├── stores/              # Pinia: accounts, theme, locale, preferences, notes, reminders, connection
 │   ├── styles/              # global.css (tokens) + ui.css (shared recipes: .btn, .icon-btn, .dlg-*)
 │   ├── types/               # TS mirrors of the bound Go models
-│   └── views/               # page-level components (+ views/settings/)
+│   └── views/               # page-level components, including ComposeView (+ views/settings/)
 ├── tests/                   # node tests/*.test.mts (pnpm test)
 ├── index.html               # hashed entry; title + favicon
 ├── vite.config.js           # Vue plugin, Wails plugin, `~` → src, `#` → bindings
@@ -176,6 +179,9 @@ frontend/
    ```
 
 3. **Vite Plugin**: `@wailsio/runtime/plugins/vite` processes the bindings directory and sets up dev-mode proxying.
+
+Outbound mail, the separate compose window, `mailto:` routing and MIME/CID handling are
+documented in `.ai-docs/compose-and-sending.md`.
 
 ### Theming & CSS (no library theme)
 
