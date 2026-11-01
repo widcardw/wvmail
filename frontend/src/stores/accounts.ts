@@ -909,8 +909,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   /**
    * Delete the message currently open in the reading pane. The backend moves it
    * to Trash (or expunges it when it is already there); the UI removes the local
-   * row only after the server accepts the operation, then opens the next message
-   * so the pane does not stay on a message that no longer exists.
+   * row only after the server accepts the operation and leaves the reading pane
+   * empty, rather than opening an adjacent message the user did not choose.
    */
   async function deleteSelectedEmail(): Promise<boolean> {
     const account = selectedEmailAccount.value
@@ -923,15 +923,12 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
     if (deletingSelectedEmail.value) return false
 
-    const rows = currentEmails.value.slice()
-    const index = rows.findIndex(
+    const row = currentEmails.value.find(
       (email) =>
         email.uid === uid &&
         (email.account_id == null || email.account_id === account.ID) &&
         (email.folder_name == null || email.folder_name === folder),
     )
-    const row = index >= 0 ? rows[index] : undefined
-    const next = index >= 0 ? (rows[index + 1] ?? rows[index - 1]) : undefined
     // `markEmailRead` updates the folder-list row before deleting. Use that row
     // instead of the detail flags so an already-seen message does not decrement
     // the unread badge a second time. Search/aggregate rows are not in
@@ -977,16 +974,6 @@ export const useAccountsStore = defineStore('accounts', () => {
       }
 
       feedback.success(i18n.value['mail.deleted'])
-      if (stillSelected && next) {
-        // Search and aggregate rows can come from a different account. Resolve
-        // the account from the row rather than reusing the deleted message's
-        // account, which would fetch the same UID from the wrong mailbox.
-        const nextAccountId = next.account_id || account.ID
-        const nextAccount = accounts.value.find((candidate) => candidate.ID === nextAccountId)
-        if (nextAccount) {
-          await selectEmail(nextAccount, next.folder_name || folder, next.uid)
-        }
-      }
       if (!searchStore.searchActive && !smartFolder.value) {
         void loadEmails(account, folder, currentPageByFolder.value[folderKey] || 1)
       }
