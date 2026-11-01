@@ -9,7 +9,7 @@ import type {
   AttachmentInfo,
   EmailPageResponse,
 } from '~/types/email'
-import { ConfigService, EmailService, OsService, EmailAccount } from '#/wvmail/services'
+import { ConfigService, EmailService, OsService, TagService, EmailAccount } from '#/wvmail/services'
 import type { AccountProxy } from '#/wvmail/services'
 import { reportFetchFailure, useFeedbackStore } from '~/stores/feedback'
 import { useSearchStore } from '~/stores/search'
@@ -66,11 +66,16 @@ export const useAccountsStore = defineStore('accounts', () => {
   const smartFolderLoading = ref(false)
   const smartFolderRefreshing = ref(false)
   const smartCurrentPage = ref(1)
+  const mailTagFilterIDs = ref<string[]>([])
+  const smartTagFilterEmails = ref<EmailSummary[]>([])
+  const smartTagFilterTotal = ref(0)
   /** Latest aggregate-view request; switching views invalidates older results. */
   let smartFolderRequestId = 0
+  let smartTagFilterRequestId = 0
 
   function invalidateSmartFolderRequests() {
     smartFolderRequestId++
+    smartTagFilterRequestId++
     smartFolderLoading.value = false
     smartFolderRefreshing.value = false
   }
@@ -84,6 +89,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   const flaggedInflight = new Map<string, Promise<EmailSummary[]>>()
 
   const isSmartFolder = computed(() => smartFolder.value !== null)
+  const tagFilterActive = computed(() => mailTagFilterIDs.value.length > 0)
 
   /** True while the folder on screen is being fetched — the list header's spinner. */
   const refreshingOpenFolder = computed(() => {
@@ -137,6 +143,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   const currentEmails = computed(() => {
     if (searchStore.searchActive) return searchStore.searchResults
     if (smartFolder.value) {
+      if (tagFilterActive.value) return smartTagFilterEmails.value
       const start = (smartCurrentPage.value - 1) * pageSize
       return smartEmails.value.slice(start, start + pageSize)
     }
@@ -146,7 +153,9 @@ export const useAccountsStore = defineStore('accounts', () => {
 
   const currentTotal = computed(() => {
     if (searchStore.searchActive) return searchStore.searchTotal
-    if (smartFolder.value) return smartEmails.value.length
+    if (smartFolder.value) {
+      return tagFilterActive.value ? smartTagFilterTotal.value : smartEmails.value.length
+    }
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailTotalByFolder.value[key] ?? 0
   })
@@ -489,23 +498,33 @@ export const useAccountsStore = defineStore('accounts', () => {
     listRequestsInFlight++
     loading.value = true
     try {
-      const resp: EmailPageResponse | null = await EmailService.ListEmails(
-        account,
-        folder,
-        page,
-        ps,
-      )
+      const activeTagIDs = [...mailTagFilterIDs.value]
+      const resp: EmailPageResponse | null = activeTagIDs.length
+        ? await TagService.ListTagFilteredEmails({
+            scopes: [{ account_id: account.ID, folder_name: folder }],
+            tag_ids: activeTagIDs,
+            flagged_only: false,
+            page,
+            page_size: ps,
+          })
+        : await EmailService.ListEmails(account, folder, page, ps)
       if (!folderRequestIsCurrent(key, requestId)) return false
-      emailsByFolder.value[key] = resp?.emails ?? []
-      emailTotalByFolder.value[key] = resp?.total ?? 0
-      if (page === 1) {
-        currentPageByFolder.value[key] = 1
+      const total = resp?.total ?? 0
+      const maxPages = total > 0 ? Math.ceil(total / ps) : 1
+      if (page > maxPages) {
+        await loadEmails(account, folder, maxPages, ps)
+        return true
       }
+      emailsByFolder.value[key] = resp?.emails ?? []
+      emailTotalByFolder.value[key] = total
+      currentPageByFolder.value[key] = page
       const fromCache = resp?.from_cache ?? false
       // A page the backend had to fetch is fresh; remember when, so the
       // open-folder revalidation below does not dial the same mailbox again.
-      if (!fromCache) folderFetchedAt[key] = Date.now()
-      recordSnapshot(key, resp)
+      if (!activeTagIDs.length) {
+        if (!fromCache) folderFetchedAt[key] = Date.now()
+        recordSnapshot(key, resp)
+      }
       return fromCache
     } catch (e) {
       if (!folderRequestIsCurrent(key, requestId)) return false
@@ -547,21 +566,26 @@ export const useAccountsStore = defineStore('accounts', () => {
     refreshingKeys.value[key] = true
     try {
       const cur = currentPageByFolder.value[key] || 1
+      const tagFiltered = mailTagFilterIDs.value.length > 0
       const resp: EmailPageResponse | null = await EmailService.RefreshEmails(
         account,
         folder,
-        cur,
+        tagFiltered ? 1 : cur,
         pageSize,
       )
       if (!folderRequestIsCurrent(key, requestId)) return
       const total = resp?.total ?? 0
       const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
       const next = Math.max(1, Math.min(cur, maxPages))
-      emailsByFolder.value[key] = resp?.emails ?? []
-      emailTotalByFolder.value[key] = total
-      currentPageByFolder.value[key] = next
       folderFetchedAt[key] = Date.now()
       recordSnapshot(key, resp)
+      if (tagFiltered) {
+        await loadEmails(account, folder, cur)
+      } else {
+        emailsByFolder.value[key] = resp?.emails ?? []
+        emailTotalByFolder.value[key] = total
+        currentPageByFolder.value[key] = next
+      }
       if (announce) feedback.success(i18n.value['mail.refreshed'])
       // New mail moves the sidebar badges too. loadFolderStatuses is throttled
       // (30s), so the background path normally costs nothing extra.
@@ -639,12 +663,18 @@ export const useAccountsStore = defineStore('accounts', () => {
           const want = currentPageByFolder.value[key] || 1
           const requestId = beginFolderRequest(key)
           EmailService.ListEmails(account, folder, want, pageSize)
-            .then((resp: EmailPageResponse | null) => {
+            .then(async (resp: EmailPageResponse | null) => {
               if (!folderRequestIsCurrent(key, requestId)) return
               // The sync just fetched this folder on the server, so a click on it
               // must not trigger another dial straight away.
               folderFetchedAt[key] = Date.now()
               recordSnapshot(key, resp)
+              // The tag query reads the cache that the sync just updated. Re-run
+              // it instead of painting the unfiltered page over a filtered list.
+              if (tagFilterActive.value) {
+                await loadEmails(account, folder, want)
+                return
+              }
               const total = resp?.total ?? 0
               const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
               const page = Math.min(Math.max(1, want), maxPages)
@@ -705,22 +735,36 @@ export const useAccountsStore = defineStore('accounts', () => {
    * failure only reverts the optimistic update, it never blocks the detail view.
    */
   async function markEmailRead(account: EmailAccount, folder: string, uid: number) {
-    const summary = emailsByFolder.value[`${account.ID}:${folder}`]?.find(
+    const folderSummary = emailsByFolder.value[`${account.ID}:${folder}`]?.find(
       (item) => item.uid === uid,
     )
-    if (summary?.is_read) return // already read, nothing to do
-    if (summary) summary.is_read = true
+    const touched = [
+      folderSummary,
+      ...smartEmails.value.filter(
+        (email) =>
+          email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
+      ),
+      ...smartTagFilterEmails.value.filter(
+        (email) =>
+          email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
+      ),
+    ].filter((summary): summary is EmailSummary => Boolean(summary))
+    if (touched.length > 0 && touched.every((summary) => summary.is_read)) return
+    const previousRead = touched.map((summary) => summary.is_read)
+    for (const summary of touched) summary.is_read = true
     // Adjust the badge only when the message came from the loaded page: a search or
     // aggregate hit is not in `emailsByFolder` at all, so its read state is unknown and
     // guessing would take a count off a folder that may never have had it. The next
     // throttled refresh settles it.
-    const knownUnread = summary !== undefined
+    const knownUnread = folderSummary !== undefined
     if (knownUnread) adjustUnread(account.ID, folder, -1)
     try {
       await EmailService.MarkEmailRead(account, folder, uid)
       tagsStore.setEmailRead(account.ID, folder, uid)
     } catch (e) {
-      if (summary) summary.is_read = false
+      touched.forEach((summary, index) => {
+        summary.is_read = previousRead[index]
+      })
       if (knownUnread) adjustUnread(account.ID, folder, 1)
       console.error('Failed to mark email as read', e)
     }
@@ -845,6 +889,11 @@ export const useAccountsStore = defineStore('accounts', () => {
         email.flags = withMailFlag(email.flags, flag, enabled)
       }
     }
+    for (const email of smartTagFilterEmails.value) {
+      if (email.account_id === accountId && email.folder_name === folder && email.uid === uid) {
+        email.flags = withMailFlag(email.flags, flag, enabled)
+      }
+    }
     searchStore.setFlag(accountId, folder, uid, flag, enabled)
     const detail = selectedEmailDetail.value
     if (
@@ -886,7 +935,18 @@ export const useAccountsStore = defineStore('accounts', () => {
           (email) =>
             !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
         )
-        const lastPage = Math.max(1, Math.ceil(smartEmails.value.length / pageSize))
+        const filteredBefore = smartTagFilterEmails.value.length
+        smartTagFilterEmails.value = smartTagFilterEmails.value.filter(
+          (email) =>
+            !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
+        )
+        if (smartTagFilterEmails.value.length !== filteredBefore) {
+          smartTagFilterTotal.value = Math.max(0, smartTagFilterTotal.value - 1)
+        }
+        const smartTotal = tagFilterActive.value
+          ? smartTagFilterTotal.value
+          : smartEmails.value.length
+        const lastPage = Math.max(1, Math.ceil(smartTotal / pageSize))
         smartCurrentPage.value = Math.min(smartCurrentPage.value, lastPage)
       }
     } catch (e) {
@@ -951,6 +1011,14 @@ export const useAccountsStore = defineStore('accounts', () => {
         (email) =>
           !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
       )
+      const filteredBefore = smartTagFilterEmails.value.length
+      smartTagFilterEmails.value = smartTagFilterEmails.value.filter(
+        (email) =>
+          !(email.account_id === account.ID && email.folder_name === folder && email.uid === uid),
+      )
+      if (smartTagFilterEmails.value.length !== filteredBefore) {
+        smartTagFilterTotal.value = Math.max(0, smartTagFilterTotal.value - 1)
+      }
       searchStore.removeEmail(account.ID, folder, uid)
       tagsStore.removeEmail(account.ID, folder, uid)
 
@@ -990,6 +1058,10 @@ export const useAccountsStore = defineStore('accounts', () => {
       return
     }
     if (smartFolder.value) {
+      if (tagFilterActive.value) {
+        void loadSmartTagFilteredPage(page)
+        return
+      }
       smartCurrentPage.value = page
       return
     }
@@ -1026,8 +1098,111 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  async function smartTagFilterScopes(
+    smartType: string,
+  ): Promise<Array<{ account_id: string; folder_name: string }>> {
+    if (smartType === 'starred') return []
+    const scopes: Array<{ account_id: string; folder_name: string }> = []
+    for (const account of accounts.value) {
+      let folders = foldersByAccount.value[account.ID]
+      if (!folders) {
+        try {
+          folders = await EmailService.ListFolders(account)
+          foldersByAccount.value[account.ID] = folders
+        } catch {
+          continue
+        }
+      }
+      const match = folders.find((folder) => folderMatchesType(folder.name, smartType))
+      if (match) scopes.push({ account_id: account.ID, folder_name: match.name })
+    }
+    return scopes
+  }
+
+  async function loadSmartTagFilteredPage(
+    page = smartCurrentPage.value,
+    requestId = smartFolderRequestId,
+  ) {
+    const smartType = smartFolder.value
+    if (!tagFilterActive.value || !smartType || smartType === 'classified') return
+    const id = ++smartTagFilterRequestId
+    smartFolderLoading.value = true
+    try {
+      const scopes = await smartTagFilterScopes(smartType)
+      if (
+        id !== smartTagFilterRequestId ||
+        smartFolder.value !== smartType ||
+        requestId !== smartFolderRequestId
+      ) {
+        return
+      }
+      if (scopes.length === 0 && smartType !== 'starred') {
+        smartTagFilterEmails.value = []
+        smartTagFilterTotal.value = 0
+        smartCurrentPage.value = 1
+        return
+      }
+      const resp: EmailPageResponse | null = await TagService.ListTagFilteredEmails({
+        scopes,
+        tag_ids: [...mailTagFilterIDs.value],
+        flagged_only: smartType === 'starred',
+        page,
+        page_size: pageSize,
+      })
+      if (
+        id !== smartTagFilterRequestId ||
+        smartFolder.value !== smartType ||
+        requestId !== smartFolderRequestId
+      ) {
+        return
+      }
+      const total = resp?.total ?? 0
+      const pages = Math.max(1, Math.ceil(total / pageSize))
+      const nextPage = Math.min(Math.max(1, page), pages)
+      if (nextPage !== page) {
+        await loadSmartTagFilteredPage(nextPage, requestId)
+        return
+      }
+      smartCurrentPage.value = nextPage
+      smartTagFilterEmails.value = (resp?.emails ?? []) as EmailSummary[]
+      smartTagFilterTotal.value = total
+    } catch (e) {
+      if (id === smartTagFilterRequestId && smartFolder.value === smartType) {
+        reportFetchFailure('Failed to apply the tag filter to the aggregate view', e)
+      }
+    } finally {
+      if (id === smartTagFilterRequestId && smartFolder.value === smartType) {
+        smartFolderLoading.value = false
+      }
+    }
+  }
+
+  async function setMailTagFilterIDs(ids: string[]) {
+    const enabled = new Set(tagsStore.enabledTags.map((tag) => tag.id))
+    mailTagFilterIDs.value = [...new Set(ids)].filter((id) => enabled.has(id))
+    smartCurrentPage.value = 1
+
+    if (searchStore.searchActive || smartFolder.value === 'classified') return
+    if (smartFolder.value) {
+      if (tagFilterActive.value) {
+        await loadSmartTagFilteredPage(1)
+      } else {
+        smartTagFilterEmails.value = []
+        smartTagFilterTotal.value = 0
+      }
+      return
+    }
+    const account = selectedAccount.value
+    const folder = selectedFolder.value
+    if (account && folder) {
+      currentPageByFolder.value[`${account.ID}:${folder}`] = 1
+      await loadEmails(account, folder, 1)
+    }
+  }
+
   async function selectSmartFolder(smartType: string) {
     const requestId = ++smartFolderRequestId
+    smartTagFilterRequestId++
     const previousSmartFolder = smartFolder.value
     smartFolder.value = smartType
     selectedAccountId.value = null
@@ -1038,6 +1213,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailDetail.value = null
     // Never leave rows from the previous smart folder under the new heading.
     if (previousSmartFolder !== smartType) smartEmails.value = []
+    smartTagFilterEmails.value = []
+    smartTagFilterTotal.value = 0
     smartFolderLoading.value = true
     smartFolderRefreshing.value = false
     smartCurrentPage.value = 1
@@ -1113,6 +1290,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         smartEmails.value = all
       }
+      if (tagFilterActive.value) await loadSmartTagFilteredPage(1, requestId)
     } catch (e) {
       if (!smartFolderRequestIsCurrent(requestId, smartType)) return
       // Keep any previously loaded aggregate rather than showing an empty list,
@@ -1169,6 +1347,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     } finally {
       if (smartFolderRequestIsCurrent(requestId, 'starred')) {
         smartFolderRefreshing.value = false
+        if (tagFilterActive.value) {
+          void loadSmartTagFilteredPage(smartCurrentPage.value, requestId)
+        }
       }
     }
   }
@@ -1214,6 +1395,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     smartFolderLoading,
     smartFolderRefreshing,
     smartCurrentPage,
+    mailTagFilterIDs,
+    tagFilterActive,
+    setMailTagFilterIDs,
     isSmartFolder,
     folderMatchesType,
     selectSmartFolder,

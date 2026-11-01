@@ -17,6 +17,7 @@ mail is never moved on the server.
 |---|---|
 | `ListMailTags` / `SaveMailTag` / `DeleteMailTag` | CRUD for local rules |
 | `ListClassifiedEmails(tagIDs, page, pageSize)` | OR-filter classified mail and return one page |
+| `ListTagFilteredEmails(request)` | Filter one paginated mail-list scope by tags before counting or paging |
 | `GetEmailTagState(accountID, folder, uid)` | Effective tags plus automatic matches for one message |
 | `SetEmailTags(accountID, folder, uid, selectedTagIDs)` | Store only manual differences from the rules |
 | `PreviewTagSuggestionPrompt(request)` | Build the exact AI prompt without a network request |
@@ -28,6 +29,13 @@ mail is never moved on the server.
 - Fields are `subject`, `from`, `domain`, and `body`.
 - Keywords inside one tag are ORed. A message may match any number of tags.
 - Classification-page filters are also ORed.
+- Folder and aggregate-list filters use `current view AND (selected tags OR)`.
+  The view is a folder, one matching folder per account for All Inbox/Sent/Drafts,
+  or the complete cache with `flagged_only` for All Starred.
+- `ListTagFilteredEmails` applies the view scope, enabled tags, manual overrides,
+  body rules, and optional starred flag before pagination. Its returned `total`
+  and page count therefore describe the filtered result, not the unfiltered page.
+- Search keeps its own result set and does not expose the list tag-filter button.
 - Comparisons are case-insensitive substring matches.
 - `body` only reads already cached text. Classification never silently opens IMAP
   to download a body.
@@ -67,6 +75,9 @@ opened.
 - `TagFilter.vue` is the multi-tag OR selector. Its long tag list uses
   `UiScrollArea`, so the popover keeps one opaque surface and shows only the
   shared narrow scrollbar while hovered or scrolling.
+- `EmailList.vue` places a compact `TagFilter` immediately after refresh. The
+  selection is shared across folder and aggregate views, but is separate from the
+  full-width filter on the Categories page. Search hides the button.
 - `EmailListItem.vue` renders tag chips from `EmailSummary.tag_ids`.
 - The message toolbar has a tag button; `EmailTagDialog.vue` edits manual tags.
 - Settings → Tags (`views/settings/Tags.vue`) owns rule CRUD.

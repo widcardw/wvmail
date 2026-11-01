@@ -66,6 +66,7 @@ function onPageCommit(details: unknown) {
     >
       <i class="i-ri:refresh-line" :class="{ 'refresh-spin': refreshing }" aria-hidden="true" />
     </button>
+    <slot name="after-refresh" />
     <span class="spacer" />
     <Pagination.Root
       v-if="pageCount > 1"

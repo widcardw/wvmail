@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useSearchStore } from '~/stores/search'
+import { useTagsStore } from '~/stores/tags'
 import { getFolderDisplay } from '~/types/email'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
+import TagFilter from '~/components/tags/TagFilter.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 const searchStore = useSearchStore()
+const tagsStore = useTagsStore()
 
 const loading = computed(() => {
   if (searchStore.searchActive) return searchStore.searchLoading
@@ -82,6 +85,19 @@ const folderDisplay = computed(() => {
 const showHeader = computed(
   () => !!accountsStore.selectedFolder || accountsStore.isSmartFolder || searchStore.searchActive,
 )
+const showTagFilter = computed(() => showHeader.value && !searchStore.searchActive)
+const emptyMessage = computed(() =>
+  accountsStore.tagFilterActive ? t.value['tags.noMatch'] : t.value['mail.noEmails'],
+)
+
+onMounted(async () => {
+  await tagsStore.loadTags()
+  const enabled = new Set(tagsStore.enabledTags.map((tag) => tag.id))
+  const next = accountsStore.mailTagFilterIDs.filter((id) => enabled.has(id))
+  if (next.length !== accountsStore.mailTagFilterIDs.length) {
+    await accountsStore.setMailTagFilterIDs(next)
+  }
+})
 
 function handleClick(email: { uid: number; account_id?: string; folder_name?: string }) {
   const smartF = accountsStore.smartFolder
@@ -121,11 +137,20 @@ function handleClick(email: { uid: number; account_id?: string; folder_name?: st
           : accountsStore.forceRefreshEmails()
       "
       @page-change="accountsStore.goToPage"
-    />
+    >
+      <template #after-refresh>
+        <TagFilter
+          v-if="showTagFilter"
+          compact
+          :selected="accountsStore.mailTagFilterIDs"
+          @change="(ids) => void accountsStore.setMailTagFilterIDs(ids)"
+        />
+      </template>
+    </EmailListHeader>
 
     <UiScrollArea class="body">
       <div v-if="loading" class="spin-row"><span class="spinner" /></div>
-      <p v-else-if="emails.length === 0" class="empty">{{ t['mail.noEmails'] }}</p>
+      <p v-else-if="emails.length === 0" class="empty">{{ emptyMessage }}</p>
 
       <template v-else>
         <EmailListItem

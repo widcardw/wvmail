@@ -109,6 +109,117 @@ func TestClassifyCachedEmailsAppliesExplicitExclusion(t *testing.T) {
 	}
 }
 
+func TestListTagFilteredEmailsScopesBeforePaginating(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	db := NewDBManager()
+	if err := db.SaveEmails("acct", "INBOX", []EmailSummary{
+		{UID: 1, Subject: "New arXiv paper", Date: "2026-10-31T09:00:00Z"},
+		{UID: 2, Subject: "KDD deadline", Date: "2026-10-30T09:00:00Z"},
+		{UID: 3, Subject: "Ordinary notice", Date: "2026-10-29T09:00:00Z"},
+	}); err != nil {
+		t.Fatalf("SaveEmails(INBOX): %v", err)
+	}
+	if err := db.SaveEmails("acct", "Archive", []EmailSummary{
+		{UID: 4, Subject: "Archived arXiv paper", Date: "2026-10-28T09:00:00Z"},
+	}); err != nil {
+		t.Fatalf("SaveEmails(Archive): %v", err)
+	}
+	if err := db.SaveEmails("other", "INBOX", []EmailSummary{
+		{UID: 5, Subject: "Another arXiv paper", Date: "2026-10-27T09:00:00Z"},
+	}); err != nil {
+		t.Fatalf("SaveEmails(other): %v", err)
+	}
+
+	svc := NewTagService(&ConfigService{})
+	arxiv, err := svc.SaveMailTag(MailTag{
+		Label:    "arXiv",
+		Color:    "#4f83cc",
+		Keywords: []string{"arxiv"},
+		Fields:   []string{tagFieldSubject},
+		Enabled:  true,
+	})
+	if err != nil {
+		t.Fatalf("SaveMailTag(arXiv): %v", err)
+	}
+	kdd, err := svc.SaveMailTag(MailTag{
+		Label:    "KDD",
+		Color:    "#e06c75",
+		Keywords: []string{"kdd"},
+		Fields:   []string{tagFieldSubject},
+		Enabled:  true,
+	})
+	if err != nil {
+		t.Fatalf("SaveMailTag(KDD): %v", err)
+	}
+
+	request := EmailTagFilterRequest{
+		Scopes:   []EmailTagFilterScope{{AccountID: "acct", FolderName: "INBOX"}},
+		TagIDs:   []string{arxiv.ID, kdd.ID},
+		Page:     1,
+		PageSize: 2,
+	}
+	page1, err := svc.ListTagFilteredEmails(request)
+	if err != nil {
+		t.Fatalf("ListTagFilteredEmails(page 1): %v", err)
+	}
+	if page1.Total != 2 || len(page1.Emails) != 2 {
+		t.Fatalf("page 1 = total %d, rows %d; want total 2, rows 2", page1.Total, len(page1.Emails))
+	}
+	if page1.Emails[0].UID != 1 || page1.Emails[1].UID != 2 {
+		t.Fatalf("page 1 UIDs = %v, want [1 2]", []uint32{page1.Emails[0].UID, page1.Emails[1].UID})
+	}
+	if len(page1.Emails[0].TagIDs) != 1 || page1.Emails[0].TagIDs[0] != arxiv.ID {
+		t.Fatalf("arXiv row tag IDs = %v, want [%s]", page1.Emails[0].TagIDs, arxiv.ID)
+	}
+
+	request.Page = 2
+	request.PageSize = 1
+	page2, err := svc.ListTagFilteredEmails(request)
+	if err != nil {
+		t.Fatalf("ListTagFilteredEmails(page 2): %v", err)
+	}
+	if page2.Total != 2 || len(page2.Emails) != 1 || page2.Emails[0].UID != 2 {
+		t.Fatalf("page 2 = total %d, rows %+v; want total 2 and UID 2", page2.Total, page2.Emails)
+	}
+}
+
+func TestListTagFilteredEmailsCanLimitStarredMessages(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	db := NewDBManager()
+	if err := db.SaveEmails("acct", "INBOX", []EmailSummary{
+		{UID: 1, Subject: "Starred arXiv", Flags: []string{`\Flagged`}},
+		{UID: 2, Subject: "Unstarred arXiv"},
+	}); err != nil {
+		t.Fatalf("SaveEmails: %v", err)
+	}
+
+	svc := NewTagService(&ConfigService{})
+	tag, err := svc.SaveMailTag(MailTag{
+		Label:    "arXiv",
+		Color:    "#4f83cc",
+		Keywords: []string{"arxiv"},
+		Fields:   []string{tagFieldSubject},
+		Enabled:  true,
+	})
+	if err != nil {
+		t.Fatalf("SaveMailTag: %v", err)
+	}
+	resp, err := svc.ListTagFilteredEmails(EmailTagFilterRequest{
+		TagIDs:      []string{tag.ID},
+		FlaggedOnly: true,
+		Page:        1,
+		PageSize:    20,
+	})
+	if err != nil {
+		t.Fatalf("ListTagFilteredEmails: %v", err)
+	}
+	if resp.Total != 1 || len(resp.Emails) != 1 || resp.Emails[0].UID != 1 {
+		t.Fatalf("starred filter returned total %d, rows %+v; want only UID 1", resp.Total, resp.Emails)
+	}
+}
+
 func TestParseTagSuggestionsAcceptsFencesAndRejectsInvalidRules(t *testing.T) {
 	got, err := parseTagSuggestions("```json\n[{\"label\":\"arXiv\",\"color\":\"#4F83CC\",\"keywords\":[\"arxiv\",\"arXiv\"],\"fields\":[\"subject\",\"domain\",\"unknown\"]},{\"label\":\"Bad\",\"keywords\":[],\"fields\":[\"subject\"]}]\n```")
 	if err != nil {

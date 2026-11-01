@@ -65,7 +65,10 @@ onMounted(async () => {
       @page-change="tagsStore.loadEmails"
     >
       <template #filters>
-        <TagFilter />
+        <TagFilter
+          :selected="tagsStore.selectedFilterIDs"
+          @change="(ids) => void tagsStore.setFilterIDs(ids)"
+        />
       </template>
     </EmailListHeader>
 

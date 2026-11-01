@@ -62,6 +62,24 @@ type EmailTagState struct {
 	AutomaticTagIDs []string `json:"automatic_tag_ids"`
 }
 
+// EmailTagFilterScope is one account/folder pair a tag-filtered list query is
+// allowed to inspect. An empty scope list means the whole local cache, which is
+// used by aggregate views such as Starred that already narrow by message flag.
+type EmailTagFilterScope struct {
+	AccountID  string `json:"account_id"`
+	FolderName string `json:"folder_name"`
+}
+
+// EmailTagFilterRequest is a paginated tag query constrained to the view the
+// user is currently looking at. Tag IDs are ORed with one another.
+type EmailTagFilterRequest struct {
+	Scopes      []EmailTagFilterScope `json:"scopes"`
+	TagIDs      []string              `json:"tag_ids"`
+	FlaggedOnly bool                  `json:"flagged_only"`
+	Page        int                   `json:"page"`
+	PageSize    int                   `json:"page_size"`
+}
+
 // TagSuggestionRequest controls the exact data sent to the LLM. Subject lines
 // are always included; every other field is opt-in. PromptOverride lets the user
 // edit the reviewed preview before sending it verbatim.
@@ -175,6 +193,123 @@ func (s *TagService) DeleteMailTag(id string) error {
 		return fmt.Errorf("delete mail tag: %w", err)
 	}
 	return nil
+}
+
+// ListTagFilteredEmails applies tag rules inside the current list scope. It
+// filters and paginates the cached result as one set, so the total and page
+// count describe matching messages rather than whichever unfiltered page
+// happened to be loaded first.
+func (s *TagService) ListTagFilteredEmails(
+	request EmailTagFilterRequest,
+) (*EmailPageResponse, error) {
+	scopes, err := normalizeTagFilterScopes(request.Scopes)
+	if err != nil {
+		return nil, err
+	}
+	if len(scopes) == 0 && !request.FlaggedOnly {
+		return nil, fmt.Errorf("a tag-filtered mail query needs at least one folder scope")
+	}
+
+	tags, err := s.ListMailTags()
+	if err != nil {
+		return nil, err
+	}
+	selected := make(map[string]bool)
+	for _, id := range request.TagIDs {
+		selected[id] = true
+	}
+	for _, tag := range tags {
+		if !tag.Enabled {
+			delete(selected, tag.ID)
+		}
+	}
+	if len(selected) == 0 {
+		return &EmailPageResponse{Emails: []EmailSummary{}, FromCache: true}, nil
+	}
+
+	emails, err := s.db.LoadTaggingEmailsForScopes(scopes)
+	if err != nil {
+		return nil, fmt.Errorf("load scoped emails for tag filtering: %w", err)
+	}
+	if request.FlaggedOnly {
+		filtered := emails[:0]
+		for _, email := range emails {
+			if hasMailFlag(cachedEmailSummary(email, time.Now()).Flags, `\Flagged`) {
+				filtered = append(filtered, email)
+			}
+		}
+		emails = filtered
+	}
+	bodies, err := s.db.LoadTaggingBodiesForScopes(scopes)
+	if err != nil {
+		return nil, fmt.Errorf("load scoped bodies for tag filtering: %w", err)
+	}
+	overrides, err := s.db.LoadEmailTagOverridesForScopes(scopes)
+	if err != nil {
+		return nil, fmt.Errorf("load scoped tag overrides: %w", err)
+	}
+	folderAttrs, err := s.loadFolderAttrs()
+	if err != nil {
+		return nil, err
+	}
+
+	classified := classifyCachedEmails(
+		emails,
+		bodies,
+		tags,
+		overrides,
+		folderAttrs,
+		selected,
+		time.Now(),
+	)
+	page := request.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := request.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+
+	response := &EmailPageResponse{
+		Emails:    paginateSummaries(classified, page, pageSize),
+		Total:     len(classified),
+		FromCache: true,
+	}
+	if len(scopes) == 1 {
+		if meta, metaErr := s.db.LoadFolderMeta(scopes[0].AccountID, scopes[0].FolderName); metaErr == nil {
+			response.UIDNext = meta.UIDNext
+		}
+	}
+	return response, nil
+}
+
+func normalizeTagFilterScopes(scopes []EmailTagFilterScope) ([]EmailTagFilterScope, error) {
+	seen := make(map[string]bool, len(scopes))
+	out := make([]EmailTagFilterScope, 0, len(scopes))
+	for _, scope := range scopes {
+		scope.AccountID = strings.TrimSpace(scope.AccountID)
+		scope.FolderName = strings.TrimSpace(scope.FolderName)
+		if scope.AccountID == "" || scope.FolderName == "" {
+			return nil, fmt.Errorf("tag-filtered mail scopes need an account and folder")
+		}
+		key := tagFolderKey(scope.AccountID, scope.FolderName)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, scope)
+	}
+	return out, nil
+}
+
+func hasMailFlag(flags []string, want string) bool {
+	for _, flag := range flags {
+		if strings.EqualFold(strings.TrimSpace(flag), want) {
+			return true
+		}
+	}
+	return false
 }
 
 // ListClassifiedEmails returns one page of messages matching any selected tag

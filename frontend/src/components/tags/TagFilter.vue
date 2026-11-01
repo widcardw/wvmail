@@ -6,23 +6,35 @@ import { useTagsStore } from '~/stores/tags'
 import UiCheckbox from '~/components/ui/UiCheckbox.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
+const props = withDefaults(
+  defineProps<{
+    selected: string[]
+    compact?: boolean
+  }>(),
+  { compact: false },
+)
+
+const emit = defineEmits<{ change: [ids: string[]] }>()
+
 const { t, tf } = useI18n()
 const tagsStore = useTagsStore()
 const open = ref(false)
 
+function setSelected(ids: string[]) {
+  emit('change', [...new Set(ids)])
+}
+
 function toggle(id: string, checked: boolean) {
-  const next = checked
-    ? [...tagsStore.selectedFilterIDs, id]
-    : tagsStore.selectedFilterIDs.filter((value) => value !== id)
-  void tagsStore.setFilterIDs(next)
+  const next = checked ? [...props.selected, id] : props.selected.filter((value) => value !== id)
+  setSelected(next)
 }
 
 function selectAll() {
-  void tagsStore.setFilterIDs(tagsStore.enabledTags.map((tag) => tag.id))
+  setSelected(tagsStore.enabledTags.map((tag) => tag.id))
 }
 
 function clearAll() {
-  void tagsStore.setFilterIDs([])
+  setSelected([])
 }
 </script>
 
@@ -37,18 +49,25 @@ function clearAll() {
       <button
         type="button"
         class="tag-filter-trigger"
+        :class="{ 'tag-filter-trigger--compact': compact }"
         :title="t['tags.filter']"
-        :aria-label="t['tags.filter']"
+        :aria-label="
+          selected.length ? tf('tags.selectedTags', { count: selected.length }) : t['tags.filter']
+        "
+        :data-active="selected.length > 0"
       >
-        <i class="i-ri:price-tag-3-line" aria-hidden="true" />
-        <span>
-          {{
-            tagsStore.selectedFilterIDs.length
-              ? tf('tags.selectedTags', { count: tagsStore.selectedFilterIDs.length })
-              : t['tags.selectTags']
-          }}
-        </span>
-        <i class="i-ri:arrow-down-s-line" aria-hidden="true" />
+        <i :class="compact ? 'i-ri:filter-3-line' : 'i-ri:price-tag-3-line'" aria-hidden="true" />
+        <template v-if="!compact">
+          <span>
+            {{
+              selected.length
+                ? tf('tags.selectedTags', { count: selected.length })
+                : t['tags.selectTags']
+            }}
+          </span>
+          <i class="i-ri:arrow-down-s-line" aria-hidden="true" />
+        </template>
+        <span v-else-if="selected.length" class="tag-filter-count">{{ selected.length }}</span>
       </button>
     </Popover.Trigger>
     <Teleport to="body">
@@ -71,7 +90,7 @@ function clearAll() {
                 :key="tag.id"
                 class="tag-filter-row"
                 label-class="tag-filter-label"
-                :checked="tagsStore.selectedFilterIDs.includes(tag.id)"
+                :checked="selected.includes(tag.id)"
                 @update:checked="toggle(tag.id, $event)"
               >
                 <span class="tag-filter-dot" :style="{ background: tag.color }" />
@@ -87,6 +106,7 @@ function clearAll() {
 
 <style scoped>
 .tag-filter-trigger {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -113,6 +133,41 @@ function clearAll() {
 .tag-filter-trigger i {
   flex: none;
   font-size: 14px;
+}
+.tag-filter-trigger--compact {
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--n-text-color);
+  background: transparent;
+  border-color: transparent;
+}
+.tag-filter-trigger--compact:hover,
+.tag-filter-trigger--compact[data-state='open'] {
+  background: var(--n-sidebar-hover);
+  border-color: transparent;
+}
+.tag-filter-trigger--compact[data-active='true'] {
+  color: var(--n-primary-color);
+  background: color-mix(in srgb, var(--n-primary-color) 12%, transparent);
+}
+.tag-filter-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  color: #fff;
+  background: var(--n-primary-color);
+  border: 1px solid var(--n-body-color);
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1;
 }
 .tag-filter-positioner {
   z-index: 1100;
