@@ -90,8 +90,12 @@ The AI path is opt-in only:
 6. Only the explicit send button calls `GenerateTagSuggestions`; it requires the
    selected LLM/model and sends
    `prompt_override` verbatim when present.
-7. The backend strips Markdown fences, validates rules, and returns suggestions.
-8. The user reviews selected suggestions before `SaveMailTag` writes them.
+7. Tag suggestion requests reserve at least 8192 output tokens. Reasoning models
+   can otherwise spend the entire completion budget before returning visible JSON.
+   Empty or truncated responses produce an actionable error instead of the generic
+   "no JSON array" message.
+8. The backend strips Markdown fences, validates rules, and returns suggestions.
+9. The user reviews selected suggestions before `SaveMailTag` writes them.
 
 API keys are never inserted into prompts. Prompts, addresses and AI responses are
 not logged.
@@ -109,5 +113,6 @@ than copying request code.
   explicit exclusion, response validation, preview/sent prompt equality, and
   verbatim prompt overrides, normalized-subject sample deduplication, and applying
   the sample limit after deduplication. It also verifies that previewing works
-  without an LLM while generation still requires one.
+  without an LLM while generation still requires one, and that tag requests reserve
+  enough output budget for reasoning models.
 - Run `GOCACHE=/tmp/wvmail-gocache go test ./...`.

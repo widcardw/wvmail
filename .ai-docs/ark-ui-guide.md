@@ -90,6 +90,12 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/ui/UiDialog.vue` | `Dialog.Root/.Backdrop/.Positioner/.Content` | shared shell: `.dlg-back`, `.dlg-pos(--top)`, `.dlg-card(--narrow/--wide/--padded)`, `.dlg-body`, `.dlg-foot`, `.dlg-actions`. Cards are flush by default; pass `padded` only for compact dialogs without the standard head/body/foot. Always pass **`lazy-mount` + `unmount-on-exit`** |
 | `components/ui/UiDialogHeader.vue` | `Dialog.Title/.CloseTrigger` | standard `.dlg-head` / `.dlg-title` / `.dlg-close` row. Use it for every normal dialog header; only specialised headers (confirm, crop) compose Ark directly |
 
+Dialogs that can trigger a remote request or external side effect pass
+`close-on-interact-outside="false"`. This includes the LLM editor, AI tag
+suggestions, the external-link confirmation, and remote mail deletion. Backdrop
+clicks must not discard a reviewed prompt or an in-flight action; explicit close,
+cancel, Escape, or a deliberate confirmation remains available.
+
 `UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
 other controls. Bind with `:checked` + `@update:checked="…"`.

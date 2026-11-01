@@ -122,6 +122,22 @@ func TestParseTagSuggestionsAcceptsFencesAndRejectsInvalidRules(t *testing.T) {
 	}
 }
 
+func TestParseTagSuggestionsRejectsEmptyResponse(t *testing.T) {
+	if _, err := parseTagSuggestions("   "); err == nil ||
+		!strings.Contains(err.Error(), "empty response") {
+		t.Fatalf("expected an actionable empty-response error, got %v", err)
+	}
+}
+
+func TestTagSuggestionOutputTokensLeavesRoomForReasoning(t *testing.T) {
+	if got := tagSuggestionOutputTokens(LLMConfig{MaxOutputTokens: 4096}); got != 8192 {
+		t.Fatalf("tag suggestions got %d output tokens, want the 8192 reasoning floor", got)
+	}
+	if got := tagSuggestionOutputTokens(LLMConfig{MaxOutputTokens: 12000}); got != 12000 {
+		t.Fatalf("tag suggestions got %d output tokens, want the configured 12000", got)
+	}
+}
+
 func TestTagSuggestionPreviewIsExactRequestPrompt(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

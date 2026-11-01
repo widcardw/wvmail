@@ -27,7 +27,12 @@ async function openLink() {
 </script>
 
 <template>
-  <UiDialog :open="props.open" padded @update:open="emit('update:open', $event)">
+  <UiDialog
+    :open="props.open"
+    :close-on-interact-outside="false"
+    padded
+    @update:open="emit('update:open', $event)"
+  >
     <Dialog.Title class="dlg-title">{{ t['mail.link.title'] }}</Dialog.Title>
     <Dialog.Description class="dlg-desc">{{ t['mail.link.body'] }}</Dialog.Description>
     <p class="d-url">{{ props.url }}</p>

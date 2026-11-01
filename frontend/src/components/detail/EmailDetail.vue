@@ -472,6 +472,7 @@ const showAttachments = computed(
       :description="t['mail.delete.confirm_body']"
       :confirm-label="t['mail.delete']"
       :busy="accountsStore.deletingSelectedEmail"
+      :close-on-interact-outside="false"
       danger
       @update:open="deleteOpen = $event"
       @confirm="handleDelete"

@@ -20,6 +20,11 @@ const (
 	defaultTagColor   = "#4f83cc"
 	maxTagKeywords    = 50
 	maxTagSuggestions = 30
+
+	// Reasoning models can spend the entire completion budget before emitting the
+	// visible JSON answer. Tag discovery needs a little room beyond the configured
+	// default so those models do not return an empty content string.
+	minTagSuggestionOutputTokens = 8192
 )
 
 var (
@@ -326,12 +331,19 @@ func (s *TagService) GenerateTagSuggestions(
 	output, err := requestLLMChat(
 		&prepared.config,
 		prompt,
-		prepared.config.MaxOutputTokens,
+		tagSuggestionOutputTokens(prepared.config),
 	)
 	if err != nil {
 		return nil, err
 	}
 	return parseTagSuggestions(output)
+}
+
+func tagSuggestionOutputTokens(cfg LLMConfig) int {
+	if cfg.MaxOutputTokens > minTagSuggestionOutputTokens {
+		return cfg.MaxOutputTokens
+	}
+	return minTagSuggestionOutputTokens
 }
 
 func (s *TagService) loadFolderAttrs() (map[string][]string, error) {
@@ -669,6 +681,9 @@ func boundedBodyExcerpt(body string, limit int) string {
 
 func parseTagSuggestions(output string) ([]TagSuggestion, error) {
 	raw := strings.TrimSpace(output)
+	if raw == "" {
+		return nil, fmt.Errorf("the LLM returned an empty response")
+	}
 	raw = strings.TrimPrefix(raw, "```json")
 	raw = strings.TrimPrefix(raw, "```JSON")
 	raw = strings.TrimPrefix(raw, "```")

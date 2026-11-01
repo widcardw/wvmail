@@ -20,8 +20,10 @@ const props = withDefaults(
      *  stops reacting to outside clicks / Escape, so it cannot vanish under the
      *  pointer mid-flight. */
     busy?: boolean
+    /** Keep destructive/remote confirmations open when the backdrop is clicked. */
+    closeOnInteractOutside?: boolean
   }>(),
-  { description: '', danger: false, busy: false },
+  { description: '', danger: false, busy: false, closeOnInteractOutside: true },
 )
 
 const emit = defineEmits<{
@@ -38,6 +40,7 @@ const { t } = useI18n()
     size="narrow"
     role="alertdialog"
     :busy="props.busy"
+    :close-on-interact-outside="props.closeOnInteractOutside"
     padded
     @update:open="emit('update:open', $event)"
   >

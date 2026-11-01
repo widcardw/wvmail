@@ -148,7 +148,8 @@ func parseOpenAIResponse(resp *http.Response) (string, error) {
 	}
 	var result struct {
 		Choices []struct {
-			Message struct {
+			FinishReason string `json:"finish_reason"`
+			Message      struct {
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
@@ -159,7 +160,16 @@ func parseOpenAIResponse(resp *http.Response) (string, error) {
 	if len(result.Choices) == 0 {
 		return "", fmt.Errorf("no choices in response")
 	}
-	return result.Choices[0].Message.Content, nil
+	content := result.Choices[0].Message.Content
+	if strings.TrimSpace(content) == "" {
+		if result.Choices[0].FinishReason == "length" {
+			return "", fmt.Errorf(
+				"the LLM response was truncated before visible content was returned; increase the output token limit",
+			)
+		}
+		return "", fmt.Errorf("the LLM returned an empty response")
+	}
+	return content, nil
 }
 
 func parseAnthropicResponse(resp *http.Response) (string, error) {
@@ -180,6 +190,9 @@ func parseAnthropicResponse(resp *http.Response) (string, error) {
 	}
 	if len(result.Content) == 0 {
 		return "", fmt.Errorf("no content in anthropic response")
+	}
+	if strings.TrimSpace(result.Content[0].Text) == "" {
+		return "", fmt.Errorf("the LLM returned an empty response")
 	}
 	return result.Content[0].Text, nil
 }
@@ -209,6 +222,9 @@ func parseGeminiResponse(resp *http.Response) (string, error) {
 	}
 	if len(result.Candidates[0].Content.Parts) == 0 {
 		return "", fmt.Errorf("no parts in gemini response")
+	}
+	if strings.TrimSpace(result.Candidates[0].Content.Parts[0].Text) == "" {
+		return "", fmt.Errorf("the LLM returned an empty response")
 	}
 	return result.Candidates[0].Content.Parts[0].Text, nil
 }
