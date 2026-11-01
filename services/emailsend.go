@@ -307,7 +307,13 @@ func (a smtpSASLAuth) Start(*smtp.ServerInfo) (string, []byte, error) {
 	return a.client.Start()
 }
 
-func (a smtpSASLAuth) Next(fromServer []byte, _ bool) ([]byte, error) {
+func (a smtpSASLAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	// net/smtp calls Next once more after a successful 235 response, with
+	// more=false. SASL clients such as PLAIN and XOAUTH2 do not expect a final
+	// callback and report it as an unexpected challenge, so finish here first.
+	if !more {
+		return nil, nil
+	}
 	return a.client.Next(fromServer)
 }
 

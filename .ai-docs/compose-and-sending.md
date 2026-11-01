@@ -164,6 +164,9 @@ src="data:image/png;base64,..."
 - 密码认证使用 SASL PLAIN。
 - `net/smtp.Auth` 在 Go 1.25 的接口由 `smtpSASLAuth` 适配到
   `emersion/go-sasl`，避免维护第二份 XOAUTH2 实现。
+- `net/smtp` 在收到成功的 `235` 后还会调用一次 `Next(..., more=false)`。
+  适配器必须直接结束，不能把这次“成功回调”交给 SASL client；PLAIN/XOAUTH2
+  的 `Next` 会把它误判为 unexpected challenge，导致认证已成功却报失败。
 
 ### 5.3 Envelope 与 Bcc
 
