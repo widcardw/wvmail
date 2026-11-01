@@ -467,6 +467,8 @@ const enUS: TranslationSchema = {
   'tags.selectedTags': '{count} tags selected',
   'tags.label': 'Name',
   'tags.color': 'Color',
+  'tags.colorCustom': 'Custom',
+  'tags.colorDefault': 'Reset',
   'tags.keywords': 'Keywords',
   'tags.keywordsHint':
     'Separate with commas or new lines. Any keyword inside one tag is enough to match.',

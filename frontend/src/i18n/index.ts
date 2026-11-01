@@ -441,6 +441,8 @@ export interface TranslationSchema {
   'tags.selectedTags': string
   'tags.label': string
   'tags.color': string
+  'tags.colorCustom': string
+  'tags.colorDefault': string
   'tags.keywords': string
   'tags.keywordsHint': string
   'tags.fields': string

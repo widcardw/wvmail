@@ -82,6 +82,7 @@ another one-off (the settings area used to have three hand-rolled switches plus 
 | `components/ui/UiSelect.vue` | native `<select>` styling | component |
 | `components/ui/UiNumberInput.vue` | `NumberInput.Root/.Control/.Input/.IncrementTrigger/.DecrementTrigger` | `styles/ui.css` (`.num*`); the **control** is the visible box, so a caller `class` (`.input--sm`, `.numsel`) sizes the box and the steppers stay in flow next to the input |
 | `components/ui/UiPasswordInput.vue` | `PasswordInput.Root/.Control/.Input/.VisibilityTrigger` | `styles/ui.css` (`.pw*`; the two eye icons swap on `[data-state='visible']`) |
+| `components/ui/UiColorPicker.vue` | Ark `Popover` + preset swatches + native custom color input | `variant="toolbar"` for the editor icon, `variant="field"` for a select-like form control; the positioner needs an explicit high z-index inside modal dialogs because Ark's nested `--z-index` can otherwise put it behind the dialog card |
 | `components/ui/BusyButton.vue` | plain `<button>` + busy/秒数 label | component |
 | `components/ui/UiBadge.vue` | **nothing — Ark has no Badge**（`@ark-ui/vue` 里没有 `badge` 包，已核对安装的组件目录） | `styles/ui.css`（`.badge`，主色药丸）。props：`count`（≤0 直接不渲染，所以 `v-if` 收在组件里）、`max`（默认 99 → `99+`）、`label`（`aria-label`/tooltip 带**真实**数字，因为可见文字被缩写）。格式化是纯函数 `composables/badge.ts` 的 `formatBadgeCount`，`tests/badge.test.mts` 覆盖 |
 | `components/ui/UiScrollArea.vue` | `ScrollArea.Root/.Viewport/.Content/.Scrollbar/.Thumb/.Corner` | component；5px thumb 只在内容溢出且指针悬停、滚动或拖动时显示，不因焦点残留而常驻 |

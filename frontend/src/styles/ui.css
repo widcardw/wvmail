@@ -294,7 +294,8 @@
 
 /* --- Stacked field (dialog / narrow forms): label above control --- */
 .field {
-  margin-bottom: 12px;
+  display: block;
+  margin-bottom: 16px;
 }
 .field__label {
   display: block;

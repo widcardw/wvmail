@@ -454,6 +454,8 @@ const zhCN: TranslationSchema = {
   'tags.selectedTags': '已选 {count} 个标签',
   'tags.label': '名称',
   'tags.color': '颜色',
+  'tags.colorCustom': '自定义',
+  'tags.colorDefault': '恢复默认',
   'tags.keywords': '关键词',
   'tags.keywordsHint': '用逗号或换行分隔；同一标签内任意关键词命中即可。',
   'tags.fields': '匹配范围',

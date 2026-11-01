@@ -11,9 +11,11 @@ const props = withDefaults(
     value?: string | null
     fallback: string
     presets?: string[]
+    variant?: 'toolbar' | 'field'
   }>(),
   {
     value: null,
+    variant: 'toolbar',
     presets: () => [
       '#111827',
       '#374151',
@@ -64,9 +66,21 @@ function onCustomColor(event: Event) {
     lazy-mount
     unmount-on-exit
   >
-    <Popover.Trigger class="color-tb" :class="{ active: value }" :title="label" :aria-label="label">
-      <i :class="icon" aria-hidden="true" />
-      <span class="color-strip" :style="{ backgroundColor: normalizedValue }" />
+    <Popover.Trigger
+      class="color-tb"
+      :class="[`color-tb--${variant}`, { active: value }]"
+      :title="label"
+      :aria-label="label"
+    >
+      <template v-if="variant === 'toolbar'">
+        <i :class="icon" aria-hidden="true" />
+        <span class="color-strip" :style="{ backgroundColor: normalizedValue }" />
+      </template>
+      <template v-else>
+        <span class="color-field-swatch" :style="{ backgroundColor: normalizedValue }" />
+        <span class="color-field-value">{{ normalizedValue }}</span>
+        <i class="i-ri:arrow-down-s-line color-field-chevron" aria-hidden="true" />
+      </template>
     </Popover.Trigger>
     <Teleport to="body">
       <Popover.Positioner class="color-positioner">
@@ -142,11 +156,56 @@ function onCustomColor(event: Event) {
   border-radius: 999px;
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 16%);
 }
+.color-tb--field {
+  width: 100%;
+  height: 32px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 9px;
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border-color: var(--n-border-color);
+  font-size: 12px;
+}
+.color-tb--field:hover,
+.color-tb--field[data-state='open'] {
+  color: var(--n-text-color);
+  background: var(--n-action-color);
+  border-color: var(--n-primary-color);
+}
+.color-tb--field.active {
+  color: var(--n-text-color);
+  border-color: var(--n-border-color);
+}
+.color-tb--field[data-state='open'] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--n-primary-color) 18%, transparent);
+}
+.color-field-swatch {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1px solid rgb(128 128 128 / 38%);
+  border-radius: 4px;
+}
+.color-field-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.color-field-chevron {
+  margin-left: auto;
+  color: var(--color-text-3);
+  font-size: 14px;
+}
 
 .color-positioner {
-  z-index: 1000;
+  /* Ark writes `--z-index` inline on the positioner. Inside a modal dialog that
+     can resolve to the dialog's own layer, leaving the palette visually behind
+     the card even though Ark considers it open and moves focus into it. */
+  z-index: 1200 !important;
 }
 .color-content {
+  position: relative;
+  z-index: 1201;
   width: 188px;
   padding: 8px;
   color: var(--n-text-color);

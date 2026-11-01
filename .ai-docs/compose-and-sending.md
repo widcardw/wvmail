@@ -235,7 +235,8 @@ Bcc: bcc@example.com       ← 不写
 
 - 工具栏左侧分组为加粗 / 斜体 / 下划线 / 删除线、H1/H2/H3、文字颜色、底纹颜色和插入链接；
 - 图片与附件独立在右侧分组，不和链接混排；
-- `UiColorPicker.vue` 提供 10 个预设色、原生颜色选择器和恢复默认；
+- `UiColorPicker.vue` 提供 10 个预设色、原生颜色选择器和恢复默认；工具栏使用
+  `variant="toolbar"`，标签编辑等普通表单使用 `variant="field"`；
 - `UiRichTextToolbar.vue` 由写信和笔记共用，链接使用 Ark 对话框输入，
   不依赖 Wails WebView 中不会显示的原生 `window.prompt`；
 - 颜色输出为 `<span style="color:...;background-color:...">`，邮件读取端的

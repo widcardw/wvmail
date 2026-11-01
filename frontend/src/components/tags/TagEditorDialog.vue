@@ -7,6 +7,7 @@ import { useTagsStore } from '~/stores/tags'
 import { TAG_FIELDS } from '~/types/tag'
 import type { MailTag, TagMatchField } from '~/types/tag'
 import UiCheckbox from '~/components/ui/UiCheckbox.vue'
+import UiColorPicker from '~/components/ui/UiColorPicker.vue'
 import UiDialog from '~/components/ui/UiDialog.vue'
 import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
@@ -30,6 +31,19 @@ const keywordsText = ref('')
 const fields = ref<TagMatchField[]>(['subject', 'from'])
 const enabled = ref(true)
 const saving = ref(false)
+
+const TAG_COLOR_PRESETS = [
+  '#4f83cc',
+  '#0891b2',
+  '#0f766e',
+  '#16a34a',
+  '#ca8a04',
+  '#ea580c',
+  '#dc2626',
+  '#db2777',
+  '#9333ea',
+  '#64748b',
+]
 
 const canSave = computed(
   () => label.value.trim() !== '' && parseKeywords().length > 0 && fields.value.length > 0,
@@ -110,13 +124,21 @@ async function save() {
         <input v-model="label" class="input" maxlength="64" placeholder="arXiv" />
       </label>
 
-      <label class="field color-field">
+      <div class="field tag-fields-field">
         <span class="field__label">{{ t['tags.color'] }}</span>
-        <span class="color-control">
-          <input v-model="color" type="color" class="color-input" />
-          <span class="color-value">{{ color }}</span>
-        </span>
-      </label>
+        <UiColorPicker
+          variant="field"
+          :label="t['tags.color']"
+          :custom-label="t['tags.colorCustom']"
+          :default-label="t['tags.colorDefault']"
+          icon="i-ri:palette-line"
+          :value="color"
+          fallback="#4f83cc"
+          :presets="TAG_COLOR_PRESETS"
+          @select="color = $event"
+          @reset="color = '#4f83cc'"
+        />
+      </div>
 
       <label class="field">
         <span class="field__label">{{ t['tags.keywords'] }}</span>
@@ -161,28 +183,6 @@ async function save() {
 </template>
 
 <style scoped>
-.color-field {
-  display: block;
-}
-.color-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.color-input {
-  width: 38px;
-  height: 30px;
-  padding: 2px;
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-  background: var(--n-action-color);
-  cursor: pointer;
-}
-.color-value {
-  color: var(--color-text-2);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
 .keyword-input {
   height: auto;
   min-height: 82px;
@@ -196,6 +196,9 @@ async function save() {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px 14px;
+}
+.tag-fields-field {
+  margin-bottom: 0;
 }
 .switch-row {
   display: flex;
