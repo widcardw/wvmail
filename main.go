@@ -106,6 +106,7 @@ func main() {
 	}
 
 	emailSvc := services.NewEmailService()
+	tagSvc := services.NewTagService(cfgSvc)
 	sendSvc := services.NewEmailSendService(cfgSvc, emailSvc)
 	composeSvc := services.NewComposeService(cfgSvc, sendSvc)
 	accountHealth := services.NewAccountHealthReporter()
@@ -158,6 +159,7 @@ func main() {
 			application.NewService(services.NewNotesService()),
 			application.NewService(services.NewRemindersService()),
 			application.NewService(services.NewContactsService()),
+			application.NewService(tagSvc),
 			application.NewService(&services.TranslationService{}),
 			// Backs the title-bar connection meter and the sidebar's per-account
 			// connection marker; see services/networkservice.go.

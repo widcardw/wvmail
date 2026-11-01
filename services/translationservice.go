@@ -1,7 +1,6 @@
 package services
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -79,135 +78,12 @@ func (s *TranslationService) TranslateText(text, targetLang, engine string, llmC
 // translateLLM translates text using the given LLM config.
 // It uses provider-specific API formats.
 func (s *TranslationService) translateLLM(text, targetLang string, cfg *LLMConfig) (string, error) {
-	client := newHTTPClient(60 * time.Second)
-	baseURL := strings.TrimRight(cfg.BaseURL, "/")
-	maxOutputTokens := cfg.MaxOutputTokens
-	if maxOutputTokens <= 0 {
-		maxOutputTokens = defaultMaxOutputTokens
-	}
-
 	prompt := fmt.Sprintf(
 		"Translate the following text to %s. Preserve any email formatting, line breaks, and "+
 			"only respond with the translation, no explanations.\n\n%s",
 		targetLang, text,
 	)
-
-	var req *http.Request
-	var err error
-
-	switch cfg.Provider {
-	case "anthropic":
-		body := map[string]interface{}{
-			"model":      cfg.Model,
-			"max_tokens": maxOutputTokens,
-			"thinking":   map[string]string{"type": "disabled"},
-			"messages":   []map[string]string{{"role": "user", "content": prompt}},
-		}
-		var jsonBody []byte
-		jsonBody, err = json.Marshal(body)
-		if err != nil {
-			return "", fmt.Errorf("marshal body: %w", err)
-		}
-		req, err = http.NewRequest("POST", baseURL+"/v1/messages", bytes.NewReader(jsonBody))
-		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("x-api-key", cfg.APIKey)
-			req.Header.Set("anthropic-version", "2023-06-01")
-		}
-		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", fmt.Errorf("anthropic request failed: %w", err)
-		}
-		defer resp.Body.Close()
-		return parseAnthropicResponse(resp)
-
-	case "gemini":
-		body := map[string]interface{}{
-			"contents": []map[string]interface{}{
-				{
-					"parts": []map[string]string{
-						{"text": prompt},
-					},
-				},
-			},
-			"generationConfig": map[string]int{"maxOutputTokens": maxOutputTokens},
-		}
-		var jsonBody []byte
-		jsonBody, err = json.Marshal(body)
-		if err != nil {
-			return "", fmt.Errorf("marshal body: %w", err)
-		}
-		req, err = http.NewRequest("POST", baseURL+"/v1/models/"+cfg.Model+":generateContent", bytes.NewReader(jsonBody))
-		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("x-goog-api-key", cfg.APIKey)
-		}
-		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", fmt.Errorf("gemini request failed: %w", err)
-		}
-		defer resp.Body.Close()
-		return parseGeminiResponse(resp)
-
-	case "ollama":
-		body := map[string]interface{}{
-			"model":    cfg.Model,
-			"messages": []map[string]string{{"role": "user", "content": prompt}},
-			"stream":   false,
-			"options":  map[string]int{"num_predict": maxOutputTokens},
-		}
-		var jsonBody []byte
-		jsonBody, err = json.Marshal(body)
-		if err != nil {
-			return "", fmt.Errorf("marshal body: %w", err)
-		}
-		req, err = http.NewRequest("POST", baseURL+"/api/chat", bytes.NewReader(jsonBody))
-		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
-		}
-		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", fmt.Errorf("ollama request failed: %w", err)
-		}
-		defer resp.Body.Close()
-		return parseOpenAIResponse(resp)
-
-	default:
-		// OpenAI-compatible (deepseek, openai, kimi, minimax, volcengine, custom)
-		body := map[string]interface{}{
-			"model":      cfg.Model,
-			"messages":   []map[string]string{{"role": "user", "content": prompt}},
-			"max_tokens": maxOutputTokens,
-		}
-		var jsonBody []byte
-		jsonBody, err = json.Marshal(body)
-		if err != nil {
-			return "", fmt.Errorf("marshal body: %w", err)
-		}
-		req, err = http.NewRequest("POST", baseURL+"/chat/completions", bytes.NewReader(jsonBody))
-		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-		}
-		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", fmt.Errorf("llm request failed: %w", err)
-		}
-		defer resp.Body.Close()
-		return parseOpenAIResponse(resp)
-	}
+	return requestLLMChat(cfg, prompt, cfg.MaxOutputTokens)
 }
 
 // translateDeepL translates text using the DeepL API.

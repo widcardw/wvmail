@@ -119,6 +119,31 @@ type CachedReminder struct {
 	UpdatedAt int64  `gorm:"autoUpdateTime"`
 }
 
+// CachedMailTag is a user-defined, rule-based mail label. Keywords and Fields are
+// JSON arrays. Tags never move mail; a message may match several tags at once.
+type CachedMailTag struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Label     string `gorm:"uniqueIndex;size:128;not null"`
+	Color     string `gorm:"size:16;not null"`
+	Keywords  string `gorm:"type:text;not null"`
+	Fields    string `gorm:"size:128;not null"`
+	Enabled   bool   `gorm:"not null;default:true"`
+	CreatedAt int64  `gorm:"autoCreateTime"`
+	UpdatedAt int64  `gorm:"autoUpdateTime"`
+}
+
+// EmailTagOverride records a user's manual decision that differs from the
+// rule-based result for one cached message. Included=false is an explicit
+// exclusion; no row means "follow the tag rules".
+type EmailTagOverride struct {
+	ID         uint   `gorm:"primaryKey"`
+	AccountID  string `gorm:"uniqueIndex:idx_eto_message_tag;size:64;not null"`
+	FolderName string `gorm:"uniqueIndex:idx_eto_message_tag;size:255;not null"`
+	UID        uint32 `gorm:"uniqueIndex:idx_eto_message_tag;not null"`
+	TagID      string `gorm:"uniqueIndex:idx_eto_message_tag;index;size:64;not null"`
+	Included   bool   `gorm:"not null"`
+}
+
 // DBManager provides a lazily-initialized GORM database connection for
 // caching IMAP data locally.
 type DBManager struct {
@@ -165,7 +190,18 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := m.db.AutoMigrate(&CachedFolder{}, &CachedEmail{}, &CachedEmailBody{}, &CachedNote{}, &CachedContact{}, &CachedFolderMeta{}, &CachedFlaggedSnapshot{}, &CachedReminder{}); err != nil {
+	if err := m.db.AutoMigrate(
+		&CachedFolder{},
+		&CachedEmail{},
+		&CachedEmailBody{},
+		&CachedNote{},
+		&CachedContact{},
+		&CachedFolderMeta{},
+		&CachedFlaggedSnapshot{},
+		&CachedReminder{},
+		&CachedMailTag{},
+		&EmailTagOverride{},
+	); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 

@@ -94,6 +94,7 @@ type EmailSummary struct {
 	Date       string   `json:"date"`
 	Flags      []string `json:"flags"`
 	IsRead     bool     `json:"is_read"`
+	TagIDs     []string `json:"tag_ids,omitempty"`
 	AccountID  string   `json:"account_id,omitempty"`
 	FolderName string   `json:"folder_name,omitempty"`
 }
