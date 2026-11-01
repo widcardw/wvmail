@@ -98,7 +98,9 @@ func isSelectableMailbox(attrs []string) bool {
 	return true
 }
 
-// FolderStatus is one folder's counters as the server reported them.
+// FolderStatus is one folder's counters and special-use attributes as the
+// server reported them. The frontend uses Attrs to avoid double-counting Gmail's
+// overlapping system views (INBOX, Important, All Mail).
 //
 // Unseen drives the sidebar badge. UIDNext and Messages are the change signal: a
 // message arriving moves UIDNext whether or not it is unread, which UNSEEN alone
@@ -107,10 +109,11 @@ func isSelectableMailbox(attrs []string) bool {
 // saw before deciding to refresh a folder at all (see revalidateOpenFolder in
 // stores/accounts.ts).
 type FolderStatus struct {
-	Name     string `json:"name"`
-	Messages int    `json:"messages"`
-	UIDNext  uint32 `json:"uid_next"`
-	Unseen   int    `json:"unseen"`
+	Name     string   `json:"name"`
+	Attrs    []string `json:"attrs"`
+	Messages int      `json:"messages"`
+	UIDNext  uint32   `json:"uid_next"`
+	Unseen   int      `json:"unseen"`
 }
 
 // FolderStatuses returns the per-folder counters (STATUS … MESSAGES UIDNEXT
@@ -147,8 +150,9 @@ func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderSt
 	defer client.Logout()
 
 	type statusJob struct {
-		name string
-		cmd  *imapclient.StatusCommand
+		name  string
+		attrs []string
+		cmd   *imapclient.StatusCommand
 	}
 	jobs := make([]statusJob, 0, len(folders))
 	for _, f := range folders {
@@ -156,7 +160,8 @@ func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderSt
 			continue
 		}
 		jobs = append(jobs, statusJob{
-			name: f.Name,
+			name:  f.Name,
+			attrs: f.Attrs,
 			cmd: client.Status(f.Name, &imap.StatusOptions{
 				NumMessages: true,
 				UIDNext:     true,
@@ -175,7 +180,11 @@ func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderSt
 				"account", account, "folder", job.name, "error", err)
 			continue
 		}
-		status := FolderStatus{Name: job.name, UIDNext: uint32(data.UIDNext)}
+		status := FolderStatus{
+			Name:    job.name,
+			Attrs:   job.attrs,
+			UIDNext: uint32(data.UIDNext),
+		}
 		if data.NumMessages != nil {
 			status.Messages = int(*data.NumMessages)
 		}

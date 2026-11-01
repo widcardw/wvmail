@@ -88,9 +88,9 @@ function folderSideNode(accountId: string, folder: FolderTreeNode): SideNode {
 function accountNode(account: EmailAccount): SideNode {
   const cached = store.foldersByAccount[account.ID]
   const children = cached
-    ? buildFolderTree(cached, (segment) => getFolderDisplay(segment, locale.value)).map((folder) =>
-        folderSideNode(account.ID, folder),
-      )
+    ? buildFolderTree(cached, (segment, attrs) =>
+        getFolderDisplay(segment, locale.value, attrs),
+      ).map((folder) => folderSideNode(account.ID, folder))
     : []
   return {
     id: account.ID,
@@ -379,9 +379,9 @@ watch(() => router.currentRoute.value.path, syncSelected)
                         aria-hidden="true"
                       />
                     </span>
-                    <!-- Account badge: total unread across the account's folders (the
-                         same server-side counts the folder badges read). Shows as soon
-                         as the startup per-account fetch lands, no expand needed. -->
+                    <!-- Account badge: unique unread across the account. Gmail's
+                         overlapping system views collapse to All Mail instead of
+                         being added together. -->
                     <UiBadge
                       :count="store.accountUnread(account.ID)"
                       :label="tf('sidebar.unread', { count: store.accountUnread(account.ID) })"

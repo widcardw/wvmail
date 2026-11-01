@@ -17,6 +17,7 @@ import { useAccountHealthStore } from '~/stores/accountHealth'
 import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
 import { isFlagged, withMailFlag } from '~/composables/mail-flags'
+import { accountUnreadCount, adjustUnreadCounts } from '~/composables/folder-semantics'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const feedback = useFeedbackStore()
@@ -359,17 +360,11 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   /**
-   * Total unread across every folder of one account — the badge on the account
-   * row. Sums the same server-side counts the folder badges read, so the two
-   * always agree; 0 until the account's first STATUS sweep lands (the startup
-   * seed or the first expand).
+   * Unique unread count for one account. Most providers can sum every folder,
+   * but Gmail's system views overlap; All Mail is its canonical superset.
    */
   function accountUnread(accountId: string): number {
-    const statuses = folderStatusByAccount.value[accountId]
-    if (!statuses) return 0
-    let total = 0
-    for (const status of Object.values(statuses)) total += status?.unseen ?? 0
-    return total
+    return accountUnreadCount(folderStatusByAccount.value[accountId])
   }
 
   // One IMAP connection per STATUS sweep, so sync ticks and folder clicks must not
@@ -471,15 +466,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     return job
   }
 
-  /** Optimistic ±1 for one folder, clamped at zero (used while flagging read). */
+  /** Optimistic ±1, including Gmail's All Mail aggregate, clamped at zero. */
   function adjustUnread(accountId: string, folder: string, delta: number) {
-    const status = folderStatusByAccount.value[accountId]?.[folder]
-    // No counter for this folder yet: nothing is badged, so there is nothing to
-    // adjust and the next sweep will report the truth anyway.
-    if (!status) return
-    const current = status.unseen ?? 0
-    if (current === 0 && delta < 0) return
-    status.unseen = Math.max(0, current + delta)
+    adjustUnreadCounts(folderStatusByAccount.value[accountId], folder, delta)
   }
 
   /**

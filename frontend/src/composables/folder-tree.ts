@@ -33,7 +33,7 @@ interface MutableFolderTreeNode extends FolderTreeNode {
  */
 export function buildFolderTree(
   folders: FolderTreeMailbox[],
-  displaySegment: (segment: string) => FolderTreeDisplay = (segment) => ({
+  displaySegment: (segment: string, attrs?: string[]) => FolderTreeDisplay = (segment) => ({
     label: segment.replace(/^\[.*?\]\//, ''),
     icon: 'ri:folder-2-line',
     rank: 99,
@@ -60,7 +60,7 @@ export function buildFolderTree(
       fullName = i === 0 ? part : `${fullName}${delimiter}${part}`
       current = siblings.get(part)
       if (!current) {
-        const display = displaySegment(part)
+        const display = displaySegment(part, i === parts.length - 1 ? attrs : undefined)
         current = {
           fullName,
           label: display.label,

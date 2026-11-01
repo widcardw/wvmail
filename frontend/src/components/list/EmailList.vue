@@ -69,8 +69,12 @@ const folderDisplay = computed(() => {
     }
     return { label: labels[String(accountsStore.smartFolder)] ?? String(accountsStore.smartFolder) }
   }
-  if (accountsStore.selectedFolder)
-    return getFolderDisplay(accountsStore.selectedFolder, locale.value)
+  if (accountsStore.selectedFolder) {
+    const folder = accountsStore.currentFolders.find(
+      (candidate) => candidate.name === accountsStore.selectedFolder,
+    )
+    return getFolderDisplay(accountsStore.selectedFolder, locale.value, folder?.attrs)
+  }
   if (searchStore.searchActive) return { label: t.value['search.results'] }
   return { label: '', icon: '', rank: 99 }
 })

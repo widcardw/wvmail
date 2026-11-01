@@ -58,6 +58,8 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 
 **未读计数不能来自缓存**：`cached_emails.is_read` 只覆盖 UI 已经翻到过的那些页，用它统计会让任何大于一页的邮箱**少算**，所以侧边栏 badge 走 `FolderStatuses`（服务器 `STATUS`）。成本控制：只连一次、把所有 `STATUS` 先发出去再逐个 `Wait`（go-imap 在同一连接上流水线化命令，见其 `Client` 文档），因此整个文件夹列表是**一个 RTT**而不是每文件夹一个。`\Noselect`/`\NonExistent` 的容器文件夹跳过（`STATUS` 对它们是报错而不是 0），服务器拒绝回答的文件夹**不出现在 map 里** —— 前端把「缺键」读作「没有要 badge 的」。
 
+**Gmail 重叠视图不能相加**：Gmail 的 `INBOX`、`\Important`、`\Flagged`、`\All` 是同一批邮件的不同视图。`FolderStatus` 现在把文件夹的 special-use `attrs` 一起返回；账号角标由 `folder-semantics.ts` 的 `accountUnreadCount` 统一计算：有 `\All` 时只读 All Mail（唯一超集），没有 All Mail 时退回 Inbox，其他服务商仍按文件夹求和。单封邮件仍会在每个对应文件夹行显示 badge，这是视图自己的计数；只有账号汇总去重。`\All` 也用于显示名解析，因此 Gmail 的「所有邮件」不再被误叫成「归档」，真正的 `\Archive` 仍显示为归档。
+
 **`UIDNEXT` 是「有没有新邮件」的判据**：同一次 STATUS 顺带取 `MESSAGES` 与 `UIDNEXT`，与「上一次真正抓取时看到的值」比较即可判断邮箱有没有动过 —— 只看 `UNSEEN` 不行（三个常年未读的订阅邮件会让它永远等于 3），而 `UIDNEXT` 单调递增，任何新邮件都会推高它。上一次抓取的值来自 `EmailPageResponse.uid_next`，并且**随文件夹 meta 一起落库**（`CachedFolderMeta.UIDNext`），所以重启后第一次打开文件夹也不必盲抓。见 §4 最后一行。
 
 触发时机（前端 `stores/accounts.ts`）：文件夹列表加载后、切换文件夹时、后台 `emails-synced` 事件到达时；每个账号 **30s 内只刷新一次**并有 in-flight 去重（「打开文件夹要不要刷」这一个判断用的是 5s 容忍度，同一个 sweep 复用），避免同步 tick 与点击堆叠成多个 IMAP 连接。打开一封未读邮件时**乐观地**把该文件夹计数 −1（失败回滚 +1）；只在「这封邮件确实来自当前已加载页且未读」时这么做 —— 搜索/聚合视图里点开的邮件不在 `emailsByFolder` 里，读状态未知，不猜，等下一次刷新。
