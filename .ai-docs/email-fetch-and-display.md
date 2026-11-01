@@ -324,6 +324,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **`parseCachedContact` 的 cutset 从 raw string 改成解释字符串** | `services/databaseemail.go` | `` `<> \t\r\n` `` 在 raw 字面量里是**字面**的反斜杠+t/r/n，于是 `n`/`r`/`t`/`\` 都在裁剪集合里 —— `noreply@example.com` 被削成 `oreply@example.com`。测试 `TestParseCachedContactKeepsLeadingLetters` |
 | **收件人/抄送超过一行折叠**：「等 N 个收件人」chip 双向切换 | 新 `components/detail/RecipientList.vue` + `composables/recipients.ts`，`EmailHeader.vue` 改用它；i18n `mail.recipients.more` / `.less` | 企业邮件几十个地址原先整段铺开，把主题和正文顶出屏幕。判据是实测第一行能放几个（见 §3.1b），不是固定个数 |
 | 抄送标签从硬编码 `"Cc:"` 改为 i18n `search.cc`；`to`/`cc` 为空时整行不渲染 | `EmailHeader.vue` | 英文界面里 `Cc:` 与中文混排；空行只剩一个孤零零的标签 |
+| **邮件列表长主题单行省略** | `components/list/EmailListItem.vue` | `.email-subject` 改用 WebKit 单行 clamp 并补齐宽度约束；原先长主题会在列表边缘被硬裁、没有 `…`，还会把右侧日期挤出可视区域 |
 
 ---
 

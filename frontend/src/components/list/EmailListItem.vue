@@ -70,6 +70,8 @@ const localeStore = useLocaleStore()
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   overflow: hidden;
 }
@@ -80,6 +82,7 @@ const localeStore = useLocaleStore()
 }
 .email-body {
   flex: 1;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   display: flex;
@@ -112,11 +115,16 @@ const localeStore = useLocaleStore()
   color: var(--color-warning);
 }
 .email-subject {
+  display: -webkit-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   font-size: 12px;
   opacity: 0.75;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
   margin-top: 2px;
 }
 .email-item.unread .email-from {
