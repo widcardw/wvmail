@@ -10,8 +10,9 @@ import { useThemeStore } from './stores/theme'
 import { useLocaleStore } from './stores/locale'
 import { usePreferencesStore } from './stores/preferences'
 import { useFeedbackStore } from './stores/feedback'
+import { useAccountsStore } from './stores/accounts'
 import { useI18n } from './i18n'
-import { ConfigService } from '#/wvmail/services'
+import { ComposeService, ConfigService } from '#/wvmail/services'
 import TitleBar from './components/header/TitleBar.vue'
 import SideBar from './components/sidebar/SideBar.vue'
 import ToastHost from './components/ToastHost.vue'
@@ -21,11 +22,33 @@ const theme = useThemeStore()
 const localeStore = useLocaleStore()
 const preferences = usePreferencesStore()
 const feedback = useFeedbackStore()
+const accountsStore = useAccountsStore()
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const isCompose = computed(() => route.name === 'compose')
 let unlistenComposeSent: (() => void) | null = null
+
+async function handleApplicationMailto(event: MouseEvent) {
+  if (isCompose.value || event.defaultPrevented || event.button !== 0) return
+  const path = event.composedPath()
+  const anchor = path.find(
+    (node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement,
+  )
+  const href = anchor?.getAttribute('href') ?? ''
+  if (!href.toLowerCase().startsWith('mailto:')) return
+  event.preventDefault()
+  try {
+    const result = await ComposeService.OpenMailto(
+      href,
+      accountsStore.selectedEmailAccountId ?? accountsStore.selectedAccountId ?? '',
+    )
+    if (result.Warning) feedback.info(result.Warning)
+  } catch (e) {
+    feedback.error(t.value['compose.open_failed'])
+    console.error('Failed to open application mailto link', e)
+  }
+}
 
 onMounted(async () => {
   try {
@@ -37,6 +60,7 @@ onMounted(async () => {
     console.error('Failed to load config', e)
   }
   theme.apply()
+  document.addEventListener('click', handleApplicationMailto)
 
   // Listen for global keyboard shortcut to navigate to settings
   Events.On('navigate:settings', () => {
@@ -53,6 +77,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unlistenComposeSent?.()
+  document.removeEventListener('click', handleApplicationMailto)
 })
 </script>
 
