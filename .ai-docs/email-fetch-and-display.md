@@ -268,7 +268,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 
 **测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）：`html-sanitize.test.mts` 61 条断言 + `date-mentions.test.mts` 90 条。净化侧覆盖远程拦截/放行两态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」。
 
-**仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。
+**仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。邮件常用的旧式 `bgcolor` 属性现在会保留（例如 X 邮件的按钮底色），否则亮色模式下白字会落在应用浅色背景上。
 
 ### 3.5 主题：邮件自带的 `prefers-color-scheme` 必须听我们的
 

@@ -12,7 +12,11 @@ export const emailSchema: Schema = {
   tagNames: [...(defaultSchema.tagNames ?? []), 'style'],
   attributes: {
     ...defaultSchema.attributes,
-    '*': [...(defaultSchema.attributes?.['*'] ?? []), ['style'] as PropertyDefinition],
+    '*': [
+      ...(defaultSchema.attributes?.['*'] ?? []),
+      ['style'] as PropertyDefinition,
+      'bgColor',
+    ],
     a: [
       ...(defaultSchema.attributes?.a ?? []),
       ['className', 'email-auto-link'] as PropertyDefinition,

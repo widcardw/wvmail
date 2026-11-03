@@ -132,6 +132,13 @@ check(
   'dark mode leaves light text fills alone',
   !/<p[^>]*data-dm-fill=""[^>]*>white fill<\/p>/.test(darkFill),
 )
+const legacyButton = block(
+  '<table><tr><td bgcolor="#0f1419"><a style="color:#fff">Get Started</a></td></tr></table>',
+)
+check(
+  'legacy bgcolor survives sanitizing',
+  /<td[^>]*bgcolor="#0f1419"[^>]*>/.test(legacyButton.html),
+)
 const cssRemote = block('<div style="background:url(http://t.example/x.png)">x</div>')
 check(
   'block: remote url() -> none',
