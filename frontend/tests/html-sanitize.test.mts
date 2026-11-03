@@ -58,6 +58,17 @@ check(
   'block: large image without alt keeps its box + icon',
   /remote-blocked--icon/.test(bigNoAlt.html) && /width:400px;height:200px/.test(bigNoAlt.html),
 )
+const responsiveCover = block(
+  '<img src="http://t.example/cover.png" width="1200" height="400" alt="cover" style="width:100%;height:auto;display:block">',
+)
+check(
+  'block: responsive image keeps its percentage width',
+  /width:100%/.test(responsiveCover.html) && !/width:1200px/.test(responsiveCover.html),
+)
+check(
+  'block: responsive image gets its intrinsic aspect ratio',
+  /aspect-ratio:1200 \/ 400/.test(responsiveCover.html),
+)
 const labelled = sanitizeEmailHtml('<img src="http://t.example/x.png">', {
   allowRemote: false,
   blockedImageLabel: 'Remote image blocked',
@@ -395,6 +406,10 @@ const fitCss = block('<p>x</p>').html
 check(
   'content-fit img rule is injected',
   fitCss.includes('max-width: 100%') && fitCss.includes('height: auto'),
+)
+check(
+  'content-fit link box sizing is injected',
+  fitCss.includes('a {') && fitCss.includes('box-sizing: border-box'),
 )
 check(
   'content-fit table-scroll rule is injected',

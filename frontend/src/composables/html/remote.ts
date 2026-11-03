@@ -65,6 +65,24 @@ export const BLOCKED_IMAGE_CSS = `
 `
 
 const URL_ATTRS = ['src', 'srcSet', 'srcset', 'poster', 'background', 'data'] as const
+const SIZING_PROPERTIES = new Set([
+  'width',
+  'height',
+  'max-width',
+  'max-height',
+  'min-width',
+  'min-height',
+  'aspect-ratio',
+])
+
+function parseStyleDeclarations(style: string): Map<string, string> {
+  const declarations = new Map<string, string>()
+  for (const declaration of style.split(';')) {
+    const match = declaration.match(/^\s*([a-z-]+)\s*:\s*([^;]+)$/i)
+    if (match) declarations.set(match[1].toLowerCase(), match[2].trim())
+  }
+  return declarations
+}
 
 /** Number of URL attributes of this element that point off-device. */
 function countRemoteRefs(el: Element): number {
@@ -99,6 +117,15 @@ function blockedImagePlaceholder(img: Element, label: string): Element {
   const width = typeof properties.width === 'number' ? properties.width : 0
   const height = typeof properties.height === 'number' ? properties.height : 0
   const maxSide = Math.max(width, height)
+  const originalStyle = typeof properties.style === 'string' ? properties.style : ''
+  const declarations = parseStyleDeclarations(originalStyle)
+  const widthValue = declarations.get('width') ?? ''
+  const heightValue = declarations.get('height') ?? ''
+  const hasWidth = declarations.has('width')
+  const hasHeight = declarations.has('height')
+  const responsiveWidth = /%\s*(?:!important\s*)?$/i.test(widthValue)
+  const autoHeight = !hasHeight || /^auto\s*(?:!important\s*)?$/i.test(heightValue)
+  const useAspectRatio = responsiveWidth && autoHeight && width > 0 && height > 0
 
   const classes = ['remote-blocked']
   if (maxSide > 0 && maxSide <= 2) {
@@ -108,14 +135,16 @@ function blockedImagePlaceholder(img: Element, label: string): Element {
     classes.push('remote-blocked--icon')
   }
 
-  // The placeholder always takes the image's own declared box (a 1×1 tracker
-  // stays 1×1, a 16×16 logo stays 16×16); CSS caps both dimensions so a bogus
-  // size cannot blow the layout up. With no declared size the box hugs its
-  // content (alt text, or just the icon).
-  const style =
-    width > 0 || height > 0
-      ? `width:${width > 0 ? `${width}px` : 'auto'};height:${height > 0 ? `${height}px` : 'auto'}`
-      : undefined
+  // Keep the sender's sizing declarations (width:100%, height:auto, etc.).
+  // Replacing a responsive cover image with a fixed 1200px box was widening
+  // the whole mail and producing a pointless horizontal scrollbar.
+  const sizing = [...declarations]
+    .filter(([property]) => SIZING_PROPERTIES.has(property))
+    .map(([property, value]) => `${property}:${value}`)
+  if (!hasWidth && width > 0) sizing.push(`width:${width}px`)
+  if (!hasHeight && height > 0 && !useAspectRatio) sizing.push(`height:${height}px`)
+  if (useAspectRatio) sizing.push(`aspect-ratio:${width} / ${height}`)
+  const style = sizing.length > 0 ? sizing.join(';') : undefined
 
   return {
     type: 'element',

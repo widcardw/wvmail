@@ -266,6 +266,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 
 **踩过的坑（已加测试）**：hast 里属性名是**驼峰** `srcSet`，只写小写 `srcset` 会漏掉 `<picture><source srcset=…>` —— 实测确认这是一个真实可用的追踪向量。`URL_ATTRS` 因此同时列出两种拼写；`frontend/tests/html-sanitize.test.mts` 固化了这条回归。
 
+**拦截占位符的尺寸**：被拦截的 `<img>` 会换成 `.remote-blocked` 占位符。占位符现在保留发件人的尺寸声明（如 `width:100%;height:auto`）；如果图片靠百分比宽度自适应，还会用 `width`/`height` 属性生成 `aspect-ratio`。否则像 pixivFANBOX 问候信的 `1200×400` 封面会退化成固定 1200px 的占位块，把整封邮件撑出横向滚动条。`CONTENT_FIT_CSS` 同时给邮件内的 `a` 补了 `box-sizing:border-box`，避免 `width:100%` 加边框再制造 2px 溢出。
+
 **测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）：`html-sanitize.test.mts` 61 条断言 + `date-mentions.test.mts` 90 条。净化侧覆盖远程拦截/放行两态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」。
 
 **仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。邮件常用的旧式 `bgcolor` 属性现在会保留（例如 X 邮件的按钮底色），否则亮色模式下白字会落在应用浅色背景上。

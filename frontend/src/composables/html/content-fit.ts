@@ -14,6 +14,12 @@ img {
   height: auto !important;
   box-sizing: border-box;
 }
+/* Mail buttons commonly combine width:100% with padding/border. The shadow
+   root does not inherit the app's global border-box reset, so without this
+   the button's border adds two pixels and turns on a table scrollbar. */
+a {
+  box-sizing: border-box;
+}
 .email-table-scroll {
   display: block;
   max-width: 100%;
