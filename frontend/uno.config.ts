@@ -109,6 +109,7 @@ export default defineConfig({
     'i-vscode-icons:default-file',
     'i-ri:arrow-right-s-line',
     'i-ri:virus-line',
+    'i-ri:sparkling-line',
     // Sidebar connection markers: the class names come from markerIcon() in
     // SideBar.vue, so the scanner cannot see them.
     'i-streamline:broken-link-2',
