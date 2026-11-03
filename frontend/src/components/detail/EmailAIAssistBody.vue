@@ -3,15 +3,17 @@ import { useI18n } from '~/i18n'
 import EmailShadowBody from './EmailShadowBody.vue'
 import UiAlert from '~/components/ui/UiAlert.vue'
 
-// The translation result panels (HTML layout or plain text) plus the error the
-// translator can return. Purely presentational: the parent decides whether the
-// message may be shown at all and passes only what should be rendered.
+// The AI assist result panels (translation HTML, plain text, or a Markdown
+// summary) plus the error the service can return. Purely presentational: the
+// parent decides whether the message may be shown at all.
 defineProps<{
-  /** Translated body with the original layout, already sanitized. */
+  /** Heading above the result, e.g. Translation or AI summary. */
+  label: string
+  /** Result body with layout, already sanitized. */
   html: string | null
-  /** Translated body as plain text (no layout to preserve). */
+  /** Result body as plain text (no layout to preserve). */
   text: string | null
-  /** Translator failure, shown as a dismissable alert. */
+  /** Service failure, shown as a dismissable alert. */
   error: string | null
   dark: boolean
 }>()
@@ -24,18 +26,18 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="translated">
+  <div class="ai-assist">
     <div v-if="html" class="detail-body">
-      <div class="td">{{ t['mail.translation.label'] }}</div>
+      <div class="td">{{ label }}</div>
       <EmailShadowBody :html="html" :dark="dark" />
     </div>
     <div v-if="text" class="detail-body">
-      <div class="td">{{ t['mail.translation.label'] }}</div>
+      <div class="td">{{ label }}</div>
       <div class="body-text">{{ text }}</div>
     </div>
     <UiAlert
       v-if="error"
-      class="translated-alert"
+      class="ai-assist-alert"
       tone="error"
       dismissible
       :close-label="t['cancel']"
@@ -53,7 +55,7 @@ const { t } = useI18n()
   font-size: 14px;
   word-break: break-word;
 }
-.translated-alert {
+.ai-assist-alert {
   margin: 12px;
 }
 .body-text {

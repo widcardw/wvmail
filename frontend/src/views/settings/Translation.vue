@@ -5,14 +5,17 @@ import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import UiAlert from '~/components/ui/UiAlert.vue'
+import UiSwitch from '~/components/ui/UiSwitch.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 import { useFeedbackStore } from '~/stores/feedback'
+import { usePreferencesStore } from '~/stores/preferences'
 import { ConfigService } from '#/wvmail/services'
 import type { LLMConfig } from '~/types/config'
 import { llmModels } from '~/composables/llm-models'
 
 const { t } = useI18n()
 const fb = useFeedbackStore()
+const preferences = usePreferencesStore()
 
 const targetLangOptions = computed(() => [
   { label: t.value['settings.translation.language.zh'], value: 'zh-CN' },
@@ -100,6 +103,10 @@ function onSelectConfig(name: string) {
   form.value.LLMModel = modelListFor(name)[0] ?? ''
   persistNow()
 }
+
+function onSkipConfirmationChange(checked: boolean) {
+  void preferences.setSkipAIAssistConfirmation(checked)
+}
 </script>
 
 <template>
@@ -108,6 +115,8 @@ function onSelectConfig(name: string) {
       <header class="surface__head">
         <h2>{{ t['settings.translation.title'] }}</h2>
       </header>
+
+      <p class="hint">{{ t['settings.translation.ai_hint'] }}</p>
 
       <UiAlert
         v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'"
@@ -168,6 +177,22 @@ function onSelectConfig(name: string) {
           />
         </UiFieldRow>
       </template>
+    </section>
+
+    <section class="surface surface--spaced">
+      <header class="surface__head">
+        <h2>{{ t['settings.translation.confirm_title'] }}</h2>
+      </header>
+
+      <UiFieldRow
+        :label="t['settings.translation.skip_confirm']"
+        :hint="t['settings.translation.skip_confirm_hint']"
+      >
+        <UiSwitch
+          :checked="preferences.skipAIAssistConfirmation"
+          @update:checked="onSkipConfirmationChange"
+        />
+      </UiFieldRow>
     </section>
   </div>
 </template>

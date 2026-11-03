@@ -8,6 +8,9 @@ defineProps<{
   exportingOriginal: boolean
   translating: boolean
   hasTranslation: boolean
+  summarizing: boolean
+  hasSummary: boolean
+  aiBlocked: boolean
   flagged: boolean
   flagging: boolean
   deleting: boolean
@@ -20,6 +23,7 @@ const emit = defineEmits<{
   refresh: []
   'export-original': []
   'toggle-translation': []
+  'toggle-summary': []
   'toggle-flag': []
   'edit-tags': []
   delete: []
@@ -102,9 +106,25 @@ const { t } = useI18n()
               : t['mail.translation.translate']
         "
         :icon="hasTranslation ? 'ri:close-line' : 'ri:translate-2'"
-        :disabled="!hasDetail"
+        :disabled="!hasDetail || aiBlocked || summarizing"
         :busy="translating"
+        busy-clickable
         @click="emit('toggle-translation')"
+      />
+      <UiIconAction
+        :label="
+          summarizing
+            ? t['mail.summary.cancel']
+            : hasSummary
+              ? t['mail.summary.close']
+              : t['mail.summary.action']
+        "
+        icon="ri:sparkling-line"
+        :active="hasSummary"
+        :disabled="!hasDetail || aiBlocked || translating"
+        :busy="summarizing"
+        busy-clickable
+        @click="emit('toggle-summary')"
       />
     </div>
 

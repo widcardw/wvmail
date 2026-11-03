@@ -40,6 +40,10 @@ type AppConfig struct {
 	// the user turn one into a reminder. Defaults to on (see defaultConfig), hence
 	// no `omitempty` — an explicit "off" has to be written.
 	DetectDatesInMail bool `yaml:"detect_dates_in_mail"`
+	// SkipAIAssistConfirmation sends the current message to the selected AI
+	// provider without the privacy confirmation dialog. False is the safe
+	// default, including for configs written before this option existed.
+	SkipAIAssistConfirmation bool `yaml:"skip_ai_assist_confirmation"`
 	// CollapseSidebarSmartFolders turns the top smart-folder links into a row of
 	// icon buttons. Off by default so existing sidebars keep their text labels.
 	CollapseSidebarSmartFolders bool `yaml:"collapse_sidebar_smart_folders"`

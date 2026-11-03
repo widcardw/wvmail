@@ -40,7 +40,7 @@ All Go services live under `services/` as package `services` and are registered 
 | `services/emailsyncservice.go` | `EmailSyncService` | background sync per account + the tray unread badge |
 | `services/networkservice.go` | `NetworkService` | reachability + latency probe behind the title-bar meter |
 | `services/osservice.go` | `OsService` | open file/folder/URL, native save dialog, `QuitApp` |
-| `services/notesservice.go`, `reminderservice.go`, `translationservice.go`, `logger.go` | | notes, reminders, LLM translation, file logging |
+| `services/notesservice.go`, `reminderservice.go`, `aiassistservice.go`, `logger.go` | | notes, reminders, LLM translation/summarization, file logging |
 
 ### Build Configuration
 

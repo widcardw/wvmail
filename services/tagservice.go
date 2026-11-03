@@ -566,36 +566,6 @@ func (s *TagService) prepareTagSuggestion(
 	}, nil
 }
 
-func findLLMConfig(configs []LLMConfig, name, model string) (LLMConfig, error) {
-	if len(configs) == 0 {
-		return LLMConfig{}, fmt.Errorf("no LLM configuration is available")
-	}
-	index := 0
-	if strings.TrimSpace(name) != "" {
-		index = -1
-		for i, cfg := range configs {
-			if cfg.Name == name {
-				index = i
-				break
-			}
-		}
-		if index < 0 {
-			return LLMConfig{}, fmt.Errorf("LLM configuration %q was not found", name)
-		}
-	}
-	cfg := configs[index]
-	if strings.TrimSpace(model) != "" {
-		cfg.Model = strings.TrimSpace(model)
-	}
-	if cfg.Model == "" && len(cfg.Models) > 0 {
-		cfg.Model = cfg.Models[0]
-	}
-	if cfg.Model == "" {
-		return LLMConfig{}, fmt.Errorf("the selected LLM configuration has no model")
-	}
-	return cfg, nil
-}
-
 func normalizeSuggestionFields(fields []string) []string {
 	allowed := make(map[string]bool, len(aiTagFields))
 	for _, field := range aiTagFields {

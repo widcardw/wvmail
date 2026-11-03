@@ -19,7 +19,8 @@ it safe to write.
 `config.yaml` fields (top level): `language`, `theme`, `primary_color`,
 `database_path`, `log_config`, `translation_config`, `scan_external_safety`,
 `search_tag_delete_presses`, `llm_configs`, `email_accounts`, `remote_content`,
-`minimize_when_close`, `detect_dates_in_mail`, `proxy`.
+`minimize_when_close`, `detect_dates_in_mail`, `skip_ai_assist_confirmation`,
+`proxy`.
 
 Two of those are optional blocks that are omitted entirely until the user opts in
 (`omitempty` on a zero struct works in yaml.v3, which a test pins):

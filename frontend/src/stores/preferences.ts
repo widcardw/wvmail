@@ -23,6 +23,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const minimizeWhenClose = ref(false)
   /** Highlight date/time mentions in email bodies (and offer to remind on click). */
   const detectDatesInMail = ref(true)
+  /** Send mail content to the selected AI provider without asking first. */
+  const skipAIAssistConfirmation = ref(false)
   /** Render the top smart-folder links as one row of icon buttons. */
   const collapseSidebarSmartFolders = ref(false)
   /** Render the bottom utility links as one row of icon buttons. */
@@ -51,6 +53,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     allowedRemoteSenders.value = [...(config.RemoteContent?.AllowedSenders ?? [])]
     minimizeWhenClose.value = config.MinimizeWhenClose
     detectDatesInMail.value = config.DetectDatesInMail !== false
+    skipAIAssistConfirmation.value = config.SkipAIAssistConfirmation === true
     collapseSidebarSmartFolders.value = config.CollapseSidebarSmartFolders === true
     collapseSidebarUtilities.value = config.CollapseSidebarUtilities === true
     blockSuspiciousMail.value = config.ScanExternalSafety !== false
@@ -96,6 +99,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     detectDatesInMail,
     'detect_dates_in_mail',
     'Failed to save date detection preference',
+  )
+  const setSkipAIAssistConfirmation = persistedSetting(
+    skipAIAssistConfirmation,
+    'skip_ai_assist_confirmation',
+    'Failed to save AI assist confirmation preference',
   )
   const setCollapseSidebarSmartFolders = persistedSetting(
     collapseSidebarSmartFolders,
@@ -204,6 +212,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setMinimizeWhenClose,
     detectDatesInMail,
     setDetectDatesInMail,
+    skipAIAssistConfirmation,
+    setSkipAIAssistConfirmation,
     collapseSidebarSmartFolders,
     setCollapseSidebarSmartFolders,
     collapseSidebarUtilities,

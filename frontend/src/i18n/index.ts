@@ -133,7 +133,28 @@ export interface TranslationSchema {
   'mail.translation.translate': string
   'mail.translation.close': string
   'mail.translation.empty': string
+  'mail.translation.no_content': string
   'mail.translation.cancel': string
+  'mail.summary.label': string
+  'mail.summary.action': string
+  'mail.summary.close': string
+  'mail.summary.cancel': string
+  'mail.summary.empty': string
+  'mail.summary.no_content': string
+  'mail.aiConfirm.title.translate': string
+  'mail.aiConfirm.title.summarize': string
+  'mail.aiConfirm.body.translate': string
+  'mail.aiConfirm.body.summarize': string
+  'mail.aiConfirm.warning': string
+  'mail.aiConfirm.provider': string
+  'mail.aiConfirm.model': string
+  'mail.aiConfirm.loading': string
+  'mail.aiConfirm.dont_ask': string
+  'mail.aiConfirm.confirm.translate': string
+  'mail.aiConfirm.confirm.summarize': string
+  'mail.aiConfirm.no_llm': string
+  'mail.aiConfirm.no_model': string
+  'mail.aiConfirm.deepl_no_key': string
   'mail.tags.edit': string
   'mail.tags.title': string
   'mail.tags.automatic': string
@@ -425,6 +446,10 @@ export interface TranslationSchema {
   'settings.translation.deepl_key': string
   'settings.translation.llm_config': string
   'settings.translation.llm_model': string
+  'settings.translation.ai_hint': string
+  'settings.translation.confirm_title': string
+  'settings.translation.skip_confirm': string
+  'settings.translation.skip_confirm_hint': string
   'settings.tags': string
   'tags.title': string
   'tags.classified': string

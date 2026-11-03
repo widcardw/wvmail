@@ -16,6 +16,8 @@ const props = withDefaults(
     disabled?: boolean
     /** A spinner replaces the glyph while the action is running. */
     busy?: boolean
+    /** Keep the button clickable while busy, for actions that cancel themselves. */
+    busyClickable?: boolean
     active?: boolean
     /** Match the neutral sidebar selection instead of the warning-tinted action. */
     activeTone?: 'warning' | 'sidebar'
@@ -26,6 +28,7 @@ const props = withDefaults(
   {
     disabled: false,
     busy: false,
+    busyClickable: false,
     active: false,
     activeTone: 'warning',
     danger: false,
@@ -49,7 +52,7 @@ const emit = defineEmits<{
           'detail-action--active-sidebar': active && activeTone === 'sidebar',
           'detail-action--danger': danger,
         }"
-        :disabled="disabled || busy"
+        :disabled="disabled || (busy && !busyClickable)"
         :aria-label="label"
         :aria-pressed="active || undefined"
         @click="emit('click')"

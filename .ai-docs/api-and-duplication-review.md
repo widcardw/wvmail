@@ -161,3 +161,25 @@ review did not justify, or is a larger model migration.
 3. Split `ListFlaggedEmails` into read/refresh methods if the API churn is
    acceptable.
 4. Extract `folderKey` for the sidebar.
+
+## AI assist follow-up (2026-11-04)
+
+The translation/summarization pass found four more issues in the same path:
+
+- `TranslationService.TranslateText` took the engine, target language, a full
+  `LLMConfig` and the DeepL key from the frontend. The Vue layer therefore had
+  to resolve provider/model settings itself, and it mutated the fetched config
+  to apply the selected model. Replaced by `AIAssistService` plus an
+  `AIAssistRequest`; the Go service now owns config resolution.
+- The translation cache key covered only text, target language and engine. A
+  user switching from model A to model B could receive model A's cached result.
+  The key now includes operation, provider, base URL and model, and errors are
+  no longer cached.
+- LLM provider/model resolution was duplicated between the translation
+  composable, the settings page and `TagService`. `findLLMConfig` now lives in
+  `llmchat.go` and is shared by tag suggestions, translation and summarization.
+- `UiIconAction` disabled its own button while `busy`, so the translation button
+  advertised “cancel translation” but could not be clicked during the request.
+  Added `busyClickable` for actions that intentionally cancel themselves.
+
+The new flow is documented in `.ai-docs/ai-assist.md`.

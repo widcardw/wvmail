@@ -9,14 +9,16 @@ import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
-import { useMailTranslation } from '~/composables/mail-translation'
+import { useMailAIAssist } from '~/composables/mail-ai-assist'
 import { buildReplyEnvelope, escapeHTML, type ReplyMode } from '~/composables/reply'
 import { ComposeService, EmailService, OsService, TagService } from '#/wvmail/services'
 import { useTagsStore } from '~/stores/tags'
+import type { AIAssistMode, AIAssistSelection } from '~/types/ai-assist'
 import EmailShadowBody from './EmailShadowBody.vue'
 import EmailActionBar from './EmailActionBar.vue'
 import EmailHeader from './EmailHeader.vue'
-import EmailTranslatedBody from './EmailTranslatedBody.vue'
+import EmailAIAssistBody from './EmailAIAssistBody.vue'
+import AIAssistConfirmDialog from './AIAssistConfirmDialog.vue'
 import EmailAttachments from './EmailAttachments.vue'
 import EmailRemoteNotice from './EmailRemoteNotice.vue'
 import EmailCssArtNotice from './EmailCssArtNotice.vue'
@@ -46,6 +48,8 @@ const suspiciousRevealed = ref(false)
 const attachmentsOpen = ref(false)
 const deleteOpen = ref(false)
 const tagDialogOpen = ref(false)
+const aiConfirmOpen = ref(false)
+const aiConfirmMode = ref<AIAssistMode>('translate')
 const selectedEmailTagIDs = ref<string[]>([])
 let tagStateRequestId = 0
 /** Revealed for this message only; reset whenever another email is opened. */
@@ -122,32 +126,91 @@ function sanitizeOptions() {
   }
 }
 
-// Translation state machine (spam-gated, with the engine/model from Settings); the
-// reading pane only wires it to the header button and the result panels.
+// Translation and summary share one state machine so the privacy dialog, the
+// toolbar and the result panels cannot disagree about what is in flight.
 const {
   translating,
   translatedText,
   translatedHtml,
-  error: translationError,
+  translationError,
+  summarizing,
+  summaryHtml,
+  summaryError,
   hasTranslation,
-  hasOutput: hasTranslationOutput,
-  clear: clearTranslation,
-  toggle: toggleTranslation,
-} = useMailTranslation({
+  hasTranslationOutput,
+  hasSummary,
+  hasSummaryOutput,
+  clearTranslation,
+  cancelTranslation,
+  startTranslation,
+  clearSummary,
+  cancelSummary,
+  startSummary,
+} = useMailAIAssist({
   detail,
-  sanitize: (html) => sanitizeEmailHtml(html, sanitizeOptions()).html,
+  sanitizeHtml: (html) => sanitizeEmailHtml(html, sanitizeOptions()).html,
+  sanitizeText: (text) => sanitizePlainTextEmail(text, sanitizeOptions()).html,
   blocked: () => spamGated.value,
 })
 
 watch(detail, () => {
-  clearTranslation()
+  cancelTranslation()
+  cancelSummary()
   suspiciousRevealed.value = false
   remoteRevealed.value = false
   attachmentsOpen.value = false
   remindOpen.value = false
   deleteOpen.value = false
   tagDialogOpen.value = false
+  aiConfirmOpen.value = false
 })
+
+function requestAIAssist(mode: AIAssistMode) {
+  if (preferences.skipAIAssistConfirmation) {
+    runAIAssist(mode, {})
+    return
+  }
+  aiConfirmMode.value = mode
+  aiConfirmOpen.value = true
+}
+
+function runAIAssist(mode: AIAssistMode, selection: AIAssistSelection) {
+  if (mode === 'translate') {
+    void startTranslation(selection)
+    return
+  }
+  void startSummary(selection)
+}
+
+function toggleTranslation() {
+  if (translating.value) {
+    cancelTranslation()
+    return
+  }
+  if (hasTranslation.value) {
+    clearTranslation()
+    return
+  }
+  requestAIAssist('translate')
+}
+
+function toggleSummary() {
+  if (summarizing.value) {
+    cancelSummary()
+    return
+  }
+  if (hasSummary.value) {
+    clearSummary()
+    return
+  }
+  requestAIAssist('summarize')
+}
+
+function confirmAIAssist(selection: AIAssistSelection, dontAsk: boolean) {
+  if (dontAsk) void preferences.setSkipAIAssistConfirmation(true)
+  aiConfirmOpen.value = false
+  runAIAssist(aiConfirmMode.value, selection)
+}
 
 watch(
   () => [
@@ -195,8 +258,9 @@ async function alwaysAllowSender() {
 }
 
 async function handleRefresh() {
-  // Drop the stale translation so a re-fetch is always actionable.
-  clearTranslation()
+  // Drop stale AI output so a re-fetch is always actionable.
+  cancelTranslation()
+  cancelSummary()
   const account = accountsStore.selectedEmailAccount
   const folder = accountsStore.selectedEmailFolder
   const uid = accountsStore.selectedEmailUid
@@ -376,6 +440,9 @@ const showAttachments = computed(
       :exporting-original="exportingOriginal"
       :translating="translating"
       :has-translation="hasTranslation"
+      :summarizing="summarizing"
+      :has-summary="hasSummary"
+      :ai-blocked="spamGated"
       :flagged="accountsStore.selectedEmailFlagged"
       :flagging="accountsStore.selectedEmailFlagging"
       :deleting="accountsStore.deletingSelectedEmail"
@@ -385,13 +452,14 @@ const showAttachments = computed(
       @refresh="handleRefresh"
       @export-original="handleExportOriginal"
       @toggle-translation="toggleTranslation"
+      @toggle-summary="toggleSummary"
       @toggle-flag="accountsStore.toggleSelectedEmailFlagged"
       @edit-tags="tagDialogOpen = true"
       @delete="deleteOpen = true"
     />
 
     <UiScrollArea class="scroll">
-      <!-- fetch / translation errors (the spam gate lives in the body-bar stack below) -->
+      <!-- fetch / AI assist errors (the spam gate lives in the body-bar stack below) -->
       <UiAlert
         v-if="accountsStore.detailError"
         class="detail-alert"
@@ -452,13 +520,24 @@ const showAttachments = computed(
           <div v-else class="centerpad-empty">{{ t['mail.noContent'] }}</div>
         </div>
 
-        <EmailTranslatedBody
+        <EmailAIAssistBody
           v-if="hasTranslationOutput && !spamGated"
+          :label="t['mail.translation.label']"
           :html="translatedHtml"
           :text="translatedText"
           :error="translationError"
           :dark="isDarkMode"
           @dismiss-error="translationError = null"
+        />
+
+        <EmailAIAssistBody
+          v-if="hasSummaryOutput && !spamGated"
+          :label="t['mail.summary.label']"
+          :html="summaryHtml"
+          :text="null"
+          :error="summaryError"
+          :dark="isDarkMode"
+          @dismiss-error="summaryError = null"
         />
       </template>
     </UiScrollArea>
@@ -467,6 +546,11 @@ const showAttachments = computed(
   </div>
   <Teleport to="body">
     <EmailLinkDialog v-model:open="linkOpen" :url="pendingUrl" />
+    <AIAssistConfirmDialog
+      v-model:open="aiConfirmOpen"
+      :mode="aiConfirmMode"
+      @confirm="confirmAIAssist"
+    />
     <RemindFromMailDialog
       v-model:open="remindOpen"
       :at="remindAt"
