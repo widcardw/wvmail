@@ -44,7 +44,7 @@ func NewEmailSyncService(cfg *ConfigService, email *EmailService) *EmailSyncServ
 	// Every INBOX fetch reports its unseen count on the connection it already has
 	// open, which is what keeps the tray badge current without extra sessions.
 	if email != nil {
-		email.SetUnseenListener(func(accountID string, unseen int) {
+		email.setUnseenListener(func(accountID string, unseen int) {
 			svc.publishUnread(svc.unread.observe(accountID, unseen))
 		})
 	}
@@ -119,7 +119,7 @@ func (t *unreadTracker) hasUnreadLocked() bool {
 
 // refreshUnread re-reads one account's unseen count. It is used at startup, where
 // no folder fetch has happened yet; during normal operation the fetch itself
-// reports the count (see SetUnseenListener).
+// reports the count (see setUnseenListener).
 func (s *EmailSyncService) refreshUnread(account EmailAccount, inbox string) {
 	unseen, err := s.email.UnseenCount(account, inbox)
 	if err != nil {

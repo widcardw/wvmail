@@ -210,69 +210,13 @@ func (s *TagService) ListTagFilteredEmails(
 		return nil, fmt.Errorf("a tag-filtered mail query needs at least one folder scope")
 	}
 
-	tags, err := s.ListMailTags()
+	classified, err := s.classifyTagPage(request.TagIDs, scopes, request.FlaggedOnly)
 	if err != nil {
 		return nil, err
 	}
-	selected := make(map[string]bool)
-	for _, id := range request.TagIDs {
-		selected[id] = true
-	}
-	for _, tag := range tags {
-		if !tag.Enabled {
-			delete(selected, tag.ID)
-		}
-	}
-	if len(selected) == 0 {
-		return &EmailPageResponse{Emails: []EmailSummary{}, FromCache: true}, nil
-	}
-
-	emails, err := s.db.LoadTaggingEmailsForScopes(scopes)
-	if err != nil {
-		return nil, fmt.Errorf("load scoped emails for tag filtering: %w", err)
-	}
-	if request.FlaggedOnly {
-		filtered := emails[:0]
-		for _, email := range emails {
-			if hasMailFlag(cachedEmailSummary(email, time.Now()).Flags, `\Flagged`) {
-				filtered = append(filtered, email)
-			}
-		}
-		emails = filtered
-	}
-	bodies, err := s.db.LoadTaggingBodiesForScopes(scopes)
-	if err != nil {
-		return nil, fmt.Errorf("load scoped bodies for tag filtering: %w", err)
-	}
-	overrides, err := s.db.LoadEmailTagOverridesForScopes(scopes)
-	if err != nil {
-		return nil, fmt.Errorf("load scoped tag overrides: %w", err)
-	}
-	folderAttrs, err := s.loadFolderAttrs()
-	if err != nil {
-		return nil, err
-	}
-
-	classified := classifyCachedEmails(
-		emails,
-		bodies,
-		tags,
-		overrides,
-		folderAttrs,
-		selected,
-		time.Now(),
-	)
-	page := request.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := request.PageSize
-	if pageSize < 1 {
-		pageSize = 20
-	}
-
+	page, pageSize := normalizePage(request.Page, request.PageSize)
 	response := &EmailPageResponse{
-		Emails:    paginateSummaries(classified, page, pageSize),
+		Emails:    paginateSlices(classified, page, pageSize),
 		Total:     len(classified),
 		FromCache: true,
 	}
@@ -316,54 +260,90 @@ func hasMailFlag(flags []string, want string) bool {
 // (OR semantics). Gmail's INBOX/Important/All Mail copies are collapsed to one
 // row before filtering and paging.
 func (s *TagService) ListClassifiedEmails(tagIDs []string, page, pageSize int) (*EmailPageResponse, error) {
+	classified, err := s.classifyTagPage(tagIDs, nil, false)
+	if err != nil {
+		return nil, err
+	}
+	page, pageSize = normalizePage(page, pageSize)
+	return &EmailPageResponse{
+		Emails: paginateSlices(classified, page, pageSize),
+		Total:  len(classified),
+	}, nil
+}
+
+// classifyTagPage is the shared read/classify step behind both tag list
+// endpoints. An empty scope list means the whole cache (used by the aggregate
+// Classified view); a non-empty list narrows the SQL reads to the folders the
+// current view can contain. Keeping this in one place means the two endpoints
+// cannot disagree about disabled tags, override precedence, or Gmail view
+// de-duplication.
+func (s *TagService) classifyTagPage(
+	tagIDs []string,
+	scopes []EmailTagFilterScope,
+	flaggedOnly bool,
+) ([]EmailSummary, error) {
 	tags, err := s.ListMailTags()
 	if err != nil {
 		return nil, err
 	}
-	selected := make(map[string]bool)
-	enabled := make(map[string]bool)
-	for _, tag := range tags {
-		if tag.Enabled {
-			enabled[tag.ID] = true
-		}
-	}
-	for _, id := range tagIDs {
-		if enabled[id] {
-			selected[id] = true
-		}
-	}
+	selected := enabledTagSelection(tags, tagIDs)
 	if len(selected) == 0 {
-		return &EmailPageResponse{Emails: []EmailSummary{}}, nil
+		return []EmailSummary{}, nil
 	}
 
-	emails, err := s.db.LoadTaggingEmails()
+	emails, err := s.db.LoadTaggingEmailsForScopes(scopes)
 	if err != nil {
-		return nil, fmt.Errorf("load emails for classification: %w", err)
+		return nil, fmt.Errorf("load scoped emails for tag filtering: %w", err)
 	}
-	bodies, err := s.db.LoadTaggingBodies()
-	if err != nil {
-		return nil, fmt.Errorf("load bodies for classification: %w", err)
+	if flaggedOnly {
+		filtered := emails[:0]
+		for _, email := range emails {
+			if hasMailFlag(cachedEmailSummary(email, time.Now()).Flags, `\Flagged`) {
+				filtered = append(filtered, email)
+			}
+		}
+		emails = filtered
 	}
-	overrides, err := s.db.LoadEmailTagOverrides()
+	bodies, err := s.db.LoadTaggingBodiesForScopes(scopes)
 	if err != nil {
-		return nil, fmt.Errorf("load tag overrides: %w", err)
+		return nil, fmt.Errorf("load scoped bodies for tag filtering: %w", err)
+	}
+	overrides, err := s.db.LoadEmailTagOverridesForScopes(scopes)
+	if err != nil {
+		return nil, fmt.Errorf("load scoped tag overrides: %w", err)
 	}
 	folderAttrs, err := s.loadFolderAttrs()
 	if err != nil {
 		return nil, err
 	}
 
-	classified := classifyCachedEmails(emails, bodies, tags, overrides, folderAttrs, selected, time.Now())
-	if page < 1 {
-		page = 1
+	return classifyCachedEmails(
+		emails,
+		bodies,
+		tags,
+		overrides,
+		folderAttrs,
+		selected,
+		time.Now(),
+	), nil
+}
+
+// enabledTagSelection intersects the requested tag IDs with the enabled tags.
+// A disabled rule can be neither auto-matched nor selected manually.
+func enabledTagSelection(tags []MailTag, tagIDs []string) map[string]bool {
+	enabled := make(map[string]bool, len(tags))
+	for _, tag := range tags {
+		if tag.Enabled {
+			enabled[tag.ID] = true
+		}
 	}
-	if pageSize < 1 {
-		pageSize = 20
+	selected := make(map[string]bool, len(tagIDs))
+	for _, id := range tagIDs {
+		if enabled[id] {
+			selected[id] = true
+		}
 	}
-	return &EmailPageResponse{
-		Emails: paginateSummaries(classified, page, pageSize),
-		Total:  len(classified),
-	}, nil
+	return selected
 }
 
 func (s *TagService) GetEmailTagState(
@@ -1257,18 +1237,6 @@ func emailTagState(
 		}
 	}
 	return EmailTagState{SelectedTagIDs: selected, AutomaticTagIDs: automatic}
-}
-
-func paginateSummaries(emails []EmailSummary, page, pageSize int) []EmailSummary {
-	start := (page - 1) * pageSize
-	if start >= len(emails) {
-		return []EmailSummary{}
-	}
-	end := start + pageSize
-	if end > len(emails) {
-		end = len(emails)
-	}
-	return emails[start:end]
 }
 
 func tagMessageKey(email CachedEmail) string {

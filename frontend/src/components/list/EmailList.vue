@@ -5,6 +5,7 @@ import { useAccountsStore } from '~/stores/accounts'
 import { useSearchStore } from '~/stores/search'
 import { useTagsStore } from '~/stores/tags'
 import { getFolderDisplay } from '~/types/email'
+import { mailKeyFor, selectedMailKey } from '~/composables/mail-key'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 import TagFilter from '~/components/tags/TagFilter.vue'
@@ -39,21 +40,20 @@ const emails = computed(() => accountsStore.currentEmails)
  * contain the same UID in several mailboxes, and comparing only the number marked
  * unrelated rows as selected.
  */
-const selectedEmailKey = computed(() => {
-  const uid = accountsStore.selectedEmailUid
-  const accountId = accountsStore.selectedEmailAccountId
-  const folder = accountsStore.selectedEmailFolder
-  return uid != null && accountId && folder ? `${accountId}\u200b${folder}\u200b${uid}` : ''
-})
-
-function emailKey(email: { uid: number; account_id?: string; folder_name?: string }): string {
-  const accountId = email.account_id || accountsStore.selectedAccountId
-  const folder = email.folder_name || accountsStore.selectedFolder
-  return accountId && folder ? `${accountId}\u200b${folder}\u200b${email.uid}` : ''
-}
+const selectedEmailKey = computed(() =>
+  selectedMailKey(
+    accountsStore.selectedEmailAccountId,
+    accountsStore.selectedEmailFolder,
+    accountsStore.selectedEmailUid,
+  ),
+)
 
 function isSelected(email: { uid: number; account_id?: string; folder_name?: string }): boolean {
-  return selectedEmailKey.value !== '' && selectedEmailKey.value === emailKey(email)
+  return (
+    selectedEmailKey.value !== '' &&
+    selectedEmailKey.value ===
+      mailKeyFor(email, accountsStore.selectedAccountId, accountsStore.selectedFolder)
+  )
 }
 
 const pageCount = computed(() => {

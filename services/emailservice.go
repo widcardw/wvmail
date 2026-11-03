@@ -39,6 +39,8 @@ func NewEmailService() *EmailService {
 
 // SetAccountHealthReporter replaces the health reporter. It is wired by main()
 // so every mail operation emits through the same sequence and snapshot source.
+//
+//wails:ignore
 func (s *EmailService) SetAccountHealthReporter(reporter *accountHealthReporter) {
 	if reporter == nil {
 		reporter = newAccountHealthReporter()
@@ -52,9 +54,10 @@ func (s *EmailService) AccountHealthEvents() []AccountHealthEvent {
 	return s.health.events()
 }
 
-// SetUnseenListener registers the callback that receives INBOX unseen counts.
-// It is called from the goroutine doing the fetch.
-func (s *EmailService) SetUnseenListener(listener func(accountID string, unseen int)) {
+// setUnseenListener registers the callback that receives INBOX unseen counts.
+// It is called from the goroutine doing the fetch and is package-private: it is
+// Go wiring between EmailService and EmailSyncService, not a frontend API.
+func (s *EmailService) setUnseenListener(listener func(accountID string, unseen int)) {
 	s.onUnseenMu.Lock()
 	defer s.onUnseenMu.Unlock()
 	s.onUnseen = listener
@@ -77,7 +80,12 @@ func (s *EmailService) refreshUnseen(client *imapclient.Client, accountID, folde
 		return
 	}
 	status, err := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
-	if err == nil && status.NumUnseen != nil {
+	if err != nil {
+		slog.Warn("sync: unseen count failed",
+			"account_id", accountID, "folder", folder, "error", err)
+		return
+	}
+	if status.NumUnseen != nil {
 		s.reportUnseen(accountID, int(*status.NumUnseen))
 	}
 }
@@ -181,12 +189,7 @@ type EmailPageResponse struct {
 // It serves the page from the local cache whenever the cache holds all of its
 // rows; only an uncached page costs an IMAP round trip.
 func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
+	page, pageSize = normalizePage(page, pageSize)
 
 	cached, err := s.db.LoadEmails(account.ID, folder)
 	if err == nil && len(cached) > 0 {
@@ -200,7 +203,7 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 			// (~0.5s) per page flip even when the rows were already stored.
 			if page <= 1 || cacheCoversPage(page, pageSize, meta.Total, len(cached)) {
 				return &EmailPageResponse{
-					Emails:    s.paginate(cached, page, pageSize),
+					Emails:    paginateSlices(cached, page, pageSize),
 					Total:     meta.Total,
 					FromCache: true,
 					// The UIDNEXT that fetch saw travels with the cached page: it is
@@ -213,17 +216,6 @@ func (s *EmailService) ListEmails(account EmailAccount, folder string, page, pag
 	}
 
 	return s.RefreshEmails(account, folder, page, pageSize)
-}
-
-// cacheCoversPage reports whether the cached rows can fill the requested page
-// completely. The last page only needs the rows that exist, so a cache holding
-// exactly `total` rows still covers it.
-func cacheCoversPage(page, pageSize, total, cachedLen int) bool {
-	needed := page * pageSize
-	if needed > total {
-		needed = total
-	}
-	return cachedLen >= needed
 }
 
 // RefreshEmails fetches email summaries from the IMAP server and updates the
@@ -266,14 +258,7 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	// One extra command on the connection that is already open: the tray badge
 	// needs the unseen count of the inbox, and a second IMAP session just for
 	// STATUS would double both the connection cost and the provider's throttling.
-	if isInbox(folder) {
-		status, statusErr := client.Status(folder, &imap.StatusOptions{NumUnseen: true}).Wait()
-		if statusErr != nil {
-			slog.Warn("sync: unseen count failed", "account", account, "folder", folder, "error", statusErr)
-		} else if status.NumUnseen != nil {
-			s.reportUnseen(account.ID, int(*status.NumUnseen))
-		}
-	}
+	s.refreshUnseen(client, account.ID, folder)
 
 	if mbox.NumMessages == 0 {
 		if priorTotal > 0 {
@@ -287,12 +272,7 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 
 	// Calculate the range for pagination
 	total := int(mbox.NumMessages)
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
+	page, pageSize = normalizePage(page, pageSize)
 	start := total - (page-1)*pageSize
 	end := total - page*pageSize + 1
 	if end < 1 {
@@ -379,9 +359,8 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		} else {
 			cached = pruned
 		}
-		cacheCoversPage := page <= 1 || len(cached) >= page*pageSize || len(cached) >= total
-		if cacheCoversPage {
-			responseEmails = s.paginate(cached, page, pageSize)
+		if page <= 1 || cacheCoversPage(page, pageSize, total, len(cached)) {
+			responseEmails = paginateSlices(cached, page, pageSize)
 		}
 	}
 
@@ -467,49 +446,11 @@ func emailSummaryFromBuffer(buf *imapclient.FetchMessageBuffer) EmailSummary {
 			summary.IsRead = true
 		}
 	}
-	if buf.Envelope != nil && len(buf.Envelope.From) > 0 {
-		addr := buf.Envelope.From[0]
-		if addr.Host != "" {
-			summary.FromAddr = addr.Mailbox + "@" + addr.Host
-		} else {
-			summary.FromAddr = addr.Mailbox
-		}
-		summary.FromName = decodeMimeHeader(addr.Name)
-		if summary.FromName != "" {
-			summary.From = summary.FromName + " <" + summary.FromAddr + ">"
-		} else {
-			summary.From = summary.FromAddr
-		}
-	}
 	if buf.Envelope != nil {
-		for _, addr := range buf.Envelope.To {
-			if addr.Host != "" {
-				summary.To = append(summary.To, addr.Mailbox+"@"+addr.Host)
-			} else {
-				summary.To = append(summary.To, addr.Mailbox)
-			}
-		}
+		summary.From, summary.FromName, summary.FromAddr = envelopeSender(buf.Envelope.From)
+		summary.To = envelopeAddresses(buf.Envelope.To)
 	}
 	return summary
-}
-
-// paginate returns a slice of email summaries for the given page.
-func (s *EmailService) paginate(summaries []EmailSummary, page, pageSize int) []EmailSummary {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
-	start := (page - 1) * pageSize
-	if start >= len(summaries) {
-		return []EmailSummary{}
-	}
-	end := start + pageSize
-	if end > len(summaries) {
-		end = len(summaries)
-	}
-	return summaries[start:end]
 }
 
 // PurgeAccountCache drops everything cached for one account and reports how many

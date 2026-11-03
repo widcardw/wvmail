@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useTagsStore } from '~/stores/tags'
+import { mailKeyFor, selectedMailKey } from '~/composables/mail-key'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 import TagFilter from '~/components/tags/TagFilter.vue'
@@ -21,21 +22,16 @@ const emptyMessage = computed(() => {
   if (tagsStore.selectedFilterIDs.length === 0) return t.value['tags.selectTags']
   return t.value['tags.noMatch']
 })
-const selectedEmailKey = computed(() => {
-  const uid = accountsStore.selectedEmailUid
-  const accountId = accountsStore.selectedEmailAccountId
-  const folder = accountsStore.selectedEmailFolder
-  return uid != null && accountId && folder ? `${accountId}\u200b${folder}\u200b${uid}` : ''
-})
-
-function emailKey(email: { uid: number; account_id?: string; folder_name?: string }): string {
-  return email.account_id && email.folder_name
-    ? `${email.account_id}\u200b${email.folder_name}\u200b${email.uid}`
-    : ''
-}
+const selectedEmailKey = computed(() =>
+  selectedMailKey(
+    accountsStore.selectedEmailAccountId,
+    accountsStore.selectedEmailFolder,
+    accountsStore.selectedEmailUid,
+  ),
+)
 
 function isSelected(email: { uid: number; account_id?: string; folder_name?: string }): boolean {
-  return selectedEmailKey.value !== '' && selectedEmailKey.value === emailKey(email)
+  return selectedEmailKey.value !== '' && selectedEmailKey.value === mailKeyFor(email)
 }
 
 function selectEmail(email: { uid: number; account_id?: string; folder_name?: string }) {

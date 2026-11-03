@@ -159,34 +159,11 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	// Detect suspicious (spam/junk) email
 	detail.IsSuspicious = isSuspiciousMail(folder, detail.Flags)
 
-	// Build sender name + address from envelope
-	for _, addr := range buf.Envelope.From {
-		if addr.Host != "" {
-			detail.FromAddr = addr.Mailbox + "@" + addr.Host
-		} else {
-			detail.FromAddr = addr.Mailbox
-		}
-		detail.FromName = decodeMimeHeader(addr.Name)
-		if detail.FromName != "" {
-			detail.From = detail.FromName + " <" + detail.FromAddr + ">"
-		} else {
-			detail.From = detail.FromAddr
-		}
-	}
-	for _, addr := range buf.Envelope.To {
-		if addr.Host != "" {
-			detail.To = append(detail.To, addr.Mailbox+"@"+addr.Host)
-		} else {
-			detail.To = append(detail.To, addr.Mailbox)
-		}
-	}
-	for _, addr := range buf.Envelope.Cc {
-		if addr.Host != "" {
-			detail.Cc = append(detail.Cc, addr.Mailbox+"@"+addr.Host)
-		} else {
-			detail.Cc = append(detail.Cc, addr.Mailbox)
-		}
-	}
+	// Sender and recipient formatting is shared with the list path so the two
+	// views cannot disagree about a provider's envelope shape.
+	detail.From, detail.FromName, detail.FromAddr = envelopeSender(buf.Envelope.From)
+	detail.To = envelopeAddresses(buf.Envelope.To)
+	detail.Cc = envelopeAddresses(buf.Envelope.Cc)
 
 	// --- Walk body structure to find text/plain, text/html, and attachments ---
 	var parts []bodyPartInfo

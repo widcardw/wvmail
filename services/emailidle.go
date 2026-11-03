@@ -125,6 +125,8 @@ func NewEmailIdleService(cfg *ConfigService, email *EmailService) *EmailIdleServ
 
 // SetAccountHealthReporter replaces the health reporter. It is wired by main()
 // so the IDLE watcher and the mail services emit through one sequence.
+//
+//wails:ignore
 func (s *EmailIdleService) SetAccountHealthReporter(reporter *accountHealthReporter) {
 	if reporter == nil {
 		reporter = newAccountHealthReporter()

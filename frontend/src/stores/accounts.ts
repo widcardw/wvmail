@@ -19,6 +19,7 @@ import { useI18n } from '~/i18n'
 import { Events } from '@wailsio/runtime'
 import { isFlagged, withMailFlag } from '~/composables/mail-flags'
 import { accountUnreadCount, adjustUnreadCounts } from '~/composables/folder-semantics'
+import { mailKey } from '~/composables/mail-key'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const feedback = useFeedbackStore()
@@ -859,13 +860,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     const folder = selectedEmailFolder.value
     const uid = selectedEmailUid.value
     return account && folder && uid != null
-      ? flagging.value[emailKey(account.ID, folder, uid)] === true
+      ? flagging.value[mailKey(account.ID, folder, uid)] === true
       : false
   })
-
-  function emailKey(accountId: string, folder: string, uid: number): string {
-    return `${accountId}\u200b${folder}\u200b${uid}`
-  }
 
   /**
    * Apply a flag change to every view that can hold the same message: the
@@ -920,7 +917,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       feedback.info(i18n.value['mail.flag.aggregate'])
       return
     }
-    const key = emailKey(account.ID, folder, uid)
+    const key = mailKey(account.ID, folder, uid)
     if (flagging.value[key]) return
 
     const previous = isFlagged(detail.flags)

@@ -167,6 +167,8 @@ type ConfigService struct {
 // called after the config write has landed and outside configWriteMu: the callback
 // belongs to other services' state, not to the config's, and it must not be able
 // to extend the config's critical section.
+//
+//wails:ignore
 func (s *ConfigService) SetAccountRemovedListener(listener func(accountID string)) {
 	s.removedMu.Lock()
 	defer s.removedMu.Unlock()

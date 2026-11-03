@@ -18,16 +18,9 @@ import (
 // on servers without the MOVE extension, so providers only need to expose their
 // standard Trash mailbox.
 func (s *EmailService) DeleteEmail(account EmailAccount, folder string, uid uint32) error {
-	folders, err := s.db.LoadFolders(account.ID)
+	folders, refreshed, err := s.loadFolderList(account)
 	if err != nil {
 		return fmt.Errorf("loading folders failed: %w", err)
-	}
-	refreshed := false
-	if len(folders) == 0 {
-		if folders, err = s.RefreshFolders(account); err != nil {
-			return fmt.Errorf("loading folders failed: %w", err)
-		}
-		refreshed = true
 	}
 	trash, ok := findTrashFolder(folders)
 	if !ok && !refreshed {

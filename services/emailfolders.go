@@ -16,13 +16,25 @@ import (
 // ListFolders retrieves all available IMAP mailboxes/folders.
 // Returns cached data if available and no force refresh requested.
 func (s *EmailService) ListFolders(account EmailAccount) ([]FolderInfo, error) {
-	// Try cache first
-	cached, err := s.db.LoadFolders(account.ID)
-	if err == nil && len(cached) > 0 {
-		return cached, nil
-	}
+	folders, _, err := s.loadFolderList(account)
+	return folders, err
+}
 
-	return s.RefreshFolders(account)
+// loadFolderList returns the cached folder list, refreshing from the server only
+// when the cache is empty. It reports whether it refreshed so a caller that
+// still needs a Trash lookup can avoid a second dial.
+//
+// DeleteEmail, FolderStatuses, the sync loop and the IDLE watcher all used to
+// repeat this read-cache-then-refresh block inline.
+func (s *EmailService) loadFolderList(account EmailAccount) ([]FolderInfo, bool, error) {
+	if cached, err := s.db.LoadFolders(account.ID); err == nil && len(cached) > 0 {
+		return cached, false, nil
+	}
+	folders, err := s.RefreshFolders(account)
+	if err != nil {
+		return nil, false, err
+	}
+	return folders, true, nil
 }
 
 // RefreshFolders fetches folders from the IMAP server and updates the cache.
@@ -134,12 +146,10 @@ type FolderStatus struct {
 // simply absent from the map — the caller reads a missing key as "nothing to
 // badge", and as "unknown" when deciding whether to refresh.
 func (s *EmailService) FolderStatuses(account EmailAccount) (map[string]FolderStatus, error) {
-	folders, err := s.db.LoadFolders(account.ID)
-	if err != nil || len(folders) == 0 {
-		if folders, err = s.RefreshFolders(account); err != nil {
-			s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeFailure)
-			return nil, err
-		}
+	folders, _, err := s.loadFolderList(account)
+	if err != nil {
+		s.health.report(account.ID, AccountHealthSourceStatus, AccountHealthOutcomeFailure)
+		return nil, err
 	}
 
 	client, err := connectIMAP(account, 60*time.Second)

@@ -2,6 +2,18 @@ package services
 
 import "testing"
 
+func TestNormalizePageDefaultsAndKeepsValidInput(t *testing.T) {
+	if page, size := normalizePage(0, 0); page != 1 || size != 20 {
+		t.Fatalf("normalizePage(0, 0) = (%d, %d), want (1, 20)", page, size)
+	}
+	if page, size := normalizePage(-3, -1); page != 1 || size != 20 {
+		t.Fatalf("normalizePage(-3, -1) = (%d, %d), want (1, 20)", page, size)
+	}
+	if page, size := normalizePage(2, 50); page != 2 || size != 50 {
+		t.Fatalf("normalizePage(2, 50) = (%d, %d), want (2, 50)", page, size)
+	}
+}
+
 // Paging beyond the first page must stay on the cache whenever it can fill the
 // page: falling through to the server costs a full IMAP connect+login+fetch per
 // flip (~0.5s), which is what made page 2 feel slow.
@@ -37,17 +49,16 @@ func TestCacheCoversPage(t *testing.T) {
 // server would.
 func TestPaginateSlicesCachedOrder(t *testing.T) {
 	summaries := []EmailSummary{{UID: 5}, {UID: 4}, {UID: 3}, {UID: 2}, {UID: 1}}
-	service := &EmailService{}
 
-	page2 := service.paginate(summaries, 2, 2)
+	page2 := paginateSlices(summaries, 2, 2)
 	if len(page2) != 2 || page2[0].UID != 3 || page2[1].UID != 2 {
 		t.Fatalf("page 2 = %+v, want UID 3 then 2", page2)
 	}
-	last := service.paginate(summaries, 3, 2)
+	last := paginateSlices(summaries, 3, 2)
 	if len(last) != 1 || last[0].UID != 1 {
 		t.Fatalf("last page = %+v, want UID 1", last)
 	}
-	if got := service.paginate(summaries, 4, 2); len(got) != 0 {
+	if got := paginateSlices(summaries, 4, 2); len(got) != 0 {
 		t.Fatalf("page past the end = %+v, want empty", got)
 	}
 }

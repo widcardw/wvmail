@@ -13,14 +13,9 @@ func (s *EmailService) SearchEmails(query EmailSearchQuery, page, pageSize int) 
 	if err != nil {
 		return nil, fmt.Errorf("search emails failed: %w", err)
 	}
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
+	page, pageSize = normalizePage(page, pageSize)
 	return &EmailPageResponse{
-		Emails: s.paginate(emails, page, pageSize),
+		Emails: paginateSlices(emails, page, pageSize),
 		Total:  len(emails),
 	}, nil
 }
