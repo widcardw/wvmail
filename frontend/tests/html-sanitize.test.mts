@@ -120,6 +120,18 @@ check(
   'dark mode still marks single-line borders',
   /<td[^>]*data-dm-border-all=""[^>]*>b<\/td>/.test(multilineBorder),
 )
+const darkFill = adaptHtmlForDarkMode(
+  '<p style="color:#0f1419;-webkit-text-fill-color:#0f1419">dark fill</p><p style="-webkit-text-fill-color:#fff">white fill</p>',
+)
+check(
+  'dark mode adapts -webkit-text-fill-color',
+  /<p[^>]*data-dm-fill=""[^>]*>dark fill<\/p>/.test(darkFill) &&
+    /--dm-fill:\s*rgb\(210,210,210\)/.test(darkFill),
+)
+check(
+  'dark mode leaves light text fills alone',
+  !/<p[^>]*data-dm-fill=""[^>]*>white fill<\/p>/.test(darkFill),
+)
 const cssRemote = block('<div style="background:url(http://t.example/x.png)">x</div>')
 check(
   'block: remote url() -> none',

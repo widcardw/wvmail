@@ -86,6 +86,7 @@ function adaptColor(color: RGB, isBackground: boolean): string {
 const DM_CSS = `
 :host { color-scheme: dark; }
 [data-dm-color] { color: var(--dm-c) !important; }
+[data-dm-fill] { -webkit-text-fill-color: var(--dm-fill) !important; }
 [data-dm-preserve-color] { color: var(--dm-original-color) !important; }
 [data-dm-bg] { background-color: var(--dm-b) !important; }
 [data-dm-link] { color: var(--dm-l) !important; }
@@ -227,6 +228,7 @@ function adaptHtmlForDarkMode(html: string): string {
         adaptedStyle = rewriteImportantBackgrounds(adaptedStyle)
         adaptedStyle = rewriteImportantNeutralBorders(adaptedStyle)
         let colorAdapt = ''
+        let fillAdapt = ''
         let bgAdapt = ''
 
         const colorMatch = adaptedStyle.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i)
@@ -242,6 +244,13 @@ function adaptHtmlForDarkMode(html: string): string {
           }
         }
 
+        const fillMatch = adaptedStyle.match(/(?:^|;)\s*-webkit-text-fill-color\s*:\s*([^;]+)/i)
+        if (fillMatch) {
+          const originalFill = fillMatch[1].trim().replace(/\s*!important\s*$/i, '')
+          const parsed = parseColor(originalFill)
+          if (parsed) fillAdapt = adaptColor(parsed, false)
+        }
+
         const bgMatch = adaptedStyle.match(/\bbackground-color\s*:\s*([^;]+)/i)
         if (bgMatch) {
           const parsed = parseColor(bgMatch[1])
@@ -251,6 +260,10 @@ function adaptHtmlForDarkMode(html: string): string {
         if (colorAdapt) {
           attrs['data-dm-color'] = ''
           cssVars.push(`--dm-c: ${colorAdapt}`)
+        }
+        if (fillAdapt) {
+          attrs['data-dm-fill'] = ''
+          cssVars.push(`--dm-fill: ${fillAdapt}`)
         }
         if (bgAdapt) {
           attrs['data-dm-bg'] = ''

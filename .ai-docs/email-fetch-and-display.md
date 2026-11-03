@@ -289,7 +289,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 - 前向兼容：即便 WebKit 以后按决议让 `color-scheme` 影响该媒体查询，改写后的常量仍然正确。
 - 暗色路径不变：邮件自带暗色块（如 `table.whats-new-card { background:#2F2F2F }`）会被打开，`adaptHtmlForDarkMode` 继续在其上做兜底适配。
 
-**已知遗留（未改，属暗色路径）**：`-webkit-text-fill-color` 会压过 `color`，而邮件常带 `!important` 的类选择器，`DM_RESET` 里 `* { color: … !important }` 的权重赢不了它 —— 暗色下若某封邮件在**非媒体查询**里写死 `-webkit-text-fill-color:#191919`，那行字仍可能看不见。要修得连带把 `DM_RESET`/`DM_CSS` 的权重整体抬到 ID 级（`:not(#x)` 之类），影响面是所有邮件，故未并入本次。
+**文本填充色（已修）**：`-webkit-text-fill-color` 会压过 `color`。X（`noreply@x.com`）的真实邮件在内联样式里同时写了 `color:#0f1419` 和 `-webkit-text-fill-color:#0f1419`；旧逻辑只给 `color` 加了 `data-dm-color`，字形仍由深色 fill 决定，暗色背景上几乎看不见。`adaptHtmlForDarkMode` 现在单独识别深色 `-webkit-text-fill-color`，打 `data-dm-fill` 并用 `var(--dm-fill) !important` 覆盖；白色/透明 fill 保持原样。若发件人把 fill 写在内联 `!important` 里，仍受 CSS 级联限制（内联 important 高于作者样式表 important），但这类写法较少。
 
 ---
 
