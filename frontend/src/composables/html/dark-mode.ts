@@ -172,7 +172,7 @@ function markDefaultBorderAttributes(style: string, attrs: Record<string, string
 
   for (const declaration of style.split(';')) {
     const match = declaration.match(
-      /^\s*(border(?:-(top|right|bottom|left))?(?:-color|-style|-width)?)\s*:\s*(.+)$/i,
+      /^\s*(border(?:-(top|right|bottom|left))?(?:-color|-style|-width)?)\s*:\s*([\s\S]+)$/i,
     )
     if (!match) continue
 

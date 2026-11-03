@@ -7,6 +7,7 @@
  * CSS sanitising (remote url(), @import, layout escapes) and markup attacks.
  */
 import { sanitizeEmailHtml } from '../src/composables/html/sanitize.ts'
+import { adaptHtmlForDarkMode } from '../src/composables/html/dark-mode.ts'
 
 let pass = 0
 let fail = 0
@@ -107,6 +108,17 @@ check(
   'compose inline colour styles survive',
   tiptapColor.html.includes('color:#dc2626') &&
     tiptapColor.html.includes('background-color:#fef3c7'),
+)
+const multilineBorder = adaptHtmlForDarkMode(
+  '<table style="border-collapse: collapse"><tr><td style="border: 1px solid\n#E6E8EB">a</td><td style="border: 1px solid #E6E8EB">b</td></tr></table>',
+)
+check(
+  'dark mode marks borders split across lines',
+  /<td[^>]*data-dm-border-all=""[^>]*>a<\/td>/.test(multilineBorder),
+)
+check(
+  'dark mode still marks single-line borders',
+  /<td[^>]*data-dm-border-all=""[^>]*>b<\/td>/.test(multilineBorder),
 )
 const cssRemote = block('<div style="background:url(http://t.example/x.png)">x</div>')
 check(
