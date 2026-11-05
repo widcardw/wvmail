@@ -1,5 +1,6 @@
 import type { Root, Element } from 'hast'
 import { REMOTE_URL_RE } from './urls.ts'
+import type { RemoteURLRewriter } from './remote.ts'
 
 // CSS sanitising: strip `@import`/`expression()`/`behavior`, block or rewrite remote
 // `url()`, pin `position: fixed|sticky`, drop absurdly long declarations, and take
@@ -51,6 +52,7 @@ function sanitizeCss(
   css: string,
   allowRemote: boolean,
   appDark: boolean,
+  rewriteRemoteURL?: RemoteURLRewriter,
 ): { css: string; blocked: number; cssArt: number } {
   let blocked = 0
   let cssArt = 0
@@ -77,7 +79,40 @@ function sanitizeCss(
         return whole
       },
     )
+  } else if (rewriteRemoteURL) {
+    out = out.replace(
+      /url\(\s*(['"]?)([^'")]*)\1\s*\)/gi,
+      (whole: string, _q: string, target: string) => {
+        const value = String(target).trim()
+        if (!REMOTE_URL_RE.test(value)) return whole
+        const absolute = value.startsWith('//') ? `https:${value}` : value
+        const rewritten = rewriteRemoteURL(absolute).replace(/["\\]/g, '\\$&')
+        return `url("${rewritten}")`
+      },
+    )
   }
+
+  // `image-set("https://…" 1x)` is a URL without `url()`. The regex cannot
+  // parse nested parentheses, so it only handles the string form; the `url()`
+  // form above is already covered.
+  out = out.replace(/image-set\(([^)]*)\)/gi, (whole: string, args: string) => {
+    const remoteString = /(["'])((?:https?:)?\/\/[^"']+)\1/i
+    if (!allowRemote) {
+      if (!remoteString.test(args)) return whole
+      blocked++
+      return 'none'
+    }
+    if (!rewriteRemoteURL) return whole
+    const rewritten = args.replace(
+      /(["'])((?:https?:)?\/\/[^"']+)\1/gi,
+      (_match: string, quote: string, target: string) => {
+        const absolute = target.startsWith('//') ? `https:${target}` : target
+        const url = rewriteRemoteURL(absolute).replace(/["\\]/g, '\\$&')
+        return `${quote}${url}${quote}`
+      },
+    )
+    return `image-set(${rewritten})`
+  })
 
   // Legacy code-execution / binding vectors, and layout that could overlay the app.
   out = out.replace(/(?:-moz-binding|behavior)\s*:[^;}]*;?/gi, '')
@@ -116,6 +151,7 @@ function walkElements(node: Root | Element, visit: (el: Element) => void): void 
 export function rehypeSanitizeEmailCss(options: {
   allowRemote: boolean
   appDark: () => boolean
+  rewriteRemoteURL?: () => RemoteURLRewriter | undefined
   onBlocked: (n: number) => void
   onCssArt: (n: number) => void
 }) {
@@ -124,7 +160,12 @@ export function rehypeSanitizeEmailCss(options: {
       if (el.tagName === 'style') {
         for (const child of el.children) {
           if (child.type !== 'text') continue
-          const result = sanitizeCss(child.value, options.allowRemote, options.appDark())
+          const result = sanitizeCss(
+            child.value,
+            options.allowRemote,
+            options.appDark(),
+            options.rewriteRemoteURL?.(),
+          )
           child.value = result.css
           options.onBlocked(result.blocked)
           options.onCssArt(result.cssArt)
@@ -133,7 +174,12 @@ export function rehypeSanitizeEmailCss(options: {
       }
       const style = el.properties?.['style']
       if (typeof style !== 'string') return
-      const result = sanitizeCss(style, options.allowRemote, options.appDark())
+      const result = sanitizeCss(
+        style,
+        options.allowRemote,
+        options.appDark(),
+        options.rewriteRemoteURL?.(),
+      )
       el.properties!['style'] = result.css
       options.onBlocked(result.blocked)
       options.onCssArt(result.cssArt)

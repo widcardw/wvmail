@@ -13,6 +13,7 @@ func TestRemoteContentConfigRoundTrip(t *testing.T) {
 		RemoteContent: RemoteContentConfig{
 			AllowRemoteContent: true,
 			AllowedSenders:     []string{"someone@example.com", "@trusted.example"},
+			ImageProxyURL:      "https://mail.example.com/image-proxy",
 		},
 	}
 
@@ -31,6 +32,9 @@ func TestRemoteContentConfigRoundTrip(t *testing.T) {
 	if len(out.RemoteContent.AllowedSenders) != 2 {
 		t.Fatalf("AllowedSenders = %v, want 2 entries", out.RemoteContent.AllowedSenders)
 	}
+	if out.RemoteContent.ImageProxyURL != "https://mail.example.com/image-proxy" {
+		t.Errorf("ImageProxyURL = %q, want the round-tripped URL", out.RemoteContent.ImageProxyURL)
+	}
 }
 
 func TestRemoteContentDefaultsToBlocking(t *testing.T) {
@@ -45,5 +49,31 @@ func TestRemoteContentDefaultsToBlocking(t *testing.T) {
 	}
 	if len(cfg.RemoteContent.AllowedSenders) != 0 {
 		t.Errorf("AllowedSenders = %v, want empty", cfg.RemoteContent.AllowedSenders)
+	}
+}
+
+func TestValidateImageProxyURL(t *testing.T) {
+	valid := []string{
+		"",
+		"https://mail.example.com/image-proxy",
+		"http://127.0.0.1:8080/image-proxy?token=x",
+	}
+	for _, raw := range valid {
+		if err := validateImageProxyURL(raw); err != nil {
+			t.Errorf("validateImageProxyURL(%q) = %v, want nil", raw, err)
+		}
+	}
+
+	invalid := []string{
+		"mail.example.com/image-proxy",
+		"javascript:alert(1)",
+		"https://",
+		"https://user:" + "pw" + "@example.com/image-proxy",
+		"https://mail.example.com/image-proxy#fragment",
+	}
+	for _, raw := range invalid {
+		if err := validateImageProxyURL(raw); err == nil {
+			t.Errorf("validateImageProxyURL(%q) = nil, want an error", raw)
+		}
 	}
 }

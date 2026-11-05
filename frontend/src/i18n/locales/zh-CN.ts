@@ -249,6 +249,11 @@ const zhCN: TranslationSchema = {
     '来自垃圾邮件文件夹、或被服务器标记为垃圾的邮件，正文与附件先折叠，点「显示正文」后才渲染。关闭后这类邮件直接显示。',
   'settings.remote.title': '远程内容',
   'settings.remote.allow': '加载邮件中的远程图片与样式',
+  'settings.remote.proxy': '图片代理地址',
+  'settings.remote.proxy_hint':
+    '留空使用本应用的 /image-proxy。server mode 下会隐藏你的 IP；桌面版本机代理只去除 Cookie 和 Referer，不会隐藏 IP。填入已部署的 server 地址（如 https://mail.example.com/image-proxy）即可在桌面端也隐藏 IP。',
+  'settings.remote.proxy_placeholder': 'https://mail.example.com/image-proxy',
+  'settings.remote.proxy_invalid': '请输入完整的 http(s) 地址，或留空',
   'settings.remote.hint': '已放行的发件人',
   'settings.remote.empty': '暂无。可在邮件中点击「总是允许此发件人」添加。',
   'settings.remote.remove': '移除',

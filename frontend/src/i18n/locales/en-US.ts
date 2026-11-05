@@ -258,6 +258,11 @@ const enUS: TranslationSchema = {
     'Messages from a spam folder, or ones the server flags as junk, keep their body and attachments folded until you ask to see them. Turn this off to show them straight away.',
   'settings.remote.title': 'Remote content',
   'settings.remote.allow': 'Always load remote images and styles',
+  'settings.remote.proxy': 'Image proxy URL',
+  'settings.remote.proxy_hint':
+    'Leave empty to use this app’s /image-proxy. In server mode that hides your IP; the desktop app’s local proxy only strips cookies and referrers. Point this at a deployed server (https://mail.example.com/image-proxy) to hide it there too.',
+  'settings.remote.proxy_placeholder': 'https://mail.example.com/image-proxy',
+  'settings.remote.proxy_invalid': 'Enter an absolute http(s) URL, or leave it empty',
   'settings.remote.hint': 'Allowed senders',
   'settings.remote.empty': 'None yet — use “Always allow this sender” inside a message.',
   'settings.remote.remove': 'Remove',

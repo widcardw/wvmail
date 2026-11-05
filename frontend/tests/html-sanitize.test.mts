@@ -42,6 +42,114 @@ check(
   allowedImg.html.includes('t.example/p.png') && allowedImg.blockedRemote === 0,
 )
 
+console.log('image proxy')
+const proxied = sanitizeEmailHtml('<img src="http://t.example/a.png" alt="a">', {
+  allowRemote: true,
+  imageProxyURL: '/image-proxy',
+})
+const proxiedSrc = `/image-proxy?url=${encodeURIComponent('http://t.example/a.png')}`
+check('allow+proxy: image src is rewritten', proxied.html.includes(proxiedSrc))
+check(
+  'allow+proxy: the webview never sees the sender URL in src',
+  !/<img[^>]*src="http:\/\/t\.example/.test(proxied.html),
+)
+const proxiedSet = sanitizeEmailHtml(
+  '<picture><source srcset="http://t.example/a.png 1x, http://t.example/b.png 2x"><img src="http://t.example/c.png"></picture>',
+  { allowRemote: true, imageProxyURL: '/image-proxy' },
+)
+check(
+  'allow+proxy: picture srcset candidates are rewritten',
+  proxiedSet.html.includes(encodeURIComponent('http://t.example/a.png')) &&
+    proxiedSet.html.includes(encodeURIComponent('http://t.example/b.png')),
+)
+const compactSet = sanitizeEmailHtml(
+  '<picture><source srcset="http://t.example/a.png 1x,http://t.example/b.png 2x"><img src="http://t.example/c.png"></picture>',
+  { allowRemote: true, imageProxyURL: '/image-proxy' },
+)
+check(
+  'allow+proxy: srcset candidates without a space after the comma are rewritten',
+  compactSet.html.includes(encodeURIComponent('http://t.example/a.png')) &&
+    compactSet.html.includes(encodeURIComponent('http://t.example/b.png')),
+)
+const proxiedProtocolRelative = sanitizeEmailHtml('<img src="//t.example/a.png">', {
+  allowRemote: true,
+  imageProxyURL: '/image-proxy',
+})
+check(
+  'allow+proxy: protocol-relative URLs are made absolute',
+  proxiedProtocolRelative.html.includes(encodeURIComponent('https://t.example/a.png')),
+)
+const proxiedDataSet = sanitizeEmailHtml(
+  '<picture><source srcset="data:image/png;base64,//abc 1x"><img src="data:image/png;base64,AAA"></picture>',
+  { allowRemote: true, imageProxyURL: '/image-proxy' },
+)
+check(
+  'allow+proxy: data URI srcset candidates stay untouched',
+  !proxiedDataSet.html.includes('/image-proxy') &&
+    proxiedDataSet.html.includes('data:image/png;base64,//abc'),
+)
+const absoluteProxyBase = 'https://mail.example.com/image-proxy'
+const proxiedOnce = sanitizeEmailHtml('<img src="http://t.example/a.png">', {
+  allowRemote: true,
+  imageProxyURL: absoluteProxyBase,
+})
+const proxiedTwice = sanitizeEmailHtml(proxiedOnce.html, {
+  allowRemote: true,
+  imageProxyURL: absoluteProxyBase,
+})
+check(
+  'allow+proxy: an already-proxied image is not wrapped again',
+  proxiedTwice.html.includes(
+    `${absoluteProxyBase}?url=${encodeURIComponent('http://t.example/a.png')}`,
+  ) && !proxiedTwice.html.includes('image-proxy%3Furl'),
+)
+const proxyLookalike = sanitizeEmailHtml(`<img src="${absoluteProxyBase}@evil.example/a.png">`, {
+  allowRemote: true,
+  imageProxyURL: absoluteProxyBase,
+})
+check(
+  'allow+proxy: a lookalike URL is still sent through the proxy',
+  proxyLookalike.html.includes(
+    `${absoluteProxyBase}?url=${encodeURIComponent(`${absoluteProxyBase}@evil.example/a.png`)}`,
+  ),
+)
+const proxiedCss = sanitizeEmailHtml(
+  '<style>.x{background:url(http://t.example/bg.png)}</style><p>x</p>',
+  { allowRemote: true, imageProxyURL: '/image-proxy' },
+)
+check(
+  'allow+proxy: CSS url() is rewritten',
+  proxiedCss.html.includes(
+    `url("/image-proxy?url=${encodeURIComponent('http://t.example/bg.png')}")`,
+  ),
+)
+const proxiedData = sanitizeEmailHtml('<img src="data:image/png;base64,AAA">', {
+  allowRemote: true,
+  imageProxyURL: '/image-proxy',
+})
+check('allow+proxy: data URIs stay untouched', !proxiedData.html.includes('/image-proxy'))
+const proxiedImageSet = sanitizeEmailHtml(
+  '<style>.x{background-image:image-set("http://t.example/a.png" 1x)}</style>',
+  { allowRemote: true, imageProxyURL: '/image-proxy' },
+)
+check(
+  'allow+proxy: image-set string URLs are rewritten',
+  proxiedImageSet.html.includes(encodeURIComponent('http://t.example/a.png')),
+)
+check(
+  'block: image-set string URLs are removed',
+  !block(
+    '<style>.x{background-image:image-set("http://t.example/a.png" 1x)}</style>',
+  ).html.includes('t.example'),
+)
+const dataSrcSet = block(
+  '<picture><source srcset="data:image/png;base64,//abc 1x"><img src="data:image/png;base64,AAA" alt="local"></picture>',
+)
+check(
+  'block: data URI srcset is not mistaken for a remote tracker',
+  dataSrcSet.blockedRemote === 0 && dataSrcSet.html.includes('data:image/png;base64,//abc'),
+)
+
 console.log('placeholder sizing')
 const tracker = block('<img src="http://t.example/px.gif" width="1" height="1">')
 check(
@@ -57,6 +165,65 @@ const bigNoAlt = block('<img src="http://t.example/big.png" width="400" height="
 check(
   'block: large image without alt keeps its box + icon',
   /remote-blocked--icon/.test(bigNoAlt.html) && /width:400px;height:200px/.test(bigNoAlt.html),
+)
+const smallWithAlt = block(
+  '<img src="http://t.example/i.png" width="32" height="32" alt="A long icon description that would wrap many times">',
+)
+check(
+  'block: small image hides its alt text',
+  /remote-blocked--icon/.test(smallWithAlt.html) &&
+    !/remote-blocked__text/.test(smallWithAlt.html.split('<style>')[0]),
+)
+check(
+  'block: hidden alt moves to the title',
+  smallWithAlt.html.includes('title="A long icon description that would wrap many times"'),
+)
+check(
+  'block: hidden alt stays available to screen readers',
+  smallWithAlt.html.includes('aria-label="A long icon description that would wrap many times"'),
+)
+const underHundred = block('<img src="http://t.example/i.png" width="90" height="60" alt="logo">')
+check(
+  'block: sub-100px width hides alt',
+  /remote-blocked--icon/.test(underHundred.html) && underHundred.html.includes('title="logo"'),
+)
+const wideBanner = block(
+  '<img src="http://t.example/b.png" width="600" height="80" alt="Shop now">',
+)
+check(
+  'block: wide image keeps visible alt',
+  /class="remote-blocked"/.test(wideBanner.html) && />Shop now<\/span>/.test(wideBanner.html),
+)
+const shortBanner = block(
+  '<img src="http://t.example/b.png" width="600" height="16" alt="Divider">',
+)
+check(
+  'block: very short image hides alt',
+  /remote-blocked--icon/.test(shortBanner.html) && !/Divider<\/span>/.test(shortBanner.html),
+)
+const styledNarrow = block(
+  '<img src="http://t.example/i.png" style="width:48px;height:48px" alt="tiny">',
+)
+check(
+  'block: inline px width triggers the alt threshold',
+  /remote-blocked--icon/.test(styledNarrow.html) && styledNarrow.html.includes('title="tiny"'),
+)
+const maxNarrow = block(
+  '<img src="http://t.example/i.png" style="max-width:48px" alt="tiny max-width">',
+)
+check(
+  'block: max-width triggers the alt threshold',
+  /remote-blocked--icon/.test(maxNarrow.html) && maxNarrow.html.includes('title="tiny max-width"'),
+)
+check(
+  'block: long alt is wrapped for line clamping',
+  /class="remote-blocked__text"/.test(
+    block('<img src="http://t.example/x.png" width="400" height="200" alt="long text">').html,
+  ),
+)
+check(
+  'block: placeholder css clamps alt to two lines',
+  bigNoAlt.html.includes('-webkit-line-clamp: 2'),
 )
 const responsiveCover = block(
   '<img src="http://t.example/cover.png" width="1200" height="400" alt="cover" style="width:100%;height:auto;display:block">',

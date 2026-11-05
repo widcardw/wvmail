@@ -11,7 +11,7 @@ import {
   rehypeAutoLink,
   rehypeDateMentions,
 } from './mentions.ts'
-import { BLOCKED_IMAGE_CSS, rehypeBlockRemoteContent } from './remote.ts'
+import { BLOCKED_IMAGE_CSS, rehypeBlockRemoteContent, type RemoteURLRewriter } from './remote.ts'
 import { emailSchema } from './schema.ts'
 import { rehypeWrapTables } from './wrap-tables.ts'
 import { CONTENT_FIT_CSS } from './content-fit.ts'
@@ -26,6 +26,12 @@ export interface EmailSanitizeOptions {
   allowRemote?: boolean
   /** Tooltip for blocked-image placeholders (translated by the caller). */
   blockedImageLabel?: string
+  /**
+   * Base URL of the image proxy. When remote content is allowed, every remote
+   * image and CSS `url()` is rewritten to `<base>?url=<encoded target>` so the
+   * fetch happens off-device. Omit to leave URLs untouched (tests / direct mode).
+   */
+  imageProxyURL?: string
   /** Highlight detected date/time mentions (off unless `enabled`). */
   mentions?: MentionRenderOptions
   /**
@@ -69,6 +75,7 @@ function createSanitizer(allowRemote: boolean) {
   // The placeholder tooltip is per call (it is translated), so the cached
   // pipeline reads it through a closure instead of baking it in.
   let imageLabel = ''
+  let imageProxy: RemoteURLRewriter | undefined
   // Same for the date/time pass: toggle, locale and clock all come per call.
   let mentionOptions: MentionRenderOptions = {
     enabled: false,
@@ -83,19 +90,28 @@ function createSanitizer(allowRemote: boolean) {
     .use(rehypeSanitizeEmailCss, {
       allowRemote,
       appDark: () => appDark,
+      rewriteRemoteURL: () => imageProxy,
       onBlocked,
       onCssArt: (n: number) => {
         cssArt += n
       },
     })
     .use(rehypeWrapTables)
-    .use(rehypeBlockRemoteContent, { allowRemote, onBlocked, imageLabel: () => imageLabel })
+    .use(rehypeBlockRemoteContent, {
+      allowRemote,
+      onBlocked,
+      imageLabel: () => imageLabel,
+      proxyURL: () => imageProxy,
+    })
     .use(rehypeDateMentions, () => mentionOptions)
     .use(rehypeStringify)
   return {
     processor,
     setImageLabel: (label: string) => {
       imageLabel = label
+    },
+    setImageProxy: (rewrite: RemoteURLRewriter | undefined) => {
+      imageProxy = rewrite
     },
     setAppDark: (dark: boolean) => {
       appDark = dark
@@ -117,6 +133,47 @@ function createSanitizer(allowRemote: boolean) {
 }
 
 /**
+ * Build the rewriter that turns an off-device URL into one the proxy fetches.
+ * The proxy URL is encoded as a query value, so a URL containing `&` or `#`
+ * cannot change the proxy's own parameters.
+ */
+function buildImageProxyRewriter(base: string): RemoteURLRewriter | undefined {
+  const normalized = base.trim()
+  if (!normalized) return undefined
+  return (target: string) => {
+    // A second sanitize pass (AI output, cached body) must not proxy a URL that
+    // already points at this proxy. Compare parsed origins and paths instead of
+    // a string prefix, so a lookalike URL that merely starts with the base text
+    // is still proxied.
+    if (isAlreadyProxied(target, normalized)) return target
+    const separator = !normalized.includes('?')
+      ? '?'
+      : normalized.endsWith('?') || normalized.endsWith('&')
+        ? ''
+        : '&'
+    return `${normalized}${separator}url=${encodeURIComponent(target)}`
+  }
+}
+
+function isAlreadyProxied(target: string, base: string): boolean {
+  try {
+    const placeholder = 'http://image-proxy.invalid'
+    const targetURL = new URL(target, placeholder)
+    const baseURL = new URL(base, placeholder)
+    if (targetURL.origin !== baseURL.origin || targetURL.pathname !== baseURL.pathname) {
+      return false
+    }
+    if (!targetURL.searchParams.has('url')) return false
+    for (const [key, value] of baseURL.searchParams) {
+      if (targetURL.searchParams.get(key) !== value) return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Sanitize an email body: strips dangerous markup, neutralises unsafe CSS and
  * (unless `allowRemote`) removes remote images/styles and reports how many were
  * blocked, so the UI can offer to load them.
@@ -134,6 +191,11 @@ function sanitizeEmailHtml(html: string, options: EmailSanitizeOptions = {}): Em
     sanitizers.set(allowRemote, entry)
   }
   entry.setImageLabel(options.blockedImageLabel ?? '')
+  entry.setImageProxy(
+    allowRemote && options.imageProxyURL
+      ? buildImageProxyRewriter(options.imageProxyURL)
+      : undefined,
+  )
   entry.setAppDark(options.darkMode === true)
   const mentions = options.mentions
   entry.setMentionOptions(mentions ?? { enabled: false, locale: 'en-US', now: new Date(0) })

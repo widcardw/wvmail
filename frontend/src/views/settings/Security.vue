@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useI18n } from '~/i18n'
 import { usePreferencesStore } from '~/stores/preferences'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
@@ -15,6 +15,15 @@ const senderError = ref<string | null>(null)
 const editingSender = ref<string | null>(null)
 const editSenderValue = ref('')
 const editSenderError = ref<string | null>(null)
+const imageProxyURL = ref(preferences.imageProxyURL)
+const imageProxyError = ref<string | null>(null)
+
+watch(
+  () => preferences.imageProxyURL,
+  (value) => {
+    imageProxyURL.value = value
+  },
+)
 
 function onAllowRemoteChange(checked: boolean) {
   void preferences.setAllowRemoteContent(checked)
@@ -22,6 +31,21 @@ function onAllowRemoteChange(checked: boolean) {
 
 function onBlockSuspiciousChange(checked: boolean) {
   void preferences.setBlockSuspiciousMail(checked)
+}
+
+async function saveImageProxyURL() {
+  const value = imageProxyURL.value.trim()
+  imageProxyError.value = null
+  if (value && !/^https?:\/\/[^/\s]+/i.test(value)) {
+    imageProxyError.value = t.value['settings.remote.proxy_invalid']
+    return
+  }
+  try {
+    await preferences.setImageProxyURL(value)
+    imageProxyURL.value = value
+  } catch {
+    imageProxyError.value = t.value['settings.remote.proxy_invalid']
+  }
 }
 
 function onRemoveSender(sender: string) {
@@ -84,6 +108,22 @@ async function saveSender(sender: string) {
 
       <UiFieldRow :label="t['settings.remote.allow']">
         <UiSwitch :checked="preferences.allowRemoteContent" @update:checked="onAllowRemoteChange" />
+      </UiFieldRow>
+
+      <UiFieldRow :label="t['settings.remote.proxy']" :hint="t['settings.remote.proxy_hint']">
+        <input
+          v-model="imageProxyURL"
+          class="input proxy__input"
+          type="url"
+          spellcheck="false"
+          autocomplete="off"
+          :placeholder="t['settings.remote.proxy_placeholder']"
+          :aria-invalid="Boolean(imageProxyError)"
+          @input="imageProxyError = null"
+          @change="saveImageProxyURL"
+          @keydown.enter.prevent="saveImageProxyURL"
+        />
+        <p v-if="imageProxyError" class="proxy__error" role="alert">{{ imageProxyError }}</p>
       </UiFieldRow>
 
       <div class="row row--top">
@@ -220,6 +260,16 @@ async function saveSender(sender: string) {
   min-width: 0;
   height: 30px;
   font-size: 12.5px;
+}
+.proxy__input {
+  width: 100%;
+  height: 30px;
+  font-size: 12.5px;
+}
+.proxy__error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-danger);
 }
 .senders__error {
   margin: -4px 0 8px;

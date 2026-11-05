@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -401,8 +402,8 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 // "scan_external_safety", "search_tag_delete_presses", "allow_remote_content",
 // "minimize_when_close", "detect_dates_in_mail", "skip_ai_assist_confirmation",
 // "collapse_sidebar_smart_folders", "collapse_sidebar_utilities", "proxy" (a
-// JSON {"enabled":bool,"url":string}) and "allowed_remote_senders" (a JSON
-// array of strings).
+// JSON {"enabled":bool,"url":string}), "allowed_remote_senders" (a JSON array
+// of strings) and "image_proxy_url".
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	configWriteMu.Lock()
 	languageChanged, err := saveConfigFieldLocked(field, value)
@@ -458,6 +459,12 @@ func saveConfigFieldLocked(field, value string) (bool, error) {
 			return false, fmt.Errorf("invalid JSON for allowed_remote_senders: %w", err)
 		}
 		cfg.RemoteContent.AllowedSenders = senders
+	case "image_proxy_url":
+		value = strings.TrimSpace(value)
+		if err := validateImageProxyURL(value); err != nil {
+			return false, err
+		}
+		cfg.RemoteContent.ImageProxyURL = value
 	case "minimize_when_close":
 		b, err := strconv.ParseBool(value)
 		if err != nil {
@@ -505,4 +512,30 @@ func saveConfigFieldLocked(field, value string) (bool, error) {
 		return false, fmt.Errorf("unknown config field: %s", field)
 	}
 	return languageChanged, writeConfig(cfg)
+}
+
+// validateImageProxyURL accepts an empty value (use the app's own endpoint) or
+// an absolute http(s) URL. The proxy itself validates every target again; this
+// only catches a typo while the user is still looking at the field.
+func validateImageProxyURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid image proxy URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("image proxy URL must start with http:// or https://")
+	}
+	if u.Host == "" || u.Hostname() == "" {
+		return fmt.Errorf("image proxy URL is missing a host")
+	}
+	if u.User != nil {
+		return fmt.Errorf("image proxy URL must not contain credentials")
+	}
+	if u.Fragment != "" {
+		return fmt.Errorf("image proxy URL must not contain a fragment")
+	}
+	return nil
 }

@@ -4,6 +4,49 @@
 /** Absolute URL (http/https or protocol-relative), i.e. something fetched off-device. */
 export const REMOTE_URL_RE = /^(?:https?:)?\/\//i
 
+export interface SrcSetURLSpan {
+  start: number
+  end: number
+  url: string
+}
+
+/**
+ * Locate the URL token in each `srcset` candidate. A normal URL ends at a comma
+ * even when the next candidate has no leading space. A data URI keeps consuming
+ * commas until whitespace, because the comma after `data:image/…;base64` is part
+ * of the payload; splitting there would mistake its `//` for a remote URL.
+ */
+export function srcSetURLSpans(value: string): SrcSetURLSpan[] {
+  const spans: SrcSetURLSpan[] = []
+  let i = 0
+  while (i < value.length) {
+    while (i < value.length && (value[i] === ',' || /\s/.test(value[i]))) i++
+    if (i >= value.length) break
+
+    const start = i
+    const isDataURI = value.slice(start, start + 5).toLowerCase() === 'data:'
+    while (i < value.length && !/\s/.test(value[i])) {
+      // A normal srcset URL ends at a comma even when the next candidate has no
+      // leading space. A data URI's first comma is part of the payload, so keep
+      // consuming it until whitespace.
+      if (!isDataURI && value[i] === ',') break
+      i++
+    }
+    let end = i
+    if (end > start && value[end - 1] === ',') {
+      end--
+      spans.push({ start, end, url: value.slice(start, end) })
+      continue
+    }
+
+    spans.push({ start, end, url: value.slice(start, end) })
+    // Skip the descriptor ("1x", "640w", …) up to the next candidate.
+    while (i < value.length && value[i] !== ',') i++
+    if (i < value.length) i++
+  }
+  return spans
+}
+
 /**
  * Attributes that make a browser fetch a resource. Both spellings of `srcset`
  * are listed on purpose: hast stores property names camel-cased (`srcSet`), and
@@ -13,10 +56,7 @@ export const REMOTE_URL_RE = /^(?:https?:)?\/\//i
 
 /** True when any candidate URL inside the attribute value points off-device. */
 export function hasRemoteRef(value: string): boolean {
-  // srcset is a comma-separated list of "url descriptor" candidates.
-  return value
-    .split(',')
-    .some((candidate) => REMOTE_URL_RE.test(candidate.trim().split(/\s+/)[0] ?? ''))
+  return srcSetURLSpans(value).some(({ url }) => REMOTE_URL_RE.test(url))
 }
 
 /**

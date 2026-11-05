@@ -68,6 +68,12 @@ type RemoteContentConfig struct {
 	// and its subdomains, while "*" matches one dot-separated domain label
 	// (for example "news@*.example.com" or "user@example.*").
 	AllowedSenders []string `yaml:"allowed_senders,omitempty"`
+	// ImageProxyURL is the base URL of the image proxy. Empty means the app's
+	// own /image-proxy: private in server mode, but only cookie/referrer
+	// stripping in the desktop build. Point this at the deployed server mode
+	// (for example https://mail.example.com/image-proxy) to hide the desktop
+	// reader's IP as well.
+	ImageProxyURL string `yaml:"image_proxy_url,omitempty"`
 }
 
 // LogConfig controls the application's file logging behaviour.

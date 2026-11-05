@@ -111,6 +111,10 @@ function sanitizeOptions() {
   return {
     allowRemote: allowRemote.value,
     blockedImageLabel: t.value['mail.remote.blocked_image'],
+    // Remote images are fetched by the proxy, never by the webview. Empty means
+    // this app's own endpoint; a server-mode deployment hides the IP, while the
+    // desktop build's local endpoint only strips cookies/referrer.
+    imageProxyURL: preferences.imageProxyURL || '/image-proxy',
     // The mail's own `prefers-color-scheme` blocks follow our theme, not the OS
     // (reading it here also makes the `sanitized` computed re-run on a theme switch).
     darkMode: isDarkMode.value,

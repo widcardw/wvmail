@@ -4,6 +4,7 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"net/http"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -124,6 +125,10 @@ func main() {
 	// "disconnected" marker: the meter times a probe, the marker reads the IDLE
 	// connections that already exist (see services/networkservice.go).
 	netSvc := services.NewNetworkService(idleSvc)
+	// Remote images are fetched here rather than by the webview, so the sender
+	// sees this host instead of the reader. In server mode that host is the
+	// deployment; the desktop build can point at it with ImageProxyURL.
+	imageProxy := services.NewImageProxy()
 
 	// Deleting an account has to take its background work with it: both services
 	// only re-read the account list on their next 30s tick, which would leave a
@@ -171,6 +176,15 @@ func main() {
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
+			Middleware: application.ChainMiddleware(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/image-proxy" {
+						imageProxy.ServeHTTP(w, r)
+						return
+					}
+					next.ServeHTTP(w, r)
+				})
+			}),
 		},
 		Mac: application.MacOptions{
 			// The app's lifetime must not depend on its window: closing the window

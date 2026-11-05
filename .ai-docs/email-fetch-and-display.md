@@ -256,7 +256,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 ```
 rehype-parse → rehypeAutoLink → rehype-sanitize(白名单)
    → rehypeSanitizeEmailCss   (重写 <style> 文本与 style 属性)
-   → rehypeBlockRemoteContent (删除并计数远程 src/srcSet/poster/background/data)
+   → rehypeBlockRemoteContent (拦截，或改写为图片代理 URL)
    → rehype-stringify → 追加受信任的 THEME_LINK_CSS + BLOCKED_IMAGE_CSS
 ```
 
@@ -264,11 +264,20 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 
 **计数语义**：`sanitizeEmailHtml()` 返回 `{ html, blockedRemote }`，`blockedRemote` 只统计**拦截模式下真正移除**的远程资源；放行模式恒为 0（否则提示条放行后会再次出现）。它驱动 `EmailRemoteNotice.vue` 的提示条：条上显示短文案「已拦截 N 个远程资源」（`mail.remote.blocked_short`），完整说明（跟踪像素/远程图片/样式）作为 `title` 提示。
 
+**放行模式走图片代理**：远程图片/CSS `url()` 不会由 webview 直接加载，而是改写成 `<imageProxyURL>?url=<encodeURIComponent(target)>`。`EmailDetail.vue` 默认传 `/image-proxy`；设置 → 安全 → 「图片代理地址」可以覆盖为远程 server mode 的地址（`remote_content.image_proxy_url`）。代理端点在 `services/imageproxy.go`，通过 Wails 资源服务器的 middleware 挂在 `/image-proxy`，桌面和 server mode 共用：
+
+- **server mode 下**代理跑在部署主机上，发件人只看到服务器 IP，这是真正隐藏 IP 的路径。
+- **桌面版**默认的 `/image-proxy` 跑在本机，只去掉 Cookie/Referer 并做缓存，**不会隐藏 IP**；要隐藏必须把地址指向远程 server mode。
+- 只允许 `http(s)`、只接受图片/字体响应；拒绝私网、回环、链路本地（含云元数据 `169.254.169.254`）和 CGNAT，DNS 解析后直接拨 IP 以防重绑定；重定向最多 3 次且每次重新校验；响应上限 10 MB；`image/svg+xml` 直接拒绝（SVG 内部可能引用远程图片）。
+- 代理侧不发送 Cookie/Referer/Authorization，缓存默认 1 小时（上限 24 小时），响应 `Cache-Control: private`。CSS `image-set("https://…")` 这种不带 `url()` 的写法也会改写/拦截。
+
 **踩过的坑（已加测试）**：hast 里属性名是**驼峰** `srcSet`，只写小写 `srcset` 会漏掉 `<picture><source srcset=…>` —— 实测确认这是一个真实可用的追踪向量。`URL_ATTRS` 因此同时列出两种拼写；`frontend/tests/html-sanitize.test.mts` 固化了这条回归。
 
 **拦截占位符的尺寸**：被拦截的 `<img>` 会换成 `.remote-blocked` 占位符。占位符现在保留发件人的尺寸声明（如 `width:100%;height:auto`）；如果图片靠百分比宽度自适应，还会用 `width`/`height` 属性生成 `aspect-ratio`。否则像 pixivFANBOX 问候信的 `1200×400` 封面会退化成固定 1200px 的占位块，把整封邮件撑出横向滚动条。`CONTENT_FIT_CSS` 同时给邮件内的 `a` 补了 `box-sizing:border-box`，避免 `width:100%` 加边框再制造 2px 溢出。
 
-**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）：`html-sanitize.test.mts` 61 条断言 + `date-mentions.test.mts` 90 条。净化侧覆盖远程拦截/放行两态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」。
+小图占位符不再把 alt 塞进窄框：声明宽度 `< 100px` 或高度 `< 32px`（包括 `max-width`/`max-height`）时只显示图标，alt 放进 `title` 和 `aria-label`；其他图片的 alt 最多显示两行。1×1 追踪像素仍保留原尺寸，只画条纹。
+
+**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）：`html-sanitize.test.mts` 100+ 条断言 + `date-mentions.test.mts` 90 条。净化侧覆盖远程拦截/放行/代理三态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」，`services/imageproxy_test.go` 覆盖 SSRF、重定向、大小/类型限制、缓存和 Referer/Cookie 剥离。
 
 **仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。邮件常用的旧式 `bgcolor` 属性现在会保留（例如 X 邮件的按钮底色），否则亮色模式下白字会落在应用浅色背景上。
 

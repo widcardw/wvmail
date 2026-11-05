@@ -19,6 +19,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const allowRemoteContent = ref(false)
   /** Senders whose remote content always loads (address, "@domain", or pattern). */
   const allowedRemoteSenders = ref<string[]>([])
+  /**
+   * Base URL of the image proxy. Empty uses this app's `/image-proxy`; in the
+   * desktop build that is local (it strips cookies/referrer but not the IP), so
+   * a remote server-mode deployment should be entered here.
+   */
+  const imageProxyURL = ref('')
 
   const minimizeWhenClose = ref(false)
   /** Highlight date/time mentions in email bodies (and offer to remind on click). */
@@ -51,6 +57,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagDeletePresses.value = config.SearchTagDeletePresses === 1 ? 1 : 2
     allowRemoteContent.value = config.RemoteContent?.AllowRemoteContent === true
     allowedRemoteSenders.value = [...(config.RemoteContent?.AllowedSenders ?? [])]
+    imageProxyURL.value = config.RemoteContent?.ImageProxyURL ?? ''
     minimizeWhenClose.value = config.MinimizeWhenClose
     detectDatesInMail.value = config.DetectDatesInMail !== false
     skipAIAssistConfirmation.value = config.SkipAIAssistConfirmation === true
@@ -204,10 +211,27 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
+  /**
+   * Save the proxy base. Like `setProxy`, this rethrows: the URL is validated on
+   * the Go side and the settings field must be able to show the error instead of
+   * silently keeping a value that was never written.
+   */
+  async function setImageProxyURL(value: string) {
+    const previous = imageProxyURL.value
+    imageProxyURL.value = value
+    try {
+      await ConfigService.SaveConfigField('image_proxy_url', value)
+    } catch (error) {
+      imageProxyURL.value = previous
+      throw error
+    }
+  }
+
   return {
     tagDeletePresses,
     allowRemoteContent,
     allowedRemoteSenders,
+    imageProxyURL,
     minimizeWhenClose,
     setMinimizeWhenClose,
     detectDatesInMail,
@@ -226,6 +250,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loadFromConfig,
     setTagDeletePresses,
     setAllowRemoteContent,
+    setImageProxyURL,
     isRemoteSenderAllowed,
     isValidRemoteSenderPattern,
     addRemoteSenderPattern,

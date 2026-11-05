@@ -247,6 +247,10 @@ export interface TranslationSchema {
   'settings.security.spam_hint': string
   'settings.remote.title': string
   'settings.remote.allow': string
+  'settings.remote.proxy': string
+  'settings.remote.proxy_hint': string
+  'settings.remote.proxy_placeholder': string
+  'settings.remote.proxy_invalid': string
   'settings.remote.hint': string
   'settings.remote.empty': string
   'settings.remote.remove': string
