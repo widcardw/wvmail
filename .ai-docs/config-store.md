@@ -1,4 +1,4 @@
-# Config Store (`~/Library/Application Support/wvmail/config.yaml`)
+# Config Store (`<os.UserConfigDir>/wvmail/config.yaml`)
 
 One YAML file holds everything the app persists: UI preferences, behaviour
 switches, the email accounts, the LLM providers and the translation settings.
@@ -8,33 +8,77 @@ it safe to write.
 ## Layout
 
 ```
-~/Library/Application Support/wvmail/   (0700)
+<os.UserConfigDir>/wvmail/             0700
 ├── config.yaml       0600  everything below
 ├── .master.key       0600  32 random bytes, AES-256-GCM key for the secrets
 ├── cache.db                 email cache (SQLite)
 ├── logs/
-└── avatars/
+├── avatars/
+└── compose/                 staged compose attachments (while a draft is open)
 ```
 
-`config.yaml` fields (top level): `language`, `theme`, `primary_color`,
-`database_path`, `log_config`, `translation_config`, `scan_external_safety`,
-`search_tag_delete_presses`, `llm_configs`, `email_accounts`, `remote_content`,
-`minimize_when_close`, `detect_dates_in_mail`, `skip_ai_assist_confirmation`,
-`proxy`.
+Typical paths:
 
-Two of those are optional blocks that are omitted entirely until the user opts in
-(`omitempty` on a zero struct works in yaml.v3, which a test pins):
+- macOS: `~/Library/Application Support/wvmail/`
+- Linux: `~/.config/wvmail/`
+- Windows: `%AppData%/wvmail/`
+
+## Fields
+
+Top-level `AppConfig` fields:
+
+- `language`, `theme`, `primary_color`
+- `database_path`, `log_config`, `translation_config`
+- `scan_external_safety`, `search_tag_delete_presses`
+- `llm_configs`, `email_accounts`, `remote_content`
+- `minimize_when_close`, `detect_dates_in_mail`, `skip_ai_assist_confirmation`
+- `collapse_sidebar_smart_folders`, `collapse_sidebar_utilities`
+- `auto_collect_contacts`
+- `proxy`
+
+`remote_content` controls mail-body resources:
+
+- `allow_remote_content` — global opt-in to load remote images/CSS; the default
+  is block.
+- `allowed_senders` — lower-cased addresses or domain patterns that are always
+  allowed.
+- `image_proxy_url` — optional base URL for the image proxy. Empty uses the app's
+  own `/image-proxy`; the desktop build can point this at a server-mode
+  deployment to hide the reader's IP as well.
+
+`email_accounts[]` keeps the sidebar label and the From-header identity separate:
+
+- `name` is the local account label shown in the sidebar and must not leak into
+  sent mail.
+- `sender_name` is the display name recipients see in the `From` header.
+- `email`, provider, IMAP/SMTP settings, `use_tls`, `sync_interval`, `avatar`.
+- `auth_type` (`password` or `oauth2`), `oauth_provider`, `oauth_client_id`,
+  `oauth_refresh_token` for Gmail/Microsoft online verification.
+
+Two blocks are optional and omitted until the user opts in (`omitempty` on a zero
+struct works in yaml.v3, which a test pins):
 
 - `proxy: {enabled, url}` — the app-wide proxy; see `.ai-docs/proxy.md`.
 - `email_accounts[].proxy: {mode, url}` — one account's override of it. An absent
   block means "follow the global proxy", which is what every account written
   before this option existed gets.
 
-**Secrets are encrypted, not hidden.** `IMAPPass`/`SMTPPass`, `LLMConfigs[].APIKey`
-and `TranslationConfig.DeepLAuthKey` are AES-256-GCM ciphertexts (base64 with the
+`SaveConfigField` supports these single-field updates: `language`, `theme`,
+`primary_color`, `scan_external_safety`, `search_tag_delete_presses`,
+`allow_remote_content`, `allowed_remote_senders` (JSON array),
+`image_proxy_url`, `minimize_when_close`, `detect_dates_in_mail`,
+`skip_ai_assist_confirmation`, `collapse_sidebar_smart_folders`,
+`collapse_sidebar_utilities`, `auto_collect_contacts`, and `proxy` (JSON
+`{"enabled":bool,"url":string}`). Account CRUD and list replacement go through
+the typed account methods instead.
+
+**Secrets are encrypted, not hidden.** `IMAPPass`/`SMTPPass`,
+`OAuthRefreshToken`, `LLMConfigs[].APIKey` and
+`TranslationConfig.DeepLAuthKey` are AES-256-GCM ciphertexts (base64 with the
 nonce prefixed); the key lives in `.master.key`, not in the YAML. A decryption
 failure leaves the raw value alone, so a config written before encryption existed
-still works.
+still works. Proxy credentials are the deliberate exception and remain plain text
+inside the proxy URL.
 
 ## Writes are atomic
 
@@ -85,3 +129,7 @@ If it is ever split, do it as a versioned migration: add `config_version`, copy
 `main.go`) after the file is written. The system tray builds its menu before the
 webview exists and therefore cannot use the frontend's i18n, so it listens for
 this event and rebuilds its labels at runtime instead of at the next launch.
+
+Successful automatic contact collection emits `contacts-updated` with the number
+of newly added contacts. `App.vue` listens for it so the Contacts page and sender
+menus can refresh without polling.

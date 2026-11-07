@@ -23,6 +23,31 @@ mail is never moved on the server.
 | `PreviewTagSuggestionPrompt(request)` | Build the exact AI prompt without a network request |
 | `GenerateTagSuggestions(request)` | Send the generated prompt or the user-edited `prompt_override`, then validate the JSON rules |
 
+### Built-in tags
+
+`services/tagbuiltins.go` seeds five built-in rules on the first `ListMailTags`
+call. They are normal local tags once inserted, so the user can edit their
+keywords, fields, colour or enabled state; they cannot be deleted. The database
+uses `CreateMailTagIfMissing`, so an existing user-edited row is never
+overwritten and concurrent first loads are harmless.
+
+| ID | Default label | Fields |
+|---|---|---|
+| `builtin:verification` | 验证消息 | subject, from, body |
+| `builtin:billing` | 账单 | subject, from, body |
+| `builtin:travel` | 航班与出行 | subject, body |
+| `builtin:schedule` | 日程 | subject, body |
+| `builtin:subscription` | 订阅与资讯 | subject, from, body |
+
+The verification rule covers reset-password, verification-code, sign-in and
+account-security mail. Billing covers invoices, receipts, payments and orders;
+travel covers flights, hotels, tickets and itineraries; schedule covers calendar
+invites, meetings and appointments; subscription covers newsletters, digests and
+unsubscribe mail. These are seed rules, not hard-coded classifications: all
+matching still goes through the same keyword/field pipeline as user tags.
+The default labels are currently Chinese strings in `tagbuiltins.go`; the
+“Built-in” badge itself is localized by the frontend.
+
 ### Rule semantics
 
 - A rule has `keywords`, `fields`, a color and an enabled flag.
@@ -80,7 +105,11 @@ opened.
   full-width filter on the Categories page. Search hides the button.
 - `EmailListItem.vue` renders tag chips from `EmailSummary.tag_ids`.
 - The message toolbar has a tag button; `EmailTagDialog.vue` edits manual tags.
-- Settings → Tags (`views/settings/Tags.vue`) owns rule CRUD.
+- Settings → Tags (`views/settings/Tags.vue`) owns rule CRUD. Each row is kept
+  compact and single-line: colour swatch, label, built-in/disabled badges,
+  matched fields, keyword count, then edit/delete actions. The full keyword list
+  is only shown in the row's `title` tooltip; it is not expanded in the page.
+- Built-in tags show a localized “Built-in” badge and hide the delete action.
 
 ## AI suggestions and privacy
 

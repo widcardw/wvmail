@@ -72,7 +72,7 @@ func requestQuit() {
 | Caller | How it gets there |
 |---|---|
 | tray menu → 退出 wvmail | `menu.Add(labels.quit).OnClick(...)` → `requestQuit()` |
-| Settings → 通用 → 退出应用 | button → `QuitConfirmDialog` → `OsService.QuitApp()` → the injected `requestQuit` |
+| Settings → 通用 → 退出应用 | button → `ConfirmDialog` → `OsService.QuitApp()` → the injected `requestQuit` |
 | close with 隐藏到系统托盘 **off** | `closeRequest` hook → `requestQuit()` |
 
 Two details are load-bearing:
@@ -100,7 +100,7 @@ real quit is always a real quit.
 
 ## Settings → 退出应用 (the confirm dialog)
 
-`frontend/src/components/settings/QuitConfirmDialog.vue` is an Ark `Dialog.Root` with
+`frontend/src/components/ui/ConfirmDialog.vue` is the shared Ark `Dialog` shell with
 `role="alertdialog"` (a destructive confirm, so the destructive button sits on the
 right), and `Common.vue` keeps only the `showQuitDialog` ref and the button:
 

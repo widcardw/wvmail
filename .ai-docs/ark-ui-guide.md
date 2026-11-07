@@ -1,17 +1,19 @@
 ---
 name: ark-ui-guide
-description: Ark UI (headless) theming, import paths, styling with CSS Modules / UnoCSS / global tokens, and the naive-ui → ark-ui migration map for the wvmail project
+description: Ark UI (headless) component choices, shared wrappers, theming, import paths, and CSS conventions in the wvmail project
 type: reference
 ---
 
 # Ark UI Guide
 
-This project uses **Ark UI** (`@ark-ui/vue`, currently `^5.39.1`) for behavior and accessibility, replacing the former
-**Naive UI** component library. **Ark UI is headless**: it ships no presentational styles and no baked-in theme, so
-*every* visual concerns is ours to define. Whatever look we produce is up to us — this doc defines how we standardize it.
+This project uses **Ark UI** (`@ark-ui/vue`, currently `^5.39.1`) for behavior
+and accessibility. **Ark UI is headless**: it ships no presentational styles and
+no baked-in theme, so *every* visual concern is ours to define. This doc defines
+the current component choices and how we standardize the visuals.
 
-Reference mirror: a full dump of the Ark UI docs lives at `.ai-docs/arkui-vue.txt` (read sections per component while
-editing). Official docs: https://ark-ui.com/
+Reference mirror: a full dump of the upstream Ark UI docs lives at
+`.ai-docs/reference/arkui-vue.txt`. It may lag the installed package; official
+docs: https://ark-ui.com/
 
 ## Core mental model
 
@@ -23,52 +25,39 @@ editing). Official docs: https://ark-ui.com/
   import { Dialog } from '@ark-ui/vue/dialog'
   import { createToaster, Toaster } from '@ark-ui/vue/toast'
   ```
-- Everything (positioning, focus-trapping, flip, state, theming) is behaviors + hooks; **no `<NConfigProvider>`/forest
-  providers exist**. There is no global `<ConfigProvider>` to wrap the app for theming. Locale/theme are our concern
+- Everything (positioning, focus-trapping, flip, state, theming) is behaviors + hooks; there is no component-forest
+  provider to wrap the app with. Locale/theme are our concern
   (see Theme below).
 - Compounds like `<Slider.Root>.Root` composables (`useSlider`) exist for controlled/imperative use, but components are
   simpler.
 
-## Import paths reference (naive → ark mappings)
+## Current component choices
 
-Below maps what we currently name in code to the corresponding directory/module and headless anatomy. During migration,
-consult the matching section in `arkui-vue.txt` before writing a component.
+Use the narrowest primitive that fits the job. Prefer native semantic elements
+and the shared wrappers before reaching for a new Ark compound.
 
-| Naive (removed) | Ark module to import from | Notes |
+| Need | Use | Notes |
 |---|---|---|
-| NButton | `@ark-ui/vue/qr-code`? no — buttons are just `<button>`. We mostly use plain buttons + our `.btn`/globals | Ark exposes no bare Button; use native `<button>` styled by us |
-| NInput / NTextarea | `@ark-ui/vue/field` / `field.textarea` or plain inputs; Ark `Input`/`PasswordInput` exist for some | Prefer semantic native controls + tokens unless we need password/prefix etc. |
-| NSwitch | `@ark-ui/vue/switch` | `Switch.Root/.Control/.Thumb/.Label` |
-| NCheckbox | `@ark-ui/vue/checkbox` | |
-| NCollapse / NCollapseItem | `@ark-ui/vue/collapsible` | `Collapsible.Root/.Content/.Trigger` |
-| NMenu | Sidebar account→folders → `@ark-ui/vue/tree-view`; utility/smart nav → plain list, not a menu. General popups only → `@ark-ui/vue/menu` | account folders expand lazily via TreeView `loadChildren`/`childrenCount`/`onLoadChildrenComplete`; folder selected via `selectionMode="single"` |
-| NTooltip | `@ark-ui/vue/tooltip` | |
-| NPopover / NPopconfirm | `@ark-ui/vue/popover` | confirm pattern via popover + buttons |
-| NDropdown | `@ark-ui/vue/menu` | see Menu |
-| NDialog / NModal | `@ark-ui/vue/dialog` | `Dialog.Root/.Content/.Backdrop…` unlocked by `open` state |
-| NAlert | (no direct) | build small component or just styled block |
-| NTag | none | styled `<span>` chips in our CSS |
-| NCard | none | styled `<div>` blocks (`.surface`) |
-| NEmpty | none | small inline empty-state block + icon |
-| NSpin/Loading | none | CSS spinner/`<span class="spinner"/>` (or `Presence`) |
-| NIcon / AppIcon | (see Icon section) | drop `NIcon` wrapper; `<AppIcon>` only |
-| NAvatar/NAccountAvatar | `@ark-ui/vue/avatar` | not required for user pics |
-| NList/NListItem | none / plain | semantic list via markup (or `Listbox`) |
-| NPopconfirm | `popover` + native buttons | |
-| NScrollbar | `@ark-ui/vue/scroll-area` or CSS `overflow` | custom scroll area optional; CSS first |
-| NForm/NFormItem/NFormItemGi | `@ark-ui/vue/fieldset` / reactive-forms | see Forms section; often plain grid + label is enough |
-| NSelect | `@ark-ui/vue/select` | anatomy with `createListCollection` |
-| NInputNumber | `@ark-ui/vue/number-input` | |
-| NColorPicker | `@ark-ui/vue/color-picker` | |
-| NGrid/NGridItem | none | use plain CSS grid utilities |
-| NSpace/NFlex/NLayout/NLayoutSider... | none | plain CSS (flex/grid) — remove |
-| NSplit | `@ark-ui/vue/splitter` | vertical split of mail list/detail |
-| NCalendar | `@ark-ui/vue/date-picker` only if needed | reminders currently `NCard`+`NEmpty` |
-| NCode | none | syntax block with actual code elements |
-| NUpload | `@ark-ui/vue/file-upload` | account/avatar upload |
-| useMessage/useDialog (naive) | **no equivalent inject.** Use `@ark-ui/vue/toast` `toaster`, or simple `ref` booleans / our message component | see Feedback below |
-| useLoadingBar | CSS | n/a |
-| NTime / date formatting | `@ark-ui/vue/format` (`Format.Byte` ✅, `Format.Time`, `Format.RelativeTime`, `Format.Number`) | `Format.Byte` is used for attachment sizes. `Format.Time` is deliberately **not** used for list/reminder timestamps: its `format` prop defaults to `'24h'` regardless of locale, so a locale's hour cycle would have to be re-derived by hand (en-US would flip from `06:45 PM` to `18:45`). Those stay in `composables/formats.ts` (`toLocaleTimeString` with the app locale). |
+| Buttons | native `<button>` + `.btn` / `.icon-btn` | Ark has no bare Button; the shared classes own the look |
+| Text input / textarea | Ark `Field.Input` / `Field.Textarea` | A raw `<input>` does not register as the field control |
+| Switch | `components/ui/UiSwitch.vue` | `size="sm"` is available for dense toolbars |
+| Checkbox | `components/ui/UiCheckbox.vue` | Use `.checkbox-row` in settings grids |
+| Select | `components/ui/UiSelect.vue` | Native select styling where a full listbox is unnecessary |
+| Number input | `components/ui/UiNumberInput.vue` | Controlled; emits `value` |
+| Password input | `components/ui/UiPasswordInput.vue` | Keeps the native `value` + `@input` contract |
+| Color picker | `components/ui/UiColorPicker.vue` | Toolbar and field variants |
+| Collapsible content | `@ark-ui/vue/collapsible` | `Collapsible.Root/.Content/.Trigger` |
+| Popup menu | `@ark-ui/vue/menu` | Sender actions, context menus and account menus |
+| Tooltip | `@ark-ui/vue/tooltip` | Short labels only |
+| Dialog | `components/ui/UiDialog.vue` + `UiDialogHeader.vue` | Shared `.dlg-*` shell; pass `lazy-mount` + `unmount-on-exit` |
+| Confirmation | `components/ui/ConfirmDialog.vue` | Do not use `window.confirm` |
+| Scroll area | `components/ui/UiScrollArea.vue` | Shared narrow scrollbar; CSS overflow first for simple panes |
+| Toast | `stores/feedback.ts` + `ToastHost.vue` | One app-level toaster |
+| Inline notice | `components/ui/UiAlert.vue` | Shared info/success/warning/error styling |
+| Account/folder sidebar | `@ark-ui/vue/tree-view` | Lazy-load folders per account |
+| Mail list/detail split | `mail-split.module.css` | Custom seam; see the Splitter trap below |
+| Date/time formatting | `composables/formats.ts` | `Format.Time` defaults to 24h and ignores the locale hour cycle |
+| Byte formatting | `@ark-ui/vue/format` `Format.Byte` | Used for attachment sizes |
 
 ### Shared primitives — use these, don't hand-roll
 
@@ -99,7 +88,8 @@ cancel, Escape, or a deliberate confirmation remains available.
 
 `UiSwitch` usage: pass the label through the default slot and `label-class` (the Ark root is a
 `<label>`, so the whole row toggles); omit the slot when the label must sit in a row that also holds
-other controls. Bind with `:checked` + `@update:checked="…"`.
+other controls. Bind with `:checked` + `@update:checked="…"`. Use `size="sm"` for compact
+toolbar/header rows; the switch keeps the same focus and disabled recipes as the default size.
 
 `UiCheckbox` follows the same slot contract. For settings grids, opt into `.checkbox-row` +
 `label-class="checkbox-row__label"`: the root then supplies one consistent clickable row with
@@ -129,8 +119,6 @@ row dims together. A new wrapper must adopt it, otherwise its disabled state loo
 `UiNumberInput` / `UiPasswordInput` contracts differ on purpose: NumberInput is **controlled** (Ark emits
 `value-change`, so the wrapper emits `value: [number]` — no DOM event), PasswordInput keeps the native
 `value` + `@input="(event: Event)"` contract so it drops into existing handlers.
-
-_(Remove layout wrappers NCard/NLayout/NSpace/NFlex entirely — replace with our own grid/flex CSS.)_
 
 ## Required style per component
 
@@ -227,18 +215,17 @@ Use it for a compact "pick one mode" control; keep `Tabs` when the selection rea
   logic; they only consume variables.
 - primary color token `--color-primary` is configurable at runtime via existing `theme.setPrimaryColor`.
 
-Naive used to publish `useThemeVars()` and `--n-*`. All such are removed. Reference tokens, never literal hex for the
-surface palette:
+Reference tokens, never literal hex for the surface palette:
 - `--color-bg`, `--color-bg-subtle`, `--color-surface`, `--color-border`, `--color-text`, `--color-text-2`,
   `--color-text-3`, `--color-primary`, hover/pressed variants, `--color-hover-bg`, shadows, radii, font sizes.
 Again: read the final list in `src/styles/global.css` — doc should not drift from source of truth.
 
-By default components are totally unstyled: after swapping imports you must add styles or a control/button may look
-bare. Do not rely on training defaults; target Ark parts by `data-scope`/`data-part`.
+By default Ark components are totally unstyled: a new control needs explicit styles or it may look bare. Do not rely
+on training defaults; target Ark parts by `data-scope`/`data-part`.
 
 ## Forms
 
-Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes through Ark `Field`:
+Every labelled control goes through Ark `Field`:
 
 ```vue
 <Field.Root class="row">                      <!-- or class="frow" / class="field" -->
@@ -304,7 +291,7 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
 - The toast root needs Ark's documented runtime styling (`width` — its group is a zero-width fixed flex column, so a
   content-sized root collapses CJK text one glyph per line — plus `translate: var(--x) var(--y)`, `scale`, `z-index`,
   `height`, `opacity`). It lives in `styles/ui.css` under `[data-scope='toast'][data-part='root']`.
-- Confirmation: Dialog (`.Root` with open) or popover; replace `NPopconfirm`. Dialogs share the `.dlg-*` shell in
+- Confirmation: `ConfirmDialog` (or a dialog/popover when the interaction is custom). Dialogs share the `.dlg-*` shell in
   `styles/ui.css` instead of re-declaring backdrop/positioner/card CSS per component, and each one opts into Ark's
   render strategy (`lazy-mount` + `unmount-on-exit`) so its content only exists while open.
 - **`UiDialog` cards are flush by default.** Keep `dlg-head` / `dlg-body` / `dlg-foot` as direct children of
@@ -325,20 +312,22 @@ Remove `NForm/NFormItem/NSelect` large APIs. Every labelled control now goes thr
 
 ## Icons
 
-The whole icon surface funnels through **`<AppIcon>`** (`src/components/AppIcon.vue`), not raw icon tags.
+The whole icon surface funnels through **`<AppIcon>`**
+(`frontend/src/components/icon/AppIcon.vue`), not raw icon tags.
 - Iconify icons are **offline UnoCSS classes** (`i-ri:sun-line`) from `@iconify-json/*` + `presetIcons`; `<AppIcon>` renders
-  an inner `<i :class="`i-${icon}`">` glyph. We do NOT use `@iconify/vue` runtime `<Icon>` (no CDN fetch) and no naive `NIcon`.
-- Installed offline sets (as devDeps): `ri`, `material-symbols`, `eos-icons`, `streamline-color`, `logos`, `vscode-icons`
+  an inner `<i :class="`i-${icon}`">` glyph. We do NOT use `@iconify/vue` runtime `<Icon>` (no CDN fetch).
+- Installed offline sets (as devDeps): `ri`, `eos-icons`, `streamline`, `streamline-color`, `logos`, `vscode-icons`
   (add `@iconify-json/<set>` if a needed prefix is missing).
 - `lobehub` provider avatars / `ben` local images render as `<img>` (unchanged).
 - **Dynamic icons** (runtime-chosen: attachment by mime, provider fallbacks) are driven by static maps but only referenced as
   strings at runtime — so they must also be published. Any icon name not a literal `i-*` token in source is listed in the
   UnoCSS **`safelist`** (`uno.config.ts`), which forces emission. When you add a runtime/map icon, add its class there too.
-- Icon helper VNodes (`renderProviderIcon`, `ICON_MAPPING[*].create`) return `h('i', {class:'i-…'})` or `<img>`; no naive wrapper.
+- Icon helper VNodes (`renderProviderIcon`, `ICON_MAPPING[*].create`) return `h('i', {class:'i-…'})` or `<img>`; keep them
+  as the single source for runtime-chosen icons.
 
 ## Mail sidebar = TreeView (accounts → folders)
 
-The account/folder sidebar is an expandable **tree**, not a menu. Replace the three stacked naive `NMenu`s with:
+The account/folder sidebar is an expandable **tree**, not a menu:
 - smart folders & utility nav: simple rows (not menus) — plain buttons + `router`;
 - account→folders: **`TreeView`** (single root per sidebar) — each account is a lazy-loadable **branch** whose children
   are folder leaves, using Ark's Lazy Loading contract:
@@ -380,28 +369,18 @@ function onSelected(details: { value: string[] }) {
   `childrenCount: folders.length` and Ark lazy-loaded them via `loadChildren` (wraps
   `accountsStore.loadFolders`); a loading account shows its branch with default loading node or the store's loading
   branch text until `onLoadChildrenComplete` swaps in the fresh collection (from the store, as in the Ark Lazy Loading
-  example in `arkui-vue.txt`).
+  example in the Ark UI TreeView docs).
 - `collapsed` param (app rail collapsed) is a separate CSS concern in `App.vue`/`TitleBar`, not prop plumbing into
   TreeView; reflow row widths via CSS once collapsed.
 
-## Story-driving note for migration (current progress)
+## Current conventions and verification
 
-**Full tail is migrated off `naive-ui`.** No source imports `naive-ui` or `@iconify/vue` anymore; the temporary
-`naive-ui` dependency is removed; router has the real screens live:
-- `/` → `MailView` (EmailList + EmailDetail naive-free, flex list/detail split)
-- `/notes`, `/reminder`, `/settings/*` (SettingsMain + Common/Account/About/LLM/Translation)
-- account→folders sidebar is Ark **TreeView** (lazy-loads folders per account on first expand, see above)
-Use global design tokens in `src/styles/global.css`; icons are offline `i-*` classes (see icon section + `uno.config.ts`
-safelist). Transient messages via `stores/feedback.ts` + `<ToastHost/>`; confirmations use two-step buttons /
-`window.confirm`. Ark per-component `*.module.css` styling is optional on top of `scoped`, per component UI.
-
-Consolidation pass (done): every dialog uses Ark `Dialog` + the shared `.dlg-*` shell, every toast goes through the one
-`toaster`, every labelled control sits in an Ark `Field.Root` (see Forms) — including the one raw composite that keeps its
-native control (the color picker row pins the link with an explicit `Field.Root id=`), and the remaining hand-rolled
-controls were folded into the shared wrappers: `UiSwitch`, `UiCheckbox`, `UiNumberInput`, `UiPasswordInput`, `UiSelect`.
-File sizes use `Format.Byte`; timestamps use `composables/formats.ts` with the active locale (see the `Format.Time` note
-above for why it isn't `Format.Time`).
-
-Possible residual: verify interaction in `wails3 dev`, and confirm the rich-email render (EmailShadowBody + themed email
-sanitize) matches the old look; if needed, polish individual part CSS. The temp naive remnant was deleted; keep the repo
-build-green with `pnpm --dir frontend run build:dev`.
+- Every dialog uses Ark `Dialog` + the shared `.dlg-*` shell.
+- Every toast goes through the one `toaster` in `stores/feedback.ts`.
+- Every labelled control sits in an Ark `Field.Root`; one `Field.Root` wraps one control.
+- Shared controls live in `components/ui/`: `UiSwitch`, `UiCheckbox`, `UiNumberInput`,
+  `UiPasswordInput`, `UiSelect`, `UiScrollArea`, `UiAlert`, `UiDialog` and `UiColorPicker`.
+- Use global design tokens in `src/styles/global.css`; icons are offline `i-*`
+  classes from `uno.config.ts` and the installed `@iconify-json/*` sets.
+- After changing components, run `cd frontend && pnpm typecheck && pnpm lint && pnpm test`.
+  `vite build` does not type-check `.vue` files.

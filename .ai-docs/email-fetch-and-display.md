@@ -93,7 +93,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | 2 | 重试后仍为 0，且此前缓存过非零总数 | **返回错误**「keeping previous list」——故意不返回空列表，让上层保留旧数据 |
 | 3 | ENVELOPE 解析失败（腾讯 WeCom 等畸形响应） | **去掉 Envelope 重取一次**，主题/发件人/日期改用默认值 |
 | 4 | `Envelope.Date` 为空、早于 1970 年，或比当前时间超前 24 小时以上 | 退回 `InternalDate`；两者都不可信则空字符串 |
-| 5 | 主题为空 | `"(No Subject)"`（硬编码英文，未走 i18n） |
+| 5 | 主题为空 | 后端摘要仍写 `"(No Subject)"`；前端详情页用 `mail.noSubject`，列表 helper 仍硬编码英文 |
 | 6 | 发件人为空 | `name <addr>` → `addr` → 空 |
 | 7 | 缓存写入失败 | `slog.Warn`，**不影响返回**（缓存是 best-effort） |
 
@@ -149,7 +149,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 ### 2.5 已知的获取层缺陷（尚未改）
 
 - **`SearchEmails` 只搜本地缓存**：没有 IMAP `SEARCH` 兜底，未缓存过的邮件搜不到，UI 也没说明这一点。
-- **缓存没有 TTL**：`ListFolders` 永不刷新；`ListEmails` page 1 一律优先返回缓存。打开文件夹看到的是上次缓存的内容，需要手动刷新。这是**刻意**的（避免每操作一条新连接加剧腾讯侧限流），但用户无感知。
+- **文件夹列表没有 TTL**：`ListFolders` 在缓存非空时直接返回，不主动刷新。邮件页本身已在打开文件夹时用 `STATUS`/`UIDNEXT` 判断是否需要后台刷新（见 §4 与 `stores/accounts.ts` 的 `revalidateOpenFolder`），但文件夹名称/属性的变化仍要等缓存失效或手动刷新。
 - **`text/*` 命名附件**（有 filename、无 `Content-Disposition: attachment`）仍可能被当正文；本次只修了显式 attachment 的情形。
 - **明文回退**（2.2-1）在账号被配置为不用 TLS 时仍会自动发生，仅记 warn。
 
@@ -227,7 +227,9 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 **重复 / 冗余**
 
 - `formats.ts` 的 `senderDisplay` 与 `EmailDetail.vue` 的 `senderDisplay` 是**两套不同实现**（前者剥掉域名，后者保留完整地址）。
-- 主题为空有两处 `"(No Subject)"`；i18n 里没有任何对应 key（另有 7 处硬编码英文兜底串）。
+- 主题为空：前端详情页已经使用 `mail.noSubject`；后端摘要路径仍会写入
+  `"(No Subject)"`，`composables/formats.ts` 的 `truncateSubject` 也仍硬编码英文。
+- 发件人/预览兜底仍有硬编码 `"Unknown"`、`"(No content)"` 等英文串，尚未全部纳入 i18n。
 - `EmailDetail.vue` 原先在模板表达式里 `sanitizeHtml(...)`，每次重渲染都重新解析整封 HTML → 本次改为 `computed` 缓存。
 - 已删除死代码 `composables/sanitize-html.ts`（`export { sanitizeHtmlRehype as sanitizeHtml }`，全项目 0 引用；真正在用的是 `html/sanitize.ts` / `html/index.ts`）。
 
@@ -277,7 +279,15 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 
 小图占位符不再把 alt 塞进窄框：声明宽度 `< 100px` 或高度 `< 32px`（包括 `max-width`/`max-height`）时只显示图标，alt 放进 `title` 和 `aria-label`；其他图片的 alt 最多显示两行。1×1 追踪像素仍保留原尺寸，只画条纹。
 
-**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）：`html-sanitize.test.mts` 100+ 条断言 + `date-mentions.test.mts` 90 条。净化侧覆盖远程拦截/放行/代理三态、`data:` 保留、`<picture><source>` 驼峰属性、`@import` 在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>` 逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧 `services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」，`services/imageproxy_test.go` 覆盖 SSRF、重定向、大小/类型限制、缓存和 Referer/Cookie 剥离。
+**测试**：`cd frontend && pnpm test`（Node ≥ 23 原生剥离 TS 类型，无需新依赖）现在会跑
+`tests/*.test.mts` 下的全部前端回归文件，包括 `html-sanitize.test.mts`、
+`date-mentions.test.mts`、`reply.test.mts`、`mail-threads.test.mts` 等。净化侧覆盖
+远程拦截/放行/代理三态、`data:` 保留、`<picture><source>` 驼峰属性、`@import`
+在两种模式下都剥离、CSS 注释绕过、`position:fixed`、脚本/`onerror`/`</style>`
+逃逸、超长声明丢弃、`prefers-color-scheme` 主题改写。Go 侧
+`services/configservice_remotecontent_test.go` 验证配置往返与「旧配置默认=拦截」，
+`services/imageproxy_test.go` 覆盖 SSRF、重定向、大小/类型限制、缓存和
+Referer/Cookie 剥离。
 
 **仍然存在（有意保留）**：相对路径 `src`/`url()` 不拦截（只会打到本地资源服务，非追踪）；`class` 属性仍被 schema 剥掉（版式问题，见 §5）；CSS 黑名单挡不住未来新语法（例如某些新函数形式的远程加载），要彻底解决需引入真正的 CSS 解析器做声明级白名单。邮件常用的旧式 `bgcolor` 属性现在会保留（例如 X 邮件的按钮底色），否则亮色模式下白字会落在应用浅色背景上。
 
@@ -336,7 +346,7 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 | **提示条从正文上方移到附件折叠栏那条带子上**：`EmailRemoteNotice.vue` 与 `.attach-head` 同几何（8px 16px、13px/600、`border-bottom`），底色用新增 token `--color-warning-bg`，左侧图标用 `--color-warning`；警告/错误 alert 也改为复用 token（原先硬编码 `rgba(240,160,32,.14)`/`#f0a020`） | `components/detail/EmailRemoteNotice.vue`（新）、`EmailDetail.vue`、`styles/global.css` | 顶部不再堆叠一块大警告框；拦截提示与附件同为「可操作条」，位置靠近它所影响的正文 |
 | **附件列表默认折叠** | `EmailDetail.vue`（`attachmentsOpen = ref(false)`，切邮件时也重置为 `false`） | 长附件列表不再默认占满正文上方 |
 | **打开邮件即标记已读**：写服务器 `\Seen`（UID `STORE +FLAGS.SILENT`，读-写 `SELECT`）+ 更新本地缓存 `is_read`，并在同一条连接上重读 `STATUS UNSEEN` | `services/emailfolders.go` `MarkEmailRead`、`services/databaseemail.go` `MarkEmailRead`、`stores/accounts.ts` `markEmailRead` | 之前从不写 `\Seen`：列表的未读样式与托盘徽标永远不会因为在这里读信而更新；失败只回滚列表项，不影响正文展示 |
-| **回归测试**：`pnpm test`（26 条断言）+ Go 配置往返/默认值测试 | `frontend/tests/html-sanitize.test.mts`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
+| **回归测试**：`pnpm test`（全部 `tests/*.test.mts`）+ Go 配置往返/默认值测试 | `frontend/tests/`、`services/configservice_remotecontent_test.go` | 安全代码需可重复验证；实测已抓出 `<picture><source srcset>` 驼峰属性漏洞 |
 | **打开文件夹即刷新（stale-while-revalidate）**：`selectFolder` 先用缓存画出列表，若这一页来自缓存（`EmailPageResponse.from_cache`）再在后台 `RefreshEmails` 一次，保持当前页、不弹 toast；同一文件夹 20s 内不重复拉、同文件夹同时只有一个请求 | `stores/accounts.ts` `selectFolder` / `revalidateOpenFolder` / `refreshFolder`；`services/emailservice.go` 新增 `FromCache` | 原先点开文件夹只看缓存，新邮件必须手动按刷新按钮。`from_cache` 让「刚从服务器取过的页」不再二次拨号（缓存为空时 `ListEmails` 自己就会走 `RefreshEmails`）。刷新按钮 = 同一函数的 `announce: true` 分支 |
 | **打开文件夹不再无条件刷新**：先用一次 `STATUS`（`MESSAGES`/`UIDNEXT`）比对上次抓取时的值，一致就**什么都不做**（不拨号抓列表、刷新图标不转）；只有真变了才 `RefreshEmails`。没有参照点（该文件夹从未抓过、或服务器不返回 `UIDNEXT`）时退回原来的 20s 时间窗 | `stores/accounts.ts` `revalidateOpenFolder` / `fetchSnapshot` / `loadFolderStatuses`；`services/emailfolders.go` `FolderStatuses`（取代 `FolderUnread`）；`services/databaseemail.go` `FolderMeta`（`CachedFolderMeta.UIDNext` 落库） | 上一版「点开就刷」在什么都没变时也要重下一遍 20 封摘要，并让刷新图标每次都转一下 —— 用户能直接看到这个无意义动作。`UNSEEN` 判不了「有没有新邮件」（常年未读的邮件会让它恒定），`UIDNEXT` 单调递增才是可靠信号。刷新图标同时从全局计数改成按 `account:folder` 判断，后台给别的文件夹做的刷新不再让当前列表的头转圈 |
 | **列表/搜索/联系人补全改按「时刻」排序**（新增 `services/emailtime.go`，SQL 只保留 `ORDER BY uid DESC`） | `databaseemail.go` `LoadEmails` / `SearchEmails` / `SuggestEmailContacts`，`emailservice.go` `fetchEmailsOn`；测试 `services/emailtime_test.go` | `date` 是带各自时区偏移的字符串，`ORDER BY date DESC` 比的是钟面：青云 21:32(+08:00) 的邮件压在 22:51(Z) 的两条 Jira 通知上面一整天。详见 §2.3b |
@@ -355,7 +365,8 @@ CSS 处理是**务实黑名单**（不是完整 CSS 解析器）：永远剥离 
 1. **放开 `class` 属性**：现在 `class` 被 schema 剥掉但 `<style>` 里的 `.class` 规则保留 → 邮件版式半失效，且与暗色模式互相放大。允许 `className` 是成本最低的改善。
 2. **搜索兜底**：接 IMAP `SEARCH`，或在搜索框明确提示「仅搜索已缓存邮件」。
 3. ~~**缓存 TTL / stale-while-revalidate**：打开文件夹先出缓存、后台再刷新。~~ **已做**（见 §4 最后两行）：先一次 `STATUS` 判断有没有变，变了才抓；20s 时间窗 + 单文件夹 in-flight 去重 + 5s 状态复用。**仍待解决**的是连接数——每次真正抓取都是一条新连接，与已知的腾讯企业邮限流冲突，根治仍需连接复用（长连接 + IDLE，见第 6 项）。
-4. **统一发件人显示与文案**：合并两套 `senderDisplay`，把 `(No Subject)`/`(No content)`/`Unknown` 等硬编码兜底串纳入 i18n。
+4. **统一发件人显示与文案**：合并两套 `senderDisplay`，把后端摘要的
+   `(No Subject)` 以及 `(No content)`/`Unknown` 等硬编码兜底串纳入 i18n。
 5. **`text/*` 命名附件**：无 disposition 但有 filename 的文本 part 仍会被当正文，可考虑按 filename 存在与否再判一次。
 6. **连接复用**：目前「每个操作一条新连接」是限流与握手超时的根因（见 `email-fetch` 相关排查记录）。**已部分解决**：开启自动同步的账号走 IDLE，一条常驻连接负责收信并在其上完成抓取（见 `real-time-sync.md`）；但手动操作（打开文件夹、翻页、取正文、点刷新）仍然各拨一条。
 7. **CSS 净化升级为解析器**：当前是务实黑名单（挡 `@import`/`url()`/`expression`/`position:fixed`），无法穷举未来语法。若要更强保证，需引入 CSS 解析器做声明级白名单（代价：新依赖 + 可能改变邮件版式）。

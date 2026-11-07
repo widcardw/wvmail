@@ -391,6 +391,8 @@ export interface TranslationSchema {
   'settings.accounts.placeholder_imap_host': string
   'settings.accounts.placeholder_smtp_host': string
   'settings.about': string
+  'settings.about.tagline': string
+  'settings.about.version': string
   'settings.about.github_open': string
   'settings.about.log.title': string
   'settings.about.log.level': string

@@ -421,6 +421,8 @@ const enUS: TranslationSchema = {
   'settings.accounts.placeholder_imap_host': 'imap.example.com',
   'settings.accounts.placeholder_smtp_host': 'smtp.example.com',
   'settings.about': 'About',
+  'settings.about.tagline': 'wvmail — Cross-platform desktop email client, built with Wails3 + Vue 3',
+  'settings.about.version': 'Version {version}',
   'settings.about.github_open': 'Open the GitHub repository in your browser',
   'settings.about.log.title': 'Log Settings',
   'settings.about.log.level': 'Log Level',

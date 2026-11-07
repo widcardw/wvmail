@@ -406,6 +406,8 @@ const zhCN: TranslationSchema = {
   'settings.accounts.placeholder_imap_host': 'imap.example.com',
   'settings.accounts.placeholder_smtp_host': 'smtp.example.com',
   'settings.about': '关于',
+  'settings.about.tagline': 'wvmail — 跨平台桌面邮件客户端，基于 Wails 3 + Vue 3',
+  'settings.about.version': '版本 {version}',
   'settings.about.github_open': '在浏览器中打开 GitHub 项目页',
   'settings.about.log.title': '日志设置',
   'settings.about.log.level': '日志级别',

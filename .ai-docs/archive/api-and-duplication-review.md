@@ -4,6 +4,10 @@ description: A 2026-11 review of the mail client's Go API surface and duplicated
 
 # API and duplication review (2026-11)
 
+> **Historical snapshot.** Binding counts, file references and follow-up items
+> describe the state at the time of this review. Use the current code and
+> `wails3 generate bindings` output for an API inventory.
+
 This note records a focused pass over the mail client path: the Wails services in
 `services/` (IMAP folders/list/body/delete/flag/sync, tag filtering) and the Vue
 components that drive them. Notes, reminders, OAuth and the build tooling were

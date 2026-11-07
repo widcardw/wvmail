@@ -73,6 +73,11 @@ Vue 3、Tiptap `3.22.5`。
 窗口 URL 只传 `draftID`。收件人、HTML 和附件不会塞进 URL，避免长度限制和泄漏。
 当前版本没有持久化草稿：进程退出或确认放弃后内容即丢失。
 
+发件人显示名来自 `EmailAccount.SenderName`，不是侧边栏用的
+`EmailAccount.Name`。`Name` 是本地账户标签（例如「工作」「个人」），
+`SenderName` 才是收件人看到的 `From` 显示名；`buildEmailMessage` 只读取
+`SenderName`，两者不要混用。
+
 ### 3.1b 收件人从本地联系人自动补全
 
 To/Cc/Bcc 共用 `ComposeRecipientInput.vue`，数据源是联系人页维护的本地
@@ -224,8 +229,9 @@ Bcc: bcc@example.com       ← 不写
 ### 6.3 线程头
 
 - 回复和回复全部写 `In-Reply-To` 与原邮件的 `Message-ID`。
-- `References` 当前只写这个 `Message-ID`；`EmailDetail` 尚未暴露原始
-  References 链，因此不会伪造完整历史链。
+- `References` 合并原邮件的 `References`、`In-Reply-To` 和当前邮件的
+  `Message-ID`，按不区分大小写去重后写回；`EmailDetail` 已经暴露这两条
+  原始链，因此回复可以保留已有会话历史。
 - 转发不写线程头。
 
 ### 6.4 正文格式与颜色

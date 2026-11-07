@@ -15,7 +15,7 @@ All components use `<script setup lang="ts">`:
 ```vue
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useSomeStore } from '@/stores/someStore'
+import { useSomeStore } from '~/stores/someStore'
 
 const props = defineProps<{ title: string }>()
 const emit = defineEmits<{ change: [value: string] }>()
@@ -61,13 +61,18 @@ color tokens live in `src/styles/global.css`. There is nothing to wrap app root 
 
 ## Wails Bridge
 
-- Go services are imported from `../../bindings/wvmail` (auto-generated)
+- Go services are imported from `#/wvmail/services` (the `#` alias points at
+  the generated `bindings/` directory)
 - Events from Go are listened to via `Events.On()` from `@wailsio/runtime`
-- Use `@` alias for `src/` imports (configured in vite.config.js)
+- Use the `~` alias for `src/` imports (configured in `vite.config.js`)
 
 ## Path Aliases
 
-- `@/` maps to `src/` — use for all internal imports (e.g., `import { useThemeStore } from '@/stores/theme'`)
+- `~/` maps to `frontend/src` — use for all internal imports (e.g.
+  `import { useThemeStore } from '~/stores/theme'`)
+- `#/` maps to `frontend/bindings` — use for generated Wails service and model
+  imports (e.g. `import { EmailService } from '#/wvmail/services'`)
+- There is no `@/` alias in this project.
 
 ## Code Style
 
@@ -83,6 +88,8 @@ Run from the `frontend/` directory:
 | Command | Purpose |
 |---|---|
 | `pnpm run lint` | Check for lint errors (oxlint) |
+| `pnpm run typecheck` | Type-check `.vue` and `.ts` with `vue-tsc` |
+| `pnpm run test` | Run the Node regression tests in `tests/*.test.mts` |
 | `pnpm run fmt` | Auto-format code (oxfmt) |
 
 ---

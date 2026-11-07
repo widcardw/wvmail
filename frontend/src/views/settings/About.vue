@@ -9,9 +9,10 @@ import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import AppIcon from '~/components/icon/AppIcon.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
-const { t } = useI18n()
+const { t, tf } = useI18n()
 const fb = useFeedbackStore()
 const repositoryURL = 'https://github.com/widcardw/wvmail'
+const version = '0.0.1'
 
 const logConfig = ref({
   Level: 'info',
@@ -21,12 +22,12 @@ const logConfig = ref({
 const logDir = ref('')
 const saving = ref(false)
 
-const levelOptions = [
+const levelOptions = computed(() => [
   { label: t.value['settings.about.log.level.debug'], value: 'debug' },
   { label: t.value['settings.about.log.level.info'], value: 'info' },
   { label: t.value['settings.about.log.level.warn'], value: 'warn' },
   { label: t.value['settings.about.log.level.error'], value: 'error' },
-]
+])
 
 // Retention options offered in Settings → About. UiSelect is string-valued,
 // so days travel as strings and are parsed on change. '0' = never remove
@@ -109,9 +110,9 @@ async function handleOpenRepository() {
       </header>
 
       <div class="lead">
-        <p class="lead__title">wvmail — Cross-platform desktop email client, Wails3 + Vue 3</p>
+        <p class="lead__title">{{ t['settings.about.tagline'] }}</p>
         <div class="lead__meta-row">
-          <p class="lead__meta">Version 0.0.1</p>
+          <p class="lead__meta">{{ tf('settings.about.version', { version }) }}</p>
           <a
             class="repo-link"
             :href="repositoryURL"

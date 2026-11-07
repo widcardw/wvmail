@@ -63,6 +63,23 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
 
 `OnMailArrived` 只做两件事：记 `lastSync`、发 `emails-synced` 事件。**不重新抓取**——watcher 已经在自己的连接上抓完并写缓存了；未读数也是那次抓取顺带 `STATUS` 出来的（`reportUnseen`），不需要额外命令。
 
+### 5.1 联系人自动收集挂在缓存成功之后
+
+`main.go` 通过 `EmailService.SetMailCachedListener` 把每次成功写入的邮件摘要页
+交给 `ContactsService.CollectFromMail`。这条回调只处理 **INBOX**，并且按
+`account_id + folder` 记录最后处理过的 UID：
+
+- 第一次看到某个文件夹时只写入 UID 基线，不导入历史邮件；
+- 之后只处理 UID 大于基线的邮件；
+- `IsBulk` 邮件、当前账户自己的地址、角色地址（`noreply`、`notify`、
+  `postmaster`、`mailer-daemon` 等）和用户删除联系人时留下的 exclusion 都会跳过；
+- 自动收集开关是 `auto_collect_contacts`，默认关闭；关闭时仍推进 UID 基线，
+  避免以后打开开关时突然补收一大批旧邮件；
+- 新增联系人后发 `contacts-updated` 事件，前端刷新联系人列表/发件人菜单。
+
+把收集放在“缓存成功”而不是启动扫描，是为了让用户的手动删除和编辑不会被下一次
+启动重新覆盖；实时 IDLE、手动刷新和兜底轮询最终都经过同一条缓存写入回调。
+
 ## 6. 前端如何响应
 
 `emails-synced` 到达后（`stores/accounts.ts`）：节流刷新该账号的未读徽标；若事件账号正好是当前账号，按缓存重读当前页（`ListEmails`，不打网络）。
@@ -77,5 +94,5 @@ IDLE 的连接结果也会发结构化 `account-health` 事件（`services/accou
 1. **只有 INBOX**。其它文件夹靠「打开即刷新」（见 `email-fetch-and-display.md` §4）。给每个文件夹都开 IDLE 意味着每账号 N 条常驻连接，国内服务商不接受。
 2. **纯 flag 变化不触发**（`data.NumMessages == nil` 直接 return）。在手机上读了一封，这边的列表要等下次打开文件夹或下一次抓取才更新。要做的话得区分「自己 STORE 引起的」和「别处引起的」，否则会和 `MarkEmailRead` 打架。
 3. **没有 `IDLE` 的服务器**退回轮询，行为与改造前一致。
-4. **离线判定不参与**：`NetworkService.ProbeConnection` 的结果目前不影响 watcher，靠退避兜住。接进来可以少几次无效重连。
+4. **离线判定不参与**：`NetworkService.ProbeAccount` 的结果目前不影响 watcher，靠退避兜住。接进来可以少几次无效重连。
 5. **删除账号默认不清理本地缓存**：`RemoveAccount` 只改 `config.yaml`，`CachedEmail` / `CachedEmailBody` / `CachedFolder` / `CachedFolderMeta` 里该 `account_id` 的行会留在库里。缓存按 `account_id` 分区，重新添加同一个邮箱会拿到新 UUID，旧行再也读不到（但一直占着磁盘）。所以删除弹窗带一个「同时删除本地缓存的邮件」勾选项，勾上才调 `EmailService.PurgeAccountCache` → `DBManager.DeleteAccountCache`（一个事务删这四张表）。默认不勾：缓存是离线可读的前提，不该被顺手丢掉。
