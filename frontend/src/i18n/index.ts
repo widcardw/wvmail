@@ -609,9 +609,26 @@ export interface TranslationSchema {
   'settings.translation.llm_config': string
   'settings.translation.llm_model': string
   'settings.translation.ai_hint': string
+  'settings.translation.polish_title': string
+  'settings.translation.polish_hint': string
   'settings.translation.confirm_title': string
   'settings.translation.skip_confirm': string
   'settings.translation.skip_confirm_hint': string
+  'compose.ai.polish': string
+  'compose.ai.polish_title': string
+  'compose.ai.polish_intro': string
+  'compose.ai.source': string
+  'compose.ai.instruction': string
+  'compose.ai.instruction_placeholder': string
+  'compose.ai.result': string
+  'compose.ai.generate': string
+  'compose.ai.regenerate': string
+  'compose.ai.replace': string
+  'compose.ai.generating': string
+  'compose.ai.no_selection': string
+  'compose.ai.no_llm': string
+  'compose.ai.no_model': string
+  'compose.ai.error': string
   'settings.tags': string
   'tags.title': string
   'tags.classified': string

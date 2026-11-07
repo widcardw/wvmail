@@ -91,7 +91,9 @@ type LogConfig struct {
 	MaxSizeMB int `yaml:"max_size_mb"`
 }
 
-// TranslationConfig controls the email translation feature.
+// TranslationConfig controls AI assistance settings. The struct and YAML block
+// keep their original names for compatibility with existing configs; the UI
+// exposes translation and compose polishing.
 type TranslationConfig struct {
 	DefaultTargetLang string `yaml:"default_target_lang"`
 	DefaultEngine     string `yaml:"default_engine"` // "llm", "deepl"
@@ -99,8 +101,13 @@ type TranslationConfig struct {
 	// LLMModel picks which of that config's models to translate with. Empty means
 	// "use the config's default model", so configs from older versions keep
 	// working unchanged.
-	LLMModel     string `yaml:"llm_model,omitempty"`
-	DeepLAuthKey string `yaml:"deepl_auth_key"` // AES-256-GCM encrypted
+	LLMModel string `yaml:"llm_model,omitempty"`
+	// PolishLLMConfigName/PolishLLMModel select the model used to polish selected
+	// text in the compose window. Empty values fall back to the translation LLM
+	// selection, then to the first configured provider/model.
+	PolishLLMConfigName string `yaml:"polish_llm_config_name,omitempty"`
+	PolishLLMModel      string `yaml:"polish_llm_model,omitempty"`
+	DeepLAuthKey        string `yaml:"deepl_auth_key"` // AES-256-GCM encrypted
 }
 
 // LLMConfig represents a single LLM provider configuration.

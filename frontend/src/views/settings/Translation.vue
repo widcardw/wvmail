@@ -36,6 +36,8 @@ const form = ref({
   DeepLAuthKey: '',
   LLMConfigName: '',
   LLMModel: '',
+  PolishLLMConfigName: '',
+  PolishLLMModel: '',
 })
 
 function modelListFor(configName: string): string[] {
@@ -44,6 +46,10 @@ function modelListFor(configName: string): string[] {
 
 const modelOptions = computed(() =>
   modelListFor(form.value.LLMConfigName).map((model) => ({ label: model, value: model })),
+)
+
+const polishModelOptions = computed(() =>
+  modelListFor(form.value.PolishLLMConfigName).map((model) => ({ label: model, value: model })),
 )
 
 onMounted(async () => {
@@ -67,6 +73,17 @@ onMounted(async () => {
     const savedModel = cfg.TranslationConfig?.LLMModel || ''
     const models = modelListFor(form.value.LLMConfigName)
     form.value.LLMModel = savedModel && models.includes(savedModel) ? savedModel : (models[0] ?? '')
+
+    const polishName = cfg.TranslationConfig?.PolishLLMConfigName || ''
+    if (polishName && llmConfigs.value.some((c) => c.Name === polishName)) {
+      form.value.PolishLLMConfigName = polishName
+    } else if (llmConfigs.value.length > 0) {
+      form.value.PolishLLMConfigName = llmConfigs.value[0].Name
+    }
+    const polishModel = cfg.TranslationConfig?.PolishLLMModel || ''
+    const polishModels = modelListFor(form.value.PolishLLMConfigName)
+    form.value.PolishLLMModel =
+      polishModel && polishModels.includes(polishModel) ? polishModel : (polishModels[0] ?? '')
   } catch (e) {
     console.error('Failed to load config', e)
   }
@@ -85,6 +102,8 @@ async function doPersist() {
       DefaultEngine: form.value.DefaultEngine,
       LLMConfigName: form.value.LLMConfigName,
       LLMModel: form.value.LLMModel,
+      PolishLLMConfigName: form.value.PolishLLMConfigName,
+      PolishLLMModel: form.value.PolishLLMModel,
       DeepLAuthKey: form.value.DeepLAuthKey,
     })
   } catch (e) {
@@ -101,6 +120,12 @@ function onSelect(key: string, v: string) {
 function onSelectConfig(name: string) {
   form.value.LLMConfigName = name
   form.value.LLMModel = modelListFor(name)[0] ?? ''
+  persistNow()
+}
+
+function onSelectPolishConfig(name: string) {
+  form.value.PolishLLMConfigName = name
+  form.value.PolishLLMModel = modelListFor(name)[0] ?? ''
   persistNow()
 }
 
@@ -177,6 +202,37 @@ function onSkipConfirmationChange(checked: boolean) {
           />
         </UiFieldRow>
       </template>
+    </section>
+
+    <section class="surface surface--spaced">
+      <header class="surface__head">
+        <h2>{{ t['settings.translation.polish_title'] }}</h2>
+      </header>
+
+      <p class="hint">{{ t['settings.translation.polish_hint'] }}</p>
+
+      <UiAlert v-if="llmConfigs.length === 0" class="translation-warning" tone="warning">
+        {{ t['settings.translation.no_llm'] }}
+      </UiAlert>
+
+      <UiFieldRow :label="t['settings.translation.llm_config']">
+        <UiSelect
+          :options="llmOptions"
+          :model-value="form.PolishLLMConfigName"
+          :disabled="llmConfigs.length === 0"
+          width="300px"
+          @update:model-value="onSelectPolishConfig"
+        />
+      </UiFieldRow>
+
+      <UiFieldRow v-if="polishModelOptions.length > 0" :label="t['settings.translation.llm_model']">
+        <UiSelect
+          :options="polishModelOptions"
+          :model-value="form.PolishLLMModel"
+          width="300px"
+          @update:model-value="(v) => onSelect('PolishLLMModel', v)"
+        />
+      </UiFieldRow>
     </section>
 
     <section class="surface surface--spaced">

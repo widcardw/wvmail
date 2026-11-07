@@ -6,11 +6,13 @@ import { useI18n } from '~/i18n'
 import { ComposeService, ConfigService } from '#/wvmail/services'
 import type { ComposeAttachment, ComposeDraft, EmailAccount } from '#/wvmail/services'
 import ComposeEditor from '~/components/compose/ComposeEditor.vue'
+import ComposeAIPolishDialog from '~/components/compose/ComposeAIPolishDialog.vue'
 import ComposeRecipientInput from '~/components/compose/ComposeRecipientInput.vue'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiSelect from '~/components/ui/UiSelect.vue'
 import UiAlert from '~/components/ui/UiAlert.vue'
+import { useFeedbackStore } from '~/stores/feedback'
 import {
   formatRecipientText,
   isImageFilename,
@@ -21,6 +23,7 @@ import {
 
 const route = useRoute()
 const { t, tf } = useI18n()
+const feedback = useFeedbackStore()
 
 const draftID = ref(String(route.query.id ?? ''))
 const accounts = ref<EmailAccount[]>([])
@@ -42,6 +45,9 @@ const dirty = ref(false)
 const closePrompt = ref(false)
 const editorRef = ref<InstanceType<typeof ComposeEditor> | null>(null)
 const original = ref<ComposeDraft | null>(null)
+const polishOpen = ref(false)
+const polishSource = ref('')
+const polishRange = ref<{ from: number; to: number } | null>(null)
 let hydrating = true
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let unlistenDrop: (() => void) | null = null
@@ -187,6 +193,23 @@ async function discard() {
 
 function requestClose() {
   closePrompt.value = true
+}
+
+function openAIPolish(selection: { from: number; to: number; text: string }) {
+  if (!selection.text.trim()) {
+    feedback.warn(t.value['compose.ai.no_selection'])
+    return
+  }
+  polishRange.value = { from: selection.from, to: selection.to }
+  polishSource.value = selection.text
+  polishOpen.value = true
+}
+
+function applyAIPolish(text: string) {
+  const range = polishRange.value
+  if (!range) return
+  editorRef.value?.replaceSelection(range, text)
+  polishRange.value = null
 }
 
 async function onFilesDropped(event: { data?: unknown }) {
@@ -351,6 +374,7 @@ onBeforeUnmount(() => {
           @update:text="text = $event"
           @pick-attachment="attachFiles"
           @pick-image="attachInlineImage"
+          @ai-polish="openAIPolish"
         />
       </div>
 
@@ -394,6 +418,11 @@ onBeforeUnmount(() => {
       danger
       @update:open="closePrompt = $event"
       @confirm="discard"
+    />
+    <ComposeAIPolishDialog
+      v-model:open="polishOpen"
+      :source-text="polishSource"
+      @replace="applyAIPolish"
     />
   </div>
 </template>

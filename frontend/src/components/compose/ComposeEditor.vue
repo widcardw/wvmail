@@ -18,9 +18,11 @@ const emit = defineEmits<{
   'update:text': [value: string]
   'pick-attachment': []
   'pick-image': []
+  'ai-polish': [selection: { from: number; to: number; text: string }]
 }>()
 
 const { t, tf } = useI18n()
+const hasSelection = ref(false)
 const editor = useEditor({
   content: props.modelValue || '<p></p>',
   extensions: [
@@ -61,14 +63,27 @@ const editor = useEditor({
   onUpdate: ({ editor: ed }) => {
     emit('update:modelValue', ed.getHTML())
     emit('update:text', ed.getText({ blockSeparator: '\n\n' }))
+    updateSelectionState(ed)
   },
+  onSelectionUpdate: ({ editor: ed }) => updateSelectionState(ed),
+  onTransaction: ({ editor: ed }) => updateSelectionState(ed),
 })
+
+function updateSelectionState(ed: { state: { selection: { from: number; to: number } } } | undefined) {
+  if (!ed) {
+    hasSelection.value = false
+    return
+  }
+  const { from, to } = ed.state.selection
+  hasSelection.value = from !== to
+}
 
 watch(
   () => props.modelValue,
   (value) => {
     if (!editor.value || value === editor.value.getHTML()) return
     editor.value.commands.setContent(value || '<p></p>', { emitUpdate: false })
+    updateSelectionState(editor.value)
   },
 )
 
@@ -93,7 +108,24 @@ function focus() {
   editor.value?.commands.focus()
 }
 
-defineExpose({ insertImage, focus })
+function getSelection(): { from: number; to: number; text: string } | null {
+  const ed = editor.value
+  if (!ed) return null
+  const { from, to, empty } = ed.state.selection
+  if (empty || from === to) return null
+  return { from, to, text: ed.state.doc.textBetween(from, to, '\n') }
+}
+
+function replaceSelection(range: { from: number; to: number }, text: string) {
+  editor.value?.chain().focus().insertContentAt(range, text).run()
+}
+
+function requestAIPolish() {
+  const selection = getSelection()
+  if (selection) emit('ai-polish', selection)
+}
+
+defineExpose({ insertImage, focus, getSelection, replaceSelection })
 
 onBeforeUnmount(() => {
   editor.value?.destroy()
@@ -261,6 +293,18 @@ onBeforeUnmount(() => {
           @click="editor?.chain().focus().redo().run()"
         >
           <i class="i-ri:arrow-go-forward-line" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <span class="toolbar-sep" />
+      <UiTooltip :label="t['compose.ai.polish']">
+        <button
+          type="button"
+          class="tb"
+          :aria-label="t['compose.ai.polish']"
+          :disabled="!hasSelection"
+          @click="requestAIPolish"
+        >
+          <i class="i-ri:sparkling-2-line" aria-hidden="true" />
         </button>
       </UiTooltip>
     </div>

@@ -210,6 +210,23 @@ const enUS: TranslationSchema = {
   'compose.background_color': 'Text highlight',
   'compose.color_custom': 'Custom',
   'compose.color_default': 'Default',
+  'compose.ai.polish': 'Polish selected text with AI',
+  'compose.ai.polish_title': 'AI polish',
+  'compose.ai.polish_intro':
+    'Send the selected text to the chosen LLM for polishing. Make sure it does not contain sensitive information you should not share.',
+  'compose.ai.source': 'Text to polish',
+  'compose.ai.instruction': 'Polish instructions (optional)',
+  'compose.ai.instruction_placeholder':
+    'e.g. more formal, shorter, friendlier tone, keep technical terms…',
+  'compose.ai.result': 'AI reply',
+  'compose.ai.generate': 'Generate',
+  'compose.ai.regenerate': 'Regenerate',
+  'compose.ai.replace': 'Replace selected text',
+  'compose.ai.generating': 'Generating',
+  'compose.ai.no_selection': 'Select text in the message body first.',
+  'compose.ai.no_llm': 'No LLM configuration is available. Add one in Settings.',
+  'compose.ai.no_model': 'The selected configuration has no available model.',
+  'compose.ai.error': 'AI polish failed',
   'compose.reply_intro': 'On {date}, {sender} wrote:',
   'compose.forward_header': 'Forwarded message',
   'compose.forward_from': 'From',
@@ -648,6 +665,9 @@ const enUS: TranslationSchema = {
   'settings.translation.skip_confirm': 'Run AI actions immediately',
   'settings.translation.skip_confirm_hint':
     'When enabled, translation and summarization send the current message body to the selected provider without asking first. Messages may contain personal information, so enable this only for providers you trust.',
+  'settings.translation.polish_title': 'AI polish',
+  'settings.translation.polish_hint':
+    'Choose the default model for AI polish in the composer. Only the text and instructions you confirm in the dialog are sent.',
   'settings.tags': 'Tags',
   'tags.title': 'Tag management',
   'tags.classified': 'Categories',

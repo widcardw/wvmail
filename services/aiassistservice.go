@@ -12,15 +12,18 @@ import (
 	"time"
 )
 
-// AIAssistRequest is the frontend's complete input for one translation or
-// summary. API keys and provider configuration stay on the Go side; empty
-// fields mean "use the selection saved in Settings → AI 辅助".
+// AIAssistRequest is the frontend's complete input for one translation,
+// summary or compose-text polish. API keys and provider configuration stay on
+// the Go side; empty fields mean "use the selection saved in Settings → AI 辅助".
 type AIAssistRequest struct {
 	Text          string
 	TargetLang    string
 	Engine        string
 	LLMConfigName string
 	LLMModel      string
+	// Instruction is an optional user request for PolishText (tone, length,
+	// formality, etc.). It is sent with the source text and never cached.
+	Instruction string
 }
 
 // AIAssistService provides translation and summarisation for the message being
@@ -132,6 +135,29 @@ func (s *AIAssistService) SummarizeText(request AIAssistRequest) (string, error)
 	return result, nil
 }
 
+// PolishText rewrites selected compose text with an LLM. It returns only the
+// polished plain text (no explanation) so the frontend can replace the selection
+// verbatim. Results are not cached: "regenerate" should be able to produce a
+// different answer, and the user can edit the source/instruction between calls.
+func (s *AIAssistService) PolishText(request AIAssistRequest) (string, error) {
+	if strings.TrimSpace(request.Text) == "" {
+		return "", fmt.Errorf("no text selected to polish")
+	}
+	cfg, err := s.loadConfig()
+	if err != nil {
+		return "", err
+	}
+	llmCfg, err := resolvePolishLLM(cfg, request.LLMConfigName, request.LLMModel)
+	if err != nil {
+		return "", err
+	}
+	result, err := requestLLMChat(&llmCfg, polishPrompt(request.Text, request.Instruction), llmCfg.MaxOutputTokens)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(result), nil
+}
+
 func (s *AIAssistService) loadConfig() (AppConfig, error) {
 	if s.cfg == nil {
 		return AppConfig{}, fmt.Errorf("AI assist config service is not available")
@@ -140,6 +166,18 @@ func (s *AIAssistService) loadConfig() (AppConfig, error) {
 }
 
 func resolveAIAssistLLM(cfg AppConfig, name, model string) (LLMConfig, error) {
+	if strings.TrimSpace(name) == "" && strings.TrimSpace(model) == "" {
+		name = cfg.TranslationConfig.LLMConfigName
+		model = cfg.TranslationConfig.LLMModel
+	}
+	return findLLMConfig(cfg.LLMConfigs, name, model)
+}
+
+func resolvePolishLLM(cfg AppConfig, name, model string) (LLMConfig, error) {
+	if strings.TrimSpace(name) == "" && strings.TrimSpace(model) == "" {
+		name = cfg.TranslationConfig.PolishLLMConfigName
+		model = cfg.TranslationConfig.PolishLLMModel
+	}
 	if strings.TrimSpace(name) == "" && strings.TrimSpace(model) == "" {
 		name = cfg.TranslationConfig.LLMConfigName
 		model = cfg.TranslationConfig.LLMModel
@@ -210,6 +248,17 @@ func summaryPrompt(text, targetLang string) string {
 			"Email:\n<email>\n%s\n</email>",
 		targetLang, text,
 	)
+}
+
+func polishPrompt(text, instruction string) string {
+	base := "Polish the email text below for sending.\n" +
+		"- Keep the original meaning, facts, names, dates, amounts, commitments, and language unless the user explicitly asks to change them.\n" +
+		"- Improve clarity, tone, grammar, and flow. Keep formatting and line breaks that matter.\n" +
+		"- Return only the polished text. Do not add explanations, quotes, markdown fences, or a preamble.\n"
+	if strings.TrimSpace(instruction) != "" {
+		base += fmt.Sprintf("- Follow this user instruction: %s\n", strings.TrimSpace(instruction))
+	}
+	return fmt.Sprintf("%s\nText to polish:\n<text>\n%s\n</text>", base, text)
 }
 
 func (s *AIAssistService) translateDeepL(text, targetLang, authKey string) (string, error) {

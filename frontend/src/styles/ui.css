@@ -473,7 +473,7 @@ button.model-tag:hover {
 }
 .hint {
   margin: 0;
-  padding: 0 18px 14px;
+  padding: 8px 18px 0px;
   font-size: 12px;
   line-height: 1.6;
   color: var(--color-text-3);

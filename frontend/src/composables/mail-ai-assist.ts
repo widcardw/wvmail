@@ -89,6 +89,7 @@ export function useMailAIAssist(options: MailAIAssistOptions) {
           Engine: selection.engine ?? '',
           LLMConfigName: selection.llmConfigName ?? '',
           LLMModel: selection.llmModel ?? '',
+          Instruction: '',
         })
 
       if (mail.body_html) {
@@ -146,6 +147,7 @@ export function useMailAIAssist(options: MailAIAssistOptions) {
         Engine: 'llm',
         LLMConfigName: selection.llmConfigName ?? '',
         LLMModel: selection.llmModel ?? '',
+        Instruction: '',
       })
       if (gen !== summaryToken) return
       if (!result.trim()) {

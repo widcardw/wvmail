@@ -143,3 +143,122 @@ func TestSkipAIAssistConfirmationRoundTrip(t *testing.T) {
 		t.Fatal("invalid boolean must be rejected")
 	}
 }
+
+
+func TestPolishTextUsesPolishModelAndInstruction(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var request struct {
+			Model    string `json:"model"`
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if request.Model != "polish-model" {
+			t.Errorf("model = %q, want polish-model", request.Model)
+		}
+		if len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "more formal") {
+			t.Errorf("prompt missing instruction: %s", string(body))
+		}
+		if !strings.Contains(request.Messages[0].Content, "hello there") {
+			t.Errorf("prompt missing text: %s", string(body))
+		}
+		response, _ := json.Marshal(map[string]any{
+			"choices": []map[string]any{{
+				"message": map[string]string{"content": "  Dear recipient, hello.  "},
+			}},
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(response)
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("HOME", t.TempDir())
+	cfg := &ConfigService{}
+	if err := cfg.SaveConfig(AppConfig{
+		TranslationConfig: TranslationConfig{
+			DefaultTargetLang:   "zh-CN",
+			DefaultEngine:       "llm",
+			LLMConfigName:       "main",
+			LLMModel:            "default-model",
+			PolishLLMConfigName: "main",
+			PolishLLMModel:      "polish-model",
+		},
+		LLMConfigs: []LLMConfig{{
+			Name:     "main",
+			Provider: "custom",
+			BaseURL:  server.URL,
+			Model:    "default-model",
+			Models:   []string{"default-model", "polish-model"},
+		}},
+	}); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	svc := NewAIAssistService(cfg)
+	got, err := svc.PolishText(AIAssistRequest{
+		Text:        "hello there",
+		Instruction: "more formal",
+	})
+	if err != nil {
+		t.Fatalf("PolishText: %v", err)
+	}
+	if got != "Dear recipient, hello." {
+		t.Fatalf("polish = %q", got)
+	}
+}
+
+func TestPolishTextFallsBackToTranslationModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var request struct {
+			Model string `json:"model"`
+		}
+		_ = json.Unmarshal(body, &request)
+		if request.Model != "default-model" {
+			t.Errorf("model = %q, want default-model", request.Model)
+		}
+		response, _ := json.Marshal(map[string]any{
+			"choices": []map[string]any{{"message": map[string]string{"content": "ok"}}},
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(response)
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("HOME", t.TempDir())
+	cfg := &ConfigService{}
+	if err := cfg.SaveConfig(AppConfig{
+		TranslationConfig: TranslationConfig{LLMConfigName: "main", LLMModel: "default-model"},
+		LLMConfigs:        []LLMConfig{{Name: "main", Provider: "custom", BaseURL: server.URL, Model: "default-model", Models: []string{"default-model"}}},
+	}); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	svc := NewAIAssistService(cfg)
+	if _, err := svc.PolishText(AIAssistRequest{Text: "hi"}); err != nil {
+		t.Fatalf("PolishText: %v", err)
+	}
+}
+
+func TestTranslationConfigRoundTripPolishFields(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg := &ConfigService{}
+	if err := cfg.SaveTranslationConfig(TranslationConfig{
+		DefaultTargetLang:   "en",
+		DefaultEngine:       "llm",
+		LLMConfigName:       "a",
+		LLMModel:            "m1",
+		PolishLLMConfigName: "b",
+		PolishLLMModel:      "m2",
+	}); err != nil {
+		t.Fatalf("SaveTranslationConfig: %v", err)
+	}
+	got, err := cfg.GetConfig()
+	if err != nil {
+		t.Fatalf("GetConfig: %v", err)
+	}
+	tc := got.TranslationConfig
+	if tc.PolishLLMConfigName != "b" || tc.PolishLLMModel != "m2" {
+		t.Fatalf("polish = %q/%q", tc.PolishLLMConfigName, tc.PolishLLMModel)
+	}
+}
