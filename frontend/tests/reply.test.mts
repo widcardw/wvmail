@@ -58,6 +58,27 @@ const detail = {
 }
 
 {
+  const threaded = {
+    ...detail,
+    in_reply_to: ['<parent@example.com>'],
+    references: ['<root@example.com>', '<parent@example.com>', '<ROOT@example.com>'],
+  }
+  const reply = buildReplyEnvelope(threaded, 'reply', 'me@example.com')
+  check(
+    'reply keeps the existing References chain',
+    reply.References[0] === '<root@example.com>' && reply.References[1] === '<parent@example.com>',
+  )
+  check(
+    'reply appends the current message once',
+    reply.References.filter((id) => id.toLowerCase() === '<message@example.com>').length === 1,
+  )
+  check(
+    'reply deduplicates case-insensitive message IDs',
+    reply.References.filter((id) => id.toLowerCase() === '<root@example.com>').length === 1,
+  )
+}
+
+{
   const replyAll = buildReplyEnvelope(detail, 'reply-all', 'ME@example.com')
   check('reply all keeps the sender in To', replyAll.To[0]?.Address === 'alice@example.com')
   check(

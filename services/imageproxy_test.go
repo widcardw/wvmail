@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func imageProxyRequest(target string) *http.Request {
@@ -60,6 +61,27 @@ func TestImageProxyFetchesImageAndStripsIdentifiers(t *testing.T) {
 	}
 	if hits.Load() != 1 {
 		t.Errorf("upstream hits = %d, want 1 (cached)", hits.Load())
+	}
+}
+
+func TestImageProxyCacheTTLHonoursNoCache(t *testing.T) {
+	cases := map[string]time.Duration{
+		"no-store":            0,
+		"no-cache":            0,
+		"private, no-cache":   0,
+		"max-age=60":          60 * time.Second,
+		"public, max-age=120": 120 * time.Second,
+		"max-age=999999999":   imageProxyMaxMaxAge,
+		"":                    imageProxyDefaultMaxAge,
+	}
+	for value, want := range cases {
+		header := http.Header{}
+		if value != "" {
+			header.Set("Cache-Control", value)
+		}
+		if got := imageProxyCacheTTL(header); got != want {
+			t.Errorf("imageProxyCacheTTL(%q) = %v, want %v", value, got, want)
+		}
 	}
 }
 

@@ -8,6 +8,7 @@ import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 import TagFilter from '~/components/tags/TagFilter.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import styles from './mail-list.module.css'
 
 const { t } = useI18n()
 const accountsStore = useAccountsStore()
@@ -47,7 +48,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="email-list">
+  <div :class="styles.emailList">
     <EmailListHeader
       :label="t['tags.classified']"
       :title="t['tags.classified']"
@@ -68,9 +69,9 @@ onMounted(async () => {
       </template>
     </EmailListHeader>
 
-    <UiScrollArea class="body">
-      <div v-if="loading" class="spin-row"><span class="spinner" /></div>
-      <p v-else-if="tagsStore.emails.length === 0" class="empty">{{ emptyMessage }}</p>
+    <UiScrollArea :class="styles.body">
+      <div v-if="loading" :class="styles.spinRow"><span class="spinner" /></div>
+      <p v-else-if="tagsStore.emails.length === 0" :class="styles.empty">{{ emptyMessage }}</p>
       <template v-else>
         <EmailListItem
           v-for="email in tagsStore.emails"
@@ -84,29 +85,3 @@ onMounted(async () => {
     </UiScrollArea>
   </div>
 </template>
-
-<style scoped>
-.email-list {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--n-body-color);
-}
-.body {
-  flex: 1;
-  min-height: 0;
-}
-.spin-row {
-  padding: 32px 0;
-  display: flex;
-  justify-content: center;
-}
-.empty {
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--color-text-3);
-  font-size: 13px;
-}
-</style>

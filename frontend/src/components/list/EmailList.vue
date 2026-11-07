@@ -4,13 +4,14 @@ import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useSearchStore } from '~/stores/search'
 import { useTagsStore } from '~/stores/tags'
-import { getFolderDisplay, type EmailSummary } from '~/types/email'
+import { getFolderDisplay } from '~/types/email'
 import { mailKeyFor, selectedMailKey } from '~/composables/mail-key'
 import type { EmailThreadRow } from '~/composables/mail-threads'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 import TagFilter from '~/components/tags/TagFilter.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import styles from './mail-list.module.css'
 
 const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
@@ -103,7 +104,7 @@ onMounted(async () => {
   }
 })
 
-function handleClick(email: EmailSummary & { thread_messages?: EmailSummary[] }) {
+function handleClick(email: EmailThreadRow) {
   const smartF = accountsStore.smartFolder
   if (!smartF && !searchStore.searchActive && email.thread_id && (email.thread_count ?? 1) > 1) {
     const account = accountsStore.selectedAccount
@@ -125,7 +126,7 @@ function handleClick(email: EmailSummary & { thread_messages?: EmailSummary[] })
 </script>
 
 <template>
-  <div class="email-list">
+  <div :class="styles.emailList">
     <EmailListHeader
       v-if="showHeader"
       :label="folderDisplay.label"
@@ -159,9 +160,9 @@ function handleClick(email: EmailSummary & { thread_messages?: EmailSummary[] })
       </template>
     </EmailListHeader>
 
-    <UiScrollArea class="body">
-      <div v-if="loading" class="spin-row"><span class="spinner" /></div>
-      <p v-else-if="emails.length === 0" class="empty">{{ emptyMessage }}</p>
+    <UiScrollArea :class="styles.body">
+      <div v-if="loading" :class="styles.spinRow"><span class="spinner" /></div>
+      <p v-else-if="emails.length === 0" :class="styles.empty">{{ emptyMessage }}</p>
 
       <template v-else>
         <EmailListItem
@@ -176,29 +177,3 @@ function handleClick(email: EmailSummary & { thread_messages?: EmailSummary[] })
     </UiScrollArea>
   </div>
 </template>
-
-<style scoped>
-.email-list {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--n-body-color);
-}
-.body {
-  flex: 1;
-  min-height: 0;
-}
-.spin-row {
-  padding: 32px 0;
-  display: flex;
-  justify-content: center;
-}
-.empty {
-  padding: 40px 0;
-  text-align: center;
-  color: var(--color-text-3);
-  font-size: 13px;
-}
-</style>

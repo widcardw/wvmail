@@ -40,6 +40,20 @@ function uniqueAddresses(addresses: EmailAddress[], excluded: string[] = []): Em
   return result
 }
 
+function uniqueMessageIDs(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed) continue
+    const key = trimmed.replace(/^</, '').replace(/>$/, '').toLowerCase()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    result.push(trimmed)
+  }
+  return result
+}
+
 export function subjectWithPrefix(subject: string, mode: ReplyMode): string {
   const value = subject.trim()
   if (mode === 'forward') {
@@ -56,7 +70,10 @@ export function buildReplyEnvelope(
   const sender = senderAddress(detail)
   const messageID = (detail.message_id ?? '').trim()
   const inReplyTo = mode === 'forward' ? '' : messageID
-  const references = inReplyTo ? [inReplyTo] : []
+  const references =
+    mode === 'forward'
+      ? []
+      : uniqueMessageIDs([...(detail.references ?? []), ...(detail.in_reply_to ?? []), messageID])
   const subject = subjectWithPrefix(detail.subject, mode)
 
   if (mode === 'forward') {

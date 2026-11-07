@@ -93,6 +93,8 @@ export interface FolderInfo {
 export interface EmailPageResponse {
   emails: EmailSummary[]
   total: number
+  /** Number of conversation rows; only filled by the folder thread pager. */
+  thread_total?: number
   /** True when the backend served this page from its cache without dialing IMAP. */
   from_cache?: boolean
   /**

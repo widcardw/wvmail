@@ -84,58 +84,60 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 		return err
 	}
 
-	for _, e := range emails {
-		var previous CachedEmail
-		hasPrevious := db.Where("account_id = ? AND folder_name = ? AND uid = ?",
-			accountID, folderName, e.UID).First(&previous).Error == nil
-		// delete any previous row with the same (account, folder, uid), then insert fresh
-		if err := db.Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
-			Delete(&CachedEmail{}).Error; err != nil {
-			return err
-		}
-		flagsJSON, _ := json.Marshal(e.Flags)
-		toJSON, _ := json.Marshal(e.To)
-		inReplyToJSON, _ := json.Marshal(e.InReplyTo)
-		referencesJSON, _ := json.Marshal(e.References)
-		// A server that rejects HEADER.FIELDS (or a page fetched by an older
-		// build) must not erase thread headers that are already cached.
-		if len(e.InReplyTo) == 0 && hasPrevious && previous.InReplyTo != "" {
-			inReplyToJSON = []byte(previous.InReplyTo)
-		}
-		if len(e.References) == 0 && hasPrevious && previous.References != "" {
-			referencesJSON = []byte(previous.References)
-		}
-		ce := CachedEmail{
-			AccountID:  accountID,
-			FolderName: folderName,
-			UID:        e.UID,
-			MessageID:  e.MessageID,
-			InReplyTo:  string(inReplyToJSON),
-			References: string(referencesJSON),
-			Subject:    e.Subject,
-			From:       e.From,
-			FromName:   e.FromName,
-			FromAddr:   e.FromAddr,
-			To:         string(toJSON),
-			Date:       e.Date,
-			Flags:      string(flagsJSON),
-			IsRead:     e.IsRead,
-			IsBulk:     e.IsBulk || (hasPrevious && previous.IsBulk),
-		}
-		if err := db.Create(&ce).Error; err != nil {
-			return fmt.Errorf("failed to save email uid=%d: %w", e.UID, err)
-		}
-		// A cached body carries its own copy of the date. Keep it in sync when
-		// a list refresh replaces an implausible sender Date with InternalDate.
-		if e.Date != "" {
-			if err := db.Model(&CachedEmailBody{}).
-				Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
-				Update("date", e.Date).Error; err != nil {
-				return fmt.Errorf("failed to update cached body date for uid=%d: %w", e.UID, err)
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, e := range emails {
+			var previous CachedEmail
+			hasPrevious := tx.Where("account_id = ? AND folder_name = ? AND uid = ?",
+				accountID, folderName, e.UID).First(&previous).Error == nil
+			// delete any previous row with the same (account, folder, uid), then insert fresh
+			if err := tx.Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
+				Delete(&CachedEmail{}).Error; err != nil {
+				return err
+			}
+			flagsJSON, _ := json.Marshal(e.Flags)
+			toJSON, _ := json.Marshal(e.To)
+			inReplyToJSON, _ := json.Marshal(e.InReplyTo)
+			referencesJSON, _ := json.Marshal(e.References)
+			// A server that rejects HEADER.FIELDS (or a page fetched by an older
+			// build) must not erase thread headers that are already cached.
+			if len(e.InReplyTo) == 0 && hasPrevious && previous.InReplyTo != "" {
+				inReplyToJSON = []byte(previous.InReplyTo)
+			}
+			if len(e.References) == 0 && hasPrevious && previous.References != "" {
+				referencesJSON = []byte(previous.References)
+			}
+			ce := CachedEmail{
+				AccountID:  accountID,
+				FolderName: folderName,
+				UID:        e.UID,
+				MessageID:  e.MessageID,
+				InReplyTo:  string(inReplyToJSON),
+				References: string(referencesJSON),
+				Subject:    e.Subject,
+				From:       e.From,
+				FromName:   e.FromName,
+				FromAddr:   e.FromAddr,
+				To:         string(toJSON),
+				Date:       e.Date,
+				Flags:      string(flagsJSON),
+				IsRead:     e.IsRead,
+				IsBulk:     e.IsBulk || (hasPrevious && previous.IsBulk),
+			}
+			if err := tx.Create(&ce).Error; err != nil {
+				return fmt.Errorf("failed to save email uid=%d: %w", e.UID, err)
+			}
+			// A cached body carries its own copy of the date. Keep it in sync when
+			// a list refresh replaces an implausible sender Date with InternalDate.
+			if e.Date != "" {
+				if err := tx.Model(&CachedEmailBody{}).
+					Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
+					Update("date", e.Date).Error; err != nil {
+					return fmt.Errorf("failed to update cached body date for uid=%d: %w", e.UID, err)
+				}
 			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // LoadEmails retrieves cached email summaries for a (account, folder).

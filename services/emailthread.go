@@ -35,8 +35,12 @@ func applyEmailThreads(emails []EmailSummary) {
 	}
 
 	parent := make([]int, len(emails))
+	minDate := make([]time.Time, len(emails))
+	maxDate := make([]time.Time, len(emails))
 	for i := range parent {
 		parent[i] = i
+		minDate[i] = parsedThreadDate(emails[i].Date)
+		maxDate[i] = minDate[i]
 	}
 	var find func(int) int
 	find = func(i int) int {
@@ -49,7 +53,25 @@ func applyEmailThreads(emails []EmailSummary) {
 		ra, rb := find(a), find(b)
 		if ra != rb {
 			parent[rb] = ra
+			minDate[ra], maxDate[ra] = mergeThreadDateSpan(
+				minDate[ra], maxDate[ra], minDate[rb], maxDate[rb],
+			)
 		}
+	}
+	// Weak links are the only ones that need the 14-day window. Checking the
+	// span of the whole merged group (not just the candidate pair) prevents
+	// A-B and B-C from dragging A and C together months apart.
+	unionWeak := func(a, b int) {
+		ra, rb := find(a), find(b)
+		if ra == rb {
+			return
+		}
+		lo, hi := mergeThreadDateSpan(minDate[ra], maxDate[ra], minDate[rb], maxDate[rb])
+		if !lo.IsZero() && !hi.IsZero() && hi.Sub(lo) > weakThreadWindow {
+			return
+		}
+		parent[rb] = ra
+		minDate[ra], maxDate[ra] = lo, hi
 	}
 
 	byMessageID := make(map[string]int, len(emails))
@@ -114,7 +136,7 @@ func applyEmailThreads(emails []EmailSummary) {
 				if find(i) == find(j) || !weakThreadMatch(emails[i], emails[j]) {
 					continue
 				}
-				union(i, j)
+				unionWeak(i, j)
 			}
 		}
 	}
@@ -169,6 +191,17 @@ func weakThreadMatch(a, b EmailSummary) bool {
 		return false
 	}
 	return withinWeakThreadWindow(a.Date, b.Date)
+}
+
+func mergeThreadDateSpan(lo1, hi1, lo2, hi2 time.Time) (time.Time, time.Time) {
+	lo, hi := lo1, hi1
+	if lo.IsZero() || (!lo2.IsZero() && lo2.Before(lo)) {
+		lo = lo2
+	}
+	if hi.IsZero() || (!hi2.IsZero() && hi2.After(hi)) {
+		hi = hi2
+	}
+	return lo, hi
 }
 
 func hasThreadHeaders(email EmailSummary) bool {
@@ -295,7 +328,23 @@ func stableThreadID(emails []EmailSummary, indexes []int) string {
 			addresses = append(addresses, address)
 		}
 		sort.Strings(addresses)
-		sum := sha1.Sum([]byte(subject + "\x00" + strings.Join(addresses, "\x00")))
+		// Subject + participants alone are not unique: the same two people can
+		// start a fresh "Weekly note" thread months later, outside the weak
+		// window, and both groups would receive the same ID. Anchor the hash to
+		// the newest cached message: older pages can be filled in later without
+		// changing the ID, while a genuinely new message starts a new revision.
+		anchor := ""
+		for i := len(indexes) - 1; i >= 0; i-- {
+			if id := normalizeMessageID(emails[indexes[i]].MessageID); id != "" {
+				anchor = id
+				break
+			}
+		}
+		if anchor == "" {
+			newest := emails[indexes[len(indexes)-1]]
+			anchor = fmt.Sprintf("uid:%s:%s:%d", newest.AccountID, newest.FolderName, newest.UID)
+		}
+		sum := sha1.Sum([]byte(subject + "\x00" + strings.Join(addresses, "\x00") + "\x00" + anchor))
 		return "subj:" + hex.EncodeToString(sum[:8])
 	}
 	return fmt.Sprintf("uid:%s:%s:%d", email.AccountID, email.FolderName, email.UID)

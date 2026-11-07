@@ -142,6 +142,47 @@ func TestWeakThreadIDsDoNotCollideAcrossDifferentParticipants(t *testing.T) {
 	}
 }
 
+func TestWeakThreadIDsDoNotCollideAcrossSeparateWindows(t *testing.T) {
+	emails := []EmailSummary{
+		{UID: 4, MessageID: "<new@example.com>", Subject: "Weekly note", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-03-02T10:00:00Z"},
+		{UID: 3, MessageID: "<new-root@example.com>", Subject: "Weekly note", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-03-01T10:00:00Z"},
+		{UID: 2, MessageID: "<old@example.com>", Subject: "Weekly note", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-01-02T10:00:00Z"},
+		{UID: 1, MessageID: "<old-root@example.com>", Subject: "Weekly note", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-01-01T10:00:00Z"},
+	}
+
+	applyEmailThreads(emails)
+
+	if emails[0].ThreadID == emails[2].ThreadID {
+		t.Fatalf("separate weak threads share thread ID %q", emails[0].ThreadID)
+	}
+	if emails[0].ThreadCount != 2 || emails[1].ThreadCount != 2 {
+		t.Errorf("new thread counts = %d/%d, want 2/2", emails[0].ThreadCount, emails[1].ThreadCount)
+	}
+	if emails[2].ThreadCount != 2 || emails[3].ThreadCount != 2 {
+		t.Errorf("old thread counts = %d/%d, want 2/2", emails[2].ThreadCount, emails[3].ThreadCount)
+	}
+}
+
+func TestWeakThreadsDoNotMergeThroughTransitiveWindow(t *testing.T) {
+	emails := []EmailSummary{
+		{UID: 1, MessageID: "<a@example.com>", Subject: "Status", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-01-01T10:00:00Z"},
+		{UID: 2, MessageID: "<b@example.com>", Subject: "Status", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-01-10T10:00:00Z"},
+		{UID: 3, MessageID: "<c@example.com>", Subject: "Status", FromAddr: "alice@example.com", To: []string{"bob@example.com"}, Date: "2026-01-20T10:00:00Z"},
+	}
+
+	applyEmailThreads(emails)
+
+	if emails[0].ThreadID != emails[1].ThreadID {
+		t.Fatalf("A and B are within the window and should merge: %+v", emails)
+	}
+	if emails[2].ThreadID == emails[0].ThreadID {
+		t.Fatalf("C was pulled in through B; the merged span exceeds 14 days: %+v", emails)
+	}
+	if emails[0].ThreadCount != 2 || emails[2].ThreadCount != 1 {
+		t.Errorf("thread counts = %d and %d, want 2 and 1", emails[0].ThreadCount, emails[2].ThreadCount)
+	}
+}
+
 func TestListThreadEmailsReturnsOldestFirst(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	db := NewDBManager()

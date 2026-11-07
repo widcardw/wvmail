@@ -461,7 +461,7 @@ func isProxiedAssetType(mediaType string) bool {
 
 func imageProxyCacheTTL(header http.Header) time.Duration {
 	cacheControl := strings.ToLower(header.Get("Cache-Control"))
-	if strings.Contains(cacheControl, "no-store") {
+	if strings.Contains(cacheControl, "no-store") || strings.Contains(cacheControl, "no-cache") {
 		return 0
 	}
 	for _, directive := range strings.Split(cacheControl, ",") {

@@ -1,0 +1,26 @@
+.emailList {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--n-body-color);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+}
+
+.spinRow {
+  padding: 32px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--color-text-3);
+  font-size: 13px;
+}

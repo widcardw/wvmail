@@ -53,6 +53,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   const folderStatusByAccount = ref<Record<string, Record<string, FolderStatus | undefined>>>({})
   const emailsByFolder = ref<Record<string, EmailSummary[]>>({})
   const emailTotalByFolder = ref<Record<string, number>>({})
+  const threadTotalByFolder = ref<Record<string, number>>({})
   const currentPageByFolder = ref<Record<string, number>>({})
   const pageSize = 20
   const selectedAccountId = ref<string | null>(null)
@@ -109,7 +110,6 @@ export const useAccountsStore = defineStore('accounts', () => {
   const detailError = ref<string | null>(null)
   const selectedThreadId = ref<string | null>(null)
   const selectedThreadEmails = ref<EmailSummary[]>([])
-  const loadingThread = ref(false)
   /**
    * Latest detail request. Selecting another message, or refreshing the body,
    * invalidates every request that started before it so a slow IMAP fetch cannot
@@ -122,7 +122,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     threadRequestId++
     selectedThreadId.value = null
     selectedThreadEmails.value = []
-    loadingThread.value = false
+    loadingDetail.value = false
   }
 
   function detailRequestIsCurrent(
@@ -165,15 +165,14 @@ export const useAccountsStore = defineStore('accounts', () => {
   })
 
   /**
-   * The list's rows. Folder pages are collapsed by conversation; aggregate and
-   * search views keep their existing one-row-per-message shape because their
-   * rows can span accounts and folders.
+   * The list's rows. Folder pages are collapsed by conversation; aggregate,
+   * search, and tag-filtered views keep their one-row-per-message shape
+   * because their rows can span accounts/folders or are paginated by message.
    */
   const currentListRows = computed<EmailThreadRow[]>(() => {
-    if (searchStore.searchActive || smartFolder.value) {
+    if (searchStore.searchActive || smartFolder.value || tagFilterActive.value) {
       return currentEmails.value.map((email) => ({
         ...email,
-        thread_messages: [email],
         thread_count: 1,
         thread_unread: email.is_read ? 0 : 1,
       }))
@@ -187,7 +186,13 @@ export const useAccountsStore = defineStore('accounts', () => {
       return tagFilterActive.value ? smartTagFilterTotal.value : smartEmails.value.length
     }
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
-    return emailTotalByFolder.value[key] ?? 0
+    // Tag-filtered folder queries are paginated by message, like search and
+    // the aggregate views, so their row count is the message total.
+    if (tagFilterActive.value) return emailTotalByFolder.value[key] ?? 0
+    // Folder pages are collapsed by conversation, so the pager counts rows
+    // (threads), not messages. Search and aggregate views keep the message
+    // total above.
+    return threadTotalByFolder.value[key] ?? emailTotalByFolder.value[key] ?? 0
   })
 
   const currentPage = computed(() => {
@@ -539,16 +544,18 @@ export const useAccountsStore = defineStore('accounts', () => {
             page,
             page_size: ps,
           })
-        : await EmailService.ListEmails(account, folder, page, ps)
+        : await EmailService.ListThreadPage(account, folder, page, ps)
       if (!folderRequestIsCurrent(key, requestId)) return false
       const total = resp?.total ?? 0
-      const maxPages = total > 0 ? Math.ceil(total / ps) : 1
+      const rowTotal = activeTagIDs.length ? total : (resp?.thread_total ?? total)
+      const maxPages = rowTotal > 0 ? Math.ceil(rowTotal / ps) : 1
       if (page > maxPages) {
         await loadEmails(account, folder, maxPages, ps)
         return true
       }
       emailsByFolder.value[key] = resp?.emails ?? []
       emailTotalByFolder.value[key] = total
+      if (!activeTagIDs.length) threadTotalByFolder.value[key] = rowTotal
       currentPageByFolder.value[key] = page
       const fromCache = resp?.from_cache ?? false
       // A page the backend had to fetch is fresh; remember when, so the
@@ -599,23 +606,38 @@ export const useAccountsStore = defineStore('accounts', () => {
     try {
       const cur = currentPageByFolder.value[key] || 1
       const tagFiltered = mailTagFilterIDs.value.length > 0
-      const resp: EmailPageResponse | null = await EmailService.RefreshEmails(
-        account,
-        folder,
-        tagFiltered ? 1 : cur,
-        pageSize,
-      )
+      const resp: EmailPageResponse | null = tagFiltered
+        ? await EmailService.RefreshEmails(account, folder, 1, pageSize)
+        : await EmailService.RefreshThreadPage(account, folder, cur, pageSize)
       if (!folderRequestIsCurrent(key, requestId)) return
       const total = resp?.total ?? 0
-      const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
+      const rowTotal = tagFiltered ? total : (resp?.thread_total ?? total)
+      const maxPages = rowTotal > 0 ? Math.ceil(rowTotal / pageSize) : 1
       const next = Math.max(1, Math.min(cur, maxPages))
       folderFetchedAt[key] = Date.now()
       recordSnapshot(key, resp)
       if (tagFiltered) {
         await loadEmails(account, folder, cur)
+      } else if (next !== cur) {
+        // The list shrank below the page we were on; the refresh response
+        // belongs to the old page, so load the clamped page instead of showing
+        // an empty list under a corrected page number.
+        const clamped: EmailPageResponse | null = await EmailService.ListThreadPage(
+          account,
+          folder,
+          next,
+          pageSize,
+        )
+        if (!folderRequestIsCurrent(key, requestId)) return
+        emailsByFolder.value[key] = clamped?.emails ?? []
+        emailTotalByFolder.value[key] = clamped?.total ?? 0
+        threadTotalByFolder.value[key] = clamped?.thread_total ?? clamped?.total ?? 0
+        currentPageByFolder.value[key] = next
+        recordSnapshot(key, clamped)
       } else {
         emailsByFolder.value[key] = resp?.emails ?? []
         emailTotalByFolder.value[key] = total
+        threadTotalByFolder.value[key] = rowTotal
         currentPageByFolder.value[key] = next
       }
       if (announce) feedback.success(i18n.value['mail.refreshed'])
@@ -694,7 +716,7 @@ export const useAccountsStore = defineStore('accounts', () => {
           const key = `${account.ID}:${folder}`
           const want = currentPageByFolder.value[key] || 1
           const requestId = beginFolderRequest(key)
-          EmailService.ListEmails(account, folder, want, pageSize)
+          EmailService.ListThreadPage(account, folder, want, pageSize)
             .then(async (resp: EmailPageResponse | null) => {
               if (!folderRequestIsCurrent(key, requestId)) return
               // The sync just fetched this folder on the server, so a click on it
@@ -708,18 +730,21 @@ export const useAccountsStore = defineStore('accounts', () => {
                 return
               }
               const total = resp?.total ?? 0
-              const maxPages = total > 0 ? Math.ceil(total / pageSize) : 1
+              const rowTotal = resp?.thread_total ?? total
+              const maxPages = rowTotal > 0 ? Math.ceil(rowTotal / pageSize) : 1
               const page = Math.min(Math.max(1, want), maxPages)
               if (page === want) {
                 emailsByFolder.value[key] = resp?.emails ?? []
                 emailTotalByFolder.value[key] = total
+                threadTotalByFolder.value[key] = rowTotal
                 currentPageByFolder.value[key] = page
               } else {
                 // our page is now beyond the last page (list shrank) -> show last page
-                return EmailService.ListEmails(account, folder, page, pageSize).then((p2) => {
+                return EmailService.ListThreadPage(account, folder, page, pageSize).then((p2) => {
                   if (!folderRequestIsCurrent(key, requestId)) return
                   emailsByFolder.value[key] = p2?.emails ?? []
                   emailTotalByFolder.value[key] = p2?.total ?? 0
+                  threadTotalByFolder.value[key] = p2?.thread_total ?? p2?.total ?? 0
                   currentPageByFolder.value[key] = page
                   recordSnapshot(key, p2)
                 })
@@ -777,9 +802,18 @@ export const useAccountsStore = defineStore('accounts', () => {
     preferredUid?: number,
   ) {
     const requestId = ++threadRequestId
+    // The previous message's FetchEmail may still be in flight. Invalidate it
+    // now, before the thread lookup, so its detail cannot land on the thread we
+    // are about to open.
+    detailRequestId++
     selectedThreadId.value = threadId
     selectedThreadEmails.value = []
-    loadingThread.value = true
+    selectedEmailUid.value = preferredUid ?? null
+    selectedEmailAccountId.value = account.ID
+    selectedEmailFolder.value = folder
+    selectedEmailDetail.value = null
+    loadingDetail.value = true
+    detailError.value = null
     try {
       const rows = await EmailService.ListThreadEmails(account, folder, threadId)
       if (requestId !== threadRequestId || selectedThreadId.value !== threadId) return
@@ -791,14 +825,15 @@ export const useAccountsStore = defineStore('accounts', () => {
         await loadEmailDetail(account, folder, target.uid)
       } else if (preferredUid != null) {
         await loadEmailDetail(account, folder, preferredUid)
+      } else if (requestId === threadRequestId) {
+        loadingDetail.value = false
       }
     } catch (e) {
       if (requestId === threadRequestId) {
         detailError.value = String(e)
+        loadingDetail.value = false
         console.error('Failed to load the conversation', e)
       }
-    } finally {
-      if (requestId === threadRequestId) loadingThread.value = false
     }
   }
 
@@ -820,9 +855,24 @@ export const useAccountsStore = defineStore('accounts', () => {
       (email) =>
         email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
     )
-    const touched = [
+    const searchSummary = searchStore.searchResults.find(
+      (email) =>
+        email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
+    )
+    const uniqueObjects = (items: (EmailSummary | undefined)[]): EmailSummary[] => {
+      const seen = new Set<EmailSummary>()
+      const out: EmailSummary[] = []
+      for (const item of items) {
+        if (!item || seen.has(item)) continue
+        seen.add(item)
+        out.push(item)
+      }
+      return out
+    }
+    const touched = uniqueObjects([
       folderSummary,
       threadSummary,
+      searchSummary,
       ...smartEmails.value.filter(
         (email) =>
           email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
@@ -831,20 +881,24 @@ export const useAccountsStore = defineStore('accounts', () => {
         (email) =>
           email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
       ),
-    ].filter((summary): summary is EmailSummary => Boolean(summary))
-    if (touched.length > 0 && touched.every((summary) => summary.is_read)) return
-    const threadID = folderSummary?.thread_id ?? threadSummary?.thread_id
+    ])
+    const wasUnread = touched.some((summary) => !summary.is_read)
+    if (touched.length > 0 && !wasUnread) return
+    const threadID = touched.find((summary) => summary.thread_id)?.thread_id
     const threadRows = threadID
-      ? [
-          ...(emailsByFolder.value[`${account.ID}:${folder}`] ?? []),
-          ...smartEmails.value,
-          ...smartTagFilterEmails.value,
-          ...selectedThreadEmails.value,
-        ].filter(
-          (email) =>
-            email.thread_id === threadID &&
-            (email.account_id == null || email.account_id === account.ID) &&
-            (email.folder_name == null || email.folder_name === folder),
+      ? uniqueObjects(
+          [
+            ...(emailsByFolder.value[`${account.ID}:${folder}`] ?? []),
+            ...smartEmails.value,
+            ...smartTagFilterEmails.value,
+            ...selectedThreadEmails.value,
+            ...searchStore.searchResults,
+          ].filter(
+            (email) =>
+              email.thread_id === threadID &&
+              (email.account_id == null || email.account_id === account.ID) &&
+              (email.folder_name == null || email.folder_name === folder),
+          ),
         )
       : []
     const previousRead = touched.map((summary) => summary.is_read)
@@ -853,15 +907,14 @@ export const useAccountsStore = defineStore('accounts', () => {
     for (const summary of threadRows) {
       summary.thread_unread = Math.max(0, (summary.thread_unread ?? 0) - 1)
     }
-    // Adjust the badge only when the message came from the loaded page: a search or
-    // aggregate hit is not in `emailsByFolder` at all, so its read state is unknown and
-    // guessing would take a count off a folder that may never have had it. The next
-    // throttled refresh settles it.
-    const knownUnread = folderSummary !== undefined
-    if (knownUnread) adjustUnread(account.ID, folder, -1)
+    // The row itself carries the read state, so a search or aggregate hit can
+    // safely move the folder badge too; only the earlier "always -1" guess was
+    // unsafe. When no view holds the row we leave the badge to the next STATUS.
+    if (wasUnread) adjustUnread(account.ID, folder, -1)
     try {
       await EmailService.MarkEmailRead(account, folder, uid)
       tagsStore.setEmailRead(account.ID, folder, uid)
+      searchStore.markRead(account.ID, folder, uid)
     } catch (e) {
       touched.forEach((summary, index) => {
         summary.is_read = previousRead[index]
@@ -869,7 +922,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       threadRows.forEach((summary, index) => {
         summary.thread_unread = previousThreadUnread[index]
       })
-      if (knownUnread) adjustUnread(account.ID, folder, 1)
+      if (wasUnread) adjustUnread(account.ID, folder, 1)
       console.error('Failed to mark email as read', e)
     }
   }
@@ -895,10 +948,13 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   async function downloadAttachment(attachment: AttachmentInfo): Promise<string | null> {
-    const account = selectedAccount.value
-    const folder = selectedFolder.value
+    // The reading pane can show a search or aggregate hit whose account/folder
+    // is not the one selected in the sidebar. Always download from the message's
+    // own source mailbox.
+    const account = selectedEmailAccount.value
+    const folder = selectedEmailFolder.value
     const uid = selectedEmailUid.value
-    if (!account || !folder || !uid) {
+    if (!account || !folder || uid == null) {
       detailError.value = i18n.value['mail.noEmailSelected']
       return null
     }
@@ -1108,6 +1164,9 @@ export const useAccountsStore = defineStore('accounts', () => {
       }
       if (emailTotalByFolder.value[folderKey] != null) {
         emailTotalByFolder.value[folderKey] = Math.max(0, emailTotalByFolder.value[folderKey] - 1)
+      }
+      if ((row?.thread_count ?? 1) <= 1 && threadTotalByFolder.value[folderKey] != null) {
+        threadTotalByFolder.value[folderKey] = Math.max(0, threadTotalByFolder.value[folderKey] - 1)
       }
       smartEmails.value = smartEmails.value.filter(
         (email) =>
@@ -1497,7 +1556,6 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailDetail,
     selectedThreadId,
     selectedThreadEmails,
-    loadingThread,
     loadingDetail,
     detailError,
     selectedAccount,

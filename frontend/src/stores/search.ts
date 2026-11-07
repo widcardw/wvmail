@@ -87,6 +87,15 @@ export const useSearchStore = defineStore('search', () => {
     if (row) row.flags = withMailFlag(row.flags, flag, enabled)
   }
 
+  /** Keep search rows in step with a message the reading pane marked read. */
+  function markRead(accountId: string, folder: string, uid: number) {
+    const row = searchResults.value.find(
+      (email) =>
+        email.account_id === accountId && email.folder_name === folder && email.uid === uid,
+    )
+    if (row) row.is_read = true
+  }
+
   /** Drop a deleted message from the current result page and its total. */
   function removeEmail(accountId: string, folder: string, uid: number) {
     const before = searchResults.value.length
@@ -138,6 +147,7 @@ export const useSearchStore = defineStore('search', () => {
     searchEmails,
     clearSearch,
     setFlag,
+    markRead,
     removeEmail,
     goToPage,
   }

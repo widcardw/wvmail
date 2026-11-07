@@ -1,9 +1,6 @@
 import type { EmailSummary } from '~/types/email'
 
-export interface EmailThreadRow extends EmailSummary {
-  /** Rows on the loaded page that belong to this thread, newest first. */
-  thread_messages: EmailSummary[]
-}
+export type EmailThreadRow = EmailSummary
 
 /**
  * Collapse the loaded rows into one list row per conversation.
@@ -36,7 +33,6 @@ export function groupEmailThreads(emails: EmailSummary[]): EmailThreadRow[] {
     const visibleUnread = messages.filter((email) => !email.is_read).length
     return {
       ...lead,
-      thread_messages: messages,
       thread_count: Math.max(lead.thread_count ?? 0, messages.length),
       thread_unread: Math.max(lead.thread_unread ?? 0, visibleUnread),
     }

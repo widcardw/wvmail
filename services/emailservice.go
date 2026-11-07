@@ -183,6 +183,12 @@ type FolderInfo struct {
 type EmailPageResponse struct {
 	Emails []EmailSummary `json:"emails"`
 	Total  int            `json:"total"` // total number of messages in the folder
+	// ThreadTotal is the number of conversation rows known for the folder. It is
+	// only filled by ListThreadPage / RefreshThreadPage; the message-oriented
+	// endpoints leave it at zero so callers can keep treating Total as the row
+	// count. The frontend uses it for folder pagination, where one row is one
+	// conversation rather than one message.
+	ThreadTotal int `json:"thread_total"`
 	// FromCache tells the caller whether this page came from the local cache
 	// without talking to the server. The frontend uses it to decide whether a
 	// folder it just opened still needs revalidating (see openFolder in
@@ -247,10 +253,66 @@ func (s *EmailService) RefreshEmails(account EmailAccount, folder string, page, 
 // opening a second one for every arriving message (which is exactly the
 // connection pressure IDLE is meant to remove).
 func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAccount, folder string, page, pageSize int) (*EmailPageResponse, error) {
+	fetched, err := s.fetchAndCacheMessagePage(client, account, folder, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	if fetched.Total == 0 {
+		return &EmailPageResponse{Emails: []EmailSummary{}, Total: 0, UIDNext: fetched.UIDNext}, nil
+	}
+
+	// The IMAP request above only fetched the requested page. Return the page
+	// from the merged cache for page 1, so callers get newly fetched messages
+	// and previously cached older messages in one response. For later pages,
+	// keep returning the IMAP page unless the cache has enough rows to rebuild
+	// that page completely.
+	responseEmails := fetched.Emails
+	if cached, cacheErr := s.db.LoadEmails(account.ID, folder); cacheErr == nil && len(cached) > 0 {
+		// SaveEmails intentionally upserts instead of replacing the folder, so
+		// messages deleted in another client would otherwise stay in the cache
+		// forever. Check only the cached UIDs: the cache is much smaller than a
+		// large mailbox and this keeps reconciliation proportional to it.
+		if pruned, pruneErr := s.pruneStaleCachedEmails(client, account, folder, cached); pruneErr != nil {
+			slog.Warn("cache: failed to prune stale emails",
+				"account", account, "folder", folder, "error", pruneErr)
+		} else {
+			cached = pruned
+		}
+		if page <= 1 || cacheCoversPage(page, pageSize, fetched.Total, len(cached)) {
+			responseEmails = paginateSlices(cached, page, pageSize)
+		}
+	}
+
+	return &EmailPageResponse{
+		Emails:  responseEmails,
+		Total:   fetched.Total,
+		UIDNext: fetched.UIDNext,
+	}, nil
+}
+
+// messagePageFetch is one IMAP page that has already been merged into the local
+// cache. It is shared by the message-oriented and conversation-oriented list
+// paths so both fetch envelopes, threading headers, and flags the same way.
+type messagePageFetch struct {
+	Emails  []EmailSummary
+	Total   int
+	UIDNext uint32
+}
+
+// fetchAndCacheMessagePage selects the mailbox, fetches one message page, and
+// stores it in the cache. It deliberately does not prune stale rows or rebuild
+// a page from the merged cache; those are caller decisions (see fetchEmailsOn
+// and the conversation pager).
+func (s *EmailService) fetchAndCacheMessagePage(
+	client *imapclient.Client,
+	account EmailAccount,
+	folder string,
+	page, pageSize int,
+) (messagePageFetch, error) {
 	// Select the mailbox (read-only)
 	mbox, err := selectMailbox(client, folder, true)
 	if err != nil {
-		return nil, err
+		return messagePageFetch{}, err
 	}
 
 	// A successful SELECT reports NumMessages for the mailbox. QQ/Foxmail IMAP can
@@ -273,12 +335,12 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 
 	if mbox.NumMessages == 0 {
 		if priorTotal > 0 {
-			return nil, fmt.Errorf(
+			return messagePageFetch{}, fmt.Errorf(
 				"refresh reported 0 messages in %q while %d were cached — keeping previous list",
 				folder, priorTotal,
 			)
 		}
-		return &EmailPageResponse{Emails: []EmailSummary{}, Total: 0, UIDNext: uint32(mbox.UIDNext)}, nil
+		return messagePageFetch{Emails: []EmailSummary{}, Total: 0, UIDNext: uint32(mbox.UIDNext)}, nil
 	}
 
 	// Calculate the range for pagination
@@ -290,7 +352,7 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		end = 1
 	}
 	if start < 1 {
-		return &EmailPageResponse{Emails: []EmailSummary{}, Total: total, UIDNext: uint32(mbox.UIDNext)}, nil
+		return messagePageFetch{Emails: []EmailSummary{}, Total: total, UIDNext: uint32(mbox.UIDNext)}, nil
 	}
 
 	var seqSet imap.SeqSet
@@ -324,7 +386,7 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 		})
 		buffers, err = fetchCmd.Collect()
 		if err != nil {
-			return nil, fmt.Errorf("fetch failed (even without envelope): %w", err)
+			return messagePageFetch{}, fmt.Errorf("fetch failed (even without envelope): %w", err)
 		}
 	}
 	defer fetchCmd.Close()
@@ -371,31 +433,8 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
 		slog.Warn("cache: failed to cache emails", "account", account, "folder", folder, "error", err)
 	}
-
-	// The IMAP request above only fetched the requested page. Return the page
-	// from the merged cache for page 1, so callers get newly fetched messages
-	// and previously cached older messages in one response. For later pages,
-	// keep returning the IMAP page unless the cache has enough rows to rebuild
-	// that page completely.
-	responseEmails := summaries
-	if cached, cacheErr := s.db.LoadEmails(account.ID, folder); cacheErr == nil && len(cached) > 0 {
-		// SaveEmails intentionally upserts instead of replacing the folder, so
-		// messages deleted in another client would otherwise stay in the cache
-		// forever. Check only the cached UIDs: the cache is much smaller than a
-		// large mailbox and this keeps reconciliation proportional to it.
-		if pruned, pruneErr := s.pruneStaleCachedEmails(client, account, folder, cached); pruneErr != nil {
-			slog.Warn("cache: failed to prune stale emails",
-				"account", account, "folder", folder, "error", pruneErr)
-		} else {
-			cached = pruned
-		}
-		if page <= 1 || cacheCoversPage(page, pageSize, total, len(cached)) {
-			responseEmails = paginateSlices(cached, page, pageSize)
-		}
-	}
-
-	return &EmailPageResponse{
-		Emails:  responseEmails,
+	return messagePageFetch{
+		Emails:  summaries,
 		Total:   total,
 		UIDNext: uint32(mbox.UIDNext),
 	}, nil

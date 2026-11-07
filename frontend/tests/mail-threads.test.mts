@@ -44,7 +44,6 @@ function mail(uid: number, overrides: Partial<EmailSummary> = {}): EmailSummary 
   check('keeps the newest message as the row lead', rows[0]?.uid === 3)
   check('keeps the backend thread count', rows[0]?.thread_count === 3)
   check('keeps the backend unread count', rows[0]?.thread_unread === 1)
-  check('keeps both visible members for selection', rows[0]?.thread_messages.length === 2)
 }
 
 {

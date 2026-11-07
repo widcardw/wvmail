@@ -296,7 +296,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
 </script>
 
 <template>
-  <div class="side space-y-1px">
+  <div class="side">
     <div v-if="preferences.collapseSidebarSmartFolders" class="compact-nav compact-nav--top">
       <UiIconAction
         v-for="row in smartRows"
@@ -406,7 +406,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
 
     <div v-if="!preferences.collapseSidebarUtilities" class="divider" />
 
-    <div class="util space-y-1px">
+    <div class="util">
       <div v-if="preferences.collapseSidebarUtilities" class="compact-nav compact-nav--bottom">
         <UiIconAction
           v-for="row in utilRows"
@@ -438,11 +438,13 @@ watch(() => router.currentRoute.value.path, syncSelected)
 
 <style scoped>
 .side {
+  --sidebar-gutter: 6px;
   display: flex;
   flex-direction: column;
+  gap: 1px;
   height: 100%;
   overflow: hidden;
-  padding: 6px;
+  padding: var(--sidebar-gutter);
 }
 
 .row {
@@ -479,11 +481,11 @@ watch(() => router.currentRoute.value.path, syncSelected)
   padding: 0 8px;
 }
 .compact-nav--top {
-  margin: -6px -6px 4px;
+  margin: calc(var(--sidebar-gutter) * -1) calc(var(--sidebar-gutter) * -1) 4px;
   border-bottom: 1px solid var(--n-border-color);
 }
 .compact-nav--bottom {
-  margin: 4px -6px -6px;
+  margin: 4px calc(var(--sidebar-gutter) * -1) calc(var(--sidebar-gutter) * -1);
   border-top: 1px solid var(--n-border-color);
 }
 .compact-nav :deep(.detail-action) {
@@ -493,10 +495,10 @@ watch(() => router.currentRoute.value.path, syncSelected)
   border-radius: 5px;
 }
 
-.side.space-y-1px > .divider {
+.divider {
   height: 1px;
-  margin-block: 6px;
-  margin-inline: -6px;
+  margin-block: var(--sidebar-gutter);
+  margin-inline: calc(var(--sidebar-gutter) * -1);
   background: var(--n-border-color);
   opacity: 0.7;
 }
@@ -504,10 +506,16 @@ watch(() => router.currentRoute.value.path, syncSelected)
 .tree-wrap {
   flex: 1;
   min-height: 0;
-  margin-right: -6px;
+  margin-right: calc(var(--sidebar-gutter) * -1);
 }
 .tree-wrap :deep(.scroll-area__content) {
-  padding-right: 6px;
+  padding-right: var(--sidebar-gutter);
+}
+
+.util {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .empty {
