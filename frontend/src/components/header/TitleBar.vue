@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Menu } from '@ark-ui/vue/menu'
+import { useRouter } from 'vue-router'
 import { ComposeService, OsService } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
 import { useThemeStore, type ThemeMode } from '~/stores/theme'
@@ -10,9 +11,31 @@ import SearchBar from './SearchBar.vue'
 import ConnectionStatus from '~/components/icon/ConnectionStatus.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 const themeStore = useThemeStore()
 const accountsStore = useAccountsStore()
 const feedback = useFeedbackStore()
+
+const historyTick = ref(0)
+let stopAfterEach: (() => void) | undefined
+
+const canGoBack = computed(() => {
+  void historyTick.value
+  return Boolean(router.options.history.state.back)
+})
+
+const canGoForward = computed(() => {
+  void historyTick.value
+  return Boolean(router.options.history.state.forward)
+})
+
+function goBack() {
+  router.back()
+}
+
+function goForward() {
+  router.forward()
+}
 
 const themeMode = computed<ThemeMode>({
   get: () => themeStore.mode,
@@ -38,6 +61,13 @@ onMounted(() => {
   OsService.GetOs().then((os: string) => {
     if (os === 'darwin') lm.value = 80
   })
+  stopAfterEach = router.afterEach(() => {
+    historyTick.value++
+  })
+})
+
+onUnmounted(() => {
+  stopAfterEach?.()
 })
 
 async function openCompose() {
@@ -65,6 +95,28 @@ async function openCompose() {
   <div class="titlebar">
     <div class="titlebar-left">
       <span class="brand" :style="{ marginLeft: `${lm}px` }">{{ t['app.brand'] }}</span>
+      <div class="titlebar-nav">
+        <button
+          type="button"
+          class="icon-btn"
+          :disabled="!canGoBack"
+          :title="t['app.back']"
+          :aria-label="t['app.back']"
+          @click="goBack"
+        >
+          <i class="i-ri:arrow-left-line" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="icon-btn"
+          :disabled="!canGoForward"
+          :title="t['app.forward']"
+          :aria-label="t['app.forward']"
+          @click="goForward"
+        >
+          <i class="i-ri:arrow-right-line" aria-hidden="true" />
+        </button>
+      </div>
     </div>
 
     <div class="titlebar-center">
@@ -117,7 +169,8 @@ async function openCompose() {
 
 <style scoped>
 .titlebar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, 620px) minmax(min-content, 1fr);
   align-items: center;
   height: 40px;
   padding: 0 12px;
@@ -136,16 +189,28 @@ async function openCompose() {
   white-space: nowrap;
 }
 
+.titlebar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.titlebar-nav .icon-btn:disabled:hover {
+  background: transparent;
+}
+
 .titlebar-center {
-  flex: 1;
   display: flex;
   justify-content: center;
+  min-width: 0;
 }
 
 .titlebar-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-self: end;
 }
 
 /* Base geometry comes from the shared .icon-btn (styles/ui.css); only the deltas

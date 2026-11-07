@@ -8,6 +8,8 @@ const enUS: TranslationSchema = {
   'quitApp.confirm': 'Quit',
   'quitApp.failed': 'Quit failed, please try again',
   'app.brand': 'wvmail',
+  'app.back': 'Back',
+  'app.forward': 'Forward',
   'search.placeholder': 'Search emails...',
   'search.from': 'From',
   'search.to': 'To',

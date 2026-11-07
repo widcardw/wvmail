@@ -10,6 +10,8 @@ export interface TranslationSchema {
   'quitApp.confirm': string
   'quitApp.failed': string
   'app.brand': string
+  'app.back': string
+  'app.forward': string
   'search.placeholder': string
   'search.from': string
   'search.to': string

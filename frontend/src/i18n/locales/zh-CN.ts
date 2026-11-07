@@ -7,6 +7,8 @@ const zhCN: TranslationSchema = {
   'quitApp.confirm': '退出',
   'quitApp.failed': '退出失败，请重试',
   'app.brand': 'wvmail',
+  'app.back': '后退',
+  'app.forward': '前进',
   'search.placeholder': '搜索邮件...',
   'search.from': '发件人',
   'search.to': '收件人',
