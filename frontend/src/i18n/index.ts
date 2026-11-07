@@ -312,6 +312,8 @@ export interface TranslationSchema {
   'settings.accounts.edit': string
   'settings.accounts.name': string
   'settings.accounts.alias': string
+  'settings.accounts.sender_name': string
+  'settings.accounts.sender_name_hint': string
   'settings.accounts.email': string
   'settings.accounts.provider': string
   'settings.accounts.imap_host': string
@@ -384,6 +386,7 @@ export interface TranslationSchema {
   'settings.accounts.crop_image_alt': string
   'settings.accounts.imap_warning': string
   'settings.accounts.placeholder_name': string
+  'settings.accounts.placeholder_sender_name': string
   'settings.accounts.placeholder_email': string
   'settings.accounts.placeholder_imap_host': string
   'settings.accounts.placeholder_smtp_host': string

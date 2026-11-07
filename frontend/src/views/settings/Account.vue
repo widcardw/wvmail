@@ -46,6 +46,7 @@ const avatarPreviewUrl = ref<string | null>(null)
 const emptyForm = (): EmailAccount => ({
   ID: '',
   Name: '',
+  SenderName: '',
   Email: '',
   Provider: 'gmail',
   IMAPHost: '',

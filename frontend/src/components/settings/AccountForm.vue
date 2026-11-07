@@ -346,6 +346,18 @@ function onEmailInput(email: string) {
             @update:model-value="form.Name = String($event)"
           />
         </Field.Root>
+        <Field.Root class="frow frow--stacked">
+          <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
+          <Field.Input
+            class="input"
+            :model-value="form.SenderName"
+            :placeholder="t['settings.accounts.placeholder_sender_name']"
+            @update:model-value="form.SenderName = String($event)"
+          />
+          <Field.HelperText class="frow-hint">
+            {{ t['settings.accounts.sender_name_hint'] }}
+          </Field.HelperText>
+        </Field.Root>
         <Field.Root class="frow">
           <Field.Label class="flabel">{{ t['settings.accounts.provider'] }}</Field.Label>
           <UiSelect
@@ -450,6 +462,18 @@ function onEmailInput(email: string) {
             :placeholder="t['settings.accounts.placeholder_name']"
             @update:model-value="form.Name = String($event)"
           />
+        </Field.Root>
+        <Field.Root class="frow frow--stacked">
+          <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
+          <Field.Input
+            class="input"
+            :model-value="form.SenderName"
+            :placeholder="t['settings.accounts.placeholder_sender_name']"
+            @update:model-value="form.SenderName = String($event)"
+          />
+          <Field.HelperText class="frow-hint">
+            {{ t['settings.accounts.sender_name_hint'] }}
+          </Field.HelperText>
         </Field.Root>
         <Field.Root class="frow">
           <Field.Label class="flabel">{{ t['settings.accounts.oauth.provider'] }}</Field.Label>

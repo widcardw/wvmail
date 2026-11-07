@@ -10,7 +10,11 @@ import (
 )
 
 func TestBuildEmailMessageMultipart(t *testing.T) {
-	account := EmailAccount{Name: "测试发件人", Email: "sender@example.com"}
+	account := EmailAccount{
+		Name:       "侧边栏别名",
+		SenderName: "测试发件人",
+		Email:      "sender@example.com",
+	}
 	req := SendEmailRequest{
 		To:      []EmailAddress{{Name: "收件人", Address: "to@example.com"}},
 		Cc:      []EmailAddress{{Address: "cc@example.com"}},
@@ -50,6 +54,13 @@ func TestBuildEmailMessageMultipart(t *testing.T) {
 	if subject, err := reader.Header.Subject(); err != nil || subject != req.Subject {
 		t.Fatalf("Subject = %q, %v; want %q", subject, err, req.Subject)
 	}
+	from, err := reader.Header.AddressList("From")
+	if err != nil {
+		t.Fatalf("From header error = %v", err)
+	}
+	if len(from) != 1 || from[0].Name != account.SenderName || from[0].Address != account.Email {
+		t.Fatalf("From = %#v; want sender name %q at %q", from, account.SenderName, account.Email)
+	}
 
 	var sawPlain, sawHTML, sawInline, sawAttachment bool
 	for {
@@ -80,6 +91,35 @@ func TestBuildEmailMessageMultipart(t *testing.T) {
 	}
 	if !sawPlain || !sawHTML || !sawInline || !sawAttachment {
 		t.Fatalf("parts: plain=%v html=%v inline=%v attachment=%v", sawPlain, sawHTML, sawInline, sawAttachment)
+	}
+}
+
+func TestBuildEmailMessageDoesNotUseAccountAliasAsSenderName(t *testing.T) {
+	built, err := buildEmailMessage(
+		EmailAccount{Name: "工作邮箱", Email: "sender@example.com"},
+		SendEmailRequest{
+			To:      []EmailAddress{{Address: "to@example.com"}},
+			Subject: "alias",
+			Text:    "hello",
+		},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("buildEmailMessage() error = %v", err)
+	}
+
+	reader, err := gomail.CreateReader(bytes.NewReader(built.raw))
+	if err != nil {
+		t.Fatalf("CreateReader() error = %v", err)
+	}
+	defer reader.Close()
+	from, err := reader.Header.AddressList("From")
+	if err != nil {
+		t.Fatalf("From header error = %v", err)
+	}
+	if len(from) != 1 || from[0].Name != "" || from[0].Address != "sender@example.com" {
+		t.Fatalf("From = %#v; want a bare sender address", from)
 	}
 }
 

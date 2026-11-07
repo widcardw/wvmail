@@ -319,7 +319,9 @@ const zhCN: TranslationSchema = {
   'settings.accounts.add': '添加账户',
   'settings.accounts.edit': '编辑账户',
   'settings.accounts.name': '账户名称',
-  'settings.accounts.alias': '别名',
+  'settings.accounts.alias': '侧边栏显示名',
+  'settings.accounts.sender_name': '发件人名称',
+  'settings.accounts.sender_name_hint': '收件人看到的发件人显示名；留空则只显示邮箱地址。',
   'settings.accounts.email': '邮箱地址',
   'settings.accounts.provider': '提供商',
   'settings.accounts.imap_host': 'IMAP 服务器',
@@ -399,6 +401,7 @@ const zhCN: TranslationSchema = {
   'settings.accounts.imap_warning':
     '163 邮箱对第三方客户端有严格限制，即使使用授权码也可能连接失败。如果无法使用，建议改用官方客户端或 Foxmail。',
   'settings.accounts.placeholder_name': '我的邮箱',
+  'settings.accounts.placeholder_sender_name': '例如：张三',
   'settings.accounts.placeholder_email': 'user@example.com',
   'settings.accounts.placeholder_imap_host': 'imap.example.com',
   'settings.accounts.placeholder_smtp_host': 'smtp.example.com',

@@ -330,7 +330,10 @@ const enUS: TranslationSchema = {
   'settings.accounts.add': 'Add Account',
   'settings.accounts.edit': 'Edit Account',
   'settings.accounts.name': 'Account Name',
-  'settings.accounts.alias': 'Alias',
+  'settings.accounts.alias': 'Sidebar Alias',
+  'settings.accounts.sender_name': 'Sender Name',
+  'settings.accounts.sender_name_hint':
+    'The display name recipients see in the From header. Leave empty to send only your email address.',
   'settings.accounts.email': 'Email Address',
   'settings.accounts.provider': 'Provider',
   'settings.accounts.imap_host': 'IMAP Server',
@@ -413,6 +416,7 @@ const enUS: TranslationSchema = {
   'settings.accounts.imap_warning':
     '163 mail has strict requirements for third-party clients. Even with an authorization code, the connection may fail. If it does not work, try the official client or Foxmail.',
   'settings.accounts.placeholder_name': 'My Email',
+  'settings.accounts.placeholder_sender_name': 'e.g. Jane Doe',
   'settings.accounts.placeholder_email': 'user@example.com',
   'settings.accounts.placeholder_imap_host': 'imap.example.com',
   'settings.accounts.placeholder_smtp_host': 'smtp.example.com',

@@ -117,10 +117,14 @@ type LLMConfig struct {
 
 // EmailAccount represents an email account configuration.
 type EmailAccount struct {
-	ID       string `yaml:"id"`
-	Name     string `yaml:"name"`
-	Email    string `yaml:"email"`
-	Provider string `yaml:"provider"` // gmail, outlook, 163, qq, custom, etc.
+	ID   string `yaml:"id"`
+	Name string `yaml:"name"` // sidebar label; never written to the From header
+	// SenderName is the display name recipients see in the From header. It is
+	// deliberately separate from Name: Name is a local account label, and using
+	// it as the sender name leaks labels such as "Work" or "Personal" to mail.
+	SenderName string `yaml:"sender_name,omitempty"`
+	Email      string `yaml:"email"`
+	Provider   string `yaml:"provider"` // gmail, outlook, 163, qq, custom, etc.
 	// IMAP settings
 	IMAPHost string `yaml:"imap_host"`
 	IMAPPort int    `yaml:"imap_port"`

@@ -32,7 +32,7 @@ type builtEmail struct {
 }
 
 func buildEmailMessage(account EmailAccount, req SendEmailRequest, attachments, inlineImages []preparedAttachment) (builtEmail, error) {
-	from, err := mailAddress(account.Name, account.Email)
+	from, err := mailAddress(account.SenderName, account.Email)
 	if err != nil {
 		return builtEmail{}, fmt.Errorf("invalid sender address: %w", err)
 	}
