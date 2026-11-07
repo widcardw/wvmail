@@ -6,6 +6,7 @@ import { Field } from '@ark-ui/vue/field'
 import UiColorPicker from './UiColorPicker.vue'
 import UiDialog from './UiDialog.vue'
 import UiDialogHeader from './UiDialogHeader.vue'
+import UiTooltip from './UiTooltip.vue'
 
 const props = defineProps<{
   editor: Editor | ShallowRef<Editor | undefined> | undefined
@@ -136,15 +137,17 @@ onBeforeUnmount(() => {
       @select="setBackgroundColor"
       @reset="unsetBackgroundColor"
     />
-    <button
-      type="button"
-      class="tb"
-      :class="{ active: linkActive }"
-      :title="linkLabel"
-      @click="openLinkDialog"
-    >
-      <i class="i-ri:link" aria-hidden="true" />
-    </button>
+    <UiTooltip :label="linkLabel">
+      <button
+        type="button"
+        class="tb"
+        :class="{ active: linkActive }"
+        :aria-label="linkLabel"
+        @click="openLinkDialog"
+      >
+        <i class="i-ri:link" aria-hidden="true" />
+      </button>
+    </UiTooltip>
   </span>
 
   <UiDialog :open="linkOpen" size="narrow" @update:open="linkOpen = $event">

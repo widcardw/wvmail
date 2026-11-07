@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Popover } from '@ark-ui/vue/popover'
+import UiTooltip from './UiTooltip.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -66,22 +67,23 @@ function onCustomColor(event: Event) {
     lazy-mount
     unmount-on-exit
   >
-    <Popover.Trigger
-      class="color-tb"
-      :class="[`color-tb--${variant}`, { active: value }]"
-      :title="label"
-      :aria-label="label"
-    >
-      <template v-if="variant === 'toolbar'">
-        <i :class="icon" aria-hidden="true" />
-        <span class="color-strip" :style="{ backgroundColor: normalizedValue }" />
-      </template>
-      <template v-else>
-        <span class="color-field-swatch" :style="{ backgroundColor: normalizedValue }" />
-        <span class="color-field-value">{{ normalizedValue }}</span>
-        <i class="i-ri:arrow-down-s-line color-field-chevron" aria-hidden="true" />
-      </template>
-    </Popover.Trigger>
+    <UiTooltip :label="label">
+      <Popover.Trigger
+        class="color-tb"
+        :class="[`color-tb--${variant}`, { active: value }]"
+        :aria-label="label"
+      >
+        <template v-if="variant === 'toolbar'">
+          <i :class="icon" aria-hidden="true" />
+          <span class="color-strip" :style="{ backgroundColor: normalizedValue }" />
+        </template>
+        <template v-else>
+          <span class="color-field-swatch" :style="{ backgroundColor: normalizedValue }" />
+          <span class="color-field-value">{{ normalizedValue }}</span>
+          <i class="i-ri:arrow-down-s-line color-field-chevron" aria-hidden="true" />
+        </template>
+      </Popover.Trigger>
+    </UiTooltip>
     <Teleport to="body">
       <Popover.Positioner class="color-positioner">
         <Popover.Content class="color-content">

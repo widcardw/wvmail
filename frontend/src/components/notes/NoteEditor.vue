@@ -10,6 +10,7 @@ import { useFeedbackStore } from '~/stores/feedback'
 import { extractNoteTitle } from '~/composables/note-text'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import UiRichTextToolbar from '~/components/ui/UiRichTextToolbar.vue'
+import UiTooltip from '~/components/ui/UiTooltip.vue'
 import type { Note } from '~/stores/notes'
 import { ComposeService } from '#/wvmail/services'
 
@@ -149,54 +150,66 @@ defineExpose({ flush, discard, restore })
 <template>
   <div class="notes-editor">
     <div class="editor-toolbar">
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('bold') }"
-        :title="t['notes.bold']"
-        @click="editor?.chain().focus().toggleBold().run()"
-      >
-        <i class="i-ri:bold" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('italic') }"
-        :title="t['notes.italic']"
-        @click="editor?.chain().focus().toggleItalic().run()"
-      >
-        <i class="i-ri:italic" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('underline') }"
-        :title="t['compose.underline']"
-        @click="editor?.chain().focus().toggleUnderline().run()"
-      >
-        <i class="i-ri:underline" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('strike') }"
-        :title="t['notes.strike']"
-        @click="editor?.chain().focus().toggleStrike().run()"
-      >
-        <i class="i-ri:strikethrough" aria-hidden="true" />
-      </button>
+      <UiTooltip :label="t['notes.bold']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('bold') }"
+          :aria-label="t['notes.bold']"
+          @click="editor?.chain().focus().toggleBold().run()"
+        >
+          <i class="i-ri:bold" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['notes.italic']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('italic') }"
+          :aria-label="t['notes.italic']"
+          @click="editor?.chain().focus().toggleItalic().run()"
+        >
+          <i class="i-ri:italic" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['compose.underline']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('underline') }"
+          :aria-label="t['compose.underline']"
+          @click="editor?.chain().focus().toggleUnderline().run()"
+        >
+          <i class="i-ri:underline" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['notes.strike']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('strike') }"
+          :aria-label="t['notes.strike']"
+          @click="editor?.chain().focus().toggleStrike().run()"
+        >
+          <i class="i-ri:strikethrough" aria-hidden="true" />
+        </button>
+      </UiTooltip>
       <span class="toolbar-sep" />
-      <button
+      <UiTooltip
         v-for="lvl in [1, 2, 3] as const"
         :key="lvl"
-        type="button"
-        class="tb tb--text select-none"
-        :class="{ active: editor?.isActive('heading', { level: lvl }) }"
-        :title="tf('notes.heading', { level: lvl })"
-        @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
+        :label="tf('notes.heading', { level: lvl })"
       >
-        H{{ lvl }}
-      </button>
+        <button
+          type="button"
+          class="tb tb--text select-none"
+          :class="{ active: editor?.isActive('heading', { level: lvl }) }"
+          :aria-label="tf('notes.heading', { level: lvl })"
+          @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
+        >
+          H{{ lvl }}
+        </button>
+      </UiTooltip>
       <span class="toolbar-sep" />
       <UiRichTextToolbar
         :editor="editor"
@@ -209,75 +222,85 @@ defineExpose({ flush, discard, restore })
         :cancel-label="t['cancel']"
       />
       <span class="toolbar-sep" />
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('bulletList') }"
-        :title="t['notes.bulletList']"
-        @click="editor?.chain().focus().toggleBulletList().run()"
-      >
-        <i class="i-ri:list-unordered" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('orderedList') }"
-        :title="t['notes.orderedList']"
-        @click="editor?.chain().focus().toggleOrderedList().run()"
-      >
-        <i class="i-ri:list-ordered" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('blockquote') }"
-        :title="t['notes.quote']"
-        @click="editor?.chain().focus().toggleBlockquote().run()"
-      >
-        <i class="i-ri:double-quotes-l" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :class="{ active: editor?.isActive('codeBlock') }"
-        :title="t['notes.codeBlock']"
-        @click="editor?.chain().focus().toggleCodeBlock().run()"
-      >
-        <i class="i-ri:code-box-line" aria-hidden="true" />
-      </button>
+      <UiTooltip :label="t['notes.bulletList']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('bulletList') }"
+          :aria-label="t['notes.bulletList']"
+          @click="editor?.chain().focus().toggleBulletList().run()"
+        >
+          <i class="i-ri:list-unordered" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['notes.orderedList']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('orderedList') }"
+          :aria-label="t['notes.orderedList']"
+          @click="editor?.chain().focus().toggleOrderedList().run()"
+        >
+          <i class="i-ri:list-ordered" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['notes.quote']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('blockquote') }"
+          :aria-label="t['notes.quote']"
+          @click="editor?.chain().focus().toggleBlockquote().run()"
+        >
+          <i class="i-ri:double-quotes-l" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['notes.codeBlock']">
+        <button
+          type="button"
+          class="tb"
+          :class="{ active: editor?.isActive('codeBlock') }"
+          :aria-label="t['notes.codeBlock']"
+          @click="editor?.chain().focus().toggleCodeBlock().run()"
+        >
+          <i class="i-ri:code-box-line" aria-hidden="true" />
+        </button>
+      </UiTooltip>
       <span class="toolbar-sep" />
-      <!-- Disabled when this note has nothing to undo/redo: after a switch the history
-           is empty, so the buttons are visibly inert instead of silently restoring
-           something from another note. -->
-      <button
-        type="button"
-        class="tb"
-        :title="t['notes.undo']"
-        :disabled="!editor?.can().undo()"
-        @click="editor?.chain().focus().undo().run()"
-      >
-        <i class="i-ri:arrow-go-back-line" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="tb"
-        :title="t['notes.redo']"
-        :disabled="!editor?.can().redo()"
-        @click="editor?.chain().focus().redo().run()"
-      >
-        <i class="i-ri:arrow-go-forward-line" aria-hidden="true" />
-      </button>
+      <UiTooltip :label="t['notes.undo']">
+        <button
+          type="button"
+          class="tb"
+          :aria-label="t['notes.undo']"
+          :disabled="!editor?.can().undo()"
+          @click="editor?.chain().focus().undo().run()"
+        >
+          <i class="i-ri:arrow-go-back-line" aria-hidden="true" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :label="t['notes.redo']">
+        <button
+          type="button"
+          class="tb"
+          :aria-label="t['notes.redo']"
+          :disabled="!editor?.can().redo()"
+          @click="editor?.chain().focus().redo().run()"
+        >
+          <i class="i-ri:arrow-go-forward-line" aria-hidden="true" />
+        </button>
+      </UiTooltip>
       <span class="toolbar-spacer" />
-      <button
-        type="button"
-        class="tb"
-        :title="t['notes.send_to']"
-        :aria-label="t['notes.send_to']"
-        :disabled="openingCompose"
-        @click="sendToCompose"
-      >
-        <i class="i-ri:mail-send-line" aria-hidden="true" />
-      </button>
+      <UiTooltip :label="t['notes.send_to']">
+        <button
+          type="button"
+          class="tb"
+          :aria-label="t['notes.send_to']"
+          :disabled="openingCompose"
+          @click="sendToCompose"
+        >
+          <i class="i-ri:mail-send-line" aria-hidden="true" />
+        </button>
+      </UiTooltip>
       <span v-if="saving || dirty" class="save-state">
         {{ saving ? t['notes.saving'] : t['notes.unsaved'] }}
       </span>

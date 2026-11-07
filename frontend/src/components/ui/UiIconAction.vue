@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Tooltip } from '@ark-ui/vue/tooltip'
+import UiTooltip from './UiTooltip.vue'
 
 /**
  * One icon-only action with an Ark tooltip.
@@ -42,31 +42,24 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <Tooltip.Root :open-delay="250" :close-delay="80" :positioning="{ placement: props.placement }">
-    <Tooltip.Trigger as-child>
-      <button
-        type="button"
-        class="icon-btn detail-action"
-        :class="{
-          'detail-action--active': active && activeTone === 'warning',
-          'detail-action--active-sidebar': active && activeTone === 'sidebar',
-          'detail-action--danger': danger,
-        }"
-        :disabled="disabled || (busy && !busyClickable)"
-        :aria-label="label"
-        :aria-pressed="active || undefined"
-        @click="emit('click')"
-      >
-        <span v-if="busy" class="detail-action__spin" aria-hidden="true" />
-        <i v-else :class="`i-${icon}`" aria-hidden="true" />
-      </button>
-    </Tooltip.Trigger>
-    <Teleport to="body">
-      <Tooltip.Positioner class="detail-tip-positioner">
-        <Tooltip.Content class="detail-tip">{{ label }}</Tooltip.Content>
-      </Tooltip.Positioner>
-    </Teleport>
-  </Tooltip.Root>
+  <UiTooltip :label="label" :placement="placement" :disabled="disabled">
+    <button
+      type="button"
+      class="icon-btn detail-action"
+      :class="{
+        'detail-action--active': active && activeTone === 'warning',
+        'detail-action--active-sidebar': active && activeTone === 'sidebar',
+        'detail-action--danger': danger,
+      }"
+      :disabled="disabled || (busy && !busyClickable)"
+      :aria-label="label"
+      :aria-pressed="active || undefined"
+      @click="emit('click')"
+    >
+      <span v-if="busy" class="detail-action__spin" aria-hidden="true" />
+      <i v-else :class="`i-${icon}`" aria-hidden="true" />
+    </button>
+  </UiTooltip>
 </template>
 
 <style scoped>
@@ -100,21 +93,5 @@ const emit = defineEmits<{
   to {
     transform: rotate(360deg);
   }
-}
-</style>
-
-<style>
-.detail-tip-positioner {
-  z-index: 1000;
-}
-.detail-tip {
-  padding: 5px 8px;
-  font-size: 12px;
-  line-height: 1.35;
-  color: var(--n-text-color);
-  background: var(--color-surface);
-  border: 1px solid var(--n-border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
 }
 </style>
