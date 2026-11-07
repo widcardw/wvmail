@@ -28,6 +28,9 @@ type EmailService struct {
 	// fetches, so the tray badge follows real mail without a second connection.
 	onUnseenMu sync.Mutex
 	onUnseen   func(accountID string, unseen int)
+
+	mailCachedMu sync.RWMutex
+	onMailCached func(account EmailAccount, folder string, messages []EmailSummary) error
 }
 
 func NewEmailService() *EmailService {
@@ -69,6 +72,36 @@ func (s *EmailService) reportUnseen(accountID string, unseen int) {
 	s.onUnseenMu.Unlock()
 	if listener != nil {
 		listener(accountID, unseen)
+	}
+}
+
+// SetMailCachedListener registers a best-effort callback for every successfully
+// cached message page. It is Go wiring between mail sync and contact collection,
+// not a frontend API.
+//
+//wails:ignore
+func (s *EmailService) SetMailCachedListener(
+	listener func(account EmailAccount, folder string, messages []EmailSummary) error,
+) {
+	s.mailCachedMu.Lock()
+	defer s.mailCachedMu.Unlock()
+	s.onMailCached = listener
+}
+
+func (s *EmailService) notifyMailCached(
+	account EmailAccount,
+	folder string,
+	messages []EmailSummary,
+) {
+	s.mailCachedMu.RLock()
+	listener := s.onMailCached
+	s.mailCachedMu.RUnlock()
+	if listener == nil {
+		return
+	}
+	if err := listener(account, folder, messages); err != nil {
+		slog.Warn("contacts: automatic collection failed",
+			"account", account, "folder", folder, "error", err)
 	}
 }
 
@@ -340,6 +373,7 @@ func (s *EmailService) fetchAndCacheMessagePage(
 				folder, priorTotal,
 			)
 		}
+		s.notifyMailCached(account, folder, nil)
 		return messagePageFetch{Emails: []EmailSummary{}, Total: 0, UIDNext: uint32(mbox.UIDNext)}, nil
 	}
 
@@ -432,6 +466,8 @@ func (s *EmailService) fetchAndCacheMessagePage(
 	}
 	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
 		slog.Warn("cache: failed to cache emails", "account", account, "folder", folder, "error", err)
+	} else {
+		s.notifyMailCached(account, folder, summaries)
 	}
 	return messagePageFetch{
 		Emails:  summaries,

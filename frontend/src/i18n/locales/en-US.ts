@@ -46,6 +46,9 @@ const enUS: TranslationSchema = {
   'contacts.added': 'Added to contacts',
   'contacts.actions': 'Contact actions',
   'contacts.unnamed': 'Unnamed contact',
+  'contacts.autoCollect': 'Auto-collect',
+  'contacts.autoCollectHint':
+    'Collect senders from new mail received after enabling this. Notification addresses and bulk mail are ignored.',
   'sidebar.inbox': 'Inbox',
   'sidebar.sent': 'Sent',
   'sidebar.all_inbox': 'All Inboxes',

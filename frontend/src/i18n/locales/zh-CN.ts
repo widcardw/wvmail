@@ -45,6 +45,9 @@ const zhCN: TranslationSchema = {
   'contacts.added': '已添加到联系人',
   'contacts.actions': '联系人操作',
   'contacts.unnamed': '未命名联系人',
+  'contacts.autoCollect': '自动收集',
+  'contacts.autoCollectHint':
+    '开启后，只从之后收到的新邮件中收集发件人；通知类地址和批量邮件会被忽略。',
   'sidebar.inbox': '收件箱',
   'sidebar.sent': '已发送',
   'sidebar.all_inbox': '所有收件箱',

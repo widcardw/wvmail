@@ -14,6 +14,8 @@ const props = withDefaults(
   defineProps<{
     checked: boolean
     disabled?: boolean
+    /** Compact size for dense toolbars. */
+    size?: 'sm'
     /** Class for the Ark label part — reuse the caller's own label class. */
     labelClass?: string
   }>(),
@@ -33,7 +35,7 @@ const emit = defineEmits<{ 'update:checked': [checked: boolean] }>()
     <Switch.Label v-if="$slots.default" :class="props.labelClass">
       <slot />
     </Switch.Label>
-    <Switch.Control class="switch">
+    <Switch.Control class="switch" :class="{ 'switch--sm': props.size === 'sm' }">
       <Switch.Thumb class="switch__thumb" />
     </Switch.Control>
     <Switch.HiddenInput />

@@ -401,9 +401,9 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 // Supported fields: "language", "theme", "primary_color",
 // "scan_external_safety", "search_tag_delete_presses", "allow_remote_content",
 // "minimize_when_close", "detect_dates_in_mail", "skip_ai_assist_confirmation",
-// "collapse_sidebar_smart_folders", "collapse_sidebar_utilities", "proxy" (a
-// JSON {"enabled":bool,"url":string}), "allowed_remote_senders" (a JSON array
-// of strings) and "image_proxy_url".
+// "collapse_sidebar_smart_folders", "collapse_sidebar_utilities",
+// "auto_collect_contacts", "proxy" (a JSON {"enabled":bool,"url":string}),
+// "allowed_remote_senders" (a JSON array of strings) and "image_proxy_url".
 func (s *ConfigService) SaveConfigField(field, value string) error {
 	configWriteMu.Lock()
 	languageChanged, err := saveConfigFieldLocked(field, value)
@@ -495,6 +495,12 @@ func saveConfigFieldLocked(field, value string) (bool, error) {
 			return false, fmt.Errorf("invalid boolean value for collapse_sidebar_utilities: %s", value)
 		}
 		cfg.CollapseSidebarUtilities = b
+	case "auto_collect_contacts":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("invalid boolean value for auto_collect_contacts: %s", value)
+		}
+		cfg.AutoCollectContacts = b
 	case "proxy":
 		var p ProxyConfig
 		if err := json.Unmarshal([]byte(value), &p); err != nil {

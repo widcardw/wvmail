@@ -35,6 +35,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const collapseSidebarSmartFolders = ref(false)
   /** Render the bottom utility links as one row of icon buttons. */
   const collapseSidebarUtilities = ref(false)
+  /** Add senders from newly received INBOX mail to the local address book. */
+  const autoCollectContacts = ref(false)
   /**
    * Hold suspicious mail behind the "show the body" bar. Default true: the gate
    * has always been on, and a config written before this option existed must keep
@@ -63,6 +65,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     skipAIAssistConfirmation.value = config.SkipAIAssistConfirmation === true
     collapseSidebarSmartFolders.value = config.CollapseSidebarSmartFolders === true
     collapseSidebarUtilities.value = config.CollapseSidebarUtilities === true
+    autoCollectContacts.value = config.AutoCollectContacts === true
     blockSuspiciousMail.value = config.ScanExternalSafety !== false
     proxyEnabled.value = config.Proxy?.Enabled === true
     proxyUrl.value = config.Proxy?.URL ?? ''
@@ -121,6 +124,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     collapseSidebarUtilities,
     'collapse_sidebar_utilities',
     'Failed to save utility sidebar preference',
+  )
+  const setAutoCollectContacts = persistedSetting(
+    autoCollectContacts,
+    'auto_collect_contacts',
+    'Failed to save automatic contact collection preference',
   )
   const setAllowRemoteContent = persistedSetting(
     allowRemoteContent,
@@ -242,6 +250,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setCollapseSidebarSmartFolders,
     collapseSidebarUtilities,
     setCollapseSidebarUtilities,
+    autoCollectContacts,
+    setAutoCollectContacts,
     blockSuspiciousMail,
     setBlockSuspiciousMail,
     proxyEnabled,

@@ -87,6 +87,22 @@ type CachedContact struct {
 	UpdatedAt int64  `gorm:"autoUpdateTime"`
 }
 
+// CachedContactExclusion remembers addresses the user removed. Automatic
+// collection skips them, while a manual add clears the row again.
+type CachedContactExclusion struct {
+	Email     string `gorm:"primaryKey;size:320"`
+	CreatedAt int64  `gorm:"autoCreateTime"`
+}
+
+// CachedContactCollectionState is the last INBOX UID considered by automatic
+// contact collection. The first observation only records a baseline, so a fresh
+// install does not import the user's entire mailbox history.
+type CachedContactCollectionState struct {
+	AccountID  string `gorm:"primaryKey;size:64"`
+	FolderName string `gorm:"primaryKey;size:255"`
+	LastUID    uint32 `gorm:"not null;default:0"`
+}
+
 // CachedFolderMeta stores what one fetch saw of a folder — the message count and
 // the mailbox's UIDNEXT — kept separate from the email cache so it survives
 // page-by-page cache replacement.
@@ -201,6 +217,8 @@ func (m *DBManager) getDB() (*gorm.DB, error) {
 		&CachedEmailBody{},
 		&CachedNote{},
 		&CachedContact{},
+		&CachedContactExclusion{},
+		&CachedContactCollectionState{},
 		&CachedFolderMeta{},
 		&CachedFlaggedSnapshot{},
 		&CachedReminder{},

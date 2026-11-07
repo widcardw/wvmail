@@ -372,6 +372,19 @@
 .switch[data-state='checked'] .switch__thumb {
   transform: translateX(16px);
 }
+.switch--sm {
+  width: 30px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 9px;
+}
+.switch--sm .switch__thumb {
+  width: 14px;
+  height: 14px;
+}
+.switch--sm[data-state='checked'] .switch__thumb {
+  transform: translateX(12px);
+}
 
 /* --- Count badge (`UiBadge.vue`) ---
    Ark UI has no Badge, so this is ours. Counts sit on the primary colour like

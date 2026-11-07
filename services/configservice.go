@@ -50,6 +50,10 @@ type AppConfig struct {
 	// CollapseSidebarUtilities does the same for the utility links at the bottom
 	// of the sidebar, independently of the smart-folder setting.
 	CollapseSidebarUtilities bool `yaml:"collapse_sidebar_utilities"`
+	// AutoCollectContacts adds senders from newly received INBOX mail to the local
+	// address book. Off by default: existing users should opt in, and the first
+	// observation only records a UID baseline instead of importing old mail.
+	AutoCollectContacts bool `yaml:"auto_collect_contacts"`
 	// Proxy is the app-wide proxy (Settings → Proxy). Off by default: a config
 	// written before this option existed must keep connecting directly.
 	Proxy ProxyConfig `yaml:"proxy,omitempty"`
@@ -213,6 +217,7 @@ func defaultConfig() AppConfig {
 		DetectDatesInMail:           true,
 		CollapseSidebarSmartFolders: false,
 		CollapseSidebarUtilities:    false,
+		AutoCollectContacts:         false,
 		EmailAccounts:               []EmailAccount{},
 	}
 }

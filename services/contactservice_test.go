@@ -89,3 +89,168 @@ func TestContactServiceValidation(t *testing.T) {
 		t.Error("DeleteContact without an ID must be rejected")
 	}
 }
+
+func TestAutoCollectContactsConfigField(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	cfg := &ConfigService{}
+	config, err := cfg.GetConfig()
+	if err != nil {
+		t.Fatalf("GetConfig: %v", err)
+	}
+	if config.AutoCollectContacts {
+		t.Fatal("automatic contact collection must default to off")
+	}
+	if err := cfg.SaveConfigField("auto_collect_contacts", "true"); err != nil {
+		t.Fatalf("SaveConfigField: %v", err)
+	}
+	config, err = cfg.GetConfig()
+	if err != nil {
+		t.Fatalf("GetConfig after save: %v", err)
+	}
+	if !config.AutoCollectContacts {
+		t.Fatal("automatic contact collection was not persisted")
+	}
+}
+
+func TestContactAutoCollectUsesBaselineAndNewInboxUIDs(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	cfg := &ConfigService{}
+	if err := cfg.SaveConfigField("auto_collect_contacts", "true"); err != nil {
+		t.Fatalf("enable auto collect: %v", err)
+	}
+	svc := NewContactsService(cfg)
+	account := EmailAccount{ID: "acct", Email: "me@example.com", IMAPUser: "me@example.com"}
+
+	// The first observation establishes the baseline and must not import the
+	// mailbox's existing messages.
+	added, err := svc.CollectFromMail(account, "INBOX", []EmailSummary{
+		{UID: 10, FromName: "Old Sender", FromAddr: "old@example.com"},
+	})
+	if err != nil {
+		t.Fatalf("CollectFromMail(baseline): %v", err)
+	}
+	if added != 0 {
+		t.Fatalf("baseline added %d contacts, want 0", added)
+	}
+
+	added, err = svc.CollectFromMail(account, "INBOX", []EmailSummary{
+		{UID: 10, FromName: "Old Sender", FromAddr: "old@example.com"},
+		{UID: 11, FromName: "Alice", FromAddr: "alice@example.com"},
+		{UID: 12, FromName: "No Reply", FromAddr: "no-reply@example.com"},
+		{UID: 13, FromName: "Newsletter", FromAddr: "news@example.com", IsBulk: true},
+		{UID: 14, FromName: "Me", FromAddr: "me@example.com"},
+	})
+	if err != nil {
+		t.Fatalf("CollectFromMail(new messages): %v", err)
+	}
+	if added != 1 {
+		t.Fatalf("added %d contacts, want only Alice", added)
+	}
+
+	contacts, err := svc.LoadContacts()
+	if err != nil {
+		t.Fatalf("LoadContacts: %v", err)
+	}
+	if len(contacts) != 1 || contacts[0].Email != "alice@example.com" || contacts[0].Name != "Alice" {
+		t.Fatalf("unexpected auto-collected contacts: %+v", contacts)
+	}
+}
+
+func TestContactAutoCollectRespectsDeletionTombstone(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	cfg := &ConfigService{}
+	if err := cfg.SaveConfigField("auto_collect_contacts", "true"); err != nil {
+		t.Fatalf("enable auto collect: %v", err)
+	}
+	svc := NewContactsService(cfg)
+	account := EmailAccount{ID: "acct", Email: "me@example.com"}
+
+	if _, err := svc.CollectFromMail(account, "INBOX", nil); err != nil {
+		t.Fatalf("initialize collection state: %v", err)
+	}
+	if added, err := svc.CollectFromMail(account, "INBOX", []EmailSummary{
+		{UID: 1, FromName: "Alice", FromAddr: "alice@example.com"},
+	}); err != nil || added != 1 {
+		t.Fatalf("first collect = %d, %v; want 1 contact", added, err)
+	}
+
+	contacts, err := svc.LoadContacts()
+	if err != nil || len(contacts) != 1 {
+		t.Fatalf("LoadContacts = %+v, %v", contacts, err)
+	}
+	if err := svc.DeleteContact(contacts[0].ID); err != nil {
+		t.Fatalf("DeleteContact: %v", err)
+	}
+
+	excluded, err := svc.db.LoadContactExclusionEmails()
+	if err != nil {
+		t.Fatalf("LoadContactExclusionEmails: %v", err)
+	}
+	if !excluded["alice@example.com"] {
+		t.Fatal("deleting a contact must add a tombstone")
+	}
+
+	if added, err := svc.CollectFromMail(account, "INBOX", []EmailSummary{
+		{UID: 2, FromName: "Alice", FromAddr: "alice@example.com"},
+	}); err != nil || added != 0 {
+		t.Fatalf("collect after delete = %d, %v; want 0 contacts", added, err)
+	}
+
+	if _, err := svc.SaveContact(Contact{Name: "Alice", Email: "alice@example.com"}); err != nil {
+		t.Fatalf("manual SaveContact: %v", err)
+	}
+	excluded, err = svc.db.LoadContactExclusionEmails()
+	if err != nil {
+		t.Fatalf("LoadContactExclusionEmails after manual add: %v", err)
+	}
+	if excluded["alice@example.com"] {
+		t.Fatal("manual add must clear the tombstone")
+	}
+}
+
+func TestContactAutoCollectFiltersRoleAddresses(t *testing.T) {
+	tests := []struct {
+		email string
+		ok    bool
+	}{
+		{"alice@example.com", true},
+		{"notify-me@example.com", false},
+		{"no-reply+project@example.com", false},
+		{"notifications@example.com", false},
+		{"mailer-daemon@example.com", false},
+		{"newsletter@example.com", false},
+		{"support@example.com", true},
+	}
+	for _, test := range tests {
+		if got := collectableContactEmail(test.email); got != test.ok {
+			t.Errorf("collectableContactEmail(%q) = %v, want %v", test.email, got, test.ok)
+		}
+	}
+}
+
+func TestContactAutoCollectOnlyRunsForInbox(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	cfg := &ConfigService{}
+	if err := cfg.SaveConfigField("auto_collect_contacts", "true"); err != nil {
+		t.Fatalf("enable auto collect: %v", err)
+	}
+	svc := NewContactsService(cfg)
+	account := EmailAccount{ID: "acct", Email: "me@example.com"}
+
+	if added, err := svc.CollectFromMail(account, "Archive", []EmailSummary{
+		{UID: 1, FromName: "Alice", FromAddr: "alice@example.com"},
+	}); err != nil || added != 0 {
+		t.Fatalf("Archive collection = %d, %v; want 0", added, err)
+	}
+	contacts, err := svc.LoadContacts()
+	if err != nil {
+		t.Fatalf("LoadContacts: %v", err)
+	}
+	if len(contacts) != 0 {
+		t.Fatalf("non-INBOX mail added contacts: %+v", contacts)
+	}
+}

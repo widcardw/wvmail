@@ -11,6 +11,7 @@ import { useLocaleStore } from './stores/locale'
 import { usePreferencesStore } from './stores/preferences'
 import { useFeedbackStore } from './stores/feedback'
 import { useAccountsStore } from './stores/accounts'
+import { useContactsStore } from './stores/contacts'
 import { useI18n } from './i18n'
 import { ComposeService, ConfigService } from '#/wvmail/services'
 import TitleBar from './components/header/TitleBar.vue'
@@ -23,11 +24,13 @@ const localeStore = useLocaleStore()
 const preferences = usePreferencesStore()
 const feedback = useFeedbackStore()
 const accountsStore = useAccountsStore()
+const contactsStore = useContactsStore()
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const isCompose = computed(() => route.name === 'compose')
 let unlistenComposeSent: (() => void) | null = null
+let unlistenContactsUpdated: (() => void) | null = null
 
 async function handleApplicationMailto(event: MouseEvent) {
   if (isCompose.value || event.defaultPrevented || event.button !== 0) return
@@ -71,10 +74,15 @@ onMounted(async () => {
     if (payload?.warning) feedback.error(payload.warning)
     else feedback.success(t.value['compose.sent'])
   })
+
+  unlistenContactsUpdated = Events.On('contacts-updated', () => {
+    void contactsStore.loadContacts(true)
+  })
 })
 
 onUnmounted(() => {
   unlistenComposeSent?.()
+  unlistenContactsUpdated?.()
   document.removeEventListener('click', handleApplicationMailto)
 })
 </script>

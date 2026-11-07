@@ -48,6 +48,8 @@ export interface TranslationSchema {
   'contacts.added': string
   'contacts.actions': string
   'contacts.unnamed': string
+  'contacts.autoCollect': string
+  'contacts.autoCollectHint': string
   'sidebar.inbox': string
   'sidebar.sent': string
   'sidebar.all_inbox': string

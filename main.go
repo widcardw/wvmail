@@ -108,6 +108,11 @@ func main() {
 
 	emailSvc := services.NewEmailService()
 	tagSvc := services.NewTagService(cfgSvc)
+	contactsSvc := services.NewContactsService(cfgSvc)
+	emailSvc.SetMailCachedListener(func(account services.EmailAccount, folder string, messages []services.EmailSummary) error {
+		_, err := contactsSvc.CollectFromMail(account, folder, messages)
+		return err
+	})
 	sendSvc := services.NewEmailSendService(cfgSvc, emailSvc)
 	composeSvc := services.NewComposeService(cfgSvc, sendSvc)
 	aiAssistSvc := services.NewAIAssistService(cfgSvc)
@@ -164,7 +169,7 @@ func main() {
 			application.NewService(composeSvc),
 			application.NewService(services.NewNotesService()),
 			application.NewService(services.NewRemindersService()),
-			application.NewService(services.NewContactsService()),
+			application.NewService(contactsSvc),
 			application.NewService(tagSvc),
 			application.NewService(aiAssistSvc),
 			// Backs the title-bar connection meter and the sidebar's per-account

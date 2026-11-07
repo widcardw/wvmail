@@ -5,10 +5,12 @@ import { useI18n } from '~/i18n'
 import { COMPLETE_EMAIL_PATTERN } from '~/composables/search-query'
 import { useContactsStore } from '~/stores/contacts'
 import { useFeedbackStore } from '~/stores/feedback'
+import { usePreferencesStore } from '~/stores/preferences'
 import UiDialog from '~/components/ui/UiDialog.vue'
 import UiDialogHeader from '~/components/ui/UiDialogHeader.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
+import UiSwitch from '~/components/ui/UiSwitch.vue'
 import type { Contact } from '~/types/contact'
 
 const props = withDefaults(
@@ -22,6 +24,7 @@ const props = withDefaults(
 const { t, tf } = useI18n()
 const contactsStore = useContactsStore()
 const feedback = useFeedbackStore()
+const preferences = usePreferencesStore()
 
 const filter = ref('')
 const dialogOpen = ref(false)
@@ -56,6 +59,10 @@ function openAdd() {
   formName.value = ''
   formEmail.value = ''
   dialogOpen.value = true
+}
+
+function onAutoCollectChange(checked: boolean) {
+  void preferences.setAutoCollectContacts(checked)
 }
 
 function openEdit(contact: Contact) {
@@ -116,10 +123,21 @@ onMounted(() => {
               {{ t['contacts.localOnly'] }}
             </span>
           </div>
-          <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
-            <i class="i-ri:user-add-line" aria-hidden="true" />
-            {{ t['contacts.add'] }}
-          </button>
+          <div class="contact-head-actions">
+            <UiSwitch
+              class="contact-auto-collect"
+              size="sm"
+              :checked="preferences.autoCollectContacts"
+              :title="t['contacts.autoCollectHint']"
+              @update:checked="onAutoCollectChange"
+            >
+              {{ t['contacts.autoCollect'] }}
+            </UiSwitch>
+            <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
+              <i class="i-ri:user-add-line" aria-hidden="true" />
+              {{ t['contacts.add'] }}
+            </button>
+          </div>
         </header>
 
         <div class="contact-toolbar">
@@ -266,6 +284,12 @@ onMounted(() => {
 .contacts-head h2 {
   margin: 0;
 }
+.contact-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+}
 .local-chip {
   display: inline-flex;
   align-items: center;
@@ -278,11 +302,14 @@ onMounted(() => {
   border-radius: 999px;
 }
 .contact-toolbar {
+  display: flex;
+  align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--n-border-color);
 }
 .contact-search {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 8px;
   height: 30px;
@@ -291,6 +318,15 @@ onMounted(() => {
   background: var(--n-action-color);
   border: 1px solid var(--n-border-color);
   border-radius: 6px;
+}
+.contact-auto-collect {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-2);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
 }
 .contact-search:focus-within {
   color: var(--n-text-color);
@@ -419,8 +455,11 @@ onMounted(() => {
 }
 @media (max-width: 640px) {
   .contacts-head {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
+  }
+  .contact-head-actions {
+    justify-content: flex-end;
   }
 }
 </style>
