@@ -216,6 +216,7 @@ func main() {
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropNormal,
 			TitleBar:                application.MacTitleBarHiddenInset,
+			CollectionBehavior:      application.MacWindowCollectionBehaviorMoveToActiveSpace,
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
