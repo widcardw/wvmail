@@ -69,6 +69,8 @@ export interface TranslationSchema {
   'connection.recheck': string
   'mail.selectFolder': string
   'mail.noSubject': string
+  'mail.thread.count': string
+  'mail.thread.tabs': string
   'mail.noContent': string
   'mail.loading': string
   'mail.recipients.more': string

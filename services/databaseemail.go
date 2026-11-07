@@ -85,6 +85,9 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 	}
 
 	for _, e := range emails {
+		var previous CachedEmail
+		hasPrevious := db.Where("account_id = ? AND folder_name = ? AND uid = ?",
+			accountID, folderName, e.UID).First(&previous).Error == nil
 		// delete any previous row with the same (account, folder, uid), then insert fresh
 		if err := db.Where("account_id = ? AND folder_name = ? AND uid = ?", accountID, folderName, e.UID).
 			Delete(&CachedEmail{}).Error; err != nil {
@@ -92,11 +95,23 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 		}
 		flagsJSON, _ := json.Marshal(e.Flags)
 		toJSON, _ := json.Marshal(e.To)
+		inReplyToJSON, _ := json.Marshal(e.InReplyTo)
+		referencesJSON, _ := json.Marshal(e.References)
+		// A server that rejects HEADER.FIELDS (or a page fetched by an older
+		// build) must not erase thread headers that are already cached.
+		if len(e.InReplyTo) == 0 && hasPrevious && previous.InReplyTo != "" {
+			inReplyToJSON = []byte(previous.InReplyTo)
+		}
+		if len(e.References) == 0 && hasPrevious && previous.References != "" {
+			referencesJSON = []byte(previous.References)
+		}
 		ce := CachedEmail{
 			AccountID:  accountID,
 			FolderName: folderName,
 			UID:        e.UID,
 			MessageID:  e.MessageID,
+			InReplyTo:  string(inReplyToJSON),
+			References: string(referencesJSON),
 			Subject:    e.Subject,
 			From:       e.From,
 			FromName:   e.FromName,
@@ -105,6 +120,7 @@ func (m *DBManager) SaveEmails(accountID, folderName string, emails []EmailSumma
 			Date:       e.Date,
 			Flags:      string(flagsJSON),
 			IsRead:     e.IsRead,
+			IsBulk:     e.IsBulk || (hasPrevious && previous.IsBulk),
 		}
 		if err := db.Create(&ce).Error; err != nil {
 			return fmt.Errorf("failed to save email uid=%d: %w", e.UID, err)
@@ -149,6 +165,7 @@ func (m *DBManager) LoadEmails(accountID, folderName string) ([]EmailSummary, er
 	// sender's own offset, so ORDER BY date compares clock faces (see
 	// emailtime.go). The instant comparison happens on the parsed values.
 	sortEmailsNewestFirst(emails)
+	applyEmailThreads(emails)
 	return emails, nil
 }
 
@@ -347,24 +364,33 @@ func parseCachedContact(raw string) (address, name string) {
 }
 
 func cachedEmailSummary(c CachedEmail, now time.Time) EmailSummary {
-	var flags, to []string
+	var flags, to, inReplyTo, references []string
 	if c.Flags != "" {
 		json.Unmarshal([]byte(c.Flags), &flags)
 	}
 	if c.To != "" {
 		json.Unmarshal([]byte(c.To), &to)
 	}
+	if c.InReplyTo != "" {
+		json.Unmarshal([]byte(c.InReplyTo), &inReplyTo)
+	}
+	if c.References != "" {
+		json.Unmarshal([]byte(c.References), &references)
+	}
 	return EmailSummary{
-		UID:       c.UID,
-		MessageID: c.MessageID,
-		Subject:   c.Subject,
-		From:      c.From,
-		FromName:  c.FromName,
-		FromAddr:  c.FromAddr,
-		To:        to,
-		Date:      sanitizeCachedEmailDate(c.Date, now),
-		Flags:     flags,
-		IsRead:    c.IsRead,
+		UID:        c.UID,
+		MessageID:  c.MessageID,
+		InReplyTo:  inReplyTo,
+		References: references,
+		Subject:    c.Subject,
+		From:       c.From,
+		FromName:   c.FromName,
+		FromAddr:   c.FromAddr,
+		To:         to,
+		Date:       sanitizeCachedEmailDate(c.Date, now),
+		Flags:      flags,
+		IsRead:     c.IsRead,
+		IsBulk:     c.IsBulk,
 	}
 }
 

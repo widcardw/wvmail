@@ -67,6 +67,8 @@ const enUS: TranslationSchema = {
   'connection.recheck': 'Click to check again',
   'mail.selectFolder': 'Select a folder to view emails',
   'mail.noSubject': '(No Subject)',
+  'mail.thread.count': '{count} messages in this conversation',
+  'mail.thread.tabs': 'Messages in this conversation',
   'mail.noContent': '(No Content)',
   'mail.loading': 'Loading emails...',
   'mail.recipients.more': '{count} more recipient | {count} more recipients',

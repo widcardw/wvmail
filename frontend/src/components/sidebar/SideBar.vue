@@ -476,7 +476,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
   align-items: center;
   justify-content: space-evenly;
   height: var(--pane-header-height);
-  padding: 0 8px 2px;
+  padding: 0 8px;
 }
 .compact-nav--top {
   margin: -6px -6px 4px;

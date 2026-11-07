@@ -30,6 +30,8 @@ type CachedEmail struct {
 	FolderName string `gorm:"size:255;not null"`
 	UID        uint32 `gorm:"not null"`
 	MessageID  string `gorm:"size:512"`
+	InReplyTo  string `gorm:"type:text"` // JSON serialized []string
+	References string `gorm:"type:text"` // JSON serialized []string
 	Subject    string `gorm:"size:512"`
 	From       string `gorm:"size:256"` // display "Name <email>"
 	FromName   string `gorm:"size:128"`
@@ -38,6 +40,7 @@ type CachedEmail struct {
 	Date       string `gorm:"size:64"`
 	Flags      string `gorm:"size:512"` // JSON serialized []string
 	IsRead     bool
+	IsBulk     bool `gorm:"not null;default:false"`
 }
 
 // CachedEmailBody represents a cached full email body content.
@@ -47,6 +50,8 @@ type CachedEmailBody struct {
 	FolderName string `gorm:"size:255;not null"`
 	UID        uint32 `gorm:"not null"`
 	MessageID  string `gorm:"size:512"`
+	InReplyTo  string `gorm:"type:text"` // JSON serialized []string
+	References string `gorm:"type:text"` // JSON serialized []string
 	Subject    string `gorm:"size:512"`
 	From       string `gorm:"size:256"` // display "Name <email>"
 	FromName   string `gorm:"size:128"`

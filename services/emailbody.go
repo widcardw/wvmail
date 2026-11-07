@@ -64,10 +64,12 @@ func (s *EmailService) FetchEmail(account EmailAccount, folder string, uid uint3
 			if refreshErr != nil {
 				slog.Warn("body: failed to repair cached charset by refetching; showing cached body as fallback",
 					"account", account, "folder", folder, "uid", uid, "error", refreshErr)
+				s.decorateDetailThread(account.ID, folder, cached)
 				return cached, nil
 			}
 			return refreshed, nil
 		}
+		s.decorateDetailThread(account.ID, folder, cached)
 		return cached, nil
 	}
 
@@ -144,8 +146,18 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 	detail := &EmailDetail{
 		UID:       uint32(buf.UID),
 		MessageID: strings.TrimSpace(buf.Envelope.MessageID),
+		InReplyTo: append([]string(nil), buf.Envelope.InReplyTo...),
 		Subject:   decodeMimeHeader(buf.Envelope.Subject),
 		Flags:     make([]string, len(buf.Flags)),
+	}
+	if headers, headerErr := fetchThreadingHeaders(client, uidSet); headerErr != nil {
+		slog.Warn("body: failed to fetch threading headers",
+			"account", account, "folder", folder, "uid", uid, "error", headerErr)
+	} else if header, ok := headers[uid]; ok {
+		if len(header.InReplyTo) > 0 {
+			detail.InReplyTo = header.InReplyTo
+		}
+		detail.References = header.References
 	}
 	// UTC, like the list rows. Resolve Date and InternalDate together so a
 	// malformed sender date falls back to the server arrival time.
@@ -418,6 +430,7 @@ func (s *EmailService) RefreshEmailBody(account EmailAccount, folder string, uid
 		slog.Warn("body: failed to cache email body",
 			"account", account, "folder", folder, "uid", uid, "error", err)
 	}
+	s.decorateDetailThread(account.ID, folder, detail)
 
 	return detail, nil
 }

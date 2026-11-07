@@ -26,6 +26,8 @@ export const PAGE_SIZE = 20
 export interface EmailSummary {
   uid: number
   message_id?: string
+  in_reply_to?: string[]
+  references?: string[]
   subject: string
   from: string
   from_name: string
@@ -34,6 +36,10 @@ export interface EmailSummary {
   date: string
   flags: string[]
   is_read: boolean
+  is_bulk?: boolean
+  thread_id?: string
+  thread_count?: number
+  thread_unread?: number
   tag_ids?: string[]
   account_id?: string
   folder_name?: string
@@ -49,6 +55,11 @@ export interface EmailSearchFilter {
 export interface EmailDetail {
   uid: number
   message_id?: string
+  in_reply_to?: string[]
+  references?: string[]
+  thread_id?: string
+  thread_count?: number
+  thread_unread?: number
   subject: string
   from: string
   from_name: string

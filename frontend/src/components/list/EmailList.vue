@@ -4,8 +4,9 @@ import { useI18n } from '~/i18n'
 import { useAccountsStore } from '~/stores/accounts'
 import { useSearchStore } from '~/stores/search'
 import { useTagsStore } from '~/stores/tags'
-import { getFolderDisplay } from '~/types/email'
+import { getFolderDisplay, type EmailSummary } from '~/types/email'
 import { mailKeyFor, selectedMailKey } from '~/composables/mail-key'
+import type { EmailThreadRow } from '~/composables/mail-threads'
 import EmailListHeader from './EmailListHeader.vue'
 import EmailListItem from './EmailListItem.vue'
 import TagFilter from '~/components/tags/TagFilter.vue'
@@ -34,7 +35,7 @@ const refreshing = computed(() =>
     ? accountsStore.smartFolderRefreshing
     : accountsStore.refreshingOpenFolder,
 )
-const emails = computed(() => accountsStore.currentEmails)
+const emails = computed(() => accountsStore.currentListRows)
 /**
  * Selection is account+folder+UID, not UID alone: aggregate and search views can
  * contain the same UID in several mailboxes, and comparing only the number marked
@@ -48,7 +49,10 @@ const selectedEmailKey = computed(() =>
   ),
 )
 
-function isSelected(email: { uid: number; account_id?: string; folder_name?: string }): boolean {
+function isSelected(email: EmailThreadRow): boolean {
+  if (email.thread_id && email.thread_id === accountsStore.selectedThreadId) {
+    return true
+  }
   return (
     selectedEmailKey.value !== '' &&
     selectedEmailKey.value ===
@@ -99,8 +103,15 @@ onMounted(async () => {
   }
 })
 
-function handleClick(email: { uid: number; account_id?: string; folder_name?: string }) {
+function handleClick(email: EmailSummary & { thread_messages?: EmailSummary[] }) {
   const smartF = accountsStore.smartFolder
+  if (!smartF && !searchStore.searchActive && email.thread_id && (email.thread_count ?? 1) > 1) {
+    const account = accountsStore.selectedAccount
+    if (account && accountsStore.selectedFolder) {
+      accountsStore.selectThread(account, accountsStore.selectedFolder, email.thread_id, email.uid)
+    }
+    return
+  }
   if ((smartF || searchStore.searchActive) && email.account_id && email.folder_name) {
     const account = accountsStore.accounts.find((a) => a.ID === email.account_id)
     if (account) accountsStore.selectEmail(account, email.folder_name, email.uid)

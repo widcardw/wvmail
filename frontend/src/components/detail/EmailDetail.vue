@@ -6,7 +6,7 @@ import { useThemeStore } from '~/stores/theme'
 import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
 import { useLocaleStore } from '~/stores/locale'
-import { formatDate } from '~/composables/formats'
+import { displaySender, formatDate, formatDateRecent } from '~/composables/formats'
 import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
 import { useMailAIAssist } from '~/composables/mail-ai-assist'
@@ -42,6 +42,7 @@ const tagsStore = useTagsStore()
 const isDarkMode = computed(() => themeStore.effectiveTheme === 'dark')
 const detail = computed(() => accountsStore.selectedEmailDetail)
 const loading = computed(() => accountsStore.loadingDetail)
+const threadEmails = computed(() => accountsStore.selectedThreadEmails)
 const exportingOriginal = ref(false)
 
 const suspiciousRevealed = ref(false)
@@ -431,6 +432,13 @@ function closeError() {
   accountsStore.detailError = null
 }
 
+function selectThreadTab(email: { uid: number }) {
+  const account = accountsStore.selectedEmailAccount
+  const folder = accountsStore.selectedEmailFolder
+  if (!account || !folder || email.uid === accountsStore.selectedEmailUid) return
+  void accountsStore.selectThreadEmail(account, folder, email.uid)
+}
+
 const showAttachments = computed(
   () => detail.value?.attachments && detail.value.attachments.length > 0 && !spamGated.value,
 )
@@ -478,6 +486,30 @@ const showAttachments = computed(
       <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
 
       <template v-if="detail">
+        <div
+          v-if="threadEmails.length > 1"
+          class="thread-tabs"
+          role="tablist"
+          :aria-label="t['mail.thread.tabs']"
+        >
+          <button
+            v-for="email in threadEmails"
+            :key="email.uid"
+            type="button"
+            role="tab"
+            class="thread-tab"
+            :class="{ active: email.uid === accountsStore.selectedEmailUid }"
+            :aria-selected="email.uid === accountsStore.selectedEmailUid"
+            @click="selectThreadTab(email)"
+          >
+            <span v-if="!email.is_read" class="thread-tab__unread" aria-hidden="true" />
+            <span class="thread-tab__sender">{{ displaySender(email) }}</span>
+            <span class="thread-tab__date">{{
+              formatDateRecent(email.date, localeStore.current)
+            }}</span>
+          </button>
+        </div>
+
         <EmailHeader :detail="detail">
           <template #after-meta>
             <div v-if="selectedEmailTags.length" class="detail-tags">
@@ -665,5 +697,51 @@ const showAttachments = computed(
 }
 .detail-tags__button:hover {
   opacity: 0.8;
+}
+.thread-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px 16px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--n-border-color);
+}
+.thread-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  max-width: 220px;
+  padding: 7px 10px 8px;
+  color: var(--color-text-3);
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.thread-tab:hover {
+  color: var(--n-text-color);
+  background: var(--n-sidebar-hover);
+}
+.thread-tab.active {
+  color: var(--n-text-color);
+  border-bottom-color: var(--n-primary-color);
+}
+.thread-tab__unread {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--n-primary-color);
+}
+.thread-tab__sender {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-tab__date {
+  flex: none;
+  opacity: 0.6;
 }
 </style>

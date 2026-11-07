@@ -66,6 +66,8 @@ const zhCN: TranslationSchema = {
   'connection.recheck': '点击重新检测',
   'mail.selectFolder': '选择一个文件夹查看邮件',
   'mail.noSubject': '(无主题)',
+  'mail.thread.count': '这个会话共有 {count} 封邮件',
+  'mail.thread.tabs': '这个会话中的邮件',
   'mail.noContent': '(无内容)',
   'mail.loading': '正在加载邮件...',
   'mail.recipients.more': '等 {count} 个收件人',

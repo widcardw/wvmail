@@ -17,6 +17,8 @@ func (m *DBManager) SaveEmailBody(accountID, folderName string, detail *EmailDet
 
 	toJSON, _ := json.Marshal(detail.To)
 	ccJSON, _ := json.Marshal(detail.Cc)
+	inReplyToJSON, _ := json.Marshal(detail.InReplyTo)
+	referencesJSON, _ := json.Marshal(detail.References)
 	flagsJSON, _ := json.Marshal(detail.Flags)
 	attachmentsJSON, _ := json.Marshal(detail.Attachments)
 
@@ -25,6 +27,8 @@ func (m *DBManager) SaveEmailBody(accountID, folderName string, detail *EmailDet
 		FolderName:      folderName,
 		UID:             detail.UID,
 		MessageID:       detail.MessageID,
+		InReplyTo:       string(inReplyToJSON),
+		References:      string(referencesJSON),
 		Subject:         detail.Subject,
 		From:            detail.From,
 		FromName:        detail.FromName,
@@ -60,10 +64,16 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 		return nil, err
 	}
 
-	var to, cc, flags []string
+	var to, cc, flags, inReplyTo, references []string
 	json.Unmarshal([]byte(cached.To), &to)
 	json.Unmarshal([]byte(cached.Cc), &cc)
 	json.Unmarshal([]byte(cached.Flags), &flags)
+	if cached.InReplyTo != "" {
+		json.Unmarshal([]byte(cached.InReplyTo), &inReplyTo)
+	}
+	if cached.References != "" {
+		json.Unmarshal([]byte(cached.References), &references)
+	}
 
 	var attachments []AttachmentInfo
 	if cached.Attachments != "" {
@@ -76,6 +86,8 @@ func (m *DBManager) LoadEmailBody(accountID, folderName string, uid uint32) (*Em
 	return &EmailDetail{
 		UID:             cached.UID,
 		MessageID:       cached.MessageID,
+		InReplyTo:       inReplyTo,
+		References:      references,
 		Subject:         cached.Subject,
 		From:            cached.From,
 		FromName:        cached.FromName,

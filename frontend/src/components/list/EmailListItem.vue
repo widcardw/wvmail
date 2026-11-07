@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatDateRecent, displaySender, truncateSubject } from '~/composables/formats'
+import { useI18n } from '~/i18n'
 import { useLocaleStore } from '~/stores/locale'
 import { useTagsStore } from '~/stores/tags'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 
 /** Dates follow the app language, like every Ark component in the app. */
 const localeStore = useLocaleStore()
+const { tf } = useI18n()
 const tagsStore = useTagsStore()
 const visibleTags = computed(() =>
   (props.email.tag_ids ?? [])
@@ -47,7 +49,16 @@ const hiddenTagCount = computed(() => Math.max(0, (props.email.tag_ids?.length ?
           <span v-if="props.smart || props.email.account_id" class="email-avatar">
             <AccountAvatar v-if="props.email.account_id" :account-id="props.email.account_id" />
           </span>
-          <span class="email-from">{{ displaySender(props.email) }}</span>
+          <span class="email-sender">
+            <span class="email-from">{{ displaySender(props.email) }}</span>
+            <span
+              v-if="(props.email.thread_count ?? 1) > 1"
+              class="email-thread-count"
+              :title="tf('mail.thread.count', { count: props.email.thread_count ?? 1 })"
+            >
+              {{ props.email.thread_count }}
+            </span>
+          </span>
           <i
             v-if="isFlagged(props.email.flags)"
             class="i-ri:star-fill email-star"
@@ -109,11 +120,18 @@ const hiddenTagCount = computed(() => Math.max(0, (props.email.tag_ids?.length ?
   gap: 8px;
   width: 100%;
 }
-.email-from {
-  font-size: 13px;
-  font-weight: 500;
+.email-sender {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex: 1;
   min-width: 0;
+}
+.email-from {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -141,6 +159,21 @@ const hiddenTagCount = computed(() => Math.max(0, (props.email.tag_ids?.length ?
   -webkit-line-clamp: 1;
   line-clamp: 1;
   margin-top: 2px;
+}
+.email-thread-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--color-text-3);
+  background: var(--n-border-color);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: 1px;
 }
 .email-tags {
   display: flex;

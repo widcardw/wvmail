@@ -12,7 +12,7 @@
     "lint:fix": "oxlint --fix",
     "typecheck": "vue-tsc --noEmit",
     "fmt": "oxfmt",
-    "test": "node tests/html-sanitize.test.mts && node tests/markdown.test.mts && node tests/date-mentions.test.mts && node tests/badge.test.mts && node tests/account-health.test.mts && node tests/mail-flags.test.mts && node tests/mail-safety.test.mts && node tests/proxy.test.mts && node tests/remote-senders.test.mts && node tests/connection.test.mts && node tests/search-query.test.mts && node tests/note-text.test.mts && node tests/folder-tree.test.mts && node tests/folder-semantics.test.mts && node tests/i18n-format.test.mts && node tests/recipients.test.mts && node tests/reply.test.mts"
+    "test": "node tests/html-sanitize.test.mts && node tests/markdown.test.mts && node tests/date-mentions.test.mts && node tests/badge.test.mts && node tests/account-health.test.mts && node tests/mail-flags.test.mts && node tests/mail-safety.test.mts && node tests/proxy.test.mts && node tests/remote-senders.test.mts && node tests/connection.test.mts && node tests/search-query.test.mts && node tests/note-text.test.mts && node tests/folder-tree.test.mts && node tests/folder-semantics.test.mts && node tests/i18n-format.test.mts && node tests/recipients.test.mts && node tests/reply.test.mts && node tests/mail-threads.test.mts"
   },
   "dependencies": {
     "@ark-ui/vue": "^5.39.1",

@@ -92,19 +92,25 @@ func (s *EmailService) refreshUnseen(client *imapclient.Client, accountID, folde
 
 // EmailSummary is a lightweight representation of an email for list views.
 type EmailSummary struct {
-	UID        uint32   `json:"uid"`
-	MessageID  string   `json:"message_id,omitempty"`
-	Subject    string   `json:"subject"`
-	From       string   `json:"from"`
-	FromName   string   `json:"from_name"`
-	FromAddr   string   `json:"from_addr"`
-	To         []string `json:"to"`
-	Date       string   `json:"date"`
-	Flags      []string `json:"flags"`
-	IsRead     bool     `json:"is_read"`
-	TagIDs     []string `json:"tag_ids,omitempty"`
-	AccountID  string   `json:"account_id,omitempty"`
-	FolderName string   `json:"folder_name,omitempty"`
+	UID          uint32   `json:"uid"`
+	MessageID    string   `json:"message_id,omitempty"`
+	InReplyTo    []string `json:"in_reply_to,omitempty"`
+	References   []string `json:"references,omitempty"`
+	Subject      string   `json:"subject"`
+	From         string   `json:"from"`
+	FromName     string   `json:"from_name"`
+	FromAddr     string   `json:"from_addr"`
+	To           []string `json:"to"`
+	Date         string   `json:"date"`
+	Flags        []string `json:"flags"`
+	IsRead       bool     `json:"is_read"`
+	IsBulk       bool     `json:"is_bulk,omitempty"`
+	ThreadID     string   `json:"thread_id,omitempty"`
+	ThreadCount  int      `json:"thread_count,omitempty"`
+	ThreadUnread int      `json:"thread_unread,omitempty"`
+	TagIDs       []string `json:"tag_ids,omitempty"`
+	AccountID    string   `json:"account_id,omitempty"`
+	FolderName   string   `json:"folder_name,omitempty"`
 }
 
 // EmailSearchFilter is one structured search tag. Supported fields are
@@ -141,17 +147,22 @@ type AttachmentInfo struct {
 
 // EmailDetail is the full representation of an email including body content.
 type EmailDetail struct {
-	UID       uint32   `json:"uid"`
-	MessageID string   `json:"message_id,omitempty"`
-	Subject   string   `json:"subject"`
-	From      string   `json:"from"`
-	FromName  string   `json:"from_name"`
-	FromAddr  string   `json:"from_addr"`
-	To        []string `json:"to"`
-	Cc        []string `json:"cc"`
-	Date      string   `json:"date"`
-	BodyText  string   `json:"body_text"`
-	BodyHTML  string   `json:"body_html"`
+	UID          uint32   `json:"uid"`
+	MessageID    string   `json:"message_id,omitempty"`
+	InReplyTo    []string `json:"in_reply_to,omitempty"`
+	References   []string `json:"references,omitempty"`
+	ThreadID     string   `json:"thread_id,omitempty"`
+	ThreadCount  int      `json:"thread_count,omitempty"`
+	ThreadUnread int      `json:"thread_unread,omitempty"`
+	Subject      string   `json:"subject"`
+	From         string   `json:"from"`
+	FromName     string   `json:"from_name"`
+	FromAddr     string   `json:"from_addr"`
+	To           []string `json:"to"`
+	Cc           []string `json:"cc"`
+	Date         string   `json:"date"`
+	BodyText     string   `json:"body_text"`
+	BodyHTML     string   `json:"body_html"`
 	// BodyIsPlainText records that the MIME body was text/plain (and no HTML
 	// alternative was used). The frontend renders these bodies as Markdown.
 	BodyIsPlainText bool             `json:"body_is_plain_text"`
@@ -324,11 +335,30 @@ func (s *EmailService) fetchEmailsOn(client *imapclient.Client, account EmailAcc
 	for _, buf := range buffers {
 		summaries = append(summaries, emailSummaryFromBuffer(buf))
 	}
+	if len(summaries) > 0 {
+		var threadUIDs imap.UIDSet
+		for _, summary := range summaries {
+			threadUIDs.AddNum(imap.UID(summary.UID))
+		}
+		if headers, headerErr := fetchThreadingHeaders(client, threadUIDs); headerErr != nil {
+			slog.Warn("sync: failed to fetch threading headers",
+				"account", account, "folder", folder, "error", headerErr)
+		} else {
+			for i := range summaries {
+				if header, ok := headers[summaries[i].UID]; ok {
+					mergeThreadingHeaders(&summaries[i], header)
+				}
+			}
+		}
+	}
 
 	// Newest first. The sequence range above selected the newest arrivals, but
 	// arrival order is not date order (a forwarded message keeps its original
 	// Date header), so the page is ordered on the parsed instant.
 	sortEmailsNewestFirst(summaries)
+	// The cache read below normally decorates the full folder, but keep the raw
+	// page usable too when that read fails.
+	applyEmailThreads(summaries)
 
 	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
 	// removing older rows, so paging to an earlier page keeps those in the cache.
@@ -432,6 +462,7 @@ func emailSummaryFromBuffer(buf *imapclient.FetchMessageBuffer) EmailSummary {
 	if buf.Envelope != nil {
 		summary.Subject = decodeMimeHeader(buf.Envelope.Subject)
 		summary.MessageID = strings.TrimSpace(buf.Envelope.MessageID)
+		summary.InReplyTo = append([]string(nil), buf.Envelope.InReplyTo...)
 		envelopeDate = buf.Envelope.Date
 	}
 	// Stored in UTC so the column is homogeneous. Date and InternalDate are

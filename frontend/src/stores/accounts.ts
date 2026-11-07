@@ -20,6 +20,7 @@ import { Events } from '@wailsio/runtime'
 import { isFlagged, withMailFlag } from '~/composables/mail-flags'
 import { accountUnreadCount, adjustUnreadCounts } from '~/composables/folder-semantics'
 import { mailKey } from '~/composables/mail-key'
+import { groupEmailThreads, type EmailThreadRow } from '~/composables/mail-threads'
 
 export const useAccountsStore = defineStore('accounts', () => {
   const feedback = useFeedbackStore()
@@ -106,12 +107,23 @@ export const useAccountsStore = defineStore('accounts', () => {
   const selectedEmailDetail = ref<EmailDetail | null>(null)
   const loadingDetail = ref(false)
   const detailError = ref<string | null>(null)
+  const selectedThreadId = ref<string | null>(null)
+  const selectedThreadEmails = ref<EmailSummary[]>([])
+  const loadingThread = ref(false)
   /**
    * Latest detail request. Selecting another message, or refreshing the body,
    * invalidates every request that started before it so a slow IMAP fetch cannot
    * paint its result over the message now on screen.
    */
   let detailRequestId = 0
+  let threadRequestId = 0
+
+  function clearThreadSelection() {
+    threadRequestId++
+    selectedThreadId.value = null
+    selectedThreadEmails.value = []
+    loadingThread.value = false
+  }
 
   function detailRequestIsCurrent(
     requestId: number,
@@ -150,6 +162,23 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
     const key = `${selectedAccountId.value}:${selectedFolder.value}`
     return emailsByFolder.value[key] ?? []
+  })
+
+  /**
+   * The list's rows. Folder pages are collapsed by conversation; aggregate and
+   * search views keep their existing one-row-per-message shape because their
+   * rows can span accounts and folders.
+   */
+  const currentListRows = computed<EmailThreadRow[]>(() => {
+    if (searchStore.searchActive || smartFolder.value) {
+      return currentEmails.value.map((email) => ({
+        ...email,
+        thread_messages: [email],
+        thread_count: 1,
+        thread_unread: email.is_read ? 0 : 1,
+      }))
+    }
+    return groupEmailThreads(currentEmails.value)
   })
 
   const currentTotal = computed(() => {
@@ -238,12 +267,14 @@ export const useAccountsStore = defineStore('accounts', () => {
       if (selectedAccountId.value === id) {
         selectedAccountId.value = null
         selectedFolder.value = null
+        clearThreadSelection()
         selectedEmailUid.value = null
         selectedEmailAccountId.value = null
         selectedEmailFolder.value = null
         selectedEmailDetail.value = null
       }
       if (selectedEmailAccountId.value === id) {
+        clearThreadSelection()
         selectedEmailUid.value = null
         selectedEmailAccountId.value = null
         selectedEmailFolder.value = null
@@ -705,7 +736,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     unlisten?.()
   })
 
-  async function selectEmail(account: EmailAccount, folder: string, uid: number) {
+  async function loadEmailDetail(account: EmailAccount, folder: string, uid: number) {
     const requestId = ++detailRequestId
     selectedEmailUid.value = uid
     selectedEmailAccountId.value = account.ID
@@ -730,6 +761,52 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  async function selectEmail(account: EmailAccount, folder: string, uid: number) {
+    clearThreadSelection()
+    await loadEmailDetail(account, folder, uid)
+  }
+
+  /**
+   * Open one conversation: load its cached messages, then show the newest
+   * unread message (or the row the user clicked) in the reading pane.
+   */
+  async function selectThread(
+    account: EmailAccount,
+    folder: string,
+    threadId: string,
+    preferredUid?: number,
+  ) {
+    const requestId = ++threadRequestId
+    selectedThreadId.value = threadId
+    selectedThreadEmails.value = []
+    loadingThread.value = true
+    try {
+      const rows = await EmailService.ListThreadEmails(account, folder, threadId)
+      if (requestId !== threadRequestId || selectedThreadId.value !== threadId) return
+      selectedThreadEmails.value = rows
+      const preferred = rows.find((email) => email.uid === preferredUid)
+      const newestUnread = [...rows].reverse().find((email) => !email.is_read)
+      const target = preferred ?? newestUnread ?? rows[rows.length - 1]
+      if (target) {
+        await loadEmailDetail(account, folder, target.uid)
+      } else if (preferredUid != null) {
+        await loadEmailDetail(account, folder, preferredUid)
+      }
+    } catch (e) {
+      if (requestId === threadRequestId) {
+        detailError.value = String(e)
+        console.error('Failed to load the conversation', e)
+      }
+    } finally {
+      if (requestId === threadRequestId) loadingThread.value = false
+    }
+  }
+
+  /** Switch tabs inside the conversation already on screen. */
+  async function selectThreadEmail(account: EmailAccount, folder: string, uid: number) {
+    await loadEmailDetail(account, folder, uid)
+  }
+
   /**
    * Opening a message marks it seen — on the server (STORE \Seen) and in the local
    * cache — so the list styling and the tray badge stop counting it. Best effort: a
@@ -739,8 +816,13 @@ export const useAccountsStore = defineStore('accounts', () => {
     const folderSummary = emailsByFolder.value[`${account.ID}:${folder}`]?.find(
       (item) => item.uid === uid,
     )
+    const threadSummary = selectedThreadEmails.value.find(
+      (email) =>
+        email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
+    )
     const touched = [
       folderSummary,
+      threadSummary,
       ...smartEmails.value.filter(
         (email) =>
           email.account_id === account.ID && email.folder_name === folder && email.uid === uid,
@@ -751,8 +833,26 @@ export const useAccountsStore = defineStore('accounts', () => {
       ),
     ].filter((summary): summary is EmailSummary => Boolean(summary))
     if (touched.length > 0 && touched.every((summary) => summary.is_read)) return
+    const threadID = folderSummary?.thread_id ?? threadSummary?.thread_id
+    const threadRows = threadID
+      ? [
+          ...(emailsByFolder.value[`${account.ID}:${folder}`] ?? []),
+          ...smartEmails.value,
+          ...smartTagFilterEmails.value,
+          ...selectedThreadEmails.value,
+        ].filter(
+          (email) =>
+            email.thread_id === threadID &&
+            (email.account_id == null || email.account_id === account.ID) &&
+            (email.folder_name == null || email.folder_name === folder),
+        )
+      : []
     const previousRead = touched.map((summary) => summary.is_read)
+    const previousThreadUnread = threadRows.map((email) => email.thread_unread)
     for (const summary of touched) summary.is_read = true
+    for (const summary of threadRows) {
+      summary.thread_unread = Math.max(0, (summary.thread_unread ?? 0) - 1)
+    }
     // Adjust the badge only when the message came from the loaded page: a search or
     // aggregate hit is not in `emailsByFolder` at all, so its read state is unknown and
     // guessing would take a count off a folder that may never have had it. The next
@@ -765,6 +865,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     } catch (e) {
       touched.forEach((summary, index) => {
         summary.is_read = previousRead[index]
+      })
+      threadRows.forEach((summary, index) => {
+        summary.thread_unread = previousThreadUnread[index]
       })
       if (knownUnread) adjustUnread(account.ID, folder, 1)
       console.error('Failed to mark email as read', e)
@@ -820,6 +923,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     smartFolder.value = null
     selectedAccountId.value = id
     selectedFolder.value = null
+    clearThreadSelection()
     selectedEmailUid.value = null
     selectedEmailAccountId.value = null
     selectedEmailFolder.value = null
@@ -835,6 +939,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedAccountId.value = accountId
     selectedFolder.value = folderName
     smartFolder.value = null // clear smart folder selection
+    clearThreadSelection()
     selectedEmailUid.value = null
     selectedEmailAccountId.value = null
     selectedEmailFolder.value = null
@@ -1024,11 +1129,21 @@ export const useAccountsStore = defineStore('accounts', () => {
       if (wasUnread) adjustUnread(account.ID, folder, -1)
 
       if (stillSelected) {
-        selectedEmailUid.value = null
-        selectedEmailAccountId.value = null
-        selectedEmailFolder.value = null
-        selectedEmailDetail.value = null
-        detailError.value = null
+        const remaining = selectedThreadEmails.value.filter((email) => email.uid !== uid)
+        if (selectedThreadId.value && remaining.length > 0) {
+          selectedThreadEmails.value = remaining
+          const next =
+            [...remaining].reverse().find((email) => !email.is_read) ??
+            remaining[remaining.length - 1]
+          void loadEmailDetail(account, folder, next.uid)
+        } else {
+          clearThreadSelection()
+          selectedEmailUid.value = null
+          selectedEmailAccountId.value = null
+          selectedEmailFolder.value = null
+          selectedEmailDetail.value = null
+          detailError.value = null
+        }
       }
 
       feedback.success(i18n.value['mail.deleted'])
@@ -1204,6 +1319,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     smartFolder.value = smartType
     selectedAccountId.value = null
     selectedFolder.value = null
+    clearThreadSelection()
     selectedEmailUid.value = null
     selectedEmailAccountId.value = null
     selectedEmailFolder.value = null
@@ -1379,11 +1495,15 @@ export const useAccountsStore = defineStore('accounts', () => {
     selectedEmailFlagging,
     deletingSelectedEmail,
     selectedEmailDetail,
+    selectedThreadId,
+    selectedThreadEmails,
+    loadingThread,
     loadingDetail,
     detailError,
     selectedAccount,
     currentFolders,
     currentEmails,
+    currentListRows,
     currentTotal,
     currentPage,
     pageSize,
@@ -1414,6 +1534,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     forceRefreshEmails,
     goToPage,
     selectEmail,
+    selectThread,
+    selectThreadEmail,
     refreshEmailBody,
     downloadAttachment,
     selectAccount,
