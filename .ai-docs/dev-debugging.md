@@ -8,6 +8,14 @@ type: project
 
 ## 问题：Cmd+Opt+I 打不开 DevTools
 
+## 应用日志
+
+- 文件：`<os.UserConfigDir>/wvmail/logs/app.log`（macOS 通常是 `~/Library/Application Support/wvmail/logs/app.log`）。
+- 格式：`[2006-01-02 15:04:05][LEVEL] message key=value ...`，同时镜像到 stderr（`wails3 dev` 可见）。Debug 会附带 `[file:line]`。
+- 子系统前缀：`imap:`、`sync:`、`idle:`、`tray:`、`cache:`、`body:`、`decode:`、`network:`、`logger:` 等；账号字段写成 `account.email` / `account.name`，不写密码/API key/正文。
+- 轮转与清理由 `Settings → 关于` 的日志配置控制：`app.log` 按大小轮转；积满一批轮转文件会打包成 `app-logs-<timestamp>.tar.gz`；保留天数 `0` 表示不清理过期日志。实现见 `services/logger.go`。
+- 开发构建会额外输出完整 LLM prompt/response 诊断（`llm_debug_dev.go`）；production tag 构建不包含这些输出。 
+
 `wails3 dev` 按 Cmd+Opt+I（View → Open Developer Tools）**没有任何反应**，也没有任何报错。
 
 ### 原因：macOS 26 的 WebKit 回归 + Wails 用的是私有 API

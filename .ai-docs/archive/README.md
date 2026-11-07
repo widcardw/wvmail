@@ -10,7 +10,7 @@ Do not use them as the current source of truth. Start from
 | File | Why it is archived |
 |---|---|
 | `api-and-duplication-review.md` | A dated 2026-11 review; its binding counts and follow-up list are snapshots, not a current API inventory |
-| `oauth-research.md` | Dated OAuth feasibility research; the current implementation lives in `services/oauthservice.go` and the account settings flow |
+| `oauth-research.md` | Dated OAuth feasibility/implementation log; the implementation has landed. Use `services/oauthservice.go`, `services/imapdial.go` and the account settings flow as the current reference |
 
 Superseded guides and one-off external answers were deleted rather than kept:
 they had no ongoing project-specific value once the migration/research was done.

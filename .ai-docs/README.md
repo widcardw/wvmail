@@ -9,7 +9,7 @@ archived.
 | Doc | What it covers |
 |---|---|
 | `project-architecture.md` | Repository layout, services, stores, routes, Wails bridge and build commands |
-| `email-fetch-and-display.md` | IMAP fetch/cache path, body decoding, sanitization, remote-content blocking and image proxy |
+| `email-fetch-and-display.md` | IMAP fetch/cache path, folder/status refreshes, body decoding/sanitization, oversized-content fitting, remote-content blocking and raw `.eml` export |
 | `compose-and-sending.md` | Compose window, drafts, SMTP/MIME, attachments, reply/forward and `mailto:` |
 | `config-store.md` | `config.yaml` fields, secret encryption, atomic writes and config events |
 | `vue-patterns.md` | Vue/Pinia conventions, path aliases and Wails imports |
@@ -29,12 +29,12 @@ archived.
 | `i18n.md` | Typed dictionaries, interpolation and plural rules |
 | `window-tray-and-close.md` | Close-to-tray behavior, tray menu and the single quit path |
 | `build-assets-and-icons.md` | macOS app icon pipeline and build-asset traps |
-| `dev-debugging.md` | macOS/WebKit/Wails debugging notes |
+| `dev-debugging.md` | App logging and macOS/WebKit/Wails debugging notes |
 
 ## Historical and upstream material
 
-- `archive/` contains dated reviews, research notes and superseded guides. They
-  are kept for context, not as current implementation or API references.
+- `archive/` contains dated reviews, research notes and implementation logs.
+  They are kept for context, not as current implementation or API references.
 - `reference/arkui-vue.txt` is a generated dump of upstream Ark UI documentation.
   It is not project documentation and may lag the installed package; prefer the
   official docs at <https://ark-ui.com/> when they disagree.
@@ -47,5 +47,8 @@ archived.
 - Delete superseded guides and one-off answers that have no ongoing value. Keep
   useful dated reviews or research in `archive/`; do not leave either category
   in the current index.
+- When importing notes from `.workbuddy-ai` or similar scratch logs, extract only
+  durable behavior, decisions and debugging conclusions into the relevant doc;
+  do not copy dated session logs into `.ai-docs`.
 - When moving or renaming a doc, update links in `README.md`, `CLAUDE.md` and the
-  other notes that point to it.
+  other notes that point to it. 

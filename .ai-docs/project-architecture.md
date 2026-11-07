@@ -131,8 +131,12 @@ Location: `services/osservice.go`
 | `OpenURL(url)` | `string` | Open a URL in the system browser |
 | `PathStat(path)` | `string` | Returns `"file"`, `"dir"`, `"non-exist"`, or `"empty"` |
 | `SaveFileDialog(filename)` | `string` | Native save dialog; returns the chosen path |
-| `SaveEmailDialog(title, filename)` | `string` | Native `.eml` save dialog |
+| `SaveEmailDialog(title, filename)` | `string` | Native `.eml` save dialog for raw message export |
 | `QuitApp()` | — | Run the app's guarded quit path |
+
+Raw message export is wired as `EmailService.ExportOriginalMessage(...)` plus
+`OsService.SaveEmailDialog(...)`; it returns untouched RFC 822 bytes and is
+useful for charset/MIME debugging. 
 
 Config directory resolves to:
 - **macOS**: `~/Library/Application Support/wvmail/`

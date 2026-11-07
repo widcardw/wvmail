@@ -51,12 +51,15 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 | `FetchEmail` | **是** | — | 命中 `LoadEmailBody` 直接返回 |
 | `RefreshEmailBody` | 否 | 60s | 两趟抓取：先 BodyStructure，再正文/inline 段 |
 | `DownloadAttachment` | 否 | 60s | 独立连接，只抓指定 part |
+| `ExportOriginalMessage` | 否 | 60s | `UID FETCH BODY.PEEK[]` 只读原始 RFC 822（`.eml`），不解码 MIME/charset、不改变 `\Seen`；前端经 `OsService.SaveEmailDialog` 选路径后写盘 |
 | `UnseenCount` | 否 | 60s | 单个文件夹的 `STATUS UNSEEN`（托盘红点用） |
 | `FolderStatuses` | **否（必须问服务器）** | 60s | 一次连接、**流水线**发出全部 `STATUS MESSAGES UIDNEXT UNSEEN`，返回 `map[文件夹]{messages,uid_next,unseen}`；既供侧边栏 badge，也供「打开的文件夹到底变没变」判断 |
 
 **缓存策略要点**：`SaveEmails` 按 UID 合并、不删旧行，所以翻到更早的页不会丢掉已缓存的邮件；`RefreshEmails` 的返回页可能来自「服务器新抓的页 + 缓存旧行」合并结果（page 1 总是如此）。合并前会用一次 `UID SEARCH` 只查询**已缓存 UID**，把服务器已经不存在的摘要和正文删掉；否则网页版/其他客户端删除邮件后，本地旧 UID 会永远留在列表里，甚至点击删除时 `MOVE` 失败。
 
 **未读计数不能来自缓存**：`cached_emails.is_read` 只覆盖 UI 已经翻到过的那些页，用它统计会让任何大于一页的邮箱**少算**，所以侧边栏 badge 走 `FolderStatuses`（服务器 `STATUS`）。成本控制：只连一次、把所有 `STATUS` 先发出去再逐个 `Wait`（go-imap 在同一连接上流水线化命令，见其 `Client` 文档），因此整个文件夹列表是**一个 RTT**而不是每文件夹一个。`\Noselect`/`\NonExistent` 的容器文件夹跳过（`STATUS` 对它们是报错而不是 0），服务器拒绝回答的文件夹**不出现在 map 里** —— 前端把「缺键」读作「没有要 badge 的」。
+
+**侧边栏未读 badge**：每个文件夹行显示该文件夹的 `UNSEEN`；账户行显示账号角标（`stores/accounts.ts` 的 `accountUnread`，读 `folderStatusByAccount` 并按 `folder-semantics.ts` 的 Gmail 视图去重规则汇总）。启动 `loadAccounts` 后会 seed 一次 `loadFolderStatuses`（串行、in-flight 复用），使展开前也能看到账号级数字；打开未读邮件时做乐观 −1，失败回滚。和托盘徽标是两条链路：托盘只关心 INBOX/未读提示，侧边栏依赖完整 `FolderStatuses` 快照。
 
 **Gmail 重叠视图不能相加**：Gmail 的 `INBOX`、`\Important`、`\Flagged`、`\All` 是同一批邮件的不同视图。`FolderStatus` 现在把文件夹的 special-use `attrs` 一起返回；账号角标由 `folder-semantics.ts` 的 `accountUnreadCount` 统一计算：有 `\All` 时只读 All Mail（唯一超集），没有 All Mail 时退回 Inbox，其他服务商仍按文件夹求和。单封邮件仍会在每个对应文件夹行显示 badge，这是视图自己的计数；只有账号汇总去重。`\All` 也用于显示名解析，因此 Gmail 的「所有邮件」不再被误叫成「归档」，真正的 `\Archive` 仍显示为归档。
 
@@ -242,6 +245,7 @@ ListEmails（缓存优先）          FetchEmail（缓存优先）
 - 正文里的日期/时间会被标成可点击的 `<span class="date-mention">`（净化**之后**的独立 pass，邮件本身伪造不出这种 chip），点击后弹确认框加入提醒事项 —— 细节见 `mail-date-reminders.md`。
 - **颜色主题归我们管**：邮件自带 `@media (prefers-color-scheme: …)` 由 OS 外观触发，与应用主题无关 —— 已在净化时按 `darkMode` 改写成常量，见 §3.5。
 - **正文区顶部只有一条 bar 栈**（`styles/ui.css` 的 `.body-bar*`，位于 `EmailShadowBody` 之前）：垃圾邮件门禁 `EmailSecurityNotice.vue`（`title` 是完整说明 + 「显示所有内容」按钮）、`EmailCssArtNotice.vue`、`EmailRemoteNotice.vue` 共用同一套壳，不再各写一份 CSS。标签一律 `white-space: nowrap` —— 否则 CJK 标题会在任意两字之间折行（窄窗时「不安 / 全」）；带按钮的 bar 用 `.body-bar--with-actions`：`flex-wrap` + 标签 `min-width: min-content`，空间不够时**按钮换到第二行**（右对齐），而不是把标题截成省略号。
+- **超宽内容适配（Shadow DOM 内）**：`rehypeWrapTables`（`composables/html/wrap-tables.ts`）把 `<table>` 包进 `.email-table-scroll`；`CONTENT_FIT_CSS`（`html/content-fit.ts`）让图片按比例缩小、表格允许横向滚动但不强行 `max-content` 撑坏 `width="100%"` 布局邮件。`<pre>` 和发件人显式 `white-space: pre/nowrap` 只做局部降级（`pre-wrap`/换行），避免全局 `pre-wrap` 把结构性空白膨胀成大段空行。  
 
 ### 3.4 远程内容拦截与 CSS 净化
 

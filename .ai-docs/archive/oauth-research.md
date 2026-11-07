@@ -1,12 +1,14 @@
 # Gmail / Outlook 在线验证（OAuth）可行性调研
 
-> **Archived research.** The phase-one implementation described below has
-> landed; use `services/oauthservice.go` and the account settings flow as the
-> current reference.
+> **Archived implementation log.** The phase-one implementation described below
+> has landed. This file is kept for provider constraints, scope choices and
+> rollout notes; verify current behavior against `services/oauthservice.go`,
+> `services/imapdial.go`, `frontend/src/components/settings/AccountForm.vue`
+> and the account settings flow.
 
 > 2026-10-18 调研。目标：在现有「手填 IMAP/SMTP」之外，增加网页授权式添加账户，覆盖 Gmail、Outlook.com（个人）、Microsoft 365（组织），并回答「Exchange 怎么办」。
 >
-> **状态更新（同日）：阶段一已实现。** 见文末「已实现」一节。
+> **状态更新（同日）：阶段一已实现。** 见文末「已实现」一节。 
 
 ## 结论先行
 
