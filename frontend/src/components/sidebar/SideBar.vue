@@ -493,9 +493,10 @@ watch(() => router.currentRoute.value.path, syncSelected)
   border-radius: 5px;
 }
 
-.divider {
+.side.space-y-1px > .divider {
   height: 1px;
-  margin: 6px 8px;
+  margin-block: 6px;
+  margin-inline: -6px;
   background: var(--n-border-color);
   opacity: 0.7;
 }
@@ -503,6 +504,10 @@ watch(() => router.currentRoute.value.path, syncSelected)
 .tree-wrap {
   flex: 1;
   min-height: 0;
+  margin-right: -6px;
+}
+.tree-wrap :deep(.scroll-area__content) {
+  padding-right: 6px;
 }
 
 .empty {
