@@ -388,18 +388,35 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  function rememberFolders(account: EmailAccount, folders: FolderInfo[]) {
+    foldersByAccount.value[account.ID] = folders
+    // Badges are per folder, so they are only worth fetching once the folder list is
+    // known (the backend STATUSes exactly the folders it has cached).
+    void loadFolderStatuses(account)
+    return folders
+  }
+
+  async function fetchFolders(account: EmailAccount): Promise<FolderInfo[]> {
+    return rememberFolders(account, await EmailService.ListFolders(account))
+  }
+
   async function loadFolders(account: EmailAccount) {
     try {
-      const folders = await EmailService.ListFolders(account)
-      foldersByAccount.value[account.ID] = folders
-      // Badges are per folder, so they are only worth fetching once the folder list is
-      // known (the backend STATUSes exactly the folders it has cached).
-      void loadFolderStatuses(account)
+      await fetchFolders(account)
     } catch (e) {
       // Keep whatever was already loaded: emptying the list made a transient
       // failure look like "this account has no folders".
       reportFetchFailure('Failed to load folders', e)
     }
+  }
+
+  /** Folder settings needs the error, not a toast: the pane has its own retry UI. */
+  async function loadFoldersForSettings(account: EmailAccount): Promise<FolderInfo[]> {
+    return fetchFolders(account)
+  }
+
+  async function refreshFoldersForSettings(account: EmailAccount): Promise<FolderInfo[]> {
+    return rememberFolders(account, await EmailService.RefreshFolders(account))
   }
 
   /** Unread count of one folder, 0 when there is nothing to badge. */
@@ -1588,6 +1605,8 @@ export const useAccountsStore = defineStore('accounts', () => {
     markAvatarUpdated,
     testConnection,
     loadFolders,
+    loadFoldersForSettings,
+    refreshFoldersForSettings,
     loadEmails,
     forceRefreshEmails,
     goToPage,

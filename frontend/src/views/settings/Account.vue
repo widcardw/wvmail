@@ -23,6 +23,9 @@ const testResult = ref<{ success: boolean; message: string } | null>(null)
 const testingId = ref<string | null>(null)
 const testSuccessId = ref<string | null>(null)
 const testFailId = ref<string | null>(null)
+const foldersLoading = ref(false)
+const foldersError = ref('')
+let folderLoadRequest = 0
 /** The account the delete dialog is asking about; null keeps the dialog shut. */
 const deleteTarget = ref<EmailAccount | null>(null)
 /** Latched while RemoveAccount runs, so the dialog cannot be dismissed mid-write. */
@@ -64,6 +67,8 @@ const emptyForm = (): EmailAccount => ({
   OAuthRefreshToken: '',
   SyncInterval: 0,
   Avatar: '',
+  FolderSettings: [],
+  FolderOrder: [],
   // Always an object, never undefined: the form's proxy select reads Mode on
   // every render, and a new account has to start on "follow the global proxy".
   Proxy: { Mode: '', URL: '' },
@@ -108,9 +113,12 @@ function onCropDialogOpen(open: boolean) {
 }
 
 function openAddForm() {
+  folderLoadRequest++
   editingId.value = null
   formData.value = emptyForm()
   testResult.value = null
+  foldersLoading.value = false
+  foldersError.value = ''
   avatarPreview.value = ''
   avatarFileData.value = null
   revokeAvatarPreviewUrl()
@@ -124,7 +132,10 @@ function openEditForm(account: EmailAccount) {
   // form write straight into the store's account while the user is still
   // editing (and a cancelled edit would leave the change behind).
   formData.value = { ...account, Proxy: { ...account.Proxy } }
+  formData.value.FolderSettings = (account.FolderSettings ?? []).map((setting) => ({ ...setting }))
+  formData.value.FolderOrder = [...(account.FolderOrder ?? [])]
   testResult.value = null
+  foldersError.value = ''
   avatarPreview.value = ''
   avatarFileData.value = null
   revokeAvatarPreviewUrl()
@@ -137,17 +148,39 @@ function openEditForm(account: EmailAccount) {
       })
       .catch(() => {})
   }
+  void loadFoldersForSettings(account)
 }
 
 function cancelForm() {
+  folderLoadRequest++
   closeCropDialog()
   revokeAvatarPreviewUrl()
   showingList.value = true
   editingId.value = null
   formData.value = emptyForm()
   testResult.value = null
+  foldersLoading.value = false
+  foldersError.value = ''
   avatarPreview.value = ''
   avatarFileData.value = null
+}
+
+async function loadFoldersForSettings(account: EmailAccount, refresh = false) {
+  const requestId = ++folderLoadRequest
+  foldersLoading.value = true
+  foldersError.value = ''
+  try {
+    if (refresh) await accountsStore.refreshFoldersForSettings(account)
+    else await accountsStore.loadFoldersForSettings(account)
+  } catch (error) {
+    if (requestId === folderLoadRequest) foldersError.value = String(error)
+  } finally {
+    if (requestId === folderLoadRequest) foldersLoading.value = false
+  }
+}
+
+function refreshEditFolders() {
+  if (formData.value.ID) void loadFoldersForSettings(formData.value, true)
 }
 
 function readImageAspectRatio(url: string): Promise<number> {
@@ -362,7 +395,11 @@ onUnmounted(() => {
         :test-result="testResult"
         :testing="accountsStore.testingId !== null"
         :saving="saving"
+        :folders="editingId ? (accountsStore.foldersByAccount[editingId] ?? []) : []"
+        :folders-loading="foldersLoading"
+        :folders-error="foldersError"
         @avatar-file="onAvatarFile"
+        @refresh-folders="refreshEditFolders"
         @cancel="cancelForm"
         @test="handleTest"
         @save="handleSave"

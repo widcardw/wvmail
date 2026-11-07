@@ -147,10 +147,27 @@ type EmailAccount struct {
 	// Sync settings
 	SyncInterval int    `yaml:"sync_interval"` // Auto-sync interval in minutes (0 = disabled)
 	Avatar       string `yaml:"avatar"`        // Avatar filename (relative to avatar dir)
+	// FolderSettings overrides how individual IMAP mailboxes appear in the
+	// sidebar. Entries are keyed by the mailbox's full server name (for example
+	// "INBOX" or "Projects/2026"), not by a localized label. An omitted entry
+	// means "show the folder with its automatic label and icon".
+	FolderSettings []AccountFolderSetting `yaml:"folder_settings,omitempty"`
+	// FolderOrder is the full mailbox names in the exact order the settings page
+	// and the sidebar should render them. Names absent from the list keep the
+	// automatic rank and follow the unconfigured folders.
+	FolderOrder []string `yaml:"folder_order,omitempty"`
 	// Proxy overrides the global proxy for this account. The zero value follows
 	// the global setting, which is what every account written before this option
 	// existed gets.
 	Proxy AccountProxy `yaml:"proxy,omitempty"`
+}
+
+// AccountFolderSetting is one mailbox's sidebar display override.
+type AccountFolderSetting struct {
+	Name        string `yaml:"name"`                   // full IMAP mailbox name
+	Hidden      bool   `yaml:"hidden,omitempty"`       // hide the folder and its descendants
+	DisplayName string `yaml:"display_name,omitempty"` // empty keeps the automatic label
+	Icon        string `yaml:"icon,omitempty"`         // empty keeps the automatic icon
 }
 
 // LogValue makes an account readable in the log. Pass the account itself to slog

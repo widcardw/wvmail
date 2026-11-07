@@ -1,4 +1,5 @@
 import { defineConfig, presetUno, presetIcons, transformerDirectives } from 'unocss'
+import { FOLDER_ICON_VALUES } from './src/components/settings/folder-icons'
 
 // UnoCSS config (wvmail)
 // - presetIcons: build-time, offline icons from installed `@iconify-json/*` sets.
@@ -36,6 +37,10 @@ export default defineConfig({
   // types, provider fallbacks, avatars) must still be emitted offline, so list them
   // explicitly. These correspond to `@iconify-json/*` collections added as deps.
   safelist: [
+    // The folder-icon picker renders `i-${value}` from the shared catalogue, so
+    // none of those classes are visible to the scanner. Importing the same list
+    // keeps the picker and the emitted CSS in sync automatically.
+    ...FOLDER_ICON_VALUES.map((value) => `i-${value}`),
     // shell / chrome
     'i-ri:sun-line',
     'i-ri:moon-clear-line',
@@ -58,6 +63,12 @@ export default defineConfig({
     'i-ri:star-fill',
     'i-ri:notification-3-line',
     'i-ri:folder-2-line',
+    'i-ri:price-tag-3-line',
+    'i-ri:user-3-line',
+    'i-ri:briefcase-line',
+    'i-ri:flight-takeoff-line',
+    'i-ri:bill-line',
+    'i-ri:shopping-bag-3-line',
     'i-ri:draft-line',
     'i-ri:home-2-line',
     'i-ri:settings-2-line',
@@ -66,6 +77,32 @@ export default defineConfig({
     'i-ri:close-line',
     'i-ri:mail-line',
     'i-ri:mail-unread-line',
+    'i-ri:drag-move-2-line',
+    'i-ri:team-line',
+    'i-ri:building-4-line',
+    'i-ri:train-line',
+    'i-ri:car-line',
+    'i-ri:map-2-line',
+    'i-ri:calendar-event-line',
+    'i-ri:time-line',
+    'i-ri:receipt-line',
+    'i-ri:wallet-3-line',
+    'i-ri:bookmark-3-line',
+    'i-ri:shield-keyhole-line',
+    'i-ri:lock-password-line',
+    'i-ri:key-2-line',
+    'i-ri:heart-3-line',
+    'i-ri:chat-3-line',
+    'i-ri:customer-service-2-line',
+    'i-ri:megaphone-line',
+    'i-ri:tools-line',
+    'i-ri:code-s-slash-line',
+    'i-ri:database-2-line',
+    'i-ri:cloud-line',
+    'i-ri:file-text-line',
+    'i-ri:image-line',
+    'i-ri:music-2-line',
+    'i-ri:video-line',
     'i-ri:reply-line',
     'i-ri:reply-all-line',
     'i-ri:share-forward-line',

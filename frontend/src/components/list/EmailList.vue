@@ -5,6 +5,7 @@ import { useAccountsStore } from '~/stores/accounts'
 import { useSearchStore } from '~/stores/search'
 import { useTagsStore } from '~/stores/tags'
 import { getFolderDisplay } from '~/types/email'
+import { folderDisplayOverride } from '~/composables/folder-settings'
 import { mailKeyFor, selectedMailKey } from '~/composables/mail-key'
 import type { EmailThreadRow } from '~/composables/mail-threads'
 import EmailListHeader from './EmailListHeader.vue'
@@ -81,7 +82,16 @@ const folderDisplay = computed(() => {
     const folder = accountsStore.currentFolders.find(
       (candidate) => candidate.name === accountsStore.selectedFolder,
     )
-    return getFolderDisplay(accountsStore.selectedFolder, locale.value, folder?.attrs)
+    const automatic = getFolderDisplay(accountsStore.selectedFolder, locale.value, folder?.attrs)
+    const override = folderDisplayOverride(
+      accountsStore.selectedAccount?.FolderSettings,
+      accountsStore.selectedFolder,
+    )
+    return {
+      ...automatic,
+      label: override.label ?? automatic.label,
+      icon: override.icon ?? automatic.icon,
+    }
   }
   if (searchStore.searchActive) return { label: t.value['search.results'] }
   return { label: '', icon: '', rank: 99 }

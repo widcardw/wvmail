@@ -10,6 +10,7 @@ import { useConnectionStore } from '~/stores/connection'
 import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
 import { buildFolderTree } from '~/composables/folder-tree'
+import { applyFolderSettings } from '~/composables/folder-settings'
 import { getFolderDisplay } from '~/types/email'
 import type { FolderTreeNode } from '~/composables/folder-tree'
 import type { EmailAccount } from '~/types/email'
@@ -83,8 +84,10 @@ function folderSideNode(accountId: string, folder: FolderTreeNode): SideNode {
 function accountNode(account: EmailAccount): SideNode {
   const cached = store.foldersByAccount[account.ID]
   const children = cached
-    ? buildFolderTree(cached, (segment, attrs) =>
-        getFolderDisplay(segment, locale.value, attrs),
+    ? applyFolderSettings(
+        buildFolderTree(cached, (segment, attrs) => getFolderDisplay(segment, locale.value, attrs)),
+        account.FolderSettings,
+        account.FolderOrder,
       ).map((folder) => folderSideNode(account.ID, folder))
     : []
   return {
@@ -131,7 +134,13 @@ function treeCol(): any {
 }
 
 watch(
-  () => store.accounts.map((a) => a.ID),
+  () =>
+    store.accounts
+      .map(
+        (account) =>
+          `${account.ID}\u0000${account.Name}\u0000${JSON.stringify(account.FolderSettings ?? [])}\u0000${JSON.stringify(account.FolderOrder ?? [])}`,
+      )
+      .join('|'),
   () => rebuild(),
 )
 // Rebuild when folder cache changes (folder list loaded/refreshed), updating the hierarchy.

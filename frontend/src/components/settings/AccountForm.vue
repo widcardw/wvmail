@@ -8,10 +8,11 @@ import UiSelect from '~/components/ui/UiSelect.vue'
 import UiPasswordInput from '~/components/ui/UiPasswordInput.vue'
 import UiNumberInput from '~/components/ui/UiNumberInput.vue'
 import UiSwitch from '~/components/ui/UiSwitch.vue'
+import AccountFolderSettings from '~/components/settings/AccountFolderSettings.vue'
 import { proxyModeLabels } from '~/composables/proxy'
 import { EMAIL_PROVIDER_DEFAULTS, detectProvider } from '~/types/email'
 import type { EmailAccount, EmailProvider } from '~/types/email'
-import type { OAuthPollResult } from '#/wvmail/services'
+import type { FolderInfo, OAuthPollResult } from '#/wvmail/services'
 import { OAuthService, OsService } from '#/wvmail/services'
 
 const props = defineProps<{
@@ -23,6 +24,9 @@ const props = defineProps<{
   testResult: { success: boolean; message: string } | null
   testing: boolean
   saving: boolean
+  folders: FolderInfo[]
+  foldersLoading: boolean
+  foldersError: string
 }>()
 
 const form = defineModel<EmailAccount>({ required: true })
@@ -31,6 +35,7 @@ const emit = defineEmits<{
   test: []
   save: []
   avatarFile: [event: Event]
+  refreshFolders: []
 }>()
 
 const { t, tf } = useI18n()
@@ -49,20 +54,26 @@ const { t, tf } = useI18n()
 // the tab machine for the sake of a two-item switch. A radio group owns only the
 // value, which is all this needs: the panes stay plain `v-if` branches.
 const tab = ref<string>(props.editing && form.value.AuthType === 'oauth2' ? 'oauth' : 'manual')
-
-/**
- * SegmentGroup can report `null` (its `clearValue`), but "server settings or
- * online sign-in" has no empty state — keeping the last value means the two panes
- * can never both be hidden.
- */
-function onTabChange(value: string | null) {
-  if (value) tab.value = value
-}
+const editSection = ref<'basic' | 'folders'>('basic')
 
 const addModes = computed(() => [
   { value: 'manual', label: t.value['settings.accounts.tab.manual'] },
   { value: 'oauth', label: t.value['settings.accounts.tab.oauth'] },
 ])
+
+const editModes = computed(() => [
+  { value: 'basic', label: t.value['settings.accounts.tab.basic'] },
+  { value: 'folders', label: t.value['settings.accounts.tab.folders'] },
+])
+
+const headerTabs = computed(() => (props.editing ? editModes.value : addModes.value))
+const headerTab = computed(() => (props.editing ? editSection.value : tab.value))
+
+function onHeaderTabChange(value: string | null) {
+  if (!value) return
+  if (props.editing) editSection.value = value as 'basic' | 'folders'
+  else tab.value = value
+}
 
 const isOAuth = computed(() => form.value.AuthType === 'oauth2')
 const isGmailManual = computed(() => tab.value === 'manual' && form.value.Provider === 'gmail')
@@ -274,25 +285,26 @@ function onEmailInput(email: string) {
       <h2>
         {{ props.editing ? t['settings.accounts.edit'] : t['settings.accounts.add'] }}
       </h2>
-      <!-- The add-mode switch. It rides on the header's own border-bottom, so the
-           indicator has to be an absolutely positioned bar measured off the
-           selected item — that is what SegmentGroup.Indicator hands us through
-           --left / --width. `orientation` is not optional: zag only writes
-           `left: var(--left)` when the orientation is literally "horizontal"
-           (it has no default), and without it the bar is pinned to `top` and
-           never follows the selected item. The label is for screen readers only:
-           the visible heading names the card, not the choice. -->
+      <!-- The header switch. Adding shows the two setup methods; editing shows
+           the account's basic fields and its folder-display rules. It rides on
+           the header's own border-bottom, so the indicator has to be an
+           absolutely positioned bar measured off the selected item — that is
+           what SegmentGroup.Indicator hands us through --left / --width.
+           `orientation` is not optional: zag only writes `left: var(--left)`
+           when the orientation is literally "horizontal" (it has no default),
+           and without it the bar is pinned to `top` and never follows the
+           selected item. The label is for screen readers only: the visible
+           heading names the card, not the choice. -->
       <SegmentGroup.Root
-        v-if="!props.editing"
         class="head-tabs"
         orientation="horizontal"
-        :model-value="tab"
-        @update:model-value="onTabChange"
+        :model-value="headerTab"
+        @update:model-value="onHeaderTabChange"
       >
         <SegmentGroup.Label class="vh">{{ t['settings.accounts.tab.group'] }}</SegmentGroup.Label>
         <SegmentGroup.Indicator class="head-tabs__indicator" />
         <SegmentGroup.Item
-          v-for="mode in addModes"
+          v-for="mode in headerTabs"
           :key="mode.value"
           class="head-tabs__item"
           :value="mode.value"
@@ -304,298 +316,312 @@ function onEmailInput(email: string) {
     </header>
 
     <div class="card__body">
-      <div class="frow">
-        <span class="flabel">{{ t['settings.accounts.avatar'] }}</span>
-        <div class="avatar-area">
-          <label class="avatar-box">
-            <img
-              v-if="props.avatarPreview"
-              :src="props.avatarPreview"
-              class="avatar-box__img"
-              alt=""
-            />
-            <i v-else class="i-ri:add-line" aria-hidden="true" />
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              class="avatar-box__input"
-              @change="emit('avatarFile', $event)"
-            />
-          </label>
-          <div class="avatar-hint">{{ t['settings.accounts.upload_avatar'] }}</div>
+      <template v-if="!props.editing || editSection === 'basic'">
+        <div class="frow">
+          <span class="flabel">{{ t['settings.accounts.avatar'] }}</span>
+          <div class="avatar-area">
+            <label class="avatar-box">
+              <img
+                v-if="props.avatarPreview"
+                :src="props.avatarPreview"
+                class="avatar-box__img"
+                alt=""
+              />
+              <i v-else class="i-ri:add-line" aria-hidden="true" />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                class="avatar-box__input"
+                @change="emit('avatarFile', $event)"
+              />
+            </label>
+            <div class="avatar-hint">{{ t['settings.accounts.upload_avatar'] }}</div>
+          </div>
         </div>
-      </div>
 
-      <!-- 服务器配置 pane: the classic typed form -->
-      <template v-if="tab === 'manual'">
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.Email"
-            :placeholder="t['settings.accounts.placeholder_email']"
-            @update:model-value="onEmailInput(String($event))"
-          />
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.Name"
-            :placeholder="t['settings.accounts.placeholder_name']"
-            @update:model-value="form.Name = String($event)"
-          />
-        </Field.Root>
-        <Field.Root class="frow frow--stacked">
-          <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.SenderName"
-            :placeholder="t['settings.accounts.placeholder_sender_name']"
-            @update:model-value="form.SenderName = String($event)"
-          />
-          <Field.HelperText class="frow-hint">
-            {{ t['settings.accounts.sender_name_hint'] }}
-          </Field.HelperText>
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.provider'] }}</Field.Label>
-          <UiSelect
-            :options="props.providerOptions"
-            :model-value="form.Provider"
-            width="230px"
-            @update:model-value="setProvider"
-          />
-        </Field.Root>
-
-        <div class="sec">IMAP</div>
-        <!-- Server and port share one line. They stay two separate Ark fields:
-             a Field.Root owns a single control id, so one root for both would
-             give the two controls the same id and point the label at both. -->
-        <div class="frow frow--pair">
-          <Field.Root class="frow__cell frow__cell--grow">
-            <Field.Label class="flabel">{{ t['settings.accounts.imap_host'] }}</Field.Label>
+        <!-- 服务器配置 pane: the classic typed form -->
+        <template v-if="tab === 'manual'">
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
             <Field.Input
               class="input"
-              :model-value="form.IMAPHost"
-              :placeholder="t['settings.accounts.placeholder_imap_host']"
-              @update:model-value="form.IMAPHost = String($event)"
+              :model-value="form.Email"
+              :placeholder="t['settings.accounts.placeholder_email']"
+              @update:model-value="onEmailInput(String($event))"
             />
           </Field.Root>
-          <Field.Root class="frow__cell frow__cell--port">
-            <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
-            <UiNumberInput :value="form.IMAPPort" width="96px" @value="form.IMAPPort = $event" />
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.Name"
+              :placeholder="t['settings.accounts.placeholder_name']"
+              @update:model-value="form.Name = String($event)"
+            />
           </Field.Root>
-        </div>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.imap_user'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.IMAPUser"
-            :placeholder="t['settings.accounts.placeholder_email']"
-            @update:model-value="form.IMAPUser = String($event)"
-          />
-        </Field.Root>
-        <!-- The password is not a password on several providers, and that note is
+          <Field.Root class="frow frow--stacked">
+            <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.SenderName"
+              :placeholder="t['settings.accounts.placeholder_sender_name']"
+              @update:model-value="form.SenderName = String($event)"
+            />
+            <Field.HelperText class="frow-hint">
+              {{ t['settings.accounts.sender_name_hint'] }}
+            </Field.HelperText>
+          </Field.Root>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.provider'] }}</Field.Label>
+            <UiSelect
+              :options="props.providerOptions"
+              :model-value="form.Provider"
+              width="230px"
+              @update:model-value="setProvider"
+            />
+          </Field.Root>
+
+          <div class="sec">IMAP</div>
+          <!-- Server and port share one line. They stay two separate Ark fields:
+             a Field.Root owns a single control id, so one root for both would
+             give the two controls the same id and point the label at both. -->
+          <div class="frow frow--pair">
+            <Field.Root class="frow__cell frow__cell--grow">
+              <Field.Label class="flabel">{{ t['settings.accounts.imap_host'] }}</Field.Label>
+              <Field.Input
+                class="input"
+                :model-value="form.IMAPHost"
+                :placeholder="t['settings.accounts.placeholder_imap_host']"
+                @update:model-value="form.IMAPHost = String($event)"
+              />
+            </Field.Root>
+            <Field.Root class="frow__cell frow__cell--port">
+              <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
+              <UiNumberInput :value="form.IMAPPort" width="96px" @value="form.IMAPPort = $event" />
+            </Field.Root>
+          </div>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.imap_user'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.IMAPUser"
+              :placeholder="t['settings.accounts.placeholder_email']"
+              @update:model-value="form.IMAPUser = String($event)"
+            />
+          </Field.Root>
+          <!-- The password is not a password on several providers, and that note is
              about *this* field: as a Field.HelperText it sits under the control,
              reads as a hint instead of a page-wide banner, and Ark can describe
              the input with it. -->
-        <Field.Root class="frow frow--stacked">
-          <Field.Label class="flabel">{{ t['settings.accounts.imap_pass'] }}</Field.Label>
-          <UiPasswordInput :value="form.IMAPPass" @input="form.IMAPPass = strVal($event)" />
-          <Field.HelperText v-if="passwordHint" class="field__hint frow-hint field__hint--warn">
-            {{ passwordHint }}
-          </Field.HelperText>
-        </Field.Root>
+          <Field.Root class="frow frow--stacked">
+            <Field.Label class="flabel">{{ t['settings.accounts.imap_pass'] }}</Field.Label>
+            <UiPasswordInput :value="form.IMAPPass" @input="form.IMAPPass = strVal($event)" />
+            <Field.HelperText v-if="passwordHint" class="field__hint frow-hint field__hint--warn">
+              {{ passwordHint }}
+            </Field.HelperText>
+          </Field.Root>
 
-        <div class="sec">SMTP</div>
-        <div class="frow frow--pair">
-          <Field.Root class="frow__cell frow__cell--grow">
-            <Field.Label class="flabel">{{ t['settings.accounts.smtp_host'] }}</Field.Label>
+          <div class="sec">SMTP</div>
+          <div class="frow frow--pair">
+            <Field.Root class="frow__cell frow__cell--grow">
+              <Field.Label class="flabel">{{ t['settings.accounts.smtp_host'] }}</Field.Label>
+              <Field.Input
+                class="input"
+                :model-value="form.SMTPHost"
+                :placeholder="t['settings.accounts.placeholder_smtp_host']"
+                @update:model-value="form.SMTPHost = String($event)"
+              />
+            </Field.Root>
+            <Field.Root class="frow__cell frow__cell--port">
+              <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
+              <UiNumberInput :value="form.SMTPPort" width="96px" @value="form.SMTPPort = $event" />
+            </Field.Root>
+          </div>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.smtp_user'] }}</Field.Label>
             <Field.Input
               class="input"
-              :model-value="form.SMTPHost"
-              :placeholder="t['settings.accounts.placeholder_smtp_host']"
-              @update:model-value="form.SMTPHost = String($event)"
+              :model-value="form.SMTPUser"
+              :placeholder="t['settings.accounts.placeholder_email']"
+              @update:model-value="form.SMTPUser = String($event)"
             />
           </Field.Root>
-          <Field.Root class="frow__cell frow__cell--port">
-            <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
-            <UiNumberInput :value="form.SMTPPort" width="96px" @value="form.SMTPPort = $event" />
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</Field.Label>
+            <UiPasswordInput :value="form.SMTPPass" @input="form.SMTPPass = strVal($event)" />
           </Field.Root>
-        </div>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.smtp_user'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.SMTPUser"
-            :placeholder="t['settings.accounts.placeholder_email']"
-            @update:model-value="form.SMTPUser = String($event)"
-          />
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</Field.Label>
-          <UiPasswordInput :value="form.SMTPPass" @input="form.SMTPPass = strVal($event)" />
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.use_tls'] }}</Field.Label>
-          <UiSwitch :checked="form.UseTLS" @update:checked="form.UseTLS = $event" />
-        </Field.Root>
-      </template>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.use_tls'] }}</Field.Label>
+            <UiSwitch :checked="form.UseTLS" @update:checked="form.UseTLS = $event" />
+          </Field.Root>
+        </template>
 
-      <!-- 在线验证 pane: browser-based OAuth -->
-      <template v-else>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.Email"
-            :placeholder="t['settings.accounts.oauth.email_pending']"
-            readonly
-          />
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.Name"
-            :placeholder="t['settings.accounts.placeholder_name']"
-            @update:model-value="form.Name = String($event)"
-          />
-        </Field.Root>
-        <Field.Root class="frow frow--stacked">
-          <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="form.SenderName"
-            :placeholder="t['settings.accounts.placeholder_sender_name']"
-            @update:model-value="form.SenderName = String($event)"
-          />
-          <Field.HelperText class="frow-hint">
-            {{ t['settings.accounts.sender_name_hint'] }}
-          </Field.HelperText>
-        </Field.Root>
-        <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.oauth.provider'] }}</Field.Label>
-          <UiSelect
-            :options="oauthProviderOptions"
-            :model-value="oauthProvider"
-            width="400px"
-            @update:model-value="oauthProvider = $event as OAuthProviderId"
-          />
-        </Field.Root>
-        <!-- The Client ID is the one input in this pane you can get wrong, and
+        <!-- 在线验证 pane: browser-based OAuth -->
+        <template v-else>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.Email"
+              :placeholder="t['settings.accounts.oauth.email_pending']"
+              readonly
+            />
+          </Field.Root>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.Name"
+              :placeholder="t['settings.accounts.placeholder_name']"
+              @update:model-value="form.Name = String($event)"
+            />
+          </Field.Root>
+          <Field.Root class="frow frow--stacked">
+            <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="form.SenderName"
+              :placeholder="t['settings.accounts.placeholder_sender_name']"
+              @update:model-value="form.SenderName = String($event)"
+            />
+            <Field.HelperText class="frow-hint">
+              {{ t['settings.accounts.sender_name_hint'] }}
+            </Field.HelperText>
+          </Field.Root>
+          <Field.Root class="frow">
+            <Field.Label class="flabel">{{ t['settings.accounts.oauth.provider'] }}</Field.Label>
+            <UiSelect
+              :options="oauthProviderOptions"
+              :model-value="oauthProvider"
+              width="400px"
+              @update:model-value="oauthProvider = $event as OAuthProviderId"
+            />
+          </Field.Root>
+          <!-- The Client ID is the one input in this pane you can get wrong, and
              both notes explain how to fill it (leave it empty, or bring your own
              Google Cloud app). As helper text they stay where they were but stop
              reading like app-level alerts. -->
-        <Field.Root class="frow frow--stacked">
-          <Field.Label class="flabel">
-            {{ t['settings.accounts.oauth.client_id'] }}
-          </Field.Label>
-          <Field.Input
-            class="input"
-            :model-value="oauthClientID"
-            :placeholder="t['settings.accounts.oauth.client_id_placeholder']"
-            @update:model-value="oauthClientID = String($event)"
-          />
-          <Field.HelperText class="frow-hint">
-            {{ t['settings.accounts.oauth.hint'] }}
-          </Field.HelperText>
-          <Field.HelperText v-if="oauthProvider === 'google'" class="frow-hint field__hint--warn">
-            {{ t['settings.accounts.oauth.google_note'] }}
-          </Field.HelperText>
-        </Field.Root>
+          <Field.Root class="frow frow--stacked">
+            <Field.Label class="flabel">
+              {{ t['settings.accounts.oauth.client_id'] }}
+            </Field.Label>
+            <Field.Input
+              class="input"
+              :model-value="oauthClientID"
+              :placeholder="t['settings.accounts.oauth.client_id_placeholder']"
+              @update:model-value="oauthClientID = String($event)"
+            />
+            <Field.HelperText class="frow-hint">
+              {{ t['settings.accounts.oauth.hint'] }}
+            </Field.HelperText>
+            <Field.HelperText v-if="oauthProvider === 'google'" class="frow-hint field__hint--warn">
+              {{ t['settings.accounts.oauth.google_note'] }}
+            </Field.HelperText>
+          </Field.Root>
 
-        <div class="frow">
-          <span class="flabel" aria-hidden="true"></span>
-          <BusyButton
-            class="btn"
-            :label="t['settings.accounts.oauth.begin']"
-            :busy="oauthWaiting"
-            :disabled="oauthWaiting"
-            @click="startOAuth"
-          />
-        </div>
+          <div class="frow">
+            <span class="flabel" aria-hidden="true"></span>
+            <BusyButton
+              class="btn"
+              :label="t['settings.accounts.oauth.begin']"
+              :busy="oauthWaiting"
+              :disabled="oauthWaiting"
+              @click="startOAuth"
+            />
+          </div>
 
-        <!-- One status slot, not three stacked banners: waiting → success/failure
+          <!-- One status slot, not three stacked banners: waiting → success/failure
              is a single run-time state, and the live region announces the change
              because the element stays mounted between states. -->
-        <div
-          v-if="oauthStatus"
-          class="status"
-          :class="`status--${oauthStatus.kind}`"
-          :role="oauthStatus.kind === 'err' ? 'alert' : 'status'"
-        >
-          <i :class="STATUS_ICON[oauthStatus.kind]" aria-hidden="true" />
-          <span>{{ oauthStatus.text }}</span>
-        </div>
-        <!-- A standing fact about the stored auth type, not an event — muted text
+          <div
+            v-if="oauthStatus"
+            class="status"
+            :class="`status--${oauthStatus.kind}`"
+            :role="oauthStatus.kind === 'err' ? 'alert' : 'status'"
+          >
+            <i :class="STATUS_ICON[oauthStatus.kind]" aria-hidden="true" />
+            <span>{{ oauthStatus.text }}</span>
+          </div>
+          <!-- A standing fact about the stored auth type, not an event — muted text
              rather than a status line, and it yields to any live status above. -->
-        <p v-else-if="isOAuth" class="pane-note">
-          {{ t['settings.accounts.oauth.is_oauth'] }}
-        </p>
-      </template>
+          <p v-else-if="isOAuth" class="pane-note">
+            {{ t['settings.accounts.oauth.is_oauth'] }}
+          </p>
+        </template>
 
-      <div class="sec">{{ t['settings.accounts.sync'] }}</div>
-      <!-- Two columns instead of the usual flex .frow: the helper line belongs to
+        <div class="sec">{{ t['settings.accounts.sync'] }}</div>
+        <!-- Two columns instead of the usual flex .frow: the helper line belongs to
            the field (Ark renders it as Field.HelperText and can describe the
            control with it) but has to sit on its own line under the control, not
            beside the switch. -->
-      <Field.Root class="frow frow--stacked">
-        <Field.Label class="flabel">{{ t['settings.accounts.auto_sync'] }}</Field.Label>
-        <div class="sync-row">
-          <UiSwitch :checked="form.SyncInterval > 0" @update:checked="onAutoSyncToggle" />
-          <template v-if="form.SyncInterval > 0">
-            <UiNumberInput :value="form.SyncInterval" @value="form.SyncInterval = $event" />
-            <span class="muted">{{ t['settings.accounts.sync_minutes'] }}</span>
-          </template>
-          <span v-else class="muted">{{ t['settings.accounts.sync_disabled'] }}</span>
-        </div>
-        <Field.HelperText v-if="form.SyncInterval > 0" class="frow-hint">
-          {{ t['settings.accounts.sync_hint'] }}
-        </Field.HelperText>
-      </Field.Root>
+        <Field.Root class="frow frow--stacked">
+          <Field.Label class="flabel">{{ t['settings.accounts.auto_sync'] }}</Field.Label>
+          <div class="sync-row">
+            <UiSwitch :checked="form.SyncInterval > 0" @update:checked="onAutoSyncToggle" />
+            <template v-if="form.SyncInterval > 0">
+              <UiNumberInput :value="form.SyncInterval" @value="form.SyncInterval = $event" />
+              <span class="muted">{{ t['settings.accounts.sync_minutes'] }}</span>
+            </template>
+            <span v-else class="muted">{{ t['settings.accounts.sync_disabled'] }}</span>
+          </div>
+          <Field.HelperText v-if="form.SyncInterval > 0" class="frow-hint">
+            {{ t['settings.accounts.sync_hint'] }}
+          </Field.HelperText>
+        </Field.Root>
 
-      <!-- Proxy: three answers, not two. "No proxy" exists because a mailbox on
+        <!-- Proxy: three answers, not two. "No proxy" exists because a mailbox on
            the local network must be able to opt out of a global proxy, and
            "follow" must stay distinguishable from it. -->
-      <div class="sec">{{ t['settings.accounts.proxy'] }}</div>
-      <Field.Root class="frow">
-        <Field.Label class="flabel">{{ t['settings.accounts.proxy_mode'] }}</Field.Label>
-        <UiSelect
-          :options="proxyModeOptions"
-          :model-value="proxyMode"
-          width="230px"
-          @update:model-value="setProxyMode"
-        />
-      </Field.Root>
-      <Field.Root v-if="proxyMode === 'custom'" class="frow frow--stacked">
-        <Field.Label class="flabel">{{ t['settings.accounts.proxy_address'] }}</Field.Label>
-        <Field.Input
-          class="input"
-          :model-value="form.Proxy?.URL ?? ''"
-          :placeholder="t['settings.proxy.address_placeholder']"
-          @update:model-value="setProxyURL(String($event))"
-        />
-        <Field.HelperText class="frow-hint">
-          {{ t['settings.accounts.proxy_hint'] }}
-        </Field.HelperText>
-      </Field.Root>
+        <div class="sec">{{ t['settings.accounts.proxy'] }}</div>
+        <Field.Root class="frow">
+          <Field.Label class="flabel">{{ t['settings.accounts.proxy_mode'] }}</Field.Label>
+          <UiSelect
+            :options="proxyModeOptions"
+            :model-value="proxyMode"
+            width="230px"
+            @update:model-value="setProxyMode"
+          />
+        </Field.Root>
+        <Field.Root v-if="proxyMode === 'custom'" class="frow frow--stacked">
+          <Field.Label class="flabel">{{ t['settings.accounts.proxy_address'] }}</Field.Label>
+          <Field.Input
+            class="input"
+            :model-value="form.Proxy?.URL ?? ''"
+            :placeholder="t['settings.proxy.address_placeholder']"
+            @update:model-value="setProxyURL(String($event))"
+          />
+          <Field.HelperText class="frow-hint">
+            {{ t['settings.accounts.proxy_hint'] }}
+          </Field.HelperText>
+        </Field.Root>
 
-      <!-- Same status line as the OAuth pane: "the test just ran" is an event, but
+        <!-- Same status line as the OAuth pane: "the test just ran" is an event, but
            it does not deserve a bordered box around one sentence. -->
-      <div
-        v-if="props.testResult"
-        class="status"
-        :class="props.testResult.success ? 'status--ok' : 'status--err'"
-        role="status"
-      >
-        <i
-          :class="props.testResult.success ? STATUS_ICON.ok : STATUS_ICON.err"
-          aria-hidden="true"
-        />
-        <span>{{ props.testResult.message }}</span>
-      </div>
+        <div
+          v-if="props.testResult"
+          class="status"
+          :class="props.testResult.success ? 'status--ok' : 'status--err'"
+          role="status"
+        >
+          <i
+            :class="props.testResult.success ? STATUS_ICON.ok : STATUS_ICON.err"
+            aria-hidden="true"
+          />
+          <span>{{ props.testResult.message }}</span>
+        </div>
+      </template>
+
+      <AccountFolderSettings
+        v-else
+        :model-value="form.FolderSettings ?? []"
+        :order="form.FolderOrder ?? []"
+        :folders="props.folders"
+        :loading="props.foldersLoading"
+        :error="props.foldersError"
+        @update:model-value="form.FolderSettings = $event"
+        @update:order="form.FolderOrder = $event"
+        @refresh="emit('refreshFolders')"
+      />
     </div>
 
     <footer class="card__foot">
@@ -603,6 +629,7 @@ function onEmailInput(email: string) {
         {{ t['settings.accounts.cancel'] }}
       </button>
       <BusyButton
+        v-if="!props.editing || editSection === 'basic'"
         class="btn"
         :label="t['settings.accounts.test']"
         :busy="props.testing"
@@ -619,7 +646,7 @@ function onEmailInput(email: string) {
 </template>
 
 <style scoped>
-/* The add-mode switch: display:flex + align-self:stretch make the strip fill the
+/* The header switch: display:flex + align-self:stretch make the strip fill the
    header's padding box (the -10px margins cancel the header's vertical padding),
    so the indicator's -1px offset lands exactly on the header's border-bottom.
    `position: relative` comes from Ark itself (SegmentGroup.Root sets it inline),
