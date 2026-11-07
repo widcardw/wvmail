@@ -106,7 +106,7 @@ async function save() {
           <span v-if="automatic.includes(tag.id)" class="tag-auto">
             {{ t['mail.tags.automatic'] }}
           </span>
-          <span v-if="!tag.enabled" class="tag-disabled">{{ t['tags.enabled'] }}</span>
+          <span v-if="!tag.enabled" class="tag-disabled">{{ t['tags.disabled'] }}</span>
         </UiCheckbox>
       </div>
     </div>

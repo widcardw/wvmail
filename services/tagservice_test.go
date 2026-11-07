@@ -44,6 +44,128 @@ func TestTagMatchesUsesAnyKeywordAndSelectedFields(t *testing.T) {
 	}
 }
 
+func TestBuiltinTagsAreSeededPreservedAndProtected(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	svc := NewTagService(&ConfigService{})
+	tags, err := svc.ListMailTags()
+	if err != nil {
+		t.Fatalf("ListMailTags: %v", err)
+	}
+	if len(tags) != len(builtinTagDefinitions) {
+		t.Fatalf("got %d tags, want %d built-in tags", len(tags), len(builtinTagDefinitions))
+	}
+
+	byID := make(map[string]MailTag, len(tags))
+	for _, tag := range tags {
+		byID[tag.ID] = tag
+		if !tag.BuiltIn {
+			t.Fatalf("tag %q was not marked as built-in", tag.ID)
+		}
+	}
+	verification, ok := byID[builtinTagVerification]
+	if !ok {
+		t.Fatalf("missing built-in verification tag: %+v", tags)
+	}
+
+	again, err := svc.ListMailTags()
+	if err != nil {
+		t.Fatalf("ListMailTags (second call): %v", err)
+	}
+	if len(again) != len(tags) {
+		t.Fatalf("second load returned %d tags, want %d", len(again), len(tags))
+	}
+
+	verification.Label = "我的验证消息"
+	verification.Enabled = false
+	saved, err := svc.SaveMailTag(verification)
+	if err != nil {
+		t.Fatalf("SaveMailTag(built-in): %v", err)
+	}
+	if !saved.BuiltIn {
+		t.Fatal("editing a built-in tag must not clear its built-in marker")
+	}
+
+	reloaded, err := svc.ListMailTags()
+	if err != nil {
+		t.Fatalf("ListMailTags after edit: %v", err)
+	}
+	var edited MailTag
+	for _, tag := range reloaded {
+		if tag.ID == builtinTagVerification {
+			edited = tag
+			break
+		}
+	}
+	if edited.Label != "我的验证消息" || edited.Enabled {
+		t.Fatalf("built-in edit was not preserved: %+v", edited)
+	}
+
+	if err := svc.DeleteMailTag(builtinTagVerification); err == nil {
+		t.Fatal("built-in tags must not be deletable")
+	}
+}
+
+func TestBuiltinTagsMatchRepresentativeMail(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	svc := NewTagService(&ConfigService{})
+	tags, err := svc.ListMailTags()
+	if err != nil {
+		t.Fatalf("ListMailTags: %v", err)
+	}
+	byID := make(map[string]MailTag, len(tags))
+	for _, tag := range tags {
+		byID[tag.ID] = tag
+	}
+
+	tests := []struct {
+		name    string
+		tagID   string
+		subject string
+		body    string
+	}{
+		{
+			name:    "verification",
+			tagID:   builtinTagVerification,
+			subject: "Your verification code is 123456",
+		},
+		{
+			name:    "billing",
+			tagID:   builtinTagBilling,
+			subject: "Invoice for October",
+		},
+		{
+			name:    "travel",
+			tagID:   builtinTagTravel,
+			subject: "Your flight itinerary",
+		},
+		{
+			name:    "schedule",
+			tagID:   builtinTagSchedule,
+			subject: "Meeting invitation: roadmap review",
+		},
+		{
+			name:    "subscription",
+			tagID:   builtinTagSubscription,
+			subject: "Weekly newsletter",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tag, ok := byID[test.tagID]
+			if !ok {
+				t.Fatalf("missing built-in tag %q", test.tagID)
+			}
+			summary := EmailSummary{Subject: test.subject}
+			if !tagMatches(tag, summary, test.body) {
+				t.Fatalf("built-in tag %q did not match %q", test.tagID, test.subject)
+			}
+		})
+	}
+}
+
 func TestClassifyCachedEmailsDeduplicatesGmailViews(t *testing.T) {
 	tag := MailTag{
 		ID:       "tag-arxiv",

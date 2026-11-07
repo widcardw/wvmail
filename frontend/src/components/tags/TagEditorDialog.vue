@@ -89,6 +89,7 @@ async function save() {
       keywords: parseKeywords(),
       fields: fields.value,
       enabled: enabled.value,
+      built_in: props.tag?.built_in ?? false,
       created_at: props.tag?.created_at ?? 0,
       updated_at: props.tag?.updated_at ?? 0,
     })

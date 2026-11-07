@@ -51,6 +51,7 @@ type MailTag struct {
 	Keywords  []string `json:"keywords"`
 	Fields    []string `json:"fields"`
 	Enabled   bool     `json:"enabled"`
+	BuiltIn   bool     `json:"built_in"`
 	CreatedAt int64    `json:"created_at"`
 	UpdatedAt int64    `json:"updated_at"`
 }
@@ -136,6 +137,10 @@ func (s *TagService) ListMailTags() ([]MailTag, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load mail tags: %w", err)
 	}
+	cached, err = s.ensureBuiltinTags(cached)
+	if err != nil {
+		return nil, err
+	}
 	tags := make([]MailTag, 0, len(cached))
 	for _, row := range cached {
 		tag, err := decodeMailTag(row)
@@ -168,17 +173,21 @@ func (s *TagService) SaveMailTag(tag MailTag) (MailTag, error) {
 			return MailTag{}, fmt.Errorf("generate tag ID: %w", err)
 		}
 	}
-
-	keywordsJSON, _ := json.Marshal(normalized.Keywords)
-	fieldsJSON, _ := json.Marshal(normalized.Fields)
-	row := CachedMailTag{
-		ID:       normalized.ID,
-		Label:    normalized.Label,
-		Color:    normalized.Color,
-		Keywords: string(keywordsJSON),
-		Fields:   string(fieldsJSON),
-		Enabled:  normalized.Enabled,
+	normalized.BuiltIn = isBuiltinTagID(normalized.ID)
+	if normalized.BuiltIn {
+		found := false
+		for _, current := range existing {
+			if current.ID == normalized.ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return MailTag{}, fmt.Errorf("unknown built-in tag")
+		}
 	}
+
+	row := mailTagRow(normalized)
 	if err := s.db.SaveMailTag(&row); err != nil {
 		return MailTag{}, fmt.Errorf("save mail tag: %w", err)
 	}
@@ -186,8 +195,12 @@ func (s *TagService) SaveMailTag(tag MailTag) (MailTag, error) {
 }
 
 func (s *TagService) DeleteMailTag(id string) error {
-	if strings.TrimSpace(id) == "" {
+	id = strings.TrimSpace(id)
+	if id == "" {
 		return fmt.Errorf("tag ID is required")
+	}
+	if isBuiltinTagID(id) {
+		return fmt.Errorf("built-in tags cannot be deleted")
 	}
 	if err := s.db.DeleteMailTag(id); err != nil {
 		return fmt.Errorf("delete mail tag: %w", err)
@@ -1027,9 +1040,23 @@ func decodeMailTag(row CachedMailTag) (MailTag, error) {
 		Keywords:  keywords,
 		Fields:    fields,
 		Enabled:   row.Enabled,
+		BuiltIn:   isBuiltinTagID(row.ID),
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}, nil
+}
+
+func mailTagRow(tag MailTag) CachedMailTag {
+	keywordsJSON, _ := json.Marshal(tag.Keywords)
+	fieldsJSON, _ := json.Marshal(tag.Fields)
+	return CachedMailTag{
+		ID:       tag.ID,
+		Label:    tag.Label,
+		Color:    tag.Color,
+		Keywords: string(keywordsJSON),
+		Fields:   string(fieldsJSON),
+		Enabled:  tag.Enabled,
+	}
 }
 
 func newTagID() (string, error) {

@@ -482,6 +482,9 @@ export interface TranslationSchema {
   'tags.field.domain': string
   'tags.field.body': string
   'tags.enabled': string
+  'tags.disabled': string
+  'tags.builtIn': string
+  'tags.keywordCount': string
   'tags.save': string
   'tags.saved': string
   'tags.saveFailed': string

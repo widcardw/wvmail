@@ -193,6 +193,7 @@ async function saveSelected() {
         keywords: suggestion.keywords,
         fields: suggestion.fields,
         enabled: true,
+        built_in: false,
         created_at: 0,
         updated_at: 0,
       })

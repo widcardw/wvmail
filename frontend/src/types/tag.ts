@@ -7,6 +7,7 @@ export interface MailTag {
   keywords: string[]
   fields: TagMatchField[]
   enabled: boolean
+  built_in: boolean
   created_at: number
   updated_at: number
 }

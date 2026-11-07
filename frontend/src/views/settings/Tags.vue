@@ -77,21 +77,16 @@ async function confirmDelete() {
         <article v-for="tag in tagsStore.tags" :key="tag.id" class="tag-row">
           <span class="tag-swatch" :style="{ background: tag.color }" aria-hidden="true" />
           <div class="tag-main">
-            <div class="tag-heading">
-              <strong>{{ tag.label }}</strong>
-              <span v-if="!tag.enabled" class="tag-off">{{ t['tags.enabled'] }}</span>
-            </div>
-            <div class="tag-keywords">
-              <span v-for="keyword in tag.keywords.slice(0, 5)" :key="keyword" class="keyword">
-                {{ keyword }}
-              </span>
-              <span v-if="tag.keywords.length > 5" class="keyword">
-                +{{ tag.keywords.length - 5 }}
-              </span>
-            </div>
-            <div class="tag-fields">
+            <strong class="tag-label" :title="tag.label">{{ tag.label }}</strong>
+            <span v-if="tag.built_in" class="tag-badge">{{ t['tags.builtIn'] }}</span>
+            <span v-if="!tag.enabled" class="tag-badge tag-badge--off">
+              {{ t['tags.disabled'] }}
+            </span>
+            <span class="tag-meta" :title="tag.keywords.join(' · ')">
               {{ tag.fields.map(fieldLabel).join(' · ') }}
-            </div>
+              <span class="tag-meta__sep">·</span>
+              {{ tf('tags.keywordCount', tag.keywords.length) }}
+            </span>
           </div>
           <div class="tag-actions" :aria-label="t['tags.actions']">
             <button
@@ -104,6 +99,7 @@ async function confirmDelete() {
               <i class="i-ri:edit-2-line" aria-hidden="true" />
             </button>
             <button
+              v-if="!tag.built_in"
               type="button"
               class="icon-btn tag-delete"
               :title="t['tags.delete']"
@@ -161,7 +157,8 @@ async function confirmDelete() {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  min-height: 44px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--n-border-color);
 }
 .tag-row:last-child {
@@ -175,36 +172,44 @@ async function confirmDelete() {
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 8%, transparent);
 }
 .tag-main {
-  flex: 1;
-  min-width: 0;
-}
-.tag-heading {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.tag-label {
+  flex: none;
+  max-width: 34%;
+  overflow: hidden;
   font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.tag-off {
-  color: var(--color-text-3);
-  font-size: 10px;
-}
-.tag-keywords {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 5px;
-}
-.keyword {
-  padding: 1px 6px;
+.tag-badge {
+  flex: none;
+  padding: 1px 5px;
   border-radius: 4px;
-  color: var(--color-text-2);
+  color: var(--color-text-3);
   background: var(--n-action-color);
   font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
-.tag-fields {
-  margin-top: 5px;
+.tag-badge--off {
+  color: var(--color-warning, var(--color-text-3));
+}
+.tag-meta {
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-text-3);
-  font-size: 10px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-meta__sep {
+  margin: 0 5px;
+  opacity: 0.7;
 }
 .tag-actions {
   display: flex;

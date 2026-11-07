@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Rule-based mail tags and per-message overrides.
@@ -27,6 +28,16 @@ func (m *DBManager) SaveMailTag(tag *CachedMailTag) error {
 		return err
 	}
 	return db.Save(tag).Error
+}
+
+// CreateMailTagIfMissing inserts a built-in tag without overwriting a user's
+// edits. The conflict clause also makes concurrent first loads harmless.
+func (m *DBManager) CreateMailTagIfMissing(tag *CachedMailTag) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(tag).Error
 }
 
 func (m *DBManager) DeleteMailTag(id string) error {
