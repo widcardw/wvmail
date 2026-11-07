@@ -64,6 +64,31 @@ export function extractNoteTitle(html: string, untitled: string, maxLen = 15): s
   return firstLine.slice(0, maxLen) || untitled
 }
 
+export interface NoteListPreview {
+  /** First non-empty line, shown as the row's bold lead. */
+  title: string
+  /** A prefix of everything after that line, shown as the muted second line. */
+  excerpt: string
+}
+
+/**
+ * Split a note into the two lines of its sidebar row: the first non-empty line
+ * becomes the title (the row's CSS ellipsis handles the length, like an email
+ * subject) and the remaining lines become a one-line excerpt. A note with a
+ * single line therefore has no excerpt.
+ */
+export function noteListPreview(
+  html: string,
+  untitled: string,
+  excerptMaxLen = 90,
+): NoteListPreview {
+  const lines = noteHtmlToText(html, '\n').split('\n')
+  const title = lines[0]?.trim() || untitled
+  const rest = lines.slice(1).join(' ').trim()
+  const excerpt = rest.length > excerptMaxLen ? `${rest.slice(0, excerptMaxLen)}…` : rest
+  return { title, excerpt }
+}
+
 /** The one-line preview shown in the note list. */
 export function notePreviewText(html: string, empty: string, maxLen = 60): string {
   const text = noteHtmlToText(html, ' ')

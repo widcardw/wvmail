@@ -4,7 +4,7 @@ import { Menu } from '@ark-ui/vue/menu'
 import { useI18n } from '~/i18n'
 import { useNotesStore } from '~/stores/notes'
 import { useFeedbackStore } from '~/stores/feedback'
-import { formatNoteDate, noteHtmlToText, notePreviewText } from '~/composables/note-text'
+import { formatNoteDate, noteHtmlToText, noteListPreview, notePreviewText } from '~/composables/note-text'
 import NoteEditor from '~/components/notes/NoteEditor.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
@@ -30,11 +30,20 @@ const editorRef = ref<{
 /** Client-side filter over the loaded notes (the backend has no note search). */
 const visibleNotes = computed(() => {
   const needle = filter.value.trim().toLowerCase()
-  if (!needle) return notesStore.sortedNotes
-  return notesStore.sortedNotes.filter((note) => {
-    const text = `${note.title} ${noteHtmlToText(note.content, ' ')}`.toLowerCase()
-    return text.includes(needle)
-  })
+  const notes = needle
+    ? notesStore.sortedNotes.filter((note) => {
+        const text = `${note.title} ${noteHtmlToText(note.content, ' ')}`.toLowerCase()
+        return text.includes(needle)
+      })
+    : notesStore.sortedNotes
+
+  // Two lines per row, like an email: the first non-empty line as the title and a
+  // prefix of the rest as the muted excerpt. Derived from the content rather than
+  // `note.title`, which is stored truncated to 15 chars for the window title.
+  return notes.map((note) => ({
+    note,
+    ...noteListPreview(note.content, t.value['notes.untitled']),
+  }))
 })
 
 async function handleNewNote() {
@@ -124,32 +133,34 @@ onMounted(() => {
           {{ filter.trim() ? t['notes.noMatch'] : t['notes.empty'] }}
         </p>
         <Menu.Root
-          v-for="note in visibleNotes"
-          :key="note.id"
-          :open="openMenuId === note.id"
+          v-for="row in visibleNotes"
+          :key="row.note.id"
+          :open="openMenuId === row.note.id"
           :positioning="{ placement: 'bottom-start', gutter: 4 }"
           lazy-mount
           unmount-on-exit
           @open-change="
-            (details: unknown) => onMenuOpenChange(note, !!(details as { open?: boolean })?.open)
+            (details: unknown) =>
+              onMenuOpenChange(row.note, !!(details as { open?: boolean })?.open)
           "
           @select="
             (details: unknown) =>
-              onMenuSelect(note, (details as { value?: string })?.value ?? undefined)
+              onMenuSelect(row.note, (details as { value?: string })?.value ?? undefined)
           "
         >
           <Menu.ContextTrigger as-child>
             <button
               type="button"
               class="note-item"
-              :class="{ selected: note.id === notesStore.selectedId }"
-              @click="switchNote(note.id)"
+              :class="{ selected: row.note.id === notesStore.selectedId }"
+              @click="switchNote(row.note.id)"
             >
               <span class="note-item-content">
-                <span class="note-title">
-                  {{ notePreviewText(note.content, t['notes.untitled']) }}
+                <span class="note-item-head">
+                  <span class="note-title">{{ row.title }}</span>
+                  <span class="note-date">{{ formatNoteDate(row.note.updated_at) }}</span>
                 </span>
-                <span class="note-date">{{ formatNoteDate(note.updated_at) }}</span>
+                <span v-if="row.excerpt" class="note-excerpt">{{ row.excerpt }}</span>
               </span>
             </button>
           </Menu.ContextTrigger>
@@ -160,7 +171,7 @@ onMounted(() => {
                 <Menu.Item
                   value="delete"
                   class="note-menu__item note-menu__item--danger"
-                  @click="onMenuSelect(note, 'delete')"
+                  @click="onMenuSelect(row.note, 'delete')"
                 >
                   <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
                   <Menu.ItemText>{{ t['notes.delete'] }}</Menu.ItemText>
@@ -328,6 +339,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border: none;
   /* Divider between rows (the row is a <button>, so `border: none` above has to come
      first). */
@@ -349,21 +363,53 @@ onMounted(() => {
 .note-item-content {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 6px 8px;
+  gap: 2px;
+  padding: 8px 12px;
+}
+/* Title + time on one line, like an email row's sender + date. */
+.note-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 .note-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   font-size: 13px;
   font-weight: 500;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: inherit;
 }
 .note-date {
+  flex-shrink: 0;
   font-size: 11px;
-  opacity: 0.5;
+  white-space: nowrap;
+  opacity: 0.6;
+}
+/* Everything after the first line, muted and clamped to one line like the email
+   list's subject. Deliberately NOT `white-space: nowrap`: Ark's ScrollArea.Content
+   carries `min-width: fit-content`, so a nowrap excerpt makes the whole row's
+   min-content as wide as the text and pushes the date out of the pane. */
+.note-excerpt {
+  display: -webkit-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  opacity: 0.7;
 }
 
 /* Portalled to <body>, so the scoped attribute is carried by these nodes themselves. */

@@ -15,6 +15,7 @@ import {
   extractNoteTitle,
   formatNoteDate,
   noteHtmlToText,
+  noteListPreview,
   notePreviewText,
 } from '../src/composables/note-text.ts'
 
@@ -77,6 +78,36 @@ check('an empty string falls back too', extractNoteTitle('', 'Untitled') === 'Un
 check(
   'a whitespace-only first line is skipped',
   extractNoteTitle('<p> </p><p>second</p>', 'Untitled') === 'second',
+)
+
+check(
+  'the row title is the first line and the excerpt is the rest',
+  (() => {
+    const row = noteListPreview('<p>Groceries</p><p>milk</p><p>eggs</p>', 'Untitled')
+    return row.title === 'Groceries' && row.excerpt === 'milk eggs'
+  })(),
+)
+check(
+  'a single-line note has no excerpt',
+  noteListPreview('<p>Only a title</p>', 'Untitled').excerpt === '',
+)
+check(
+  'a blank leading block is skipped for both lines',
+  noteListPreview('<p> </p><p>Real</p><p>tail</p>', 'Untitled').title === 'Real',
+)
+check(
+  'an empty note falls back to the untitled label',
+  (() => {
+    const row = noteListPreview('<p></p>', '暂无笔记')
+    return row.title === '暂无笔记' && row.excerpt === ''
+  })(),
+)
+check(
+  'the excerpt is capped and marked',
+  (() => {
+    const row = noteListPreview(`<p>t</p><p>${'z'.repeat(120)}</p>`, 'Untitled')
+    return row.excerpt.length === 91 && row.excerpt.endsWith('…')
+  })(),
 )
 
 const long = `<p>${'y'.repeat(80)}</p>`

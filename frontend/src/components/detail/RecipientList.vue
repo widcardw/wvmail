@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from '~/i18n'
 import { layoutRecipients } from '~/composables/recipients'
+import { parseRecipientText } from '~/composables/compose'
+import AddressActionsMenu from '~/components/detail/AddressActionsMenu.vue'
 import type { RecipientLayout } from '~/composables/recipients'
 
 // One To/Cc row of the reading pane: a label, the addresses, and — when they do
@@ -26,14 +28,39 @@ const expanded = ref(false)
 // is also what a hidden pane gets (clientWidth 0), which is better than an empty row.
 const layout = ref<RecipientLayout | null>(null)
 
-const total = computed(() => props.addresses.length)
+interface RecipientItem {
+  /** The string as the envelope stored it: what the row shows. */
+  raw: string
+  /** Display name for a new contact, when the header carried one. */
+  name: string
+  /** Bare address for the copy / add-contact menu. */
+  email: string
+}
+
+/**
+ * Split one envelope string into its display text and its address. The address is
+ * only needed by the menu (copy / add contact); the row keeps showing the raw
+ * string so the recipients line does not change shape.
+ */
+function recipientItem(raw: string): RecipientItem {
+  const [parsed] = parseRecipientText(raw)
+  const angled = raw.match(/<([^>]+)>/)?.[1]
+  return {
+    raw,
+    name: parsed?.Name?.trim() ?? '',
+    email: (parsed?.Address ?? angled ?? (raw.includes('@') ? raw : '')).trim(),
+  }
+}
+
+const items = computed(() => props.addresses.map(recipientItem))
+const total = computed(() => items.value.length)
 /** The list does not fit on one line, so there is a chip at all. */
 const collapsible = computed(() => (layout.value?.hidden ?? 0) > 0)
 /** How many the chip currently stands for; 0 once expanded. */
 const hidden = computed(() => (expanded.value ? 0 : (layout.value?.hidden ?? 0)))
 const visible = computed(() => {
   const count = expanded.value || !layout.value ? total.value : layout.value.visible
-  return props.addresses.slice(0, count)
+  return items.value.slice(0, count)
 })
 
 /**
@@ -49,11 +76,11 @@ function measure() {
   const boxEl = box.value
   const probeEl = probe.value
   if (!boxEl || !probeEl) return
-  const items = Array.from(probeEl.querySelectorAll<HTMLElement>('[data-item]'))
+  const probeItems = Array.from(probeEl.querySelectorAll<HTMLElement>('[data-item]'))
   const chip = probeEl.querySelector<HTMLElement>('[data-chip]')
   const sep = probeEl.querySelector<HTMLElement>('[data-sep]')
   layout.value = layoutRecipients(
-    items.map((el) => el.offsetWidth),
+    probeItems.map((el) => el.offsetWidth),
     boxEl.clientWidth - 2,
     chip?.offsetWidth ?? 0,
     sep?.offsetWidth ?? 0,
@@ -105,8 +132,10 @@ watch(locale, () => nextTick(measure))
   <div class="mrow">
     <span class="mlabel">{{ label }}</span>
     <div ref="box" class="mvalue" :class="{ 'mvalue--clipped': hidden > 0 }">
-      <template v-for="(address, i) in visible" :key="`${i}-${address}`">
-        <span class="addr">{{ address }}</span>
+      <template v-for="(item, i) in visible" :key="`${i}-${item.raw}`">
+        <AddressActionsMenu :email="item.email" :name="item.name">
+          <span class="addr">{{ item.raw }}</span>
+        </AddressActionsMenu>
         <span v-if="i < visible.length - 1" class="sep">, </span>
       </template>
       <button
@@ -120,9 +149,16 @@ watch(locale, () => nextTick(measure))
       </button>
     </div>
     <div ref="probe" class="probe" aria-hidden="true">
-      <template v-for="(address, i) in addresses" :key="`probe-${i}`">
-        <span data-item class="addr">{{ address }}</span>
-        <span v-if="i < addresses.length - 1" data-sep class="sep">, </span>
+      <template v-for="(item, i) in items" :key="`probe-${i}`">
+        <span data-item class="addr">
+          {{ item.raw }}
+          <i
+            v-if="item.email"
+            class="i-ri:arrow-down-s-line probe-chevron"
+            aria-hidden="true"
+          />
+        </span>
+        <span v-if="i < items.length - 1" data-sep class="sep">, </span>
       </template>
       <span data-chip class="chip">{{ tf('mail.recipients.more', total) }}</span>
     </div>
@@ -160,6 +196,12 @@ watch(locale, () => nextTick(measure))
 .addr {
   word-break: break-word;
   opacity: 0.85;
+}
+/* The dropdown chevron is part of the real trigger's width; mirror its 3px gap in
+   the measuring copy so the first-line cut is computed from the same sizes. */
+.probe-chevron {
+  margin-left: 3px;
+  font-size: 12px;
 }
 .sep {
   opacity: 0.6;

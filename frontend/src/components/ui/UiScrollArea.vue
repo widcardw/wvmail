@@ -22,7 +22,11 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
 </script>
 
 <template>
-  <ScrollArea.Root class="scroll-area" :class="rootClass" :style="rootStyle">
+  <ScrollArea.Root
+    class="scroll-area"
+    :class="[rootClass, { 'scroll-area--horizontal': horizontal }]"
+    :style="rootStyle"
+  >
     <ScrollArea.Viewport as-child>
       <!-- Keep the viewport as a real DOM node. Template refs supplied through
            `viewportProps` (notably useVirtualList) need scrollTop/clientHeight,
@@ -72,6 +76,15 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
 .scroll-area__content {
   display: block;
   width: 100%;
+}
+/* Zag writes `min-width: fit-content` inline on the content so wide content can be
+   scrolled horizontally. On a vertical-only pane that also sizes the content to its
+   widest unbreakable child, which reaches the layout: a row's right-aligned date (or
+   any nowrap text) lands outside the viewport and adds a horizontal scrollbar. Keep
+   the content at the pane width unless the caller opted into horizontal scrolling;
+   `!important` is needed because the value is inline. */
+.scroll-area:not(.scroll-area--horizontal) .scroll-area__content {
+  min-width: 0 !important;
 }
 .scroll-area__bar {
   z-index: 1;
