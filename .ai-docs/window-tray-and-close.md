@@ -138,12 +138,14 @@ menu: 显示主窗口 / 隐藏主窗口 / 设置… / 退出 wvmail
   again. The frontend owns the rest of the UI language, but the tray exists before
   the webview does, so it cannot read the frontend's i18n.
 - `assets/wvmail-tray.png` is the **unread badge**: the tray shows it whenever any
-  inbox still has unseen mail, and `assets/tray-empty.png` otherwise. See below.
+  inbox still has unseen mail while the main window is not focused; focusing the
+  main window clears the tray indicator, and losing focus restores it if mail
+  remains unread. See below.
 
 ## Unread badge
 
 The icon is decided in Go, not by the UI, because it has to stay correct while the
-window is hidden:
+window is hidden. It is shown only while the main window is not focused:
 
 ```
 EmailService.RefreshEmails(INBOX)

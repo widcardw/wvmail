@@ -34,7 +34,7 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
   → SELECT INBOX (只读)  拿到 NumMessages 作为基线 total
   → IDLE
       ├─ EXISTS/EXPUNGE → debounce 1.5s → DONE → SELECT+FETCH(page 1) → 回 IDLE
-      ├─ 心跳 3min      → DONE → NOOP(30s 超时) → 回 IDLE
+      ├─ 心跳 3min      → DONE → NOOP + STATUS UIDNEXT → 有变化则 FETCH → 回 IDLE
       ├─ Client.Closed  → 返回错误 → 退避重连
       └─ watcher stop   → DONE → 返回 nil
 ```
@@ -46,7 +46,7 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
 | 坑 | 症状 | 处理 |
 |---|---|---|
 | **重复 EXISTS** | 有些服务器在 IDLE 重启时重发当前 `EXISTS`，若按「收到 EXISTS 就抓」会变成抓取死循环 | 维护 `total`（SELECT 的 `NumMessages`，每次抓取后更新为 `resp.Total`），**只有计数变化才抓** |
-| **睡眠唤醒** | 合盖后 socket 在内核里看着还是开的，`Client.Closed` 不触发，服务器那边早已断开 → 邮件再也不来 | 3 分钟心跳：DONE → `NOOP`（30s 超时，超时即 `client.Close()` 解阻塞）→ 重连 |
+| **睡眠唤醒 / 漏发 EXISTS** | 合盖后 socket 在内核里看着还是开的，或服务商虽支持 IDLE 却漏发 EXISTS → 邮件延迟 | 3 分钟心跳：DONE → `NOOP` + `STATUS UIDNEXT`；若 UIDNEXT 前进就复用连接 FETCH，命令超时则关闭 socket 并重连 |
 | **抓取卡死** | 连接在命令中途死掉时，那次读没有任何东西能打断 | `idleFetchTimeout` 90s，超时关 socket |
 | **多连接** | 每次重连都新开会话，QQ/163 有并发与频率限制 | 指数退避 30s→1m→2m→4m→8m→15m（封顶），成功建立 IDLE 后重置为 30s |
 
@@ -61,7 +61,7 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
 
 所以 `SyncInterval` 现在的语义是「**兜底轮询间隔**」，不是「多久收一次信」。设置页在开关打开时会显示这条说明（i18n key `settings.accounts.sync_hint`）。
 
-`OnMailArrived` 只做两件事：记 `lastSync`、发 `emails-synced` 事件。**不重新抓取**——watcher 已经在自己的连接上抓完并写缓存了；未读数也是那次抓取顺带 `STATUS` 出来的（`reportUnseen`），不需要额外命令。
+`OnMailArrived` 记 `lastSync` 并发 `emails-synced` 事件。**不重新抓取**——watcher 已经在自己的连接上抓完并写缓存了；未读数也是那次抓取顺带 `STATUS` 出来的（`reportUnseen`），不需要额外命令。
 
 ### 5.1 联系人自动收集挂在缓存成功之后
 
@@ -79,6 +79,18 @@ dialIMAPWith(handler)  ← handler 必须在拨号时装，之后无法附加
 
 把收集放在“缓存成功”而不是启动扫描，是为了让用户的手动删除和编辑不会被下一次
 启动重新覆盖；实时 IDLE、手动刷新和兜底轮询最终都经过同一条缓存写入回调。
+
+### 5.2 新邮件系统通知
+
+桌面端使用 Wails v3.1.0 的 `pkg/services/notifications` 原生通知服务，不使用浏览器
+`Notification` API。成功缓存第一页 INBOX 邮件后，以先前保存的 `UIDNEXT` 为基线筛出
+UID 更新的邮件；IDLE 启动时也会在缺少基线的情况下记录当前 `UIDNEXT`，因此不会把
+启动前已有的邮件误报为新邮件。IDLE 和兜底轮询都经过同一条缓存路径。
+
+首次需要发送通知时检查系统授权；未授权则请求一次。标题按应用语言显示“新邮件”或
+“New email”，正文包含发件人和主题。若用户拒绝授权，后续新邮件通知会停止，需在系统
+设置中重新允许。主窗口处于焦点时不发系统通知；窗口失焦或隐藏到托盘时才提醒。托盘未读
+图标也遵循相同焦点规则：前台时清除，失焦后若仍有未读则显示。
 
 ## 6. 前端如何响应
 

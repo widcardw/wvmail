@@ -223,6 +223,13 @@ func (s *EmailSyncService) ForgetAccount(accountID string) {
 	s.publishUnread(s.unread.drop(accountID))
 }
 
+// HasUnread reports whether any configured account currently has unseen mail.
+func (s *EmailSyncService) HasUnread() bool {
+	s.unread.mu.Lock()
+	defer s.unread.mu.Unlock()
+	return s.unread.hasUnreadLocked()
+}
+
 // OnMailArrived is the IDLE watcher's callback. The watcher has already fetched
 // and cached the new page on its own connection, so this only records the sync and
 // tells the UI; fetching again here would be a second full round trip for the same

@@ -62,3 +62,57 @@ func TestPaginateSlicesCachedOrder(t *testing.T) {
 		t.Fatalf("page past the end = %+v, want empty", got)
 	}
 }
+
+func TestNewEmailsSinceUIDNext(t *testing.T) {
+	emails := []EmailSummary{
+		{UID: 42, Subject: "previous"},
+		{UID: 43, Subject: "new"},
+		{UID: 44, Subject: "newest"},
+	}
+
+	got := newEmailsSinceUIDNext(emails, 43)
+	if len(got) != 2 || got[0].UID != 43 || got[1].UID != 44 {
+		t.Fatalf("newEmailsSinceUIDNext = %+v, want UIDs 43 and 44", got)
+	}
+	if got := newEmailsSinceUIDNext(emails, 0); len(got) != 0 {
+		t.Fatalf("zero UIDNEXT must not classify existing mail as new: %+v", got)
+	}
+}
+
+func TestNewMailNotificationOptions(t *testing.T) {
+	account := EmailAccount{ID: "account-1", Email: "me@example.com"}
+	email := EmailSummary{
+		UID:      43,
+		FromName: "Sender",
+		Subject:  "Project update",
+	}
+
+	got := newMailNotificationOptions("zh-CN", account, email)
+	if got.Title != "新邮件" {
+		t.Errorf("Title = %q, want Chinese title", got.Title)
+	}
+	if got.Body != "Sender\nProject update" {
+		t.Errorf("Body = %q, want sender and subject", got.Body)
+	}
+	if got.ID != "mail-account-1-43" {
+		t.Errorf("ID = %q, want stable account/UID ID", got.ID)
+	}
+}
+
+func TestMailNotificationSuppressionPolicy(t *testing.T) {
+	sender := NewMailNotificationSender(nil, nil)
+	if sender.isSuppressed() {
+		t.Fatal("notifications should not be suppressed without a policy")
+	}
+
+	focused := true
+	sender.SetShouldNotify(func() bool { return focused })
+	if !sender.isSuppressed() {
+		t.Fatal("focused main window should suppress notifications")
+	}
+
+	focused = false
+	if sender.isSuppressed() {
+		t.Fatal("unfocused main window should allow notifications")
+	}
+}

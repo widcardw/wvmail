@@ -15,6 +15,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -25,8 +26,8 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-// Tray icons: the plain envelope while every inbox is read, the wax-sealed one
-// while any account still has unseen mail.
+// Tray icons: the plain envelope when the main window is focused or every inbox
+// is read, the wax-sealed one while the window is unfocused and mail is unread.
 //
 //go:embed assets/tray-empty.png
 var trayIconEmpty []byte
@@ -93,6 +94,7 @@ func main() {
 	// they never race the window assignment below.
 	var win *application.WebviewWindow
 	windowReady := make(chan struct{})
+	windowFocused := atomic.Bool{}
 
 	// Create shared service instances. We keep references so the background
 	// sync service can use ConfigService and EmailService.
@@ -107,6 +109,10 @@ func main() {
 	}
 
 	emailSvc := services.NewEmailService()
+	notificationService := notifications.New()
+	mailNotificationSender := services.NewMailNotificationSender(cfgSvc, notificationService)
+	mailNotificationSender.SetShouldNotify(windowFocused.Load)
+	emailSvc.SetNewMailListener(mailNotificationSender.NotifyNewMail)
 	tagSvc := services.NewTagService(cfgSvc)
 	contactsSvc := services.NewContactsService(cfgSvc)
 	emailSvc.SetMailCachedListener(func(account services.EmailAccount, folder string, messages []services.EmailSummary) error {
@@ -161,6 +167,7 @@ func main() {
 			},
 		},
 		Services: []application.Service{
+			application.NewService(notificationService),
 			application.NewService(services.NewOsService(requestQuit)),
 			application.NewService(cfgSvc),
 			application.NewService(emailSvc),
@@ -225,6 +232,9 @@ func main() {
 		MinWidth:         1280,
 		MinHeight:        768,
 	})
+	// The main window is shown on launch; assume it is foreground until Wails
+	// reports a focus change so startup sync does not raise an intrusive alert.
+	windowFocused.Store(true)
 
 	// macOS 26 (Tahoe) drops the traffic lights below the 40px in-page title
 	// bar to clear its larger window corner radius. The header (.app__titlebar)
@@ -239,8 +249,10 @@ func main() {
 		}
 		win.Show()
 		win.Focus()
+		windowFocused.Store(true)
 	}
 	hideMainWindow := func() {
+		windowFocused.Store(false)
 		win.Hide()
 	}
 
@@ -259,12 +271,23 @@ func main() {
 	// STATUS UNSEEN per account, refreshed with the background sync), so the icon
 	// stays correct while the window is hidden and nothing in the UI has to
 	// report anything.
-	syncSvc.SetUnreadListener(func(hasUnread bool) {
-		if hasUnread {
+	updateTrayIcon := func() {
+		if syncSvc.HasUnread() && !windowFocused.Load() {
 			tray.SetIcon(trayIconUnread)
 			return
 		}
 		tray.SetIcon(trayIconEmpty)
+	}
+	syncSvc.SetUnreadListener(func(bool) {
+		updateTrayIcon()
+	})
+	win.OnWindowEvent(events.Common.WindowFocus, func(*application.WindowEvent) {
+		windowFocused.Store(true)
+		updateTrayIcon()
+	})
+	win.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) {
+		windowFocused.Store(false)
+		updateTrayIcon()
 	})
 
 	// The tray exists before the webview, so it cannot use the frontend's i18n: its

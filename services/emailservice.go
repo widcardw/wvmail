@@ -31,6 +31,9 @@ type EmailService struct {
 
 	mailCachedMu sync.RWMutex
 	onMailCached func(account EmailAccount, folder string, messages []EmailSummary) error
+
+	newMailMu sync.RWMutex
+	onNewMail func(account EmailAccount, messages []EmailSummary)
 }
 
 func NewEmailService() *EmailService {
@@ -102,6 +105,28 @@ func (s *EmailService) notifyMailCached(
 	if err := listener(account, folder, messages); err != nil {
 		slog.Warn("contacts: automatic collection failed",
 			"account", account, "folder", folder, "error", err)
+	}
+}
+
+// SetNewMailListener registers a callback for messages whose UIDs are newer than
+// the last successfully cached INBOX UIDNEXT.
+//
+//wails:ignore
+func (s *EmailService) SetNewMailListener(listener func(account EmailAccount, messages []EmailSummary)) {
+	s.newMailMu.Lock()
+	defer s.newMailMu.Unlock()
+	s.onNewMail = listener
+}
+
+func (s *EmailService) notifyNewMail(account EmailAccount, messages []EmailSummary) {
+	if len(messages) == 0 {
+		return
+	}
+	s.newMailMu.RLock()
+	listener := s.onNewMail
+	s.newMailMu.RUnlock()
+	if listener != nil {
+		listener(account, append([]EmailSummary(nil), messages...))
 	}
 }
 
@@ -373,6 +398,13 @@ func (s *EmailService) fetchAndCacheMessagePage(
 				folder, priorTotal,
 			)
 		}
+		if err := s.db.SaveFolderMeta(account.ID, folder, FolderMeta{
+			Total:   0,
+			UIDNext: uint32(mbox.UIDNext),
+		}); err != nil {
+			slog.Warn("cache: failed to cache empty folder meta",
+				"account", account, "folder", folder, "error", err)
+		}
 		s.notifyMailCached(account, folder, nil)
 		return messagePageFetch{Emails: []EmailSummary{}, Total: 0, UIDNext: uint32(mbox.UIDNext)}, nil
 	}
@@ -456,24 +488,44 @@ func (s *EmailService) fetchAndCacheMessagePage(
 	// page usable too when that read fails.
 	applyEmailThreads(summaries)
 
-	// Save meta + cache emails on every fetch. SaveEmails merges by UID without
-	// removing older rows, so paging to an earlier page keeps those in the cache.
-	if err := s.db.SaveFolderMeta(account.ID, folder, FolderMeta{
-		Total:   total,
-		UIDNext: uint32(mbox.UIDNext),
-	}); err != nil {
-		slog.Warn("cache: failed to cache folder meta", "account", account, "folder", folder, "error", err)
-	}
+	// SaveEmails merges by UID without removing older rows, so paging to an
+	// earlier page keeps those in the cache.
 	if err := s.db.SaveEmails(account.ID, folder, summaries); err != nil {
 		slog.Warn("cache: failed to cache emails", "account", account, "folder", folder, "error", err)
 	} else {
 		s.notifyMailCached(account, folder, summaries)
+		uidNext := uint32(mbox.UIDNext)
+		if page > 1 && isInbox(folder) {
+			uidNext = priorMeta.UIDNext
+		}
+		metaErr := s.db.SaveFolderMeta(account.ID, folder, FolderMeta{
+			Total:   total,
+			UIDNext: uidNext,
+		})
+		if metaErr != nil {
+			slog.Warn("cache: failed to cache folder meta", "account", account, "folder", folder, "error", metaErr)
+		} else if page <= 1 && isInbox(folder) {
+			s.notifyNewMail(account, newEmailsSinceUIDNext(summaries, priorMeta.UIDNext))
+		}
 	}
 	return messagePageFetch{
 		Emails:  summaries,
 		Total:   total,
 		UIDNext: uint32(mbox.UIDNext),
 	}, nil
+}
+
+func newEmailsSinceUIDNext(emails []EmailSummary, uidNext uint32) []EmailSummary {
+	if uidNext == 0 {
+		return nil
+	}
+	var newEmails []EmailSummary
+	for _, email := range emails {
+		if email.UID >= uidNext {
+			newEmails = append(newEmails, email)
+		}
+	}
+	return newEmails
 }
 
 // pruneStaleCachedEmails checks the cached UIDs against the selected mailbox.

@@ -54,10 +54,9 @@ const (
 	// Client.Closed only fires when the socket errors, and a sleeping laptop does
 	// not error anything: the kernel keeps the connection looking open until the
 	// first write after wake. Without a heartbeat, closing the lid for an hour
-	// would leave the watcher parked on a session the server has already dropped,
-	// and mail would not show up until something else touched the mailbox. NOOP
-	// (after stopping IDLE, since no command may run while idling) is the cheapest
-	// question that has to be answered.
+	// would leave the watcher parked on a session the server has already dropped.
+	// NOOP and STATUS UIDNEXT (after stopping IDLE, since no command may run while
+	// idling) prove both the session and mailbox are responding.
 	idleHeartbeat = 3 * time.Minute
 	// idleProbeTimeout bounds that question. A server that cannot answer a NOOP in
 	// 30 seconds is not going to push us anything either.
@@ -406,6 +405,37 @@ func (s *EmailIdleService) idleOnce(w *idleWatcher, account EmailAccount, connec
 	if err != nil {
 		return err
 	}
+	meta, metaErr := s.email.db.LoadFolderMeta(account.ID, folder)
+	if metaErr != nil {
+		slog.Warn("idle: failed to load inbox notification baseline",
+			"account", account, "folder", folder, "error", metaErr)
+	} else if meta.UIDNext == 0 {
+		if err := s.email.db.SaveFolderMeta(account.ID, folder, FolderMeta{
+			Total:   int(mbox.NumMessages),
+			UIDNext: uint32(mbox.UIDNext),
+		}); err != nil {
+			slog.Warn("idle: failed to save inbox notification baseline",
+				"account", account, "folder", folder, "error", err)
+		}
+	}
+
+	total := int64(mbox.NumMessages)
+	uidNext := uint32(mbox.UIDNext)
+	if metaErr == nil && meta.UIDNext > 0 && uidNext > meta.UIDNext {
+		slog.Info("idle: reconciling inbox changes since last run",
+			"account", account, "folder", folder, "previous_uid_next", meta.UIDNext, "uid_next", uidNext)
+		resp, fetchErr := s.fetchOnConnection(client, account, folder)
+		if fetchErr != nil {
+			return fetchErr
+		}
+		if resp != nil {
+			total = int64(resp.Total)
+			uidNext = resp.UIDNext
+		}
+		if handler := s.mailHandler(); handler != nil && resp != nil {
+			handler(account, folder)
+		}
+	}
 
 	idle, err := client.Idle()
 	if err != nil {
@@ -419,8 +449,6 @@ func (s *EmailIdleService) idleOnce(w *idleWatcher, account EmailAccount, connec
 	// SELECT's count and moves after every fetch, which is what makes a repeated
 	// EXISTS (some servers re-send it when IDLE restarts) a no-op instead of an
 	// endless fetch loop.
-	total := int64(mbox.NumMessages)
-
 	w.live.Store(true)
 	s.health.report(account.ID, AccountHealthSourceIdle, AccountHealthOutcomeOK)
 	defer w.live.Store(false)
@@ -446,11 +474,34 @@ func (s *EmailIdleService) idleOnce(w *idleWatcher, account EmailAccount, connec
 		case <-heartbeat.C:
 			// Prove the session is still there (see idleHeartbeat). This also
 			// re-arms IDLE against middleboxes that drop long-silent connections.
+			// STATUS UIDNEXT also catches providers that advertise IDLE but fail to
+			// push EXISTS reliably, without opening another IMAP connection.
 			if err := closeIdle(idle); err != nil {
 				return err
 			}
 			if err := s.probe(client); err != nil {
 				return err
+			}
+			status, statusErr := probeUIDNext(client, folder)
+			if statusErr != nil {
+				slog.Warn("idle: inbox UIDNEXT probe failed",
+					"account", account, "folder", folder, "error", statusErr)
+				return statusErr
+			} else if status.UIDNext > imap.UID(uidNext) {
+				slog.Info("idle: inbox changed without an IDLE EXISTS event",
+					"account", account, "folder", folder,
+					"previous_uid_next", uidNext, "uid_next", status.UIDNext)
+				resp, fetchErr := s.fetchOnConnection(client, account, folder)
+				if fetchErr != nil {
+					return fetchErr
+				}
+				if resp != nil {
+					total = int64(resp.Total)
+					uidNext = resp.UIDNext
+				}
+				if handler := s.mailHandler(); handler != nil && resp != nil {
+					handler(account, folder)
+				}
 			}
 			if idle, err = client.Idle(); err != nil {
 				return err
@@ -477,6 +528,7 @@ func (s *EmailIdleService) idleOnce(w *idleWatcher, account EmailAccount, connec
 			}
 			if resp != nil {
 				total = int64(resp.Total)
+				uidNext = resp.UIDNext
 			}
 			if handler := s.mailHandler(); handler != nil {
 				handler(account, folder)
@@ -501,6 +553,26 @@ func (s *EmailIdleService) probe(client *imapclient.Client) error {
 	case <-time.After(idleProbeTimeout):
 		client.Close()
 		return fmt.Errorf("no answer to NOOP within %v", idleProbeTimeout)
+	}
+}
+
+func probeUIDNext(client *imapclient.Client, folder string) (*imap.StatusData, error) {
+	type result struct {
+		status *imap.StatusData
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		status, err := client.Status(folder, &imap.StatusOptions{UIDNext: true}).Wait()
+		done <- result{status: status, err: err}
+	}()
+
+	select {
+	case res := <-done:
+		return res.status, res.err
+	case <-time.After(idleProbeTimeout):
+		client.Close()
+		return nil, fmt.Errorf("no answer to STATUS UIDNEXT within %v", idleProbeTimeout)
 	}
 }
 
