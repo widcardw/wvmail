@@ -27,7 +27,7 @@ async function confirmQuit() {
   } catch (e) {
     console.error('Failed to quit the app', e)
     quitting.value = false
-    fb.error(t.value['quitApp.failed'])
+    fb.error(t('quitApp.failed'))
   }
 }
 
@@ -38,17 +38,17 @@ const localeOptions = [
 ]
 
 const themeOptions = computed(() => [
-  { label: t.value['settings.common.theme.system'], value: 'System' },
-  { label: t.value['settings.common.theme.light'], value: 'Light' },
-  { label: t.value['settings.common.theme.dark'], value: 'Dark' },
+  { label: t('settings.common.theme.system'), value: 'System' },
+  { label: t('settings.common.theme.light'), value: 'Light' },
+  { label: t('settings.common.theme.dark'), value: 'Dark' },
 ])
 const tagDeleteOptions = computed(() => [
-  { label: t.value['settings.common.tagDelete.once'], value: '1' },
-  { label: t.value['settings.common.tagDelete.twice'], value: '2' },
+  { label: t('settings.common.tagDelete.once'), value: '1' },
+  { label: t('settings.common.tagDelete.twice'), value: '2' },
 ])
 const minimizeOrCloseOptions = computed(() => [
-  { label: t.value['settings.common.minimizeWhenClose'], value: '1' },
-  { label: t.value['settings.common.quitWhenClose'], value: '0' },
+  { label: t('settings.common.minimizeWhenClose'), value: '1' },
+  { label: t('settings.common.quitWhenClose'), value: '0' },
 ])
 
 function onLocale(v: string) {
@@ -94,16 +94,16 @@ function onCollapseUtilitiesChange(checked: boolean) {
   <div class="wrap">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.common.label'] }}</h2>
+        <h2>{{ t('settings.common.label') }}</h2>
       </header>
 
-      <UiFieldRow :label="t['settings.common.language']">
+      <UiFieldRow :label="t('settings.common.language')">
         <UiSelect :options="localeOptions" :model-value="locale" @update:model-value="onLocale" />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.common.theme.label']">
+      <UiFieldRow :label="t('settings.common.theme.label')">
         <UiSelect :options="themeOptions" :model-value="theme.mode" @update:model-value="onTheme" />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.common.tagDelete.label']">
+      <UiFieldRow :label="t('settings.common.tagDelete.label')">
         <UiSelect
           :options="tagDeleteOptions"
           :model-value="String(preferences.tagDeletePresses)"
@@ -113,7 +113,7 @@ function onCollapseUtilitiesChange(checked: boolean) {
 
       <!-- Native color input + preset swatches: a bespoke composite, so it keeps the
            raw control. The explicit Field id still links the label to it. -->
-      <UiFieldRow :label="t['settings.common.primaryColor']">
+      <UiFieldRow :label="t('settings.common.primaryColor')">
         <div class="color">
           <input
             id="primary-color"
@@ -121,7 +121,7 @@ function onCollapseUtilitiesChange(checked: boolean) {
             class="color__native"
             :value="theme.primaryColor"
             @input="onColor"
-            :aria-label="t['settings.common.primaryColorPicker']"
+            :aria-label="t('settings.common.primaryColorPicker')"
           />
           <button
             v-for="c in PRESETS"
@@ -136,7 +136,7 @@ function onCollapseUtilitiesChange(checked: boolean) {
           <code class="color__hex">{{ theme.primaryColor }}</code>
         </div>
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.common.actionOnClose']">
+      <UiFieldRow :label="t('settings.common.actionOnClose')">
         <UiSelect
           :options="minimizeOrCloseOptions"
           :model-value="String(Number(preferences.minimizeWhenClose))"
@@ -144,14 +144,14 @@ function onCollapseUtilitiesChange(checked: boolean) {
         />
       </UiFieldRow>
       <UiFieldRow
-        :label="t['settings.common.detectDates']"
-        :hint="t['settings.common.detectDatesHint']"
+        :label="t('settings.common.detectDates')"
+        :hint="t('settings.common.detectDatesHint')"
       >
         <UiSwitch :checked="preferences.detectDatesInMail" @update:checked="onDetectDatesChange" />
       </UiFieldRow>
       <UiFieldRow
-        :label="t['settings.common.collapseSmartFolders']"
-        :hint="t['settings.common.collapseSmartFoldersHint']"
+        :label="t('settings.common.collapseSmartFolders')"
+        :hint="t('settings.common.collapseSmartFoldersHint')"
       >
         <UiSwitch
           :checked="preferences.collapseSidebarSmartFolders"
@@ -159,8 +159,8 @@ function onCollapseUtilitiesChange(checked: boolean) {
         />
       </UiFieldRow>
       <UiFieldRow
-        :label="t['settings.common.collapseUtilities']"
-        :hint="t['settings.common.collapseUtilitiesHint']"
+        :label="t('settings.common.collapseUtilities')"
+        :hint="t('settings.common.collapseUtilitiesHint')"
       >
         <UiSwitch
           :checked="preferences.collapseSidebarUtilities"
@@ -170,19 +170,19 @@ function onCollapseUtilitiesChange(checked: boolean) {
 
       <div class="actions">
         <button type="button" class="btn" @click="openConfigFolder">
-          {{ t['settings.common.openConfig'] }}
+          {{ t('settings.common.openConfig') }}
         </button>
         <button type="button" class="btn btn--danger" @click="showQuitDialog = true">
-          {{ t['quitApp.label'] }}
+          {{ t('quitApp.label') }}
         </button>
       </div>
     </section>
 
     <ConfirmDialog
       :open="showQuitDialog"
-      :title="t['quitApp.title']"
-      :description="t['quitApp.body']"
-      :confirm-label="t['quitApp.confirm']"
+      :title="t('quitApp.title')"
+      :description="t('quitApp.body')"
+      :confirm-label="t('quitApp.confirm')"
       :busy="quitting"
       danger
       @update:open="showQuitDialog = $event"

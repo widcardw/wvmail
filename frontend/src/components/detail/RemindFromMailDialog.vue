@@ -26,7 +26,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const reminders = useRemindersStore()
 const fb = useFeedbackStore()
 
@@ -66,10 +66,10 @@ async function save() {
   try {
     const saved = await reminders.add(title.value, at)
     if (!saved) {
-      fb.error(t.value['mail.remind.failed'])
+      fb.error(t('mail.remind.failed'))
       return
     }
-    fb.success(t.value['mail.remind.added'])
+    fb.success(t('mail.remind.added'))
     close()
   } finally {
     saving.value = false
@@ -79,15 +79,15 @@ async function save() {
 
 <template>
   <UiDialog :open="props.open" @update:open="emit('update:open', $event)">
-    <UiDialogHeader :title="t['mail.remind.title']" :close-label="t['cancel']" @close="close" />
+    <UiDialogHeader :title="t('mail.remind.title')" :close-label="t('cancel')" @close="close" />
 
     <div class="dlg-body">
       <Field.Root class="field" :disabled="true">
-        <Field.Label class="field__label">{{ t['mail.remind.body'] }}</Field.Label>
+        <Field.Label class="field__label">{{ t('mail.remind.body') }}</Field.Label>
         <Field.Input class="ctl" :model-value="props.text" />
       </Field.Root>
       <Field.Root class="field">
-        <Field.Label class="field__label">{{ t['mail.remind.field.title'] }}</Field.Label>
+        <Field.Label class="field__label">{{ t('mail.remind.field.title') }}</Field.Label>
         <Field.Input
           class="ctl"
           :model-value="title"
@@ -95,22 +95,22 @@ async function save() {
         />
       </Field.Root>
       <Field.Root class="field">
-        <Field.Label class="field__label">{{ t['mail.remind.field.time'] }}</Field.Label>
+        <Field.Label class="field__label">{{ t('mail.remind.field.time') }}</Field.Label>
         <Field.Input v-model="time" class="ctl datetime" type="datetime-local" />
         <Field.HelperText v-if="props.zone" class="field__hint">
-          {{ tf('mail.remind.zone', { zone: props.zone }) }}
+          {{ t('mail.remind.zone', { zone: props.zone }) }}
         </Field.HelperText>
         <Field.HelperText v-if="isPast" class="field__hint field__hint--warn">
-          {{ t['mail.remind.past'] }}
+          {{ t('mail.remind.past') }}
         </Field.HelperText>
       </Field.Root>
     </div>
 
     <footer class="dlg-foot">
-      <button type="button" class="btn" @click="close">{{ t['cancel'] }}</button>
+      <button type="button" class="btn" @click="close">{{ t('cancel') }}</button>
       <BusyButton
         class="btn btn--primary"
-        :label="t['mail.remind.add']"
+        :label="t('mail.remind.add')"
         :busy="saving"
         :disabled="!canSave"
         @click="save"

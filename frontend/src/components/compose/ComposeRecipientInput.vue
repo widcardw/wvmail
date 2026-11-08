@@ -158,7 +158,7 @@ function onKeydown(event: KeyboardEvent) {
     />
 
     <div v-if="showSuggestions" :id="listId" class="recipient-suggestions" role="listbox">
-      <div class="recipient-suggestions__title">{{ t['contacts.title'] }}</div>
+      <div class="recipient-suggestions__title">{{ t('contacts.title') }}</div>
       <button
         v-for="(contact, index) in suggestions"
         :id="`${listId}-${index}`"

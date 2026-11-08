@@ -79,10 +79,10 @@ async function submitAdd() {
   <UiScrollArea class="content">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['reminders.title'] }}</h2>
+        <h2>{{ t('reminders.title') }}</h2>
         <button type="button" class="btn btn--sm btn--primary" @click="openAdd">
           <i class="i-ri:add-line" aria-hidden="true" />
-          {{ t['reminders.add'] }}
+          {{ t('reminders.add') }}
         </button>
       </header>
 
@@ -93,13 +93,13 @@ async function submitAdd() {
       <Tabs.Root default-value="today" orientation="horizontal" class="tabs">
         <Tabs.List class="tabs__list">
           <Tabs.Trigger class="tabs__trigger" value="today">
-            {{ t['reminders.tab.today'] }}
+            {{ t('reminders.tab.today') }}
           </Tabs.Trigger>
           <Tabs.Trigger class="tabs__trigger" value="week">
-            {{ t['reminders.tab.week'] }}
+            {{ t('reminders.tab.week') }}
           </Tabs.Trigger>
           <Tabs.Trigger class="tabs__trigger" value="month">
-            {{ t['reminders.tab.month'] }}
+            {{ t('reminders.tab.month') }}
           </Tabs.Trigger>
           <Tabs.Indicator class="tabs__indicator" />
         </Tabs.List>
@@ -120,29 +120,29 @@ async function submitAdd() {
          unmounted until the first open and is unmounted again on close. -->
     <UiDialog :open="showAdd" size="narrow" @update:open="showAdd = $event">
       <UiDialogHeader
-        :title="t['reminders.new']"
-        :close-label="t['cancel']"
+        :title="t('reminders.new')"
+        :close-label="t('cancel')"
         @close="showAdd = false"
       />
       <div class="dlg-body">
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['reminders.field.title'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('reminders.field.title') }}</Field.Label>
           <Field.Input
             v-model="newTitle"
             class="input"
             type="text"
-            :placeholder="t['reminders.placeholder.title']"
+            :placeholder="t('reminders.placeholder.title')"
             @keydown.enter="submitAdd"
           />
         </Field.Root>
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['reminders.field.time'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('reminders.field.time') }}</Field.Label>
           <Field.Input v-model="newTime" class="input datetime" type="datetime-local" />
         </Field.Root>
       </div>
       <footer class="dlg-foot">
         <button type="button" class="btn" @click="showAdd = false">
-          {{ t['cancel'] }}
+          {{ t('cancel') }}
         </button>
         <button
           type="button"
@@ -150,7 +150,7 @@ async function submitAdd() {
           :disabled="!newTitle.trim()"
           @click="submitAdd"
         >
-          {{ t['reminders.submit'] }}
+          {{ t('reminders.submit') }}
         </button>
       </footer>
     </UiDialog>

@@ -38,7 +38,7 @@ const emit = defineEmits<{
   refreshFolders: []
 }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 
 // Two ways to add an account: type the server details by hand, or finish a
 // browser-based OAuth round trip. Adding defaults to the manual form; editing an
@@ -57,13 +57,13 @@ const tab = ref<string>(props.editing && form.value.AuthType === 'oauth2' ? 'oau
 const editSection = ref<'basic' | 'folders'>('basic')
 
 const addModes = computed(() => [
-  { value: 'manual', label: t.value['settings.accounts.tab.manual'] },
-  { value: 'oauth', label: t.value['settings.accounts.tab.oauth'] },
+  { value: 'manual', label: t('settings.accounts.tab.manual') },
+  { value: 'oauth', label: t('settings.accounts.tab.oauth') },
 ])
 
 const editModes = computed(() => [
-  { value: 'basic', label: t.value['settings.accounts.tab.basic'] },
-  { value: 'folders', label: t.value['settings.accounts.tab.folders'] },
+  { value: 'basic', label: t('settings.accounts.tab.basic') },
+  { value: 'folders', label: t('settings.accounts.tab.folders') },
 ])
 
 const headerTabs = computed(() => (props.editing ? editModes.value : addModes.value))
@@ -86,9 +86,9 @@ const isGmailManual = computed(() => tab.value === 'manual' && form.value.Provid
  * Only one note can apply at a time, in the same precedence as before.
  */
 const passwordHint = computed(() => {
-  if (props.is163Provider) return `163 ${t.value['settings.accounts.imap_warning']}`
-  if (props.needsAuthCode) return t.value['settings.accounts.auth_code_hint']
-  if (isGmailManual.value) return t.value['settings.accounts.oauth.gmail_app_password_hint']
+  if (props.is163Provider) return `163 ${t('settings.accounts.imap_warning')}`
+  if (props.needsAuthCode) return t('settings.accounts.auth_code_hint')
+  if (isGmailManual.value) return t('settings.accounts.oauth.gmail_app_password_hint')
   return ''
 })
 
@@ -120,19 +120,19 @@ const STATUS_ICON: Record<StatusKind, string> = {
  */
 const oauthStatus = computed<{ kind: StatusKind; text: string } | null>(() => {
   if (oauthError.value) return { kind: 'err', text: oauthError.value }
-  if (oauthWaiting.value) return { kind: 'info', text: t.value['settings.accounts.oauth.waiting'] }
+  if (oauthWaiting.value) return { kind: 'info', text: t('settings.accounts.oauth.waiting') }
   if (oauthResult.value) {
     return {
       kind: 'ok',
-      text: tf('settings.accounts.oauth.success', { email: oauthResult.value.email ?? '' }),
+      text: t('settings.accounts.oauth.success', { email: oauthResult.value.email ?? '' }),
     }
   }
   return null
 })
 
 const oauthProviderOptions = computed(() => [
-  { label: t.value['settings.accounts.oauth.microsoft'], value: 'microsoft' },
-  { label: t.value['settings.accounts.oauth.google'], value: 'google' },
+  { label: t('settings.accounts.oauth.microsoft'), value: 'microsoft' },
+  { label: t('settings.accounts.oauth.google'), value: 'google' },
 ])
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -176,7 +176,7 @@ async function pollOAuth() {
     stopPolling()
     oauthWaiting.value = false
     if (res.error || !res.email) {
-      oauthError.value = res.error || t.value['settings.accounts.oauth.empty_email']
+      oauthError.value = res.error || t('settings.accounts.oauth.empty_email')
       return
     }
     applyOAuthResult(res)
@@ -250,7 +250,7 @@ function onAutoSyncToggle(checked: boolean) {
 // parent, only the URL.
 const proxyMode = computed(() => form.value.Proxy?.Mode ?? '')
 
-const proxyModeOptions = computed(() => proxyModeLabels(t.value))
+const proxyModeOptions = computed(() => proxyModeLabels(t))
 
 function setProxyMode(mode: string) {
   form.value.Proxy = { Mode: mode, URL: mode === 'custom' ? (form.value.Proxy?.URL ?? '') : '' }
@@ -283,7 +283,7 @@ function onEmailInput(email: string) {
   <div class="surface">
     <header class="surface__head">
       <h2>
-        {{ props.editing ? t['settings.accounts.edit'] : t['settings.accounts.add'] }}
+        {{ props.editing ? t('settings.accounts.edit') : t('settings.accounts.add') }}
       </h2>
       <!-- The header switch. Adding shows the two setup methods; editing shows
            the account's basic fields and its folder-display rules. It rides on
@@ -301,7 +301,7 @@ function onEmailInput(email: string) {
         :model-value="headerTab"
         @update:model-value="onHeaderTabChange"
       >
-        <SegmentGroup.Label class="vh">{{ t['settings.accounts.tab.group'] }}</SegmentGroup.Label>
+        <SegmentGroup.Label class="vh">{{ t('settings.accounts.tab.group') }}</SegmentGroup.Label>
         <SegmentGroup.Indicator class="head-tabs__indicator" />
         <SegmentGroup.Item
           v-for="mode in headerTabs"
@@ -318,7 +318,7 @@ function onEmailInput(email: string) {
     <div class="card__body">
       <template v-if="!props.editing || editSection === 'basic'">
         <div class="frow">
-          <span class="flabel">{{ t['settings.accounts.avatar'] }}</span>
+          <span class="flabel">{{ t('settings.accounts.avatar') }}</span>
           <div class="avatar-area">
             <label class="avatar-box">
               <img
@@ -335,44 +335,44 @@ function onEmailInput(email: string) {
                 @change="emit('avatarFile', $event)"
               />
             </label>
-            <div class="avatar-hint">{{ t['settings.accounts.upload_avatar'] }}</div>
+            <div class="avatar-hint">{{ t('settings.accounts.upload_avatar') }}</div>
           </div>
         </div>
 
         <!-- 服务器配置 pane: the classic typed form -->
         <template v-if="tab === 'manual'">
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.email') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.Email"
-              :placeholder="t['settings.accounts.placeholder_email']"
+              :placeholder="t('settings.accounts.placeholder_email')"
               @update:model-value="onEmailInput(String($event))"
             />
           </Field.Root>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.alias') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.Name"
-              :placeholder="t['settings.accounts.placeholder_name']"
+              :placeholder="t('settings.accounts.placeholder_name')"
               @update:model-value="form.Name = String($event)"
             />
           </Field.Root>
           <Field.Root class="frow frow--stacked">
-            <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.sender_name') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.SenderName"
-              :placeholder="t['settings.accounts.placeholder_sender_name']"
+              :placeholder="t('settings.accounts.placeholder_sender_name')"
               @update:model-value="form.SenderName = String($event)"
             />
             <Field.HelperText class="frow-hint">
-              {{ t['settings.accounts.sender_name_hint'] }}
+              {{ t('settings.accounts.sender_name_hint') }}
             </Field.HelperText>
           </Field.Root>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.provider'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.provider') }}</Field.Label>
             <UiSelect
               :options="props.providerOptions"
               :model-value="form.Provider"
@@ -387,25 +387,25 @@ function onEmailInput(email: string) {
              give the two controls the same id and point the label at both. -->
           <div class="frow frow--pair">
             <Field.Root class="frow__cell frow__cell--grow">
-              <Field.Label class="flabel">{{ t['settings.accounts.imap_host'] }}</Field.Label>
+              <Field.Label class="flabel">{{ t('settings.accounts.imap_host') }}</Field.Label>
               <Field.Input
                 class="input"
                 :model-value="form.IMAPHost"
-                :placeholder="t['settings.accounts.placeholder_imap_host']"
+                :placeholder="t('settings.accounts.placeholder_imap_host')"
                 @update:model-value="form.IMAPHost = String($event)"
               />
             </Field.Root>
             <Field.Root class="frow__cell frow__cell--port">
-              <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
+              <Field.Label class="flabel--inline">{{ t('settings.accounts.port') }}</Field.Label>
               <UiNumberInput :value="form.IMAPPort" width="96px" @value="form.IMAPPort = $event" />
             </Field.Root>
           </div>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.imap_user'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.imap_user') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.IMAPUser"
-              :placeholder="t['settings.accounts.placeholder_email']"
+              :placeholder="t('settings.accounts.placeholder_email')"
               @update:model-value="form.IMAPUser = String($event)"
             />
           </Field.Root>
@@ -414,7 +414,7 @@ function onEmailInput(email: string) {
              reads as a hint instead of a page-wide banner, and Ark can describe
              the input with it. -->
           <Field.Root class="frow frow--stacked">
-            <Field.Label class="flabel">{{ t['settings.accounts.imap_pass'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.imap_pass') }}</Field.Label>
             <UiPasswordInput :value="form.IMAPPass" @input="form.IMAPPass = strVal($event)" />
             <Field.HelperText v-if="passwordHint" class="field__hint frow-hint field__hint--warn">
               {{ passwordHint }}
@@ -424,34 +424,34 @@ function onEmailInput(email: string) {
           <div class="sec">SMTP</div>
           <div class="frow frow--pair">
             <Field.Root class="frow__cell frow__cell--grow">
-              <Field.Label class="flabel">{{ t['settings.accounts.smtp_host'] }}</Field.Label>
+              <Field.Label class="flabel">{{ t('settings.accounts.smtp_host') }}</Field.Label>
               <Field.Input
                 class="input"
                 :model-value="form.SMTPHost"
-                :placeholder="t['settings.accounts.placeholder_smtp_host']"
+                :placeholder="t('settings.accounts.placeholder_smtp_host')"
                 @update:model-value="form.SMTPHost = String($event)"
               />
             </Field.Root>
             <Field.Root class="frow__cell frow__cell--port">
-              <Field.Label class="flabel--inline">{{ t['settings.accounts.port'] }}</Field.Label>
+              <Field.Label class="flabel--inline">{{ t('settings.accounts.port') }}</Field.Label>
               <UiNumberInput :value="form.SMTPPort" width="96px" @value="form.SMTPPort = $event" />
             </Field.Root>
           </div>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.smtp_user'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.smtp_user') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.SMTPUser"
-              :placeholder="t['settings.accounts.placeholder_email']"
+              :placeholder="t('settings.accounts.placeholder_email')"
               @update:model-value="form.SMTPUser = String($event)"
             />
           </Field.Root>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.smtp_pass'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.smtp_pass') }}</Field.Label>
             <UiPasswordInput :value="form.SMTPPass" @input="form.SMTPPass = strVal($event)" />
           </Field.Root>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.use_tls'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.use_tls') }}</Field.Label>
             <UiSwitch :checked="form.UseTLS" @update:checked="form.UseTLS = $event" />
           </Field.Root>
         </template>
@@ -459,37 +459,37 @@ function onEmailInput(email: string) {
         <!-- 在线验证 pane: browser-based OAuth -->
         <template v-else>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.email'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.email') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.Email"
-              :placeholder="t['settings.accounts.oauth.email_pending']"
+              :placeholder="t('settings.accounts.oauth.email_pending')"
               readonly
             />
           </Field.Root>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.alias'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.alias') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.Name"
-              :placeholder="t['settings.accounts.placeholder_name']"
+              :placeholder="t('settings.accounts.placeholder_name')"
               @update:model-value="form.Name = String($event)"
             />
           </Field.Root>
           <Field.Root class="frow frow--stacked">
-            <Field.Label class="flabel">{{ t['settings.accounts.sender_name'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.sender_name') }}</Field.Label>
             <Field.Input
               class="input"
               :model-value="form.SenderName"
-              :placeholder="t['settings.accounts.placeholder_sender_name']"
+              :placeholder="t('settings.accounts.placeholder_sender_name')"
               @update:model-value="form.SenderName = String($event)"
             />
             <Field.HelperText class="frow-hint">
-              {{ t['settings.accounts.sender_name_hint'] }}
+              {{ t('settings.accounts.sender_name_hint') }}
             </Field.HelperText>
           </Field.Root>
           <Field.Root class="frow">
-            <Field.Label class="flabel">{{ t['settings.accounts.oauth.provider'] }}</Field.Label>
+            <Field.Label class="flabel">{{ t('settings.accounts.oauth.provider') }}</Field.Label>
             <UiSelect
               :options="oauthProviderOptions"
               :model-value="oauthProvider"
@@ -503,19 +503,19 @@ function onEmailInput(email: string) {
              reading like app-level alerts. -->
           <Field.Root class="frow frow--stacked">
             <Field.Label class="flabel">
-              {{ t['settings.accounts.oauth.client_id'] }}
+              {{ t('settings.accounts.oauth.client_id') }}
             </Field.Label>
             <Field.Input
               class="input"
               :model-value="oauthClientID"
-              :placeholder="t['settings.accounts.oauth.client_id_placeholder']"
+              :placeholder="t('settings.accounts.oauth.client_id_placeholder')"
               @update:model-value="oauthClientID = String($event)"
             />
             <Field.HelperText class="frow-hint">
-              {{ t['settings.accounts.oauth.hint'] }}
+              {{ t('settings.accounts.oauth.hint') }}
             </Field.HelperText>
             <Field.HelperText v-if="oauthProvider === 'google'" class="frow-hint field__hint--warn">
-              {{ t['settings.accounts.oauth.google_note'] }}
+              {{ t('settings.accounts.oauth.google_note') }}
             </Field.HelperText>
           </Field.Root>
 
@@ -523,7 +523,7 @@ function onEmailInput(email: string) {
             <span class="flabel" aria-hidden="true"></span>
             <BusyButton
               class="btn"
-              :label="t['settings.accounts.oauth.begin']"
+              :label="t('settings.accounts.oauth.begin')"
               :busy="oauthWaiting"
               :disabled="oauthWaiting"
               @click="startOAuth"
@@ -545,36 +545,36 @@ function onEmailInput(email: string) {
           <!-- A standing fact about the stored auth type, not an event — muted text
              rather than a status line, and it yields to any live status above. -->
           <p v-else-if="isOAuth" class="pane-note">
-            {{ t['settings.accounts.oauth.is_oauth'] }}
+            {{ t('settings.accounts.oauth.is_oauth') }}
           </p>
         </template>
 
-        <div class="sec">{{ t['settings.accounts.sync'] }}</div>
+        <div class="sec">{{ t('settings.accounts.sync') }}</div>
         <!-- Two columns instead of the usual flex .frow: the helper line belongs to
            the field (Ark renders it as Field.HelperText and can describe the
            control with it) but has to sit on its own line under the control, not
            beside the switch. -->
         <Field.Root class="frow frow--stacked">
-          <Field.Label class="flabel">{{ t['settings.accounts.auto_sync'] }}</Field.Label>
+          <Field.Label class="flabel">{{ t('settings.accounts.auto_sync') }}</Field.Label>
           <div class="sync-row">
             <UiSwitch :checked="form.SyncInterval > 0" @update:checked="onAutoSyncToggle" />
             <template v-if="form.SyncInterval > 0">
               <UiNumberInput :value="form.SyncInterval" @value="form.SyncInterval = $event" />
-              <span class="muted">{{ t['settings.accounts.sync_minutes'] }}</span>
+              <span class="muted">{{ t('settings.accounts.sync_minutes') }}</span>
             </template>
-            <span v-else class="muted">{{ t['settings.accounts.sync_disabled'] }}</span>
+            <span v-else class="muted">{{ t('settings.accounts.sync_disabled') }}</span>
           </div>
           <Field.HelperText v-if="form.SyncInterval > 0" class="frow-hint">
-            {{ t['settings.accounts.sync_hint'] }}
+            {{ t('settings.accounts.sync_hint') }}
           </Field.HelperText>
         </Field.Root>
 
         <!-- Proxy: three answers, not two. "No proxy" exists because a mailbox on
            the local network must be able to opt out of a global proxy, and
            "follow" must stay distinguishable from it. -->
-        <div class="sec">{{ t['settings.accounts.proxy'] }}</div>
+        <div class="sec">{{ t('settings.accounts.proxy') }}</div>
         <Field.Root class="frow">
-          <Field.Label class="flabel">{{ t['settings.accounts.proxy_mode'] }}</Field.Label>
+          <Field.Label class="flabel">{{ t('settings.accounts.proxy_mode') }}</Field.Label>
           <UiSelect
             :options="proxyModeOptions"
             :model-value="proxyMode"
@@ -583,15 +583,15 @@ function onEmailInput(email: string) {
           />
         </Field.Root>
         <Field.Root v-if="proxyMode === 'custom'" class="frow frow--stacked">
-          <Field.Label class="flabel">{{ t['settings.accounts.proxy_address'] }}</Field.Label>
+          <Field.Label class="flabel">{{ t('settings.accounts.proxy_address') }}</Field.Label>
           <Field.Input
             class="input"
             :model-value="form.Proxy?.URL ?? ''"
-            :placeholder="t['settings.proxy.address_placeholder']"
+            :placeholder="t('settings.proxy.address_placeholder')"
             @update:model-value="setProxyURL(String($event))"
           />
           <Field.HelperText class="frow-hint">
-            {{ t['settings.accounts.proxy_hint'] }}
+            {{ t('settings.accounts.proxy_hint') }}
           </Field.HelperText>
         </Field.Root>
 
@@ -626,18 +626,18 @@ function onEmailInput(email: string) {
 
     <footer class="card__foot">
       <button type="button" class="btn" @click="emit('cancel')">
-        {{ t['settings.accounts.cancel'] }}
+        {{ t('settings.accounts.cancel') }}
       </button>
       <BusyButton
         v-if="!props.editing || editSection === 'basic'"
         class="btn"
-        :label="t['settings.accounts.test']"
+        :label="t('settings.accounts.test')"
         :busy="props.testing"
         @click="emit('test')"
       />
       <BusyButton
         class="btn btn--primary"
-        :label="t['settings.accounts.save']"
+        :label="t('settings.accounts.save')"
         :busy="props.saving"
         @click="emit('save')"
       />

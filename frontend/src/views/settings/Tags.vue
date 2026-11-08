@@ -9,7 +9,7 @@ import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import TagEditorDialog from '~/components/tags/TagEditorDialog.vue'
 import TagSuggestionDialog from '~/components/tags/TagSuggestionDialog.vue'
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const feedback = useFeedbackStore()
 const tagsStore = useTagsStore()
 const editorOpen = ref(false)
@@ -31,7 +31,7 @@ function openEdit(tag: MailTag) {
 }
 
 function fieldLabel(field: string): string {
-  return t.value[`tags.field.${field}` as TranslationKey] ?? field
+  return t(`tags.field.${field}` as TranslationKey) ?? field
 }
 
 async function confirmDelete() {
@@ -40,11 +40,11 @@ async function confirmDelete() {
   try {
     await TagService.DeleteMailTag(deleteTarget.value.id)
     await tagsStore.reload()
-    feedback.success(t.value['tags.deleted'])
+    feedback.success(t('tags.deleted'))
     deleteTarget.value = null
   } catch (error) {
     console.error('Failed to delete tag', error)
-    feedback.error(t.value['tags.deleteFailed'])
+    feedback.error(t('tags.deleteFailed'))
   } finally {
     deleting.value = false
   }
@@ -56,44 +56,44 @@ async function confirmDelete() {
     <section class="surface">
       <header class="surface__head">
         <div>
-          <h2>{{ t['tags.title'] }}</h2>
-          <p class="tag-subtitle">{{ t['tags.subtitle'] }}</p>
+          <h2>{{ t('tags.title') }}</h2>
+          <p class="tag-subtitle">{{ t('tags.subtitle') }}</p>
         </div>
         <div class="head-actions">
           <button type="button" class="btn btn--sm" @click="aiOpen = true">
             <i class="i-ri:sparkling-2-line" aria-hidden="true" />
-            {{ t['tags.ai.open'] }}
+            {{ t('tags.ai.open') }}
           </button>
           <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
             <i class="i-ri:add-line" aria-hidden="true" />
-            {{ t['tags.add'] }}
+            {{ t('tags.add') }}
           </button>
         </div>
       </header>
 
       <p v-if="tagsStore.tagsLoading" class="tag-state"><span class="spinner" /></p>
-      <p v-else-if="tagsStore.tags.length === 0" class="tag-state">{{ t['tags.empty'] }}</p>
+      <p v-else-if="tagsStore.tags.length === 0" class="tag-state">{{ t('tags.empty') }}</p>
       <div v-else class="tag-rows">
         <article v-for="tag in tagsStore.tags" :key="tag.id" class="tag-row">
           <span class="tag-swatch" :style="{ background: tag.color }" aria-hidden="true" />
           <div class="tag-main">
             <strong class="tag-label" :title="tag.label">{{ tag.label }}</strong>
-            <span v-if="tag.built_in" class="tag-badge">{{ t['tags.builtIn'] }}</span>
+            <span v-if="tag.built_in" class="tag-badge">{{ t('tags.builtIn') }}</span>
             <span v-if="!tag.enabled" class="tag-badge tag-badge--off">
-              {{ t['tags.disabled'] }}
+              {{ t('tags.disabled') }}
             </span>
             <span class="tag-meta" :title="tag.keywords.join(' · ')">
               {{ tag.fields.map(fieldLabel).join(' · ') }}
               <span class="tag-meta__sep">·</span>
-              {{ tf('tags.keywordCount', tag.keywords.length) }}
+              {{ t('tags.keywordCount', tag.keywords.length) }}
             </span>
           </div>
-          <div class="tag-actions" :aria-label="t['tags.actions']">
+          <div class="tag-actions" :aria-label="t('tags.actions')">
             <button
               type="button"
               class="icon-btn"
-              :title="t['tags.edit']"
-              :aria-label="t['tags.edit']"
+              :title="t('tags.edit')"
+              :aria-label="t('tags.edit')"
               @click="openEdit(tag)"
             >
               <i class="i-ri:edit-2-line" aria-hidden="true" />
@@ -102,8 +102,8 @@ async function confirmDelete() {
               v-if="!tag.built_in"
               type="button"
               class="icon-btn tag-delete"
-              :title="t['tags.delete']"
-              :aria-label="t['tags.delete']"
+              :title="t('tags.delete')"
+              :aria-label="t('tags.delete')"
               @click="deleteTarget = tag"
             >
               <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
@@ -117,11 +117,11 @@ async function confirmDelete() {
     <TagSuggestionDialog v-model:open="aiOpen" />
     <ConfirmDialog
       :open="!!deleteTarget"
-      :title="t['tags.delete']"
+      :title="t('tags.delete')"
       :description="
-        deleteTarget ? tf('tags.deleteConfirm', { label: deleteTarget.label }) : undefined
+        deleteTarget ? t('tags.deleteConfirm', { label: deleteTarget.label }) : undefined
       "
-      :confirm-label="t['tags.delete']"
+      :confirm-label="t('tags.delete')"
       danger
       :busy="deleting"
       @update:open="(open) => (!open ? (deleteTarget = null) : undefined)"

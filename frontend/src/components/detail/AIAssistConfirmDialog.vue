@@ -37,21 +37,15 @@ const defaultModel = ref('')
 const isTranslation = computed(() => props.mode === 'translate')
 const title = computed(
   () =>
-    t.value[
-      isTranslation.value ? 'mail.aiConfirm.title.translate' : 'mail.aiConfirm.title.summarize'
-    ],
+    t(isTranslation.value ? 'mail.aiConfirm.title.translate' : 'mail.aiConfirm.title.summarize'),
 )
 const body = computed(
   () =>
-    t.value[
-      isTranslation.value ? 'mail.aiConfirm.body.translate' : 'mail.aiConfirm.body.summarize'
-    ],
+    t(isTranslation.value ? 'mail.aiConfirm.body.translate' : 'mail.aiConfirm.body.summarize'),
 )
 const confirmLabel = computed(
   () =>
-    t.value[
-      isTranslation.value ? 'mail.aiConfirm.confirm.translate' : 'mail.aiConfirm.confirm.summarize'
-    ],
+    t(isTranslation.value ? 'mail.aiConfirm.confirm.translate' : 'mail.aiConfirm.confirm.summarize'),
 )
 
 const providerOptions = computed(() => {
@@ -90,23 +84,23 @@ const warning = computed(() => {
     config.value?.TranslationConfig?.DefaultEngine === 'deepl' &&
     !config.value?.TranslationConfig?.DeepLAuthKey
   ) {
-    return t.value['mail.aiConfirm.deepl_no_key']
+    return t('mail.aiConfirm.deepl_no_key')
   }
   if (
     isTranslation.value &&
     selectedProvider.value === 'deepl' &&
     !config.value?.TranslationConfig?.DeepLAuthKey
   ) {
-    return t.value['mail.aiConfirm.deepl_no_key']
+    return t('mail.aiConfirm.deepl_no_key')
   }
   if (selectedProvider.value.startsWith('llm:') && !selectedModel.value) {
-    return t.value['mail.aiConfirm.no_model']
+    return t('mail.aiConfirm.no_model')
   }
   if (
     llmConfigs.value.length === 0 &&
     (!isTranslation.value || !config.value?.TranslationConfig?.DeepLAuthKey)
   ) {
-    return t.value['mail.aiConfirm.no_llm']
+    return t('mail.aiConfirm.no_llm')
   }
   return ''
 })
@@ -201,18 +195,18 @@ function confirm() {
     :close-on-interact-outside="false"
     @update:open="emit('update:open', $event)"
   >
-    <UiDialogHeader :title="title" :close-label="t['cancel']" @close="emit('update:open', false)" />
+    <UiDialogHeader :title="title" :close-label="t('cancel')" @close="emit('update:open', false)" />
     <div class="dlg-body ai-confirm">
       <Dialog.Description class="ai-confirm__intro">{{ body }}</Dialog.Description>
       <UiAlert class="ai-confirm__alert" tone="warning" icon="i-ri:shield-keyhole-line">
-        {{ t['mail.aiConfirm.warning'] }}
+        {{ t('mail.aiConfirm.warning') }}
       </UiAlert>
 
-      <p v-if="loading" class="ai-confirm__state">{{ t['mail.aiConfirm.loading'] }}</p>
+      <p v-if="loading" class="ai-confirm__state">{{ t('mail.aiConfirm.loading') }}</p>
       <UiAlert v-else-if="error" tone="error">{{ error }}</UiAlert>
       <template v-else>
         <label class="field">
-          <span class="field__label">{{ t['mail.aiConfirm.provider'] }}</span>
+          <span class="field__label">{{ t('mail.aiConfirm.provider') }}</span>
           <UiSelect
             :options="providerOptions"
             :model-value="selectedProvider"
@@ -223,7 +217,7 @@ function confirm() {
         </label>
 
         <label v-if="selectedProvider.startsWith('llm:')" class="field">
-          <span class="field__label">{{ t['mail.aiConfirm.model'] }}</span>
+          <span class="field__label">{{ t('mail.aiConfirm.model') }}</span>
           <UiSelect
             :options="modelOptions"
             :model-value="selectedModel"
@@ -236,13 +230,13 @@ function confirm() {
         <UiAlert v-if="warning" tone="warning">{{ warning }}</UiAlert>
 
         <UiCheckbox v-model:checked="dontAsk" class="ai-confirm__dont-ask">
-          {{ t['mail.aiConfirm.dont_ask'] }}
+          {{ t('mail.aiConfirm.dont_ask') }}
         </UiCheckbox>
       </template>
     </div>
     <div class="dlg-foot">
       <button type="button" class="btn" @click="emit('update:open', false)">
-        {{ t['cancel'] }}
+        {{ t('cancel') }}
       </button>
       <button type="button" class="btn btn--primary" :disabled="!canConfirm" @click="confirm">
         {{ confirmLabel }}

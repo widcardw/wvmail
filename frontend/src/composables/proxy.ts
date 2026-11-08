@@ -44,13 +44,13 @@ export function resolveProxyRoute(
 }
 
 /** The three mode labels, shared by the proxy page and the account form. */
-export function proxyModeLabels(t: Record<TranslationKey, string>): Array<{
+export function proxyModeLabels(t: (key: TranslationKey) => string): Array<{
   label: string
   value: ProxyMode
 }> {
   return [
-    { label: t['settings.proxy.mode_follow'], value: '' },
-    { label: t['settings.proxy.mode_custom'], value: 'custom' },
-    { label: t['settings.proxy.mode_off'], value: 'off' },
+    { label: t('settings.proxy.mode_follow'), value: '' },
+    { label: t('settings.proxy.mode_custom'), value: 'custom' },
+    { label: t('settings.proxy.mode_off'), value: 'off' },
   ]
 }

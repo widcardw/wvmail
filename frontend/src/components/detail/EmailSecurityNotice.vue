@@ -13,12 +13,12 @@ const { t } = useI18n()
 <template>
   <div class="body-bar body-bar--with-actions">
     <i class="i-ri:spam-2-line body-bar__icon" aria-hidden="true" />
-    <span class="body-bar__text" :title="t['mail.security.body']">
-      {{ t['mail.security.title'] }}
+    <span class="body-bar__text" :title="t('mail.security.body')">
+      {{ t('mail.security.title') }}
     </span>
     <div class="body-bar__actions">
       <button type="button" class="btn btn--sm btn--subtle" @click="emit('reveal')">
-        {{ t['mail.security.show_all'] }}
+        {{ t('mail.security.show_all') }}
       </button>
     </div>
   </div>

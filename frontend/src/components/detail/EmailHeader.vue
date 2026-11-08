@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from '~/i18n'
-import { useLocaleStore } from '~/stores/locale'
 import { formatDate } from '~/composables/formats'
 import AddressActionsMenu from '~/components/detail/AddressActionsMenu.vue'
 import RecipientList from '~/components/detail/RecipientList.vue'
@@ -14,8 +13,7 @@ const props = defineProps<{
   detail: EmailDetail
 }>()
 
-const { t } = useI18n()
-const localeStore = useLocaleStore()
+const { t, locale } = useI18n()
 
 interface SenderParts {
   name: string | null
@@ -69,20 +67,20 @@ const sender = computed(() => {
         <span v-else class="from">{{ senderDisplay(detail).fallback }}</span>
       </AddressActionsMenu>
       <span v-else class="from">{{ senderDisplay(detail).fallback }}</span>
-      <span class="ddate">{{ formatDate(detail.date, localeStore.current) }}</span>
+      <span class="ddate">{{ formatDate(detail.date, locale) }}</span>
     </div>
 
-    <h2 class="subject">{{ detail.subject || t['mail.noSubject'] }}</h2>
+    <h2 class="subject">{{ detail.subject || t('mail.noSubject') }}</h2>
 
     <div class="meta">
       <RecipientList
         v-if="(detail.to || []).length"
-        :label="t['search.to']"
+        :label="t('search.to')"
         :addresses="detail.to"
       />
       <RecipientList
         v-if="(detail.cc || []).length"
-        :label="t['search.cc']"
+        :label="t('search.cc')"
         :addresses="detail.cc"
       />
     </div>

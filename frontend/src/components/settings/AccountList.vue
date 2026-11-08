@@ -86,13 +86,13 @@ function onSelect(account: EmailAccount, value: string | undefined) {
 <template>
   <section class="surface">
     <header class="surface__head">
-      <h2>{{ t['settings.accounts.label'] }}</h2>
+      <h2>{{ t('settings.accounts.label') }}</h2>
       <button type="button" class="btn btn--primary btn--sm" @click="emit('add')">
-        {{ t['settings.accounts.add'] }}
+        {{ t('settings.accounts.add') }}
       </button>
     </header>
 
-    <p v-if="accounts.length === 0" class="empty">{{ t['settings.accounts.empty'] }}</p>
+    <p v-if="accounts.length === 0" class="empty">{{ t('settings.accounts.empty') }}</p>
     <ul v-else class="list">
       <li v-for="(account, index) in accounts" :key="account.ID" class="row">
         <div class="row-main">
@@ -125,8 +125,8 @@ function onSelect(account: EmailAccount, value: string | undefined) {
           >
             <Menu.Trigger
               class="icon-btn row-menu-trigger"
-              :aria-label="t['settings.accounts.actions']"
-              :title="t['settings.accounts.actions']"
+              :aria-label="t('settings.accounts.actions')"
+              :title="t('settings.accounts.actions')"
             >
               <i class="i-ri:more-2-line" aria-hidden="true" />
             </Menu.Trigger>
@@ -136,7 +136,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
                 <Menu.Content class="acct-menu">
                   <Menu.Item value="edit" class="acct-menu__item">
                     <i class="i-ri:edit-2-line" aria-hidden="true" />
-                    <Menu.ItemText>{{ t['settings.accounts.edit'] }}</Menu.ItemText>
+                    <Menu.ItemText>{{ t('settings.accounts.edit') }}</Menu.ItemText>
                     <span class="acct-menu__state" aria-hidden="true" />
                   </Menu.Item>
 
@@ -146,7 +146,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
                     :disabled="testingId === account.ID"
                   >
                     <i class="i-ri:plug-line" aria-hidden="true" />
-                    <Menu.ItemText>{{ t['settings.accounts.test'] }}</Menu.ItemText>
+                    <Menu.ItemText>{{ t('settings.accounts.test') }}</Menu.ItemText>
                     <!-- Trailing slot: the same 16px box holds the spinner, then
                          the result, so the label never shifts sideways. -->
                     <span class="acct-menu__state" aria-hidden="true">
@@ -168,7 +168,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
                        below it, so those items are absent rather than disabled. -->
                   <Menu.Item v-if="index > 0" value="up" class="acct-menu__item">
                     <i class="i-ri:arrow-up-line" aria-hidden="true" />
-                    <Menu.ItemText>{{ t['settings.accounts.move_up'] }}</Menu.ItemText>
+                    <Menu.ItemText>{{ t('settings.accounts.move_up') }}</Menu.ItemText>
                     <span class="acct-menu__state" aria-hidden="true" />
                   </Menu.Item>
                   <Menu.Item
@@ -177,7 +177,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
                     class="acct-menu__item"
                   >
                     <i class="i-ri:arrow-down-line" aria-hidden="true" />
-                    <Menu.ItemText>{{ t['settings.accounts.move_down'] }}</Menu.ItemText>
+                    <Menu.ItemText>{{ t('settings.accounts.move_down') }}</Menu.ItemText>
                     <span class="acct-menu__state" aria-hidden="true" />
                   </Menu.Item>
 
@@ -185,7 +185,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
 
                   <Menu.Item value="delete" class="acct-menu__item acct-menu__item--danger">
                     <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
-                    <Menu.ItemText>{{ t['settings.accounts.delete'] }}</Menu.ItemText>
+                    <Menu.ItemText>{{ t('settings.accounts.delete') }}</Menu.ItemText>
                     <span class="acct-menu__state" aria-hidden="true" />
                   </Menu.Item>
                 </Menu.Content>

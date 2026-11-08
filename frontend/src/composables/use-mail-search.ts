@@ -62,9 +62,9 @@ export function useMailSearch(options: MailSearchOptions = {}) {
   let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined
 
   const fieldLabels = computed<Record<EmailSearchField, string>>(() => ({
-    from: t.value['search.from'],
-    to: t.value['search.to'],
-    content: t.value['search.content'],
+    from: t('search.from'),
+    to: t('search.to'),
+    content: t('search.content'),
   }))
 
   /**
@@ -115,8 +115,8 @@ export function useMailSearch(options: MailSearchOptions = {}) {
       accountSuggestions.value,
       savedContactSuggestions.value,
       historyContactSuggestions.value,
-      t.value['contacts.title'],
-      t.value['search.history'],
+      t('contacts.title'),
+      t('search.history'),
     ),
   )
 
@@ -218,7 +218,7 @@ export function useMailSearch(options: MailSearchOptions = {}) {
       pendingDeleteTimer = setTimeout(() => {
         clearPendingDelete()
       }, DELETE_ARM_MS)
-      feedback.warn(t.value['search.deleteAgain'])
+      feedback.warn(t('search.deleteAgain'))
       return
     }
 

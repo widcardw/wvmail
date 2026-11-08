@@ -37,14 +37,14 @@ async function saveImageProxyURL() {
   const value = imageProxyURL.value.trim()
   imageProxyError.value = null
   if (value && !/^https?:\/\/[^/\s]+/i.test(value)) {
-    imageProxyError.value = t.value['settings.remote.proxy_invalid']
+    imageProxyError.value = t('settings.remote.proxy_invalid')
     return
   }
   try {
     await preferences.setImageProxyURL(value)
     imageProxyURL.value = value
   } catch {
-    imageProxyError.value = t.value['settings.remote.proxy_invalid']
+    imageProxyError.value = t('settings.remote.proxy_invalid')
   }
 }
 
@@ -57,11 +57,11 @@ async function addSender() {
   senderError.value = null
   const result = await preferences.addRemoteSenderPattern(value)
   if (result === 'invalid') {
-    senderError.value = t.value['settings.remote.add_invalid']
+    senderError.value = t('settings.remote.add_invalid')
     return
   }
   if (result === 'duplicate') {
-    senderError.value = t.value['settings.remote.duplicate']
+    senderError.value = t('settings.remote.duplicate')
     return
   }
   newSender.value = ''
@@ -84,11 +84,11 @@ async function saveSender(sender: string) {
   editSenderError.value = null
   const result = await preferences.updateAllowedRemoteSender(sender, editSenderValue.value)
   if (result === 'invalid') {
-    editSenderError.value = t.value['settings.remote.add_invalid']
+    editSenderError.value = t('settings.remote.add_invalid')
     return
   }
   if (result === 'duplicate') {
-    editSenderError.value = t.value['settings.remote.duplicate']
+    editSenderError.value = t('settings.remote.duplicate')
     return
   }
   cancelEditSender()
@@ -103,21 +103,21 @@ async function saveSender(sender: string) {
          composables/html/remote.ts). -->
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.remote.title'] }}</h2>
+        <h2>{{ t('settings.remote.title') }}</h2>
       </header>
 
-      <UiFieldRow :label="t['settings.remote.allow']">
+      <UiFieldRow :label="t('settings.remote.allow')">
         <UiSwitch :checked="preferences.allowRemoteContent" @update:checked="onAllowRemoteChange" />
       </UiFieldRow>
 
-      <UiFieldRow :label="t['settings.remote.proxy']" :hint="t['settings.remote.proxy_hint']">
+      <UiFieldRow :label="t('settings.remote.proxy')" :hint="t('settings.remote.proxy_hint')">
         <input
           v-model="imageProxyURL"
           class="input proxy__input"
           type="url"
           spellcheck="false"
           autocomplete="off"
-          :placeholder="t['settings.remote.proxy_placeholder']"
+          :placeholder="t('settings.remote.proxy_placeholder')"
           :aria-invalid="Boolean(imageProxyError)"
           @input="imageProxyError = null"
           @change="saveImageProxyURL"
@@ -127,7 +127,7 @@ async function saveSender(sender: string) {
       </UiFieldRow>
 
       <div class="row row--top">
-        <span class="row__label">{{ t['settings.remote.hint'] }}</span>
+        <span class="row__label">{{ t('settings.remote.hint') }}</span>
         <div class="senders">
           <form class="senders__add" @submit.prevent="addSender">
             <input
@@ -136,19 +136,19 @@ async function saveSender(sender: string) {
               type="text"
               spellcheck="false"
               autocomplete="off"
-              :placeholder="t['settings.remote.add_placeholder']"
+              :placeholder="t('settings.remote.add_placeholder')"
               :aria-invalid="Boolean(senderError)"
               @input="senderError = null"
             />
             <button type="submit" class="btn btn--sm btn--primary" :disabled="!newSender.trim()">
-              {{ t['settings.remote.add'] }}
+              {{ t('settings.remote.add') }}
             </button>
           </form>
           <p v-if="senderError" class="senders__error" role="alert">
             {{ senderError }}
           </p>
           <p v-if="preferences.allowedRemoteSenders.length === 0" class="senders__empty">
-            {{ t['settings.remote.empty'] }}
+            {{ t('settings.remote.empty') }}
           </p>
           <UiScrollArea v-else class="senders__scroll">
             <ul class="senders__list">
@@ -179,10 +179,10 @@ async function saveSender(sender: string) {
                       class="btn btn--sm btn--primary"
                       :disabled="!editSenderValue.trim()"
                     >
-                      {{ t['settings.remote.save'] }}
+                      {{ t('settings.remote.save') }}
                     </button>
                     <button type="button" class="btn btn--sm" @click="cancelEditSender">
-                      {{ t['settings.remote.cancel'] }}
+                      {{ t('settings.remote.cancel') }}
                     </button>
                   </div>
                   <p v-if="editSenderError" class="senders__error" role="alert">
@@ -193,12 +193,12 @@ async function saveSender(sender: string) {
                   <span class="senders__value" :title="sender">{{ sender }}</span>
                   <div class="senders__actions">
                     <UiIconAction
-                      :label="t['settings.remote.edit']"
+                      :label="t('settings.remote.edit')"
                       icon="ri:edit-2-line"
                       @click="beginEditSender(sender)"
                     />
                     <UiIconAction
-                      :label="t['settings.remote.remove']"
+                      :label="t('settings.remote.remove')"
                       icon="ri:delete-bin-5-line"
                       danger
                       @click="onRemoveSender(sender)"
@@ -217,12 +217,12 @@ async function saveSender(sender: string) {
          the reader keeps such a message folded until it is asked for. -->
     <section class="surface surface--spaced">
       <header class="surface__head">
-        <h2>{{ t['settings.security.spam'] }}</h2>
+        <h2>{{ t('settings.security.spam') }}</h2>
       </header>
 
       <UiFieldRow
-        :label="t['settings.security.spam_switch']"
-        :hint="t['settings.security.spam_hint']"
+        :label="t('settings.security.spam_switch')"
+        :hint="t('settings.security.spam_hint')"
       >
         <UiSwitch
           :checked="preferences.blockSuspiciousMail"

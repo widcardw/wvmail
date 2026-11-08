@@ -40,7 +40,7 @@ const { t } = useI18n()
       class="ai-assist-alert"
       tone="error"
       dismissible
-      :close-label="t['cancel']"
+      :close-label="t('cancel')"
       @dismiss="emit('dismiss-error')"
     >
       {{ error }}

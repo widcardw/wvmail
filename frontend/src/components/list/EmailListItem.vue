@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { formatDateRecent, displaySender, truncateSubject } from '~/composables/formats'
 import { useI18n } from '~/i18n'
-import { useLocaleStore } from '~/stores/locale'
 import { useTagsStore } from '~/stores/tags'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 import TagChip from '~/components/tags/TagChip.vue'
@@ -25,8 +24,7 @@ const emit = defineEmits<{
 }>()
 
 /** Dates follow the app language, like every Ark component in the app. */
-const localeStore = useLocaleStore()
-const { tf } = useI18n()
+const { t, locale } = useI18n()
 const tagsStore = useTagsStore()
 const visibleTags = computed(() =>
   (props.email.tag_ids ?? [])
@@ -54,7 +52,7 @@ const hiddenTagCount = computed(() => Math.max(0, (props.email.tag_ids?.length ?
             <span
               v-if="(props.email.thread_count ?? 1) > 1"
               class="email-thread-count"
-              :title="tf('mail.thread.count', { count: props.email.thread_count ?? 1 })"
+              :title="t('mail.thread.count', { count: props.email.thread_count ?? 1 })"
             >
               {{ props.email.thread_count }}
             </span>
@@ -64,9 +62,7 @@ const hiddenTagCount = computed(() => Math.max(0, (props.email.tag_ids?.length ?
             class="i-ri:star-fill email-star"
             aria-hidden="true"
           />
-          <span class="email-date">{{
-            formatDateRecent(props.email.date, localeStore.current)
-          }}</span>
+          <span class="email-date">{{ formatDateRecent(props.email.date, locale) }}</span>
         </span>
         <span class="email-subject">{{ truncateSubject(props.email.subject) }}</span>
         <span v-if="visibleTags.length" class="email-tags">

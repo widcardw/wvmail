@@ -35,14 +35,14 @@ const options = computed(() =>
   createListCollection<FolderIconChoice>({
     items: FOLDER_ICON_CHOICES,
     itemToValue: (icon) => icon.value,
-    itemToString: (icon) => t.value[icon.labelKey],
+    itemToString: (icon) => t(icon.labelKey),
   }),
 )
 
 const selectedValue = computed(() => props.modelValue ?? '')
 const selectedLabel = computed(() => {
   const found = FOLDER_ICON_CHOICES.find((icon) => icon.value === selectedValue.value)
-  return found ? t.value[found.labelKey] : selectedValue.value || t.value[AUTO_FOLDER_ICON.labelKey]
+  return found ? t(found.labelKey) : selectedValue.value || t(AUTO_FOLDER_ICON.labelKey)
 })
 const model = computed(() => [selectedValue.value])
 
@@ -80,12 +80,12 @@ function onValueChange(details: { value: string[] }) {
             :class="{ 'icon-select__auto-item--selected': selectedValue === '' }"
           >
             <i :class="autoIconClass" aria-hidden="true" />
-            <Select.ItemText>{{ t['settings.accounts.folder_icons.auto'] }}</Select.ItemText>
+            <Select.ItemText>{{ t('settings.accounts.folder_icons.auto') }}</Select.ItemText>
             <span v-if="selectedValue === ''" class="icon-select__check">✓</span>
           </Select.Item>
 
           <div v-for="group in FOLDER_ICON_GROUPS" :key="group.labelKey" class="icon-select__group">
-            <div class="icon-select__group-label">{{ t[group.labelKey] }}</div>
+            <div class="icon-select__group-label">{{ t(group.labelKey) }}</div>
             <div class="icon-select__grid">
               <Select.Item
                 v-for="icon in group.icons"
@@ -93,11 +93,11 @@ function onValueChange(details: { value: string[] }) {
                 :item="icon"
                 class="icon-select__cell"
                 :class="{ 'icon-select__cell--selected': icon.value === selectedValue }"
-                :title="t[icon.labelKey]"
-                :aria-label="t[icon.labelKey]"
+                :title="t(icon.labelKey)"
+                :aria-label="t(icon.labelKey)"
               >
                 <i :class="`i-${icon.value}`" aria-hidden="true" />
-                <Select.ItemText class="icon-select__sr">{{ t[icon.labelKey] }}</Select.ItemText>
+                <Select.ItemText class="icon-select__sr">{{ t(icon.labelKey) }}</Select.ItemText>
               </Select.Item>
             </div>
           </div>

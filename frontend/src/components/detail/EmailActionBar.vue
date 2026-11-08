@@ -33,22 +33,22 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="action-bar" role="toolbar" :aria-label="t['mail.actions']">
+  <div class="action-bar" role="toolbar" :aria-label="t('mail.actions')">
     <div class="action-group">
       <UiIconAction
-        :label="t['mail.reply']"
+        :label="t('mail.reply')"
         icon="ri:reply-line"
         :disabled="!hasDetail"
         @click="emit('reply')"
       />
       <UiIconAction
-        :label="t['mail.reply_all']"
+        :label="t('mail.reply_all')"
         icon="ri:reply-all-line"
         :disabled="!hasDetail"
         @click="emit('reply-all')"
       />
       <UiIconAction
-        :label="t['mail.forward']"
+        :label="t('mail.forward')"
         icon="ri:share-forward-line"
         :disabled="!hasDetail"
         @click="emit('forward')"
@@ -59,7 +59,7 @@ const { t } = useI18n()
 
     <div class="action-group">
       <UiIconAction
-        :label="t[flagged ? 'mail.flag.remove' : 'mail.flag.add']"
+        :label="t(flagged ? 'mail.flag.remove' : 'mail.flag.add')"
         :icon="flagged ? 'ri:star-fill' : 'ri:star-line'"
         :active="flagged"
         :busy="flagging"
@@ -68,12 +68,12 @@ const { t } = useI18n()
       />
 
       <UiIconAction
-        :label="t['mail.mark.unread']"
+        :label="t('mail.mark.unread')"
         icon="ri:mail-unread-line"
         :disabled="!hasDetail"
       />
       <UiIconAction
-        :label="t['mail.tags.edit']"
+        :label="t('mail.tags.edit')"
         icon="ri:price-tag-3-line"
         :disabled="!hasDetail"
         @click="emit('edit-tags')"
@@ -84,14 +84,14 @@ const { t } = useI18n()
 
     <div class="action-group">
       <UiIconAction
-        :label="t['mail.refresh.detail']"
+        :label="t('mail.refresh.detail')"
         icon="ri:refresh-line"
         :disabled="!hasDetail || loading"
         :busy="loading"
         @click="emit('refresh')"
       />
       <UiIconAction
-        :label="t['mail.export.original']"
+        :label="t('mail.export.original')"
         icon="ri:download-2-line"
         :disabled="!hasDetail || loading || exportingOriginal"
         :busy="exportingOriginal"
@@ -100,10 +100,10 @@ const { t } = useI18n()
       <UiIconAction
         :label="
           translating
-            ? t['mail.translation.cancel']
+            ? t('mail.translation.cancel')
             : hasTranslation
-              ? t['mail.translation.close']
-              : t['mail.translation.translate']
+              ? t('mail.translation.close')
+              : t('mail.translation.translate')
         "
         :icon="hasTranslation ? 'ri:close-line' : 'ri:translate-2'"
         :disabled="!hasDetail || aiBlocked || summarizing"
@@ -114,10 +114,10 @@ const { t } = useI18n()
       <UiIconAction
         :label="
           summarizing
-            ? t['mail.summary.cancel']
+            ? t('mail.summary.cancel')
             : hasSummary
-              ? t['mail.summary.close']
-              : t['mail.summary.action']
+              ? t('mail.summary.close')
+              : t('mail.summary.action')
         "
         icon="ri:sparkling-line"
         :active="hasSummary"
@@ -130,7 +130,7 @@ const { t } = useI18n()
 
     <div class="action-end">
       <UiIconAction
-        :label="t['mail.delete.label']"
+        :label="t('mail.delete.label')"
         icon="ri:delete-bin-5-line"
         danger
         :disabled="!hasDetail || deleting"

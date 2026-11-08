@@ -44,7 +44,7 @@ async function download(attachment: AttachmentInfo) {
       </span>
       <span>
         {{ props.attachments.length }}
-        {{ props.attachments.length === 1 ? t['mail.attachment'] : t['mail.attachments'] }}
+        {{ props.attachments.length === 1 ? t('mail.attachment') : t('mail.attachments') }}
       </span>
     </Collapsible.Trigger>
     <Collapsible.Content class="attach-collapse">
@@ -63,7 +63,7 @@ async function download(attachment: AttachmentInfo) {
             <span class="att-name">
               {{ attachment.filename }}
               <span v-if="attachment.is_inline" class="muted-sm">
-                ({{ t['mail.inline_image'] }})
+                ({{ t('mail.inline_image') }})
               </span>
             </span>
             <span class="att-size">

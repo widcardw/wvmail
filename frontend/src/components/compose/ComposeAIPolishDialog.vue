@@ -161,35 +161,35 @@ function close() {
     size="wide"
     @update:open="emit('update:open', $event)"
   >
-    <UiDialogHeader :title="t['compose.ai.polish_title']" :close-label="t['cancel']" @close="close" />
+    <UiDialogHeader :title="t('compose.ai.polish_title')" :close-label="t('cancel')" @close="close" />
     <div class="dlg-body polish-dlg">
       <UiAlert class="polish-alert" tone="warning" icon="i-ri:shield-keyhole-line">
-        {{ t['compose.ai.polish_intro'] }}
+        {{ t('compose.ai.polish_intro') }}
       </UiAlert>
 
-      <p v-if="loading" class="polish-state">{{ t['mail.aiConfirm.loading'] }}</p>
+      <p v-if="loading" class="polish-state">{{ t('mail.aiConfirm.loading') }}</p>
       <UiAlert v-else-if="llmConfigs.length === 0" tone="warning">
-        {{ t['compose.ai.no_llm'] }}
+        {{ t('compose.ai.no_llm') }}
       </UiAlert>
 
       <Field.Root class="field">
-        <Field.Label class="field__label">{{ t['compose.ai.source'] }}</Field.Label>
+        <Field.Label class="field__label">{{ t('compose.ai.source') }}</Field.Label>
         <Field.Textarea v-model="sourceDraft" class="ctl polish-textarea" rows="6" />
       </Field.Root>
 
       <Field.Root class="field">
-        <Field.Label class="field__label">{{ t['compose.ai.instruction'] }}</Field.Label>
+        <Field.Label class="field__label">{{ t('compose.ai.instruction') }}</Field.Label>
         <Field.Textarea
           v-model="instruction"
           class="ctl polish-textarea polish-textarea--sm"
           rows="2"
-          :placeholder="t['compose.ai.instruction_placeholder']"
+          :placeholder="t('compose.ai.instruction_placeholder')"
         />
       </Field.Root>
 
       <div class="polish-model-row">
         <label class="field polish-model-field">
-          <span class="field__label">{{ t['mail.aiConfirm.provider'] }}</span>
+          <span class="field__label">{{ t('mail.aiConfirm.provider') }}</span>
           <UiSelect
             :options="providerOptions"
             :model-value="selectedProvider"
@@ -199,7 +199,7 @@ function close() {
           />
         </label>
         <label class="field polish-model-field">
-          <span class="field__label">{{ t['mail.aiConfirm.model'] }}</span>
+          <span class="field__label">{{ t('mail.aiConfirm.model') }}</span>
           <UiSelect
             :options="modelOptions"
             :model-value="selectedModel"
@@ -213,31 +213,31 @@ function close() {
       <UiAlert v-if="error" tone="error">{{ error }}</UiAlert>
 
       <Field.Root v-if="result || generating" class="field">
-        <Field.Label class="field__label">{{ t['compose.ai.result'] }}</Field.Label>
+        <Field.Label class="field__label">{{ t('compose.ai.result') }}</Field.Label>
         <Field.Textarea
           v-model="result"
           class="ctl polish-textarea"
           rows="6"
           :readonly="generating"
-          :placeholder="generating ? t['compose.ai.generating'] : ''"
+          :placeholder="generating ? t('compose.ai.generating') : ''"
         />
       </Field.Root>
     </div>
 
     <div class="dlg-foot">
       <button type="button" class="btn" :disabled="generating" @click="close">
-        {{ t['cancel'] }}
+        {{ t('cancel') }}
       </button>
       <template v-if="result">
         <button type="button" class="btn" :disabled="!canGenerate" @click="generate">
-          {{ t['compose.ai.regenerate'] }}
+          {{ t('compose.ai.regenerate') }}
         </button>
         <button type="button" class="btn btn--primary" :disabled="!canReplace" @click="replaceSelection">
-          {{ t['compose.ai.replace'] }}
+          {{ t('compose.ai.replace') }}
         </button>
       </template>
       <button v-else type="button" class="btn btn--primary" :disabled="!canGenerate" @click="generate">
-        {{ t['compose.ai.generate'] }}
+        {{ t('compose.ai.generate') }}
       </button>
     </div>
   </UiDialog>

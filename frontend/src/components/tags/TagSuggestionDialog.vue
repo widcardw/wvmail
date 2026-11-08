@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { ConfigService, TagService } from '#/wvmail/services'
 import type { EmailAccount } from '#/wvmail/services'
 import { useI18n } from '~/i18n'
+import type { TranslationKey } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { useTagsStore } from '~/stores/tags'
 import { llmModels } from '~/composables/llm-models'
@@ -25,7 +26,7 @@ import UiAlert from '~/components/ui/UiAlert.vue'
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const feedback = useFeedbackStore()
 const tagsStore = useTagsStore()
 const configs = ref<LLMConfig[]>([])
@@ -205,17 +206,17 @@ async function saveSelected() {
   }
   await tagsStore.reload()
   saving.value = false
-  if (saved > 0) feedback.success(tf('tags.ai.saveSuccess', { count: saved }))
-  if (failed > 0) feedback.error(t.value['tags.ai.saveFailed'])
+  if (saved > 0) feedback.success(t('tags.ai.saveSuccess', { count: saved }))
+  if (failed > 0) feedback.error(t('tags.ai.saveFailed'))
   if (saved > 0 && failed === 0) emit('update:open', false)
 }
 
 function fieldLabel(field: string): string {
-  return t.value[`tags.ai.field.${field}` as keyof typeof t.value] ?? field
+  return t(`tags.ai.field.${field}` as TranslationKey) ?? field
 }
 
 function matchFieldLabel(field: TagMatchField): string {
-  return t.value[`tags.field.${field}` as keyof typeof t.value] ?? field
+  return t(`tags.field.${field}` as TranslationKey) ?? field
 }
 </script>
 
@@ -228,27 +229,27 @@ function matchFieldLabel(field: TagMatchField): string {
     @update:open="emit('update:open', $event)"
   >
     <UiDialogHeader
-      :title="t['tags.ai.title']"
-      :close-label="t['cancel']"
+      :title="t('tags.ai.title')"
+      :close-label="t('cancel')"
       :disabled="generating || saving"
       @close="emit('update:open', false)"
     />
     <div class="dlg-body suggestion-body">
       <UiScrollArea class="suggestion-scroll">
-        <p class="intro">{{ t['tags.ai.intro'] }}</p>
+        <p class="intro">{{ t('tags.ai.intro') }}</p>
         <UiAlert
           class="privacy-warning"
           tone="warning"
           icon="i-ri:shield-keyhole-line"
           role="status"
         >
-          {{ t['tags.ai.warning'] }}
+          {{ t('tags.ai.warning') }}
         </UiAlert>
 
         <div v-if="loadingConfig" class="loading-row"><span class="spinner" /></div>
         <template v-else>
           <section class="choice-section">
-            <h3>{{ t['tags.ai.accounts'] }}</h3>
+            <h3>{{ t('tags.ai.accounts') }}</h3>
             <div class="choice-grid">
               <UiCheckbox
                 v-for="account in accounts"
@@ -264,10 +265,10 @@ function matchFieldLabel(field: TagMatchField): string {
           </section>
 
           <section class="choice-section">
-            <h3>{{ t['tags.ai.fields'] }}</h3>
+            <h3>{{ t('tags.ai.fields') }}</h3>
             <div class="choice-grid">
               <UiCheckbox class="checkbox-row" label-class="checkbox-row__label" checked disabled>
-                {{ t['tags.ai.field.subject'] }}
+                {{ t('tags.ai.field.subject') }}
               </UiCheckbox>
               <UiCheckbox
                 v-for="field in optionalFieldOptions"
@@ -284,7 +285,7 @@ function matchFieldLabel(field: TagMatchField): string {
 
           <div class="preview-options">
             <label class="field preview-limit">
-              <span class="field__label">{{ t['tags.ai.sampleLimit'] }}</span>
+              <span class="field__label">{{ t('tags.ai.sampleLimit') }}</span>
               <UiNumberInput
                 :value="sampleLimit"
                 :min="1"
@@ -296,7 +297,7 @@ function matchFieldLabel(field: TagMatchField): string {
             </label>
             <BusyButton
               class="btn"
-              :label="t['tags.ai.preview']"
+              :label="t('tags.ai.preview')"
               :busy="previewing"
               :disabled="!canPreview"
               @click="loadPreview"
@@ -308,10 +309,10 @@ function matchFieldLabel(field: TagMatchField): string {
               <span v-if="preview.account_names.length">
                 {{ preview.account_names.join(', ') }}
               </span>
-              <span>{{ tf('tags.ai.samples', { count: preview.sample_count }) }}</span>
+              <span>{{ t('tags.ai.samples', { count: preview.sample_count }) }}</span>
               <span v-if="preview.sample_from && preview.sample_to">
                 {{
-                  tf('tags.ai.range', {
+                  t('tags.ai.range', {
                     from: preview.sample_from,
                     to: preview.sample_to,
                   })
@@ -319,21 +320,21 @@ function matchFieldLabel(field: TagMatchField): string {
               </span>
             </div>
             <UiAlert v-if="preview.sample_count === 0" class="no-config" tone="warning">
-              {{ t['tags.ai.noSamples'] }}
+              {{ t('tags.ai.noSamples') }}
             </UiAlert>
             <label class="field prompt-field">
-              <span class="field__label">{{ t['tags.ai.prompt'] }}</span>
+              <span class="field__label">{{ t('tags.ai.prompt') }}</span>
               <textarea v-model="promptDraft" class="input prompt-preview" spellcheck="false" />
-              <span class="field__hint">{{ t['tags.ai.promptHint'] }}</span>
+              <span class="field__hint">{{ t('tags.ai.promptHint') }}</span>
             </label>
             <div class="send-config">
               <UiAlert v-if="configs.length === 0" class="no-config" tone="warning">
-                {{ t['tags.ai.noLlm'] }}
+                {{ t('tags.ai.noLlm') }}
               </UiAlert>
               <template v-else>
                 <div class="settings-grid send-grid">
                   <label class="field">
-                    <span class="field__label">{{ t['tags.ai.llmConfig'] }}</span>
+                    <span class="field__label">{{ t('tags.ai.llmConfig') }}</span>
                     <UiSelect
                       :options="configOptions"
                       :model-value="selectedConfigName"
@@ -342,7 +343,7 @@ function matchFieldLabel(field: TagMatchField): string {
                     />
                   </label>
                   <label class="field">
-                    <span class="field__label">{{ t['tags.ai.model'] }}</span>
+                    <span class="field__label">{{ t('tags.ai.model') }}</span>
                     <UiSelect
                       :options="modelOptions"
                       :model-value="selectedModel"
@@ -355,7 +356,7 @@ function matchFieldLabel(field: TagMatchField): string {
                   <BusyButton
                     class="btn btn--primary"
                     :label="
-                      tf('tags.ai.send', {
+                      t('tags.ai.send', {
                         provider: selectedConfigName,
                         model: selectedModel,
                       })
@@ -374,14 +375,14 @@ function matchFieldLabel(field: TagMatchField): string {
             class="suggestion-error"
             tone="error"
             dismissible
-            :close-label="t['cancel']"
+            :close-label="t('cancel')"
             @dismiss="error = ''"
           >
             {{ error }}
           </UiAlert>
 
           <section v-if="suggestions.length" class="suggestion-results">
-            <h3>{{ t['tags.ai.generated'] }}</h3>
+            <h3>{{ t('tags.ai.generated') }}</h3>
             <div class="suggestion-list">
               <UiCheckbox
                 v-for="suggestion in suggestions"
@@ -406,7 +407,7 @@ function matchFieldLabel(field: TagMatchField): string {
                 :disabled="saving || selectedSuggestionCount === 0"
                 @click="saveSelected"
               >
-                {{ t['tags.ai.saveSelected'] }}
+                {{ t('tags.ai.saveSelected') }}
                 <span v-if="selectedSuggestionCount">({{ selectedSuggestionCount }})</span>
               </button>
             </div>

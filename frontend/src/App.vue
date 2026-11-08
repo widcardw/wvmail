@@ -7,7 +7,6 @@ import { Events } from '@wailsio/runtime'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
 import { useThemeStore } from './stores/theme'
-import { useLocaleStore } from './stores/locale'
 import { usePreferencesStore } from './stores/preferences'
 import { useFeedbackStore } from './stores/feedback'
 import { useAccountsStore } from './stores/accounts'
@@ -20,12 +19,11 @@ import ToastHost from './components/ToastHost.vue'
 import splitStyles from './components/mail-split.module.css'
 
 const theme = useThemeStore()
-const localeStore = useLocaleStore()
 const preferences = usePreferencesStore()
 const feedback = useFeedbackStore()
 const accountsStore = useAccountsStore()
 const contactsStore = useContactsStore()
-const { t } = useI18n()
+const { t, locale, loadFromConfig } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const isCompose = computed(() => route.name === 'compose')
@@ -46,7 +44,7 @@ async function handleApplicationMailto(event: MouseEvent) {
     )
     if (result.Warning) feedback.info(result.Warning)
   } catch (e) {
-    feedback.error(t.value['compose.open_failed'])
+    feedback.error(t('compose.open_failed'))
     console.error('Failed to open application mailto link', e)
   }
 }
@@ -54,7 +52,7 @@ async function handleApplicationMailto(event: MouseEvent) {
 onMounted(async () => {
   try {
     const config = await ConfigService.GetConfig()
-    localeStore.loadFromConfig(config)
+    loadFromConfig(config)
     theme.loadFromConfig(config) // also calls theme.apply()
     preferences.loadFromConfig(config)
   } catch (e) {
@@ -72,7 +70,7 @@ onMounted(async () => {
   unlistenComposeSent = Events.On('compose:sent', (event) => {
     const payload = event.data as { warning?: string } | undefined
     if (payload?.warning) feedback.error(payload.warning)
-    else feedback.success(t.value['compose.sent'])
+    else feedback.success(t('compose.sent'))
   })
 
   unlistenContactsUpdated = Events.On('contacts-updated', () => {
@@ -88,7 +86,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <LocaleProvider :locale="localeStore.current">
+  <LocaleProvider :locale="locale">
     <RouterView v-if="isCompose" />
     <div v-else class="app">
       <header class="app__titlebar">

@@ -32,8 +32,8 @@ const tomorrowKey = todayKey + 24 * 60 * 60 * 1000
 
 function dayLabel(date: Date): string {
   const key = startOfDay(date).getTime()
-  if (key === todayKey) return t.value['reminders.day.today']
-  if (key === tomorrowKey) return t.value['reminders.day.tomorrow']
+  if (key === todayKey) return t('reminders.day.today')
+  if (key === tomorrowKey) return t('reminders.day.tomorrow')
   return date.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
 }
 
@@ -52,7 +52,7 @@ function timeLabel(ts: number): string {
 <template>
   <div v-if="groups.length === 0" class="tl-empty">
     <i class="i-ri:notification-off-line tl-empty__icon" aria-hidden="true" />
-    <p>{{ t['reminders.empty'] }}</p>
+    <p>{{ t('reminders.empty') }}</p>
   </div>
   <ol v-else class="tl">
     <li v-for="group in groups" :key="group.key" class="tl-group">
@@ -71,7 +71,7 @@ function timeLabel(ts: number): string {
             type="button"
             class="tl-check"
             :class="{ 'tl-check--on': reminder.done }"
-            :aria-label="t['reminders.done']"
+            :aria-label="t('reminders.done')"
             :aria-pressed="reminder.done"
             @click="emit('toggle', reminder.id)"
           >

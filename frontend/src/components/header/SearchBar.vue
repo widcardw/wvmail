@@ -118,7 +118,7 @@ function onKeydown(event: KeyboardEvent) {
         <button
           type="button"
           class="tag-remove"
-          :aria-label="t['search.remove']"
+          :aria-label="t('search.remove')"
           @click="removeTag(index)"
         >
           ×
@@ -129,7 +129,7 @@ function onKeydown(event: KeyboardEvent) {
         v-model="input"
         class="search-input"
         type="search"
-        :placeholder="displayedTags.length ? '' : t['search.placeholder']"
+        :placeholder="displayedTags.length ? '' : t('search.placeholder')"
         @focus="focused = true"
         @blur="focused = false"
         @keydown="onKeydown"
@@ -156,7 +156,7 @@ function onKeydown(event: KeyboardEvent) {
         @mousedown.prevent="chooseField(suggestion.field)"
       >
         <strong>{{ suggestion.label }}</strong>
-        <small>{{ t[`search.${suggestion.field}`] }}</small>
+        <small>{{ t(`search.${suggestion.field}`) }}</small>
       </button>
     </div>
   </div>

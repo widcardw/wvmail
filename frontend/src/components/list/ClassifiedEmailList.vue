@@ -19,9 +19,9 @@ const pageCount = computed(() =>
   tagsStore.total > 0 ? Math.ceil(tagsStore.total / tagsStore.pageSize) : 1,
 )
 const emptyMessage = computed(() => {
-  if (tagsStore.tags.length === 0) return t.value['tags.noTagsYet']
-  if (tagsStore.selectedFilterIDs.length === 0) return t.value['tags.selectTags']
-  return t.value['tags.noMatch']
+  if (tagsStore.tags.length === 0) return t('tags.noTagsYet')
+  if (tagsStore.selectedFilterIDs.length === 0) return t('tags.selectTags')
+  return t('tags.noMatch')
 })
 const selectedEmailKey = computed(() =>
   selectedMailKey(
@@ -50,8 +50,8 @@ onMounted(async () => {
 <template>
   <div :class="styles.emailList">
     <EmailListHeader
-      :label="t['tags.classified']"
-      :title="t['tags.classified']"
+      :label="t('tags.classified')"
+      :title="t('tags.classified')"
       :show-refresh="false"
       :refreshing="false"
       :page-count="pageCount"

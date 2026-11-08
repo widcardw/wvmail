@@ -21,7 +21,7 @@ import UiBadge from '~/components/ui/UiBadge.vue'
 import UiIconAction from '~/components/ui/UiIconAction.vue'
 import UiScrollArea from '~/components/ui/UiScrollArea.vue'
 
-const { t, tf, locale } = useI18n()
+const { t, locale } = useI18n()
 const store = useAccountsStore()
 const health = useAccountHealthStore()
 const connection = useConnectionStore()
@@ -244,7 +244,7 @@ function markerIcon(marker: AccountMarker | null): string {
 function linkTitle(account: EmailAccount): string {
   const marker = health.markerOf(account.ID)
   const key = marker === 'offline' ? 'sidebar.conn_down' : 'sidebar.conn_suspect'
-  return tf(key, { host: account.IMAPHost })
+  return t(key, { host: account.IMAPHost })
 }
 
 /**
@@ -266,7 +266,7 @@ async function retryAccount(account: EmailAccount) {
   if (!marker) return
 
   if (connection.quality === 'Off') {
-    feedback.error(t.value['sidebar.conn_offline'])
+    feedback.error(t('sidebar.conn_offline'))
     return
   }
 
@@ -310,7 +310,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
       <UiIconAction
         v-for="row in smartRows"
         :key="row.key"
-        :label="t[row.labelKey]"
+        :label="t(row.labelKey)"
         :icon="row.icon"
         :active="smartPathActive(row.key)"
         active-tone="sidebar"
@@ -328,14 +328,14 @@ watch(() => router.currentRoute.value.path, syncSelected)
         @click="onSmart(row.key)"
       >
         <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />
-        <span>{{ t[row.labelKey] }}</span>
+        <span>{{ t(row.labelKey) }}</span>
       </button>
     </template>
 
     <div v-if="!preferences.collapseSidebarSmartFolders" class="divider" />
 
     <UiScrollArea class="tree-wrap">
-      <p v-if="store.accounts.length === 0" class="empty">{{ t['settings.accounts.empty'] }}</p>
+      <p v-if="store.accounts.length === 0" class="empty">{{ t('settings.accounts.empty') }}</p>
 
       <TreeView.Root
         v-else-if="collection"
@@ -388,7 +388,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
                          being added together. -->
                     <UiBadge
                       :count="store.accountUnread(account.ID)"
-                      :label="tf('sidebar.unread', { count: store.accountUnread(account.ID) })"
+                      :label="t('sidebar.unread', { count: store.accountUnread(account.ID) })"
                     />
                   </span>
                 </TreeView.BranchControl>
@@ -420,7 +420,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
         <UiIconAction
           v-for="row in utilRows"
           :key="row.key"
-          :label="t[row.labelKey]"
+          :label="t(row.labelKey)"
           :icon="row.icon"
           :active="activePath(row.path)"
           active-tone="sidebar"
@@ -438,7 +438,7 @@ watch(() => router.currentRoute.value.path, syncSelected)
           @click="goNav(row.path)"
         >
           <i :class="`i-${row.icon}`" class="row-icon" aria-hidden="true" />
-          <span>{{ t[row.labelKey] }}</span>
+          <span>{{ t(row.labelKey) }}</span>
         </button>
       </template>
     </div>

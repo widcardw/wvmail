@@ -21,7 +21,7 @@ const emit = defineEmits<{
   'ai-polish': [selection: { from: number; to: number; text: string }]
 }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const hasSelection = ref(false)
 const editor = useEditor({
   content: props.modelValue || '<p></p>',
@@ -134,46 +134,46 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="compose-editor">
-    <div class="compose-toolbar" role="toolbar" :aria-label="t['compose.editor_toolbar']">
-      <UiTooltip :label="t['notes.bold']">
+    <div class="compose-toolbar" role="toolbar" :aria-label="t('compose.editor_toolbar')">
+      <UiTooltip :label="t('notes.bold')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('bold') }"
-          :aria-label="t['notes.bold']"
+          :aria-label="t('notes.bold')"
           @click="editor?.chain().focus().toggleBold().run()"
         >
           <i class="i-ri:bold" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['notes.italic']">
+      <UiTooltip :label="t('notes.italic')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('italic') }"
-          :aria-label="t['notes.italic']"
+          :aria-label="t('notes.italic')"
           @click="editor?.chain().focus().toggleItalic().run()"
         >
           <i class="i-ri:italic" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['compose.underline']">
+      <UiTooltip :label="t('compose.underline')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('underline') }"
-          :aria-label="t['compose.underline']"
+          :aria-label="t('compose.underline')"
           @click="editor?.chain().focus().toggleUnderline().run()"
         >
           <i class="i-ri:underline" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['notes.strike']">
+      <UiTooltip :label="t('notes.strike')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('strike') }"
-          :aria-label="t['notes.strike']"
+          :aria-label="t('notes.strike')"
           @click="editor?.chain().focus().toggleStrike().run()"
         >
           <i class="i-ri:strikethrough" aria-hidden="true" />
@@ -183,13 +183,13 @@ onBeforeUnmount(() => {
       <UiTooltip
         v-for="lvl in [1, 2, 3] as const"
         :key="lvl"
-        :label="tf('notes.heading', { level: lvl })"
+        :label="t('notes.heading', { level: lvl })"
       >
         <button
           type="button"
           class="tb tb--text"
           :class="{ active: editor?.isActive('heading', { level: lvl }) }"
-          :aria-label="tf('notes.heading', { level: lvl })"
+          :aria-label="t('notes.heading', { level: lvl })"
           @click="editor?.chain().focus().toggleHeading({ level: lvl }).run()"
         >
           H{{ lvl }}
@@ -198,97 +198,97 @@ onBeforeUnmount(() => {
       <span class="toolbar-sep" />
       <UiRichTextToolbar
         :editor="editor"
-        :text-color-label="t['compose.text_color']"
-        :background-color-label="t['compose.background_color']"
-        :custom-color-label="t['compose.color_custom']"
-        :default-color-label="t['compose.color_default']"
-        :link-label="t['compose.link']"
-        :link-prompt="t['compose.link_prompt']"
-        :cancel-label="t['cancel']"
+        :text-color-label="t('compose.text_color')"
+        :background-color-label="t('compose.background_color')"
+        :custom-color-label="t('compose.color_custom')"
+        :default-color-label="t('compose.color_default')"
+        :link-label="t('compose.link')"
+        :link-prompt="t('compose.link_prompt')"
+        :cancel-label="t('cancel')"
       />
       <span class="toolbar-sep" />
-      <UiTooltip :label="t['notes.bulletList']">
+      <UiTooltip :label="t('notes.bulletList')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('bulletList') }"
-          :aria-label="t['notes.bulletList']"
+          :aria-label="t('notes.bulletList')"
           @click="editor?.chain().focus().toggleBulletList().run()"
         >
           <i class="i-ri:list-unordered" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['notes.orderedList']">
+      <UiTooltip :label="t('notes.orderedList')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('orderedList') }"
-          :aria-label="t['notes.orderedList']"
+          :aria-label="t('notes.orderedList')"
           @click="editor?.chain().focus().toggleOrderedList().run()"
         >
           <i class="i-ri:list-ordered" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['notes.quote']">
+      <UiTooltip :label="t('notes.quote')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('blockquote') }"
-          :aria-label="t['notes.quote']"
+          :aria-label="t('notes.quote')"
           @click="editor?.chain().focus().toggleBlockquote().run()"
         >
           <i class="i-ri:double-quotes-l" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['notes.codeBlock']">
+      <UiTooltip :label="t('notes.codeBlock')">
         <button
           type="button"
           class="tb"
           :class="{ active: editor?.isActive('codeBlock') }"
-          :aria-label="t['notes.codeBlock']"
+          :aria-label="t('notes.codeBlock')"
           @click="editor?.chain().focus().toggleCodeBlock().run()"
         >
           <i class="i-ri:code-box-line" aria-hidden="true" />
         </button>
       </UiTooltip>
       <span class="toolbar-sep" />
-      <UiTooltip :label="t['compose.insert_image']">
+      <UiTooltip :label="t('compose.insert_image')">
         <button
           type="button"
           class="tb"
-          :aria-label="t['compose.insert_image']"
+          :aria-label="t('compose.insert_image')"
           @click="emit('pick-image')"
         >
           <i class="i-ri:image-add-line" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['compose.attach']">
+      <UiTooltip :label="t('compose.attach')">
         <button
           type="button"
           class="tb"
-          :aria-label="t['compose.attach']"
+          :aria-label="t('compose.attach')"
           @click="emit('pick-attachment')"
         >
           <i class="i-ri:attachment-2" aria-hidden="true" />
         </button>
       </UiTooltip>
       <span class="toolbar-sep" />
-      <UiTooltip :label="t['notes.undo']">
+      <UiTooltip :label="t('notes.undo')">
         <button
           type="button"
           class="tb"
-          :aria-label="t['notes.undo']"
+          :aria-label="t('notes.undo')"
           :disabled="!editor?.can().undo()"
           @click="editor?.chain().focus().undo().run()"
         >
           <i class="i-ri:arrow-go-back-line" aria-hidden="true" />
         </button>
       </UiTooltip>
-      <UiTooltip :label="t['notes.redo']">
+      <UiTooltip :label="t('notes.redo')">
         <button
           type="button"
           class="tb"
-          :aria-label="t['notes.redo']"
+          :aria-label="t('notes.redo')"
           :disabled="!editor?.can().redo()"
           @click="editor?.chain().focus().redo().run()"
         >
@@ -296,11 +296,11 @@ onBeforeUnmount(() => {
         </button>
       </UiTooltip>
       <span class="toolbar-sep" />
-      <UiTooltip :label="t['compose.ai.polish']">
+      <UiTooltip :label="t('compose.ai.polish')">
         <button
           type="button"
           class="tb"
-          :aria-label="t['compose.ai.polish']"
+          :aria-label="t('compose.ai.polish')"
           :disabled="!hasSelection"
           @click="requestAIPolish"
         >

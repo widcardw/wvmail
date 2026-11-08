@@ -71,10 +71,10 @@ const pageCount = computed(() => {
 const folderDisplay = computed(() => {
   if (accountsStore.isSmartFolder) {
     const labels: Record<string, string> = {
-      inbox: t.value['sidebar.all_inbox'],
-      sent: t.value['sidebar.all_sent'],
-      drafts: t.value['sidebar.all_drafts'],
-      starred: t.value['sidebar.all_starred'],
+      inbox: t('sidebar.all_inbox'),
+      sent: t('sidebar.all_sent'),
+      drafts: t('sidebar.all_drafts'),
+      starred: t('sidebar.all_starred'),
     }
     return { label: labels[String(accountsStore.smartFolder)] ?? String(accountsStore.smartFolder) }
   }
@@ -93,7 +93,7 @@ const folderDisplay = computed(() => {
       icon: override.icon ?? automatic.icon,
     }
   }
-  if (searchStore.searchActive) return { label: t.value['search.results'] }
+  if (searchStore.searchActive) return { label: t('search.results') }
   return { label: '', icon: '', rank: 99 }
 })
 
@@ -102,7 +102,7 @@ const showHeader = computed(
 )
 const showTagFilter = computed(() => showHeader.value && !searchStore.searchActive)
 const emptyMessage = computed(() =>
-  accountsStore.tagFilterActive ? t.value['tags.noMatch'] : t.value['mail.noEmails'],
+  accountsStore.tagFilterActive ? t('tags.noMatch') : t('mail.noEmails'),
 )
 
 onMounted(async () => {
@@ -146,7 +146,7 @@ function handleClick(email: EmailThreadRow) {
         (!accountsStore.isSmartFolder && !searchStore.searchActive)
       "
       :refresh-title="
-        accountsStore.smartFolder === 'starred' ? t['mail.refresh.starred'] : undefined
+        accountsStore.smartFolder === 'starred' ? t('mail.refresh.starred') : undefined
       "
       :refreshing="refreshing"
       :page-count="pageCount"

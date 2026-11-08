@@ -9,7 +9,7 @@ import { useConnectionStore } from '~/stores/connection'
 // also lines up with a cross for "off". The tooltip is the only text, so its labels
 // live here rather than in the title bar, and everything it shows comes from the
 // connection store, which owns the polling schedule and the classification.
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const store = useConnectionStore()
 
 // Start on mount and stop on unmount even though the title bar lives for the
@@ -23,15 +23,15 @@ const visible = computed(() => store.quality !== null || store.probing)
 const statusLabel = computed(() => {
   switch (store.quality) {
     case 'High':
-      return t.value['connection.high']
+      return t('connection.high')
     case 'Medium':
-      return t.value['connection.medium']
+      return t('connection.medium')
     case 'Low':
-      return t.value['connection.low']
+      return t('connection.low')
     case 'Off':
-      return t.value['connection.off']
+      return t('connection.off')
     default:
-      return t.value['connection.checking']
+      return t('connection.checking')
   }
 })
 
@@ -89,11 +89,11 @@ const ariaLabel = computed(() => [statusLabel.value, detail.value].filter(Boolea
         <Tooltip.Content class="meter-content">
           <span class="meter-content__title">{{ statusLabel }}</span>
           <span v-if="detail" class="meter-content__detail">{{ detail }}</span>
-          <span v-if="retried" class="meter-content__note">{{ t['connection.retried'] }}</span>
+          <span v-if="retried" class="meter-content__note">{{ t('connection.retried') }}</span>
           <span v-if="checkedAt" class="meter-content__note">
-            {{ tf('connection.checked', { time: checkedAt }) }}
+            {{ t('connection.checked', { time: checkedAt }) }}
           </span>
-          <span class="meter-content__hint">{{ t['connection.recheck'] }}</span>
+          <span class="meter-content__hint">{{ t('connection.recheck') }}</span>
         </Tooltip.Content>
       </Tooltip.Positioner>
     </Teleport>

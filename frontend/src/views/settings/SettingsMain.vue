@@ -8,15 +8,15 @@ const router = useRouter()
 const { t } = useI18n()
 
 const items = computed(() => [
-  { key: 'common', label: t.value['settings.common.label'], icon: 'ri:home-2-line' },
-  { key: 'accounts', label: t.value['settings.accounts.label'], icon: 'ri:account-circle-2-line' },
-  { key: 'contacts', label: t.value['contacts.title'], icon: 'ri:contacts-book-2-line' },
-  { key: 'security', label: t.value['settings.security.label'], icon: 'ri:shield-check-line' },
-  { key: 'proxy', label: t.value['settings.proxy.label'], icon: 'ri:route-line' },
-  { key: 'llm', label: t.value['settings.llm.label'], icon: 'ri:robot-2-line' },
-  { key: 'tags', label: t.value['settings.tags'], icon: 'ri:price-tag-3-line' },
-  { key: 'ai-assistant', label: t.value['settings.aiAssistant.label'], icon: 'ri:sparkling-line' },
-  { key: 'about', label: t.value['settings.about.label'], icon: 'ri:information-line' },
+  { key: 'common', label: t('settings.common.label'), icon: 'ri:home-2-line' },
+  { key: 'accounts', label: t('settings.accounts.label'), icon: 'ri:account-circle-2-line' },
+  { key: 'contacts', label: t('contacts.title'), icon: 'ri:contacts-book-2-line' },
+  { key: 'security', label: t('settings.security.label'), icon: 'ri:shield-check-line' },
+  { key: 'proxy', label: t('settings.proxy.label'), icon: 'ri:route-line' },
+  { key: 'llm', label: t('settings.llm.label'), icon: 'ri:robot-2-line' },
+  { key: 'tags', label: t('settings.tags'), icon: 'ri:price-tag-3-line' },
+  { key: 'ai-assistant', label: t('settings.aiAssistant.label'), icon: 'ri:sparkling-line' },
+  { key: 'about', label: t('settings.about.label'), icon: 'ri:information-line' },
 ])
 
 function isActive(key: string) {

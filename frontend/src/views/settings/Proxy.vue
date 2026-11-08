@@ -14,7 +14,7 @@ import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import BusyButton from '~/components/ui/BusyButton.vue'
 import AccountAvatar from '~/components/icon/AccountAvatar.vue'
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const preferences = usePreferencesStore()
 const accounts = useAccountsStore()
 const feedback = useFeedbackStore()
@@ -44,7 +44,7 @@ async function saveGlobal(enabled: boolean, url: string) {
   } catch (e) {
     // Go validates the address on save; showing its message is more useful than
     // a generic "failed", and the store has already rolled the state back.
-    feedback.error(tf('settings.proxy.save_failed', { message: String(e) }))
+    feedback.error(t('settings.proxy.save_failed', { message: String(e) }))
     draftUrl.value = preferences.proxyUrl
   } finally {
     saving.value = false
@@ -79,10 +79,10 @@ async function runTest() {
   try {
     const res = await NetworkService.TestProxy(address)
     testResult.value = res.Ok
-      ? { ok: true, text: tf('settings.proxy.test_ok', { ms: res.LatencyMS }) }
-      : { ok: false, text: `${t.value['settings.proxy.test_fail']} · ${res.Error}` }
+      ? { ok: true, text: t('settings.proxy.test_ok', { ms: res.LatencyMS }) }
+      : { ok: false, text: `${t('settings.proxy.test_fail')} · ${res.Error}` }
   } catch (e) {
-    testResult.value = { ok: false, text: `${t.value['settings.proxy.test_fail']} · ${String(e)}` }
+    testResult.value = { ok: false, text: `${t('settings.proxy.test_fail')} · ${String(e)}` }
   } finally {
     testing.value = false
   }
@@ -90,7 +90,7 @@ async function runTest() {
 
 // --- per-account modes ---
 
-const modeOptions = computed(() => proxyModeLabels(t.value))
+const modeOptions = computed(() => proxyModeLabels(t))
 
 function modeOf(account: EmailAccount): string {
   return proxyModeOf(account.Proxy)
@@ -102,12 +102,12 @@ function routeText(account: EmailAccount): string {
   switch (route.kind) {
     case 'custom':
       return route.address
-        ? tf('settings.proxy.route_custom', { address: route.address })
-        : t.value['settings.proxy.route_custom_missing']
+        ? t('settings.proxy.route_custom', { address: route.address })
+        : t('settings.proxy.route_custom_missing')
     case 'global':
-      return tf('settings.proxy.route_global', { address: route.address })
+      return t('settings.proxy.route_global', { address: route.address })
     default:
-      return t.value['settings.proxy.route_direct']
+      return t('settings.proxy.route_direct')
   }
 }
 
@@ -127,14 +127,14 @@ async function setMode(account: EmailAccount, mode: string) {
 
   const seeded = nextMode === 'custom' ? (account.Proxy?.URL || preferences.proxyUrl).trim() : ''
   if (nextMode === 'custom' && !seeded) {
-    feedback.error(t.value['settings.proxy.account_needs_address'])
+    feedback.error(t('settings.proxy.account_needs_address'))
     return
   }
 
   try {
     await accounts.setAccountProxy(account.ID, { Mode: nextMode, URL: seeded })
   } catch (e) {
-    feedback.error(tf('settings.proxy.account_failed', { message: String(e) }))
+    feedback.error(t('settings.proxy.account_failed', { message: String(e) }))
   }
 }
 </script>
@@ -145,29 +145,29 @@ async function setMode(account: EmailAccount, mode: string) {
          IMAP, the LLM calls, translation, OAuth — follows it. -->
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.proxy.title'] }}</h2>
+        <h2>{{ t('settings.proxy.title') }}</h2>
       </header>
 
-      <UiFieldRow :label="t['settings.proxy.global']">
+      <UiFieldRow :label="t('settings.proxy.global')">
         <UiSwitch :checked="preferences.proxyEnabled" @update:checked="onToggle" />
       </UiFieldRow>
 
       <div class="row">
-        <span class="row__label">{{ t['settings.proxy.address'] }}</span>
+        <span class="row__label">{{ t('settings.proxy.address') }}</span>
         <input
           v-model="draftUrl"
           class="input addr"
           type="text"
           spellcheck="false"
           autocomplete="off"
-          :placeholder="t['settings.proxy.address_placeholder']"
-          :aria-label="t['settings.proxy.address']"
+          :placeholder="t('settings.proxy.address_placeholder')"
+          :aria-label="t('settings.proxy.address')"
           @blur="onCommitUrl"
           @keydown="onUrlKeydown"
         />
         <BusyButton
           class="btn"
-          :label="t['settings.proxy.test']"
+          :label="t('settings.proxy.test')"
           :busy="testing"
           :disabled="!draftUrl.trim()"
           @click="runTest"
@@ -187,7 +187,7 @@ async function setMode(account: EmailAccount, mode: string) {
         <span>{{ testResult.text }}</span>
       </div>
 
-      <p class="hint">{{ t['settings.proxy.hint'] }}</p>
+      <p class="hint">{{ t('settings.proxy.hint') }}</p>
     </section>
 
     <!-- Per-account overrides. A select rather than a switch: "off" (never
@@ -195,11 +195,11 @@ async function setMode(account: EmailAccount, mode: string) {
          can only carry two. -->
     <section class="surface surface--spaced">
       <header class="surface__head">
-        <h2>{{ t['settings.proxy.accounts'] }}</h2>
+        <h2>{{ t('settings.proxy.accounts') }}</h2>
       </header>
 
       <p v-if="accounts.accounts.length === 0" class="hint">
-        {{ t['settings.proxy.no_accounts'] }}
+        {{ t('settings.proxy.no_accounts') }}
       </p>
       <ul v-else class="acc-list">
         <li v-for="account in accounts.accounts" :key="account.ID" class="acc">
@@ -217,7 +217,7 @@ async function setMode(account: EmailAccount, mode: string) {
         </li>
       </ul>
 
-      <p class="hint">{{ t['settings.proxy.accounts_hint'] }}</p>
+      <p class="hint">{{ t('settings.proxy.accounts_hint') }}</p>
     </section>
   </div>
 </template>
@@ -238,7 +238,6 @@ async function setMode(account: EmailAccount, mode: string) {
   flex: 1;
   min-width: 0;
   max-width: 320px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 .acc-list {
   margin: 0;

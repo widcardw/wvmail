@@ -19,7 +19,7 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 
 const loading = ref(true)
 const error = ref('')
@@ -93,7 +93,7 @@ function clearAll() {
         v-model="query"
         class="picker__search"
         type="search"
-        :placeholder="t['settings.llm.modelsSearch']"
+        :placeholder="t('settings.llm.modelsSearch')"
         :disabled="loading || available.length === 0"
       />
       <button
@@ -102,17 +102,17 @@ function clearAll() {
         :disabled="filtered.length === 0"
         @click="selectAllFiltered()"
       >
-        {{ t['settings.llm.modelsSelectAll'] }}
+        {{ t('settings.llm.modelsSelectAll') }}
       </button>
       <button type="button" class="btn btn--sm" :disabled="picked.length === 0" @click="clearAll()">
-        {{ t['settings.llm.modelsClear'] }}
+        {{ t('settings.llm.modelsClear') }}
       </button>
     </div>
 
-    <p v-if="loading" class="picker__state">{{ t['settings.llm.testing'] }}</p>
+    <p v-if="loading" class="picker__state">{{ t('settings.llm.testing') }}</p>
     <p v-else-if="error" class="picker__state picker__state--err">{{ error }}</p>
     <p v-else-if="available.length === 0" class="picker__state">
-      {{ t['settings.llm.modelsHint'] }}
+      {{ t('settings.llm.modelsHint') }}
     </p>
     <UiScrollArea v-else class="picker__scroll" :viewport-props="containerProps">
       <div v-bind="wrapperProps">
@@ -132,14 +132,14 @@ function clearAll() {
 
     <div class="picker__foot">
       <span class="picker__count">
-        {{ tf('settings.llm.modelsSelected', { n: picked.length, total: available.length }) }}
+        {{ t('settings.llm.modelsSelected', { n: picked.length, total: available.length }) }}
       </span>
       <span class="picker__spacer" />
       <button type="button" class="btn btn--sm" @click="emit('cancel')">
-        {{ t['settings.llm.cancel'] }}
+        {{ t('settings.llm.cancel') }}
       </button>
       <button type="button" class="btn btn--sm btn--primary" @click="emit('confirm', picked)">
-        {{ t['settings.llm.modelsApply'] }}
+        {{ t('settings.llm.modelsApply') }}
       </button>
     </div>
   </div>

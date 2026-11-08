@@ -56,7 +56,7 @@ const { t } = useI18n()
     </div>
     <div class="dlg-actions confirm-actions">
       <button type="button" class="btn" :disabled="props.busy" @click="emit('update:open', false)">
-        {{ t['cancel'] }}
+        {{ t('cancel') }}
       </button>
       <button
         type="button"

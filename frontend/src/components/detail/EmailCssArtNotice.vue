@@ -6,14 +6,14 @@ import { useI18n } from '~/i18n'
 // that is exactly the shape of image spam. Say so instead of rendering an empty body.
 const props = defineProps<{ count: number }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 </script>
 
 <template>
   <div class="body-bar">
     <i class="i-ri:brush-line body-bar__icon" aria-hidden="true" />
-    <span class="body-bar__text" :title="tf('mail.cssArt.blocked', props.count)">
-      {{ t['mail.cssArt.blocked_short'] }}
+    <span class="body-bar__text" :title="t('mail.cssArt.blocked', props.count)">
+      {{ t('mail.cssArt.blocked_short') }}
     </span>
   </div>
 </template>

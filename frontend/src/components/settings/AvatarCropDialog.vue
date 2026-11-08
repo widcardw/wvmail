@@ -39,13 +39,13 @@ async function confirm() {
   try {
     const result = await imageCropper.value.getCroppedImage({ output: 'blob', type: 'image/png' })
     if (!(result instanceof Blob)) {
-      fb.error(t.value['settings.accounts.crop_failed'])
+      fb.error(t('settings.accounts.crop_failed'))
       return
     }
     emit('cropped', result)
   } catch (error) {
     console.error('Failed to crop avatar', error)
-    fb.error(t.value['settings.accounts.crop_failed'])
+    fb.error(t('settings.accounts.crop_failed'))
   } finally {
     cropSaving.value = false
   }
@@ -66,16 +66,16 @@ onUnmounted(() => imageCropper.value.reset?.())
     <header class="crop-dialog__head">
       <div>
         <Dialog.Title class="crop-dialog__title">
-          {{ t['settings.accounts.crop_avatar'] }}
+          {{ t('settings.accounts.crop_avatar') }}
         </Dialog.Title>
         <Dialog.Description class="crop-dialog__description">
-          {{ t['settings.accounts.crop_avatar_hint'] }}
+          {{ t('settings.accounts.crop_avatar_hint') }}
         </Dialog.Description>
       </div>
       <Dialog.CloseTrigger
         type="button"
         class="crop-dialog__close"
-        :aria-label="t['settings.accounts.close_crop']"
+        :aria-label="t('settings.accounts.close_crop')"
         @click="close"
       >
         <i class="i-ri:close-line" aria-hidden="true" />
@@ -89,7 +89,7 @@ onUnmounted(() => imageCropper.value.reset?.())
           :key="props.imageSrc"
           class="avatar-cropper__image"
           :src="props.imageSrc"
-          :alt="t['settings.accounts.crop_image_alt']"
+          :alt="t('settings.accounts.crop_image_alt')"
         />
         <ImageCropper.Selection class="avatar-cropper__selection">
           <ImageCropper.Handle
@@ -108,11 +108,11 @@ onUnmounted(() => imageCropper.value.reset?.())
 
     <footer class="crop-dialog__foot">
       <button type="button" class="btn" @click="close">
-        {{ t['settings.accounts.cancel'] }}
+        {{ t('settings.accounts.cancel') }}
       </button>
       <BusyButton
         class="btn btn--primary"
-        :label="t['settings.accounts.crop_avatar_done']"
+        :label="t('settings.accounts.crop_avatar_done')"
         :busy="cropSaving"
         @click="confirm"
       />

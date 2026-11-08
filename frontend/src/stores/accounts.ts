@@ -298,7 +298,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         await EmailService.PurgeAccountCache(id)
       } catch (e) {
         console.error('Failed to purge the account cache', e)
-        feedback.error(i18n.value['settings.accounts.cache_purge_failed'])
+        feedback.error(i18n('settings.accounts.cache_purge_failed'))
       }
     }
   }
@@ -657,7 +657,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         threadTotalByFolder.value[key] = rowTotal
         currentPageByFolder.value[key] = next
       }
-      if (announce) feedback.success(i18n.value['mail.refreshed'])
+      if (announce) feedback.success(i18n('mail.refreshed'))
       // New mail moves the sidebar badges too. loadFolderStatuses is throttled
       // (30s), so the background path normally costs nothing extra.
       void loadFolderStatuses(account)
@@ -952,7 +952,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       const detail = await EmailService.RefreshEmailBody(account, folder, uid)
       if (!detailRequestIsCurrent(requestId, account.ID, folder, uid)) return
       selectedEmailDetail.value = detail
-      feedback.success(i18n.value['mail.refreshed'])
+      feedback.success(i18n('mail.refreshed'))
     } catch (e) {
       if (!detailRequestIsCurrent(requestId, account.ID, folder, uid)) return
       detailError.value = String(e)
@@ -972,7 +972,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     const folder = selectedEmailFolder.value
     const uid = selectedEmailUid.value
     if (!account || !folder || uid == null) {
-      detailError.value = i18n.value['mail.noEmailSelected']
+      detailError.value = i18n('mail.noEmailSelected')
       return null
     }
 
@@ -1092,7 +1092,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     const uid = selectedEmailUid.value
     const detail = selectedEmailDetail.value
     if (!account || !folder || uid == null || !detail) {
-      feedback.info(i18n.value['mail.flag.aggregate'])
+      feedback.info(i18n('mail.flag.aggregate'))
       return
     }
     const key = mailKey(account.ID, folder, uid)
@@ -1104,7 +1104,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     setFlagInMemory(account.ID, folder, uid, '\\Flagged', next)
     try {
       await EmailService.SetEmailFlagged(account, folder, uid, next)
-      feedback.success(i18n.value[next ? 'mail.flag.added' : 'mail.flag.removed'])
+      feedback.success(i18n(next ? 'mail.flag.added' : 'mail.flag.removed'))
       if (smartFolder.value === 'starred' && !next) {
         smartEmails.value = smartEmails.value.filter(
           (email) =>
@@ -1126,7 +1126,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       }
     } catch (e) {
       setFlagInMemory(account.ID, folder, uid, '\\Flagged', previous)
-      feedback.error(i18n.value['mail.flag.failed'])
+      feedback.error(i18n('mail.flag.failed'))
       console.error('Failed to update the star', e)
     } finally {
       delete flagging.value[key]
@@ -1145,7 +1145,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     const uid = selectedEmailUid.value
     const detail = selectedEmailDetail.value
     if (!account || !folder || uid == null || !detail) {
-      feedback.info(i18n.value['mail.noEmailSelected'])
+      feedback.info(i18n('mail.noEmailSelected'))
       return false
     }
     if (deletingSelectedEmail.value) return false
@@ -1222,7 +1222,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
       }
 
-      feedback.success(i18n.value['mail.deleted'])
+      feedback.success(i18n('mail.deleted'))
       if (!searchStore.searchActive && !smartFolder.value) {
         void loadEmails(account, folder, currentPageByFolder.value[folderKey] || 1)
       }
@@ -1231,7 +1231,7 @@ export const useAccountsStore = defineStore('accounts', () => {
       void loadFolderStatuses(account, 0)
       return true
     } catch (e) {
-      feedback.error(i18n.value['mail.delete.failed'])
+      feedback.error(i18n('mail.delete.failed'))
       console.error('Failed to delete email', e)
       return false
     } finally {

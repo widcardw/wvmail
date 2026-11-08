@@ -9,7 +9,7 @@ import UiFieldRow from '~/components/ui/UiFieldRow.vue'
 import AppIcon from '~/components/icon/AppIcon.vue'
 import { useAutoPersist } from '~/composables/use-autopersist'
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const fb = useFeedbackStore()
 const repositoryURL = 'https://github.com/widcardw/wvmail'
 const version = '0.0.1'
@@ -23,23 +23,23 @@ const logDir = ref('')
 const saving = ref(false)
 
 const levelOptions = computed(() => [
-  { label: t.value['settings.about.log.level.debug'], value: 'debug' },
-  { label: t.value['settings.about.log.level.info'], value: 'info' },
-  { label: t.value['settings.about.log.level.warn'], value: 'warn' },
-  { label: t.value['settings.about.log.level.error'], value: 'error' },
+  { label: t('settings.about.log.level.debug'), value: 'debug' },
+  { label: t('settings.about.log.level.info'), value: 'info' },
+  { label: t('settings.about.log.level.warn'), value: 'warn' },
+  { label: t('settings.about.log.level.error'), value: 'error' },
 ])
 
 // Retention options offered in Settings → About. UiSelect is string-valued,
 // so days travel as strings and are parsed on change. '0' = never remove
 // expired logs, and is the default.
 const retentionOptions = computed(() => [
-  { label: t.value['settings.about.log.retention.7'], value: '7' },
-  { label: t.value['settings.about.log.retention.30'], value: '30' },
-  { label: t.value['settings.about.log.retention.60'], value: '60' },
-  { label: t.value['settings.about.log.retention.90'], value: '90' },
-  { label: t.value['settings.about.log.retention.180'], value: '180' },
-  { label: t.value['settings.about.log.retention.365'], value: '365' },
-  { label: t.value['settings.about.log.retention.never'], value: '0' },
+  { label: t('settings.about.log.retention.7'), value: '7' },
+  { label: t('settings.about.log.retention.30'), value: '30' },
+  { label: t('settings.about.log.retention.60'), value: '60' },
+  { label: t('settings.about.log.retention.90'), value: '90' },
+  { label: t('settings.about.log.retention.180'), value: '180' },
+  { label: t('settings.about.log.retention.365'), value: '365' },
+  { label: t('settings.about.log.retention.never'), value: '0' },
 ])
 const retentionValue = computed(() => String(logConfig.value.RetentionDays))
 
@@ -106,17 +106,17 @@ async function handleOpenRepository() {
   <div class="wrap wrap--narrow">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.about.label'] }}</h2>
+        <h2>{{ t('settings.about.label') }}</h2>
       </header>
 
       <div class="lead">
-        <p class="lead__title">{{ t['settings.about.tagline'] }}</p>
+        <p class="lead__title">{{ t('settings.about.tagline') }}</p>
         <div class="lead__meta-row">
-          <p class="lead__meta">{{ tf('settings.about.version', { version }) }}</p>
+          <p class="lead__meta">{{ t('settings.about.version', { version }) }}</p>
           <a
             class="repo-link"
             :href="repositoryURL"
-            :aria-label="t['settings.about.github_open']"
+            :aria-label="t('settings.about.github_open')"
             @click.prevent="handleOpenRepository"
           >
             <AppIcon icon="ri:github-fill" :size="14" />
@@ -126,23 +126,23 @@ async function handleOpenRepository() {
         </div>
       </div>
 
-      <div class="divider">{{ t['settings.about.log.title'] }}</div>
+      <div class="divider">{{ t('settings.about.log.title') }}</div>
 
-      <UiFieldRow :label="t['settings.about.log.level.label']">
+      <UiFieldRow :label="t('settings.about.log.level.label')">
         <UiSelect
           :options="levelOptions"
           :model-value="logConfig.Level"
           @update:model-value="changeLevel"
         />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.about.log.retention.label']">
+      <UiFieldRow :label="t('settings.about.log.retention.label')">
         <UiSelect
           :options="retentionOptions"
           :model-value="retentionValue"
           @update:model-value="changeRetention"
         />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.about.log.max_size']">
+      <UiFieldRow :label="t('settings.about.log.max_size')">
         <UiNumberInput
           :value="logConfig.MaxSizeMB"
           :min="1"
@@ -154,7 +154,7 @@ async function handleOpenRepository() {
 
       <div class="actions">
         <button type="button" class="btn" @click="handleOpenLogFolder">
-          {{ t['settings.about.log.open_folder'] }}
+          {{ t('settings.about.log.open_folder') }}
         </button>
       </div>
     </section>

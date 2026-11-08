@@ -39,7 +39,7 @@ const active = () =>
     </Splitter.Root>
 
     <div v-else class="content-placeholder">
-      <p class="ph-text">{{ t['mail.selectFolder'] }}</p>
+      <p class="ph-text">{{ t('mail.selectFolder') }}</p>
     </div>
   </div>
 </template>

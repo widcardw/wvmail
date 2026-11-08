@@ -16,7 +16,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{ change: [ids: string[]] }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const tagsStore = useTagsStore()
 const open = ref(false)
 
@@ -50,9 +50,9 @@ function clearAll() {
         type="button"
         class="tag-filter-trigger"
         :class="{ 'tag-filter-trigger--compact': compact }"
-        :title="t['tags.filter']"
+        :title="t('tags.filter')"
         :aria-label="
-          selected.length ? tf('tags.selectedTags', { count: selected.length }) : t['tags.filter']
+          selected.length ? t('tags.selectedTags', { count: selected.length }) : t('tags.filter')
         "
         :data-active="selected.length > 0"
       >
@@ -61,8 +61,8 @@ function clearAll() {
           <span>
             {{
               selected.length
-                ? tf('tags.selectedTags', { count: selected.length })
-                : t['tags.selectTags']
+                ? t('tags.selectedTags', { count: selected.length })
+                : t('tags.selectTags')
             }}
           </span>
           <i class="i-ri:arrow-down-s-line" aria-hidden="true" />
@@ -74,14 +74,14 @@ function clearAll() {
       <Popover.Positioner class="tag-filter-positioner">
         <Popover.Content class="tag-filter-content">
           <header class="tag-filter-head">
-            <strong>{{ t['tags.selectTags'] }}</strong>
+            <strong>{{ t('tags.selectTags') }}</strong>
             <div class="tag-filter-actions">
-              <button type="button" @click="selectAll">{{ t['tags.allTags'] }}</button>
-              <button type="button" @click="clearAll">{{ t['tags.clearTags'] }}</button>
+              <button type="button" @click="selectAll">{{ t('tags.allTags') }}</button>
+              <button type="button" @click="clearAll">{{ t('tags.clearTags') }}</button>
             </div>
           </header>
           <div v-if="tagsStore.enabledTags.length === 0" class="tag-filter-empty">
-            {{ t['tags.noTagsYet'] }}
+            {{ t('tags.noTagsYet') }}
           </div>
           <UiScrollArea v-else class="tag-filter-scroll">
             <div class="tag-filter-list">

@@ -19,7 +19,7 @@ const props = withDefaults(
   { busy: false, busyLabel: '', sizerLabel: '' },
 )
 
-const { tf } = useI18n()
+const { t } = useI18n()
 
 // Elapsed seconds while busy, so a slow or stuck action stays visible instead of
 // collapsing into an ellipsis.
@@ -57,7 +57,7 @@ const elapsed = computed(() => String(seconds.value).padStart(2, '0'))
 const busyText = computed(() =>
   props.busyLabel
     ? formatMessage(props.busyLabel, { s: elapsed.value })
-    : tf('busy.seconds', { label: props.label, s: elapsed.value }),
+    : t('busy.seconds', { label: props.label, s: elapsed.value }),
 )
 
 const idleSizer = computed(() => props.sizerLabel || props.label)

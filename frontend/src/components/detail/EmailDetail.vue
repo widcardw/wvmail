@@ -5,7 +5,6 @@ import { useAccountsStore } from '~/stores/accounts'
 import { useThemeStore } from '~/stores/theme'
 import { useFeedbackStore } from '~/stores/feedback'
 import { usePreferencesStore } from '~/stores/preferences'
-import { useLocaleStore } from '~/stores/locale'
 import { displaySender, formatDate, formatDateRecent } from '~/composables/formats'
 import { sanitizeEmailHtml, sanitizePlainTextEmail } from '~/composables/html'
 import { isSpamGated } from '~/composables/mail-safety'
@@ -31,12 +30,11 @@ import UiAlert from '~/components/ui/UiAlert.vue'
 import TagChip from '~/components/tags/TagChip.vue'
 import EmailTagDialog from '~/components/tags/EmailTagDialog.vue'
 
-const { t, tf } = useI18n()
+const { t, locale } = useI18n()
 const accountsStore = useAccountsStore()
 const themeStore = useThemeStore()
 const fb = useFeedbackStore()
 const preferences = usePreferencesStore()
-const localeStore = useLocaleStore()
 const tagsStore = useTagsStore()
 
 const isDarkMode = computed(() => themeStore.effectiveTheme === 'dark')
@@ -111,7 +109,7 @@ function mailReferenceDate(): Date {
 function sanitizeOptions() {
   return {
     allowRemote: allowRemote.value,
-    blockedImageLabel: t.value['mail.remote.blocked_image'],
+    blockedImageLabel: t('mail.remote.blocked_image'),
     // Remote images are fetched by the proxy, never by the webview. Empty means
     // this app's own endpoint; a server-mode deployment hides the IP, while the
     // desktop build's local endpoint only strips cookies/referrer.
@@ -123,10 +121,10 @@ function sanitizeOptions() {
     // create, so an over-eager match is visible before it is clicked.
     mentions: {
       enabled: preferences.detectDatesInMail,
-      locale: localeStore.current,
+      locale: locale.value,
       now: mailReferenceDate(),
       label: (at: Date) =>
-        `${t.value['mail.remind.hover']}${formatDate(at.toISOString(), localeStore.current)}`,
+        `${t('mail.remind.hover')}${formatDate(at.toISOString(), locale.value)}`,
     },
   }
 }
@@ -259,7 +257,7 @@ async function alwaysAllowSender() {
   if (!senderKey.value) return
   remoteRevealed.value = true
   await preferences.allowRemoteSender(senderKey.value)
-  fb.success(t.value['mail.remote.allowed'])
+  fb.success(t('mail.remote.allowed'))
 }
 
 async function handleRefresh() {
@@ -270,7 +268,7 @@ async function handleRefresh() {
   const folder = accountsStore.selectedEmailFolder
   const uid = accountsStore.selectedEmailUid
   if (!account || !folder || uid == null) {
-    fb.info(t.value['mail.refresh.aggregate'])
+    fb.info(t('mail.refresh.aggregate'))
     return
   }
   await accountsStore.refreshEmailBody(account, folder, uid)
@@ -281,19 +279,19 @@ async function handleExportOriginal() {
   const folder = accountsStore.selectedEmailFolder
   const uid = accountsStore.selectedEmailUid
   if (!account || !folder || uid == null) {
-    fb.info(t.value['mail.export.aggregate'])
+    fb.info(t('mail.export.aggregate'))
     return
   }
 
   exportingOriginal.value = true
   try {
     const filename = `${detail.value?.subject || 'email'}.eml`
-    const savePath = await OsService.SaveEmailDialog(t.value['mail.export.dialog'], filename)
+    const savePath = await OsService.SaveEmailDialog(t('mail.export.dialog'), filename)
     await EmailService.ExportOriginalMessage(account, folder, uid, savePath)
-    fb.success(t.value['mail.export.saved'])
+    fb.success(t('mail.export.saved'))
   } catch (e) {
     if (String(e).toLowerCase().includes('cancel')) return
-    fb.error(t.value['mail.export.failed'])
+    fb.error(t('mail.export.failed'))
     console.error('Failed to export original email', e)
   } finally {
     exportingOriginal.value = false
@@ -317,10 +315,10 @@ function replyBodyHTML(
   mode: ReplyMode,
 ): { html: string; text: string } {
   const sender = mail.from_name || mail.from_addr || mail.from
-  const date = formatDate(mail.date, localeStore.current)
+  const date = formatDate(mail.date, locale.value)
   const quote = quotedBodyHTML(mail)
   if (mode !== 'forward') {
-    const intro = tf('compose.reply_intro', { date, sender })
+    const intro = t('compose.reply_intro', { date, sender })
     return {
       html: `<p><br></p><p>${escapeHTML(intro)}</p>${quote}`,
       text: `\n\n${intro}\n${mail.body_text}`,
@@ -329,18 +327,18 @@ function replyBodyHTML(
 
   const recipients = [...(mail.to ?? []), ...(mail.cc ?? [])].join(', ')
   const rows = [
-    [t.value['compose.forward_from'], sender],
-    [t.value['compose.forward_date'], date],
-    [t.value['compose.forward_subject'], mail.subject || t.value['mail.noSubject']],
-    [t.value['compose.forward_to'], recipients],
+    [t('compose.forward_from'), sender],
+    [t('compose.forward_date'), date],
+    [t('compose.forward_subject'), mail.subject || t('mail.noSubject')],
+    [t('compose.forward_to'), recipients],
   ]
   const htmlRows = rows
     .map(([label, value]) => `${escapeHTML(label)}: ${escapeHTML(value)}`)
     .join('<br>')
   const textRows = rows.map(([label, value]) => `${label}: ${value}`).join('\n')
   return {
-    html: `<p><br></p><p>${escapeHTML(t.value['compose.forward_header'])}</p><p>${htmlRows}</p>${quote}`,
-    text: `\n\n${t.value['compose.forward_header']}\n${textRows}\n\n${mail.body_text}`,
+    html: `<p><br></p><p>${escapeHTML(t('compose.forward_header'))}</p><p>${htmlRows}</p>${quote}`,
+    text: `\n\n${t('compose.forward_header')}\n${textRows}\n\n${mail.body_text}`,
   }
 }
 
@@ -349,7 +347,7 @@ async function openReply(mode: ReplyMode) {
   if (!mail) return
   const envelope = buildReplyEnvelope(mail, mode, accountsStore.selectedEmailAccount?.Email ?? '')
   if (mode !== 'forward' && envelope.To.length === 0) {
-    fb.error(t.value['mail.reply_unavailable'])
+    fb.error(t('mail.reply_unavailable'))
     return
   }
   const body = replyBodyHTML(mail, mode)
@@ -362,7 +360,7 @@ async function openReply(mode: ReplyMode) {
     })
     if (result.Warning) fb.info(result.Warning)
   } catch (e) {
-    fb.error(t.value['compose.open_failed'])
+    fb.error(t('compose.open_failed'))
     console.error('Failed to open reply compose draft', e)
   }
 }
@@ -416,7 +414,7 @@ async function handleLinkClick(event: MouseEvent) {
       )
       if (result.Warning) fb.info(result.Warning)
     } catch (e) {
-      fb.error(t.value['compose.open_failed'])
+      fb.error(t('compose.open_failed'))
       console.error('Failed to open mailto compose draft', e)
     }
     return
@@ -477,20 +475,20 @@ const showAttachments = computed(
         class="detail-alert"
         tone="error"
         dismissible
-        :close-label="t['cancel']"
+        :close-label="t('cancel')"
         @dismiss="closeError()"
       >
         {{ accountsStore.detailError }}
       </UiAlert>
 
-      <div v-if="!detail && !loading" class="centerpad empty">{{ t['mail.selectFolder'] }}</div>
+      <div v-if="!detail && !loading" class="centerpad empty">{{ t('mail.selectFolder') }}</div>
 
       <template v-if="detail">
         <div
           v-if="threadEmails.length > 1"
           class="thread-tabs"
           role="tablist"
-          :aria-label="t['mail.thread.tabs']"
+          :aria-label="t('mail.thread.tabs')"
         >
           <button
             v-for="email in threadEmails"
@@ -504,9 +502,7 @@ const showAttachments = computed(
           >
             <span v-if="!email.is_read" class="thread-tab__unread" aria-hidden="true" />
             <span class="thread-tab__sender">{{ displaySender(email) }}</span>
-            <span class="thread-tab__date">{{
-              formatDateRecent(email.date, localeStore.current)
-            }}</span>
+            <span class="thread-tab__date">{{ formatDateRecent(email.date, locale) }}</span>
           </button>
         </div>
 
@@ -518,7 +514,7 @@ const showAttachments = computed(
                 :key="tag.id"
                 type="button"
                 class="detail-tags__button"
-                :title="t['mail.tags.edit']"
+                :title="t('mail.tags.edit')"
                 @click="tagDialogOpen = true"
               >
                 <TagChip :tag="tag" />
@@ -553,12 +549,12 @@ const showAttachments = computed(
             :html="sanitizedBodyHtml"
             :dark="isDarkMode"
           />
-          <div v-else class="centerpad-empty">{{ t['mail.noContent'] }}</div>
+          <div v-else class="centerpad-empty">{{ t('mail.noContent') }}</div>
         </div>
 
         <EmailAIAssistBody
           v-if="hasTranslationOutput && !spamGated"
-          :label="t['mail.translation.label']"
+          :label="t('mail.translation.label')"
           :html="translatedHtml"
           :text="translatedText"
           :error="translationError"
@@ -568,7 +564,7 @@ const showAttachments = computed(
 
         <EmailAIAssistBody
           v-if="hasSummaryOutput && !spamGated"
-          :label="t['mail.summary.label']"
+          :label="t('mail.summary.label')"
           :html="summaryHtml"
           :text="null"
           :error="summaryError"
@@ -596,9 +592,9 @@ const showAttachments = computed(
     />
     <ConfirmDialog
       :open="deleteOpen"
-      :title="t['mail.delete.label']"
-      :description="t['mail.delete.confirm_body']"
-      :confirm-label="t['mail.delete.label']"
+      :title="t('mail.delete.label')"
+      :description="t('mail.delete.confirm_body')"
+      :confirm-label="t('mail.delete.label')"
       :busy="accountsStore.deletingSelectedEmail"
       :close-on-interact-outside="false"
       danger

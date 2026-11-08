@@ -45,9 +45,9 @@ const themeMode = computed<ThemeMode>({
 })
 
 const themeOptions = computed<Array<{ value: ThemeMode; label: string; icon: string }>>(() => [
-  { value: 'System', label: t.value['settings.common.theme.system'], icon: 'i-ri:computer-line' },
-  { value: 'Light', label: t.value['settings.common.theme.light'], icon: 'i-ri:sun-line' },
-  { value: 'Dark', label: t.value['settings.common.theme.dark'], icon: 'i-ri:moon-clear-line' },
+  { value: 'System', label: t('settings.common.theme.system'), icon: 'i-ri:computer-line' },
+  { value: 'Light', label: t('settings.common.theme.light'), icon: 'i-ri:sun-line' },
+  { value: 'Dark', label: t('settings.common.theme.dark'), icon: 'i-ri:moon-clear-line' },
 ])
 
 const activeTheme = computed(
@@ -94,14 +94,14 @@ async function openCompose() {
 <template>
   <div class="titlebar">
     <div class="titlebar-left">
-      <span class="brand" :style="{ marginLeft: `${lm}px` }">{{ t['app.brand'] }}</span>
+      <span class="brand" :style="{ marginLeft: `${lm}px` }">{{ t('app.brand') }}</span>
       <div class="titlebar-nav">
         <button
           type="button"
           class="icon-btn"
           :disabled="!canGoBack"
-          :title="t['app.back']"
-          :aria-label="t['app.back']"
+          :title="t('app.back')"
+          :aria-label="t('app.back')"
           @click="goBack"
         >
           <i class="i-ri:arrow-left-line" aria-hidden="true" />
@@ -110,8 +110,8 @@ async function openCompose() {
           type="button"
           class="icon-btn"
           :disabled="!canGoForward"
-          :title="t['app.forward']"
-          :aria-label="t['app.forward']"
+          :title="t('app.forward')"
+          :aria-label="t('app.forward')"
           @click="goForward"
         >
           <i class="i-ri:arrow-right-line" aria-hidden="true" />
@@ -127,8 +127,8 @@ async function openCompose() {
       <button
         type="button"
         class="icon-btn"
-        :title="t['compose.new']"
-        :aria-label="t['compose.new']"
+        :title="t('compose.new')"
+        :aria-label="t('compose.new')"
         @click="openCompose"
       >
         <i class="i-ri:quill-pen-line" aria-hidden="true" />

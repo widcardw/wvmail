@@ -43,7 +43,7 @@ watch(
       automatic.value = [...state.automatic_tag_ids]
     } catch (error) {
       console.error('Failed to load message tags', error)
-      feedback.error(t.value['mail.tags.failed'])
+      feedback.error(t('mail.tags.failed'))
     } finally {
       loading.value = false
     }
@@ -62,12 +62,12 @@ async function save() {
   try {
     await TagService.SetEmailTags(props.accountId, props.folder, props.uid, selected.value)
     tagsStore.setEmailTagIDs(props.accountId, props.folder, props.uid, [...selected.value])
-    feedback.success(t.value['mail.tags.saved'])
+    feedback.success(t('mail.tags.saved'))
     emit('saved', [...selected.value])
     emit('update:open', false)
   } catch (error) {
     console.error('Failed to save message tags', error)
-    feedback.error(t.value['mail.tags.failed'])
+    feedback.error(t('mail.tags.failed'))
   } finally {
     saving.value = false
   }
@@ -82,15 +82,15 @@ async function save() {
     @update:open="emit('update:open', $event)"
   >
     <UiDialogHeader
-      :title="t['mail.tags.title']"
-      :close-label="t['cancel']"
+      :title="t('mail.tags.title')"
+      :close-label="t('cancel')"
       :disabled="saving"
       @close="emit('update:open', false)"
     />
     <div class="dlg-body">
       <div v-if="loading" class="tag-loading"><span class="spinner" /></div>
       <p v-else-if="tagsStore.tags.length === 0" class="tag-empty">
-        {{ t['tags.noTagsYet'] }}
+        {{ t('tags.noTagsYet') }}
       </p>
       <div v-else class="tag-list">
         <UiCheckbox
@@ -104,15 +104,15 @@ async function save() {
           <span class="tag-dot" :style="{ background: tag.color }" />
           <span class="tag-name">{{ tag.label }}</span>
           <span v-if="automatic.includes(tag.id)" class="tag-auto">
-            {{ t['mail.tags.automatic'] }}
+            {{ t('mail.tags.automatic') }}
           </span>
-          <span v-if="!tag.enabled" class="tag-disabled">{{ t['tags.disabled'] }}</span>
+          <span v-if="!tag.enabled" class="tag-disabled">{{ t('tags.disabled') }}</span>
         </UiCheckbox>
       </div>
     </div>
     <footer class="dlg-foot">
       <button type="button" class="btn" :disabled="saving" @click="emit('update:open', false)">
-        {{ t['cancel'] }}
+        {{ t('cancel') }}
       </button>
       <button
         type="button"
@@ -120,7 +120,7 @@ async function save() {
         :disabled="saving || loading || tagsStore.tags.length === 0"
         @click="save"
       >
-        {{ t['tags.save'] }}
+        {{ t('tags.save') }}
       </button>
     </footer>
   </UiDialog>

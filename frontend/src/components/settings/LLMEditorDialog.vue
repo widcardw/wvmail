@@ -43,7 +43,7 @@ const emit = defineEmits<{
   save: []
 }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 
 const canSave = computed(() =>
   Boolean(form.value.Name && form.value.BaseURL && (!props.apiKeyRequired || form.value.APIKey)),
@@ -174,15 +174,15 @@ watch(
     @update:open="emit('update:open', $event)"
   >
     <UiDialogHeader
-      :title="props.editing ? t['settings.llm.edit'] : t['settings.llm.add']"
-      :close-label="t['settings.accounts.cancel']"
+      :title="props.editing ? t('settings.llm.edit') : t('settings.llm.add')"
+      :close-label="t('settings.accounts.cancel')"
       @close="close"
     />
 
     <div class="dlg-body llm-dialog-body">
       <UiScrollArea class="llm-dialog-scroll">
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['settings.llm.provider'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('settings.llm.provider') }}</Field.Label>
           <UiSelect
             :options="props.providerOptions"
             :model-value="form.Provider"
@@ -191,7 +191,7 @@ watch(
           />
         </Field.Root>
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['settings.llm.name'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('settings.llm.name') }}</Field.Label>
           <Field.Input
             class="ctl"
             :model-value="form.Name"
@@ -200,7 +200,7 @@ watch(
           />
         </Field.Root>
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['settings.llm.baseURL'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('settings.llm.baseURL') }}</Field.Label>
           <Field.Input
             class="ctl"
             :model-value="form.BaseURL"
@@ -210,7 +210,7 @@ watch(
         </Field.Root>
         <Field.Root class="field">
           <Field.Label class="field__label">
-            {{ t['settings.llm.apiKey'] }}<span v-if="!props.apiKeyRequired"> (optional)</span>
+            {{ t('settings.llm.apiKey') }}<span v-if="!props.apiKeyRequired"> (optional)</span>
           </Field.Label>
           <UiPasswordInput
             width="100%"
@@ -221,7 +221,7 @@ watch(
         </Field.Root>
         <div class="limits">
           <Field.Root class="field">
-            <Field.Label class="field__label">{{ t['settings.llm.contextWindow'] }}</Field.Label>
+            <Field.Label class="field__label">{{ t('settings.llm.contextWindow') }}</Field.Label>
             <UiNumberInput
               :value="form.ContextWindowTokens"
               :min="1024"
@@ -231,7 +231,7 @@ watch(
             />
           </Field.Root>
           <Field.Root class="field">
-            <Field.Label class="field__label">{{ t['settings.llm.maxOutput'] }}</Field.Label>
+            <Field.Label class="field__label">{{ t('settings.llm.maxOutput') }}</Field.Label>
             <UiNumberInput
               :value="form.MaxOutputTokens"
               :min="256"
@@ -246,7 +246,7 @@ watch(
                base URL + key before fetching the catalog, and the test section
                right below consumes the ticked models. -->
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['settings.llm.models'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('settings.llm.models') }}</Field.Label>
           <div class="model-row">
             <Field.Input
               v-model="typedModel"
@@ -260,20 +260,20 @@ watch(
               :disabled="!typedModel.trim()"
               @click="addTypedModel()"
             >
-              {{ t['settings.llm.modelAdd'] }}
+              {{ t('settings.llm.modelAdd') }}
             </button>
             <button
               type="button"
               class="btn btn--sm"
               :disabled="!canConn"
-              :title="canConn ? undefined : t['settings.llm.fetchModelsNeeds']"
+              :title="canConn ? undefined : t('settings.llm.fetchModelsNeeds')"
               @click="pickerOpen = !pickerOpen"
             >
-              {{ t['settings.llm.fetchModels'] }}
+              {{ t('settings.llm.fetchModels') }}
             </button>
           </div>
           <Field.HelperText class="field__hint">
-            {{ t['settings.llm.modelsHint'] }}
+            {{ t('settings.llm.modelsHint') }}
           </Field.HelperText>
           <div v-if="selectedModels.length > 0" class="model-tags">
             <span v-for="model in selectedModels" :key="model" class="model-tag" :title="model">
@@ -281,7 +281,7 @@ watch(
               <button
                 type="button"
                 class="model-tag__remove"
-                :aria-label="tf('settings.llm.delete_model', { model })"
+                :aria-label="t('settings.llm.delete_model', { model })"
                 @click="removeModel(model)"
               >
                 ×
@@ -305,38 +305,38 @@ watch(
         />
 
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['settings.llm.test_model'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('settings.llm.test_model') }}</Field.Label>
           <div class="test-actions">
             <UiSelect
               :options="testModelOptions"
               :model-value="testModel"
               :disabled="testModelOptions.length === 0"
-              :placeholder="t['settings.llm.test_no_model']"
+              :placeholder="t('settings.llm.test_no_model')"
               @update:model-value="testModel = $event"
               width="300px"
             />
             <BusyButton
               class="btn"
-              :label="t['settings.llm.test_connection']"
+              :label="t('settings.llm.test_connection')"
               :busy="props.testing"
               :disabled="!canConn"
               @click="emit('test', 'conn')"
             />
             <BusyButton
               class="btn"
-              :label="t['settings.llm.test_chat']"
+              :label="t('settings.llm.test_chat')"
               :busy="props.testingChat"
               :disabled="!canChat"
               @click="emit('test', 'chat', testModel)"
             />
           </div>
           <Field.HelperText class="field__hint">
-            {{ t['settings.llm.test_hint'] }}
+            {{ t('settings.llm.test_hint') }}
           </Field.HelperText>
         </Field.Root>
 
         <UiAlert v-if="props.testSummary" class="result" :tone="props.testOk ? 'success' : 'error'">
-          <strong>{{ t['settings.llm.test_connection'] }}: {{ props.testSummary }}</strong>
+          <strong>{{ t('settings.llm.test_connection') }}: {{ props.testSummary }}</strong>
           <JsonResponseViewer v-if="props.testBody" :body="props.testBody" />
         </UiAlert>
         <UiAlert
@@ -345,7 +345,7 @@ watch(
           :tone="props.testChatOk ? 'success' : 'error'"
         >
           <strong>
-            {{ t['settings.llm.test_chat'] }}
+            {{ t('settings.llm.test_chat') }}
             <template v-if="props.testChatModel">· {{ props.testChatModel }}</template
             >:
             {{ props.testChatSummary }}
@@ -357,11 +357,11 @@ watch(
 
     <footer class="dlg-foot">
       <button type="button" class="btn" @click="close">
-        {{ t['settings.llm.cancel'] }}
+        {{ t('settings.llm.cancel') }}
       </button>
       <BusyButton
         class="btn btn--primary"
-        :label="t['settings.llm.save']"
+        :label="t('settings.llm.save')"
         :busy="props.saving"
         :disabled="!canSave"
         @click="emit('save')"

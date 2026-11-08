@@ -33,15 +33,15 @@ async function openLink() {
     padded
     @update:open="emit('update:open', $event)"
   >
-    <Dialog.Title class="dlg-title">{{ t['mail.link.title'] }}</Dialog.Title>
-    <Dialog.Description class="dlg-desc">{{ t['mail.link.body'] }}</Dialog.Description>
+    <Dialog.Title class="dlg-title">{{ t('mail.link.title') }}</Dialog.Title>
+    <Dialog.Description class="dlg-desc">{{ t('mail.link.body') }}</Dialog.Description>
     <p class="d-url">{{ props.url }}</p>
     <div class="dlg-actions">
       <button type="button" class="btn" @click="emit('update:open', false)">
-        {{ t['cancel'] }}
+        {{ t('cancel') }}
       </button>
       <button type="button" class="btn btn--primary" @click="openLink">
-        {{ t['mail.link.open'] }}
+        {{ t('mail.link.open') }}
       </button>
     </div>
   </UiDialog>

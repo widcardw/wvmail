@@ -105,7 +105,7 @@ export function useMailAIAssist(options: MailAIAssistOptions) {
       const textToTranslate = sourceText(mail)
       if (!textToTranslate) {
         if (gen === translationToken) {
-          translationError.value = t.value['mail.translation.no_content']
+          translationError.value = t('mail.translation.no_content')
         }
         return
       }
@@ -114,7 +114,7 @@ export function useMailAIAssist(options: MailAIAssistOptions) {
       if (!result) {
         translatedText.value = null
         translatedHtml.value = null
-        translationError.value = t.value['mail.translation.empty']
+        translationError.value = t('mail.translation.empty')
         return
       }
       translatedText.value = result
@@ -132,7 +132,7 @@ export function useMailAIAssist(options: MailAIAssistOptions) {
 
     const text = sourceText(mail)
     if (!text) {
-      summaryError.value = t.value['mail.summary.no_content']
+      summaryError.value = t('mail.summary.no_content')
       return
     }
 
@@ -151,7 +151,7 @@ export function useMailAIAssist(options: MailAIAssistOptions) {
       })
       if (gen !== summaryToken) return
       if (!result.trim()) {
-        summaryError.value = t.value['mail.summary.empty']
+        summaryError.value = t('mail.summary.empty')
         return
       }
       summaryHtml.value = options.sanitizeText(result)

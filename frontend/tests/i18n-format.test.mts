@@ -1,6 +1,5 @@
 /**
- * Regression tests for `src/i18n/format.ts` — the `{name}` interpolation and
- * `singular | plural` selection behind `tf()`.
+ * Regression tests for standalone placeholder formatting and vue-i18n messages.
  *
  * Run with: pnpm test   (Node ≥ 23 strips TypeScript types natively)
  *
@@ -9,7 +8,10 @@
  * placeholder with no parameter (must stay visible, not vanish), and the singular
  * branch of an English plural.
  */
-import { formatMessage, formatPlural } from '../src/i18n/format.ts'
+import { createI18n } from 'vue-i18n'
+import { formatMessage } from '../src/i18n/format.ts'
+import enUS from '../src/i18n/locales/en-US.ts'
+import zhCN from '../src/i18n/locales/zh-CN.ts'
 
 let pass = 0
 let fail = 0
@@ -60,28 +62,39 @@ check(
   formatMessage('no params here', { a: 1 }) === 'no params here',
 )
 
-console.log('pluralisation')
-const resources = '{count} resource | {count} resources'
-check('one picks the singular branch', formatPlural(resources, 1, 'en-US') === '1 resource')
-check('two picks the plural branch', formatPlural(resources, 2, 'en-US') === '2 resources')
-check('zero is plural in English', formatPlural(resources, 0, 'en-US') === '0 resources')
-check('a fraction is plural in English', formatPlural(resources, 1.5, 'en-US') === '1.5 resources')
+console.log('vue-i18n messages')
+const i18n = createI18n({
+  legacy: false,
+  locale: 'en-US',
+  fallbackLocale: 'en-US',
+  messages: { 'en-US': enUS, 'zh-CN': zhCN },
+})
 check(
-  'a single branch is used for every count',
-  formatPlural('{count} 个远程资源', 1, 'zh-CN') === '1 个远程资源' &&
-    formatPlural('{count} 个远程资源', 7, 'zh-CN') === '7 个远程资源',
+  'nested messages are resolved',
+  i18n.global.t('settings.accounts.folders.title') === 'Sidebar Folders',
 )
 check(
-  'extra parameters reach the branch',
-  formatPlural('{n} of {total} | {n} of {total}', 1, 'en-US', { total: 4 }) === '1 of 4',
+  'email addresses and domain patterns keep literal at signs',
+  i18n.global.t('settings.remote.add_placeholder') ===
+    'user@example.com, @example.com, or news@*.example.com',
 )
 check(
-  'a `count` parameter overrides the printed number',
-  formatPlural('{count} item | {count} items', 1, 'en-US', { count: 'one' }) === 'one item',
+  'named interpolation works with plural selection',
+  i18n.global.t('mail.recipients.more', { count: 1, n: 1 }, 1) === '1 more recipient',
 )
 check(
-  'a message with no pipe is returned as is',
-  formatPlural('Body drawn with CSS', 5, 'en-US') === 'Body drawn with CSS',
+  'plural selection chooses the other branch',
+  i18n.global.t('mail.recipients.more', { count: 2, n: 2 }, 2) === '2 more recipients',
+)
+i18n.global.locale.value = 'zh-CN'
+check(
+  'Chinese domain patterns keep literal at signs',
+  i18n.global.t('settings.remote.add_placeholder') ===
+    'user@example.com、@example.com 或 news@*.example.com',
+)
+check(
+  'locale switching uses nested messages',
+  i18n.global.t('mail.thread.count', { count: 3, n: 3 }, 3) === '这个会话共有 3 封邮件',
 )
 
 console.log(`\n${pass} passed, ${fail} failed`)

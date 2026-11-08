@@ -22,7 +22,7 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const { t, tf, locale } = useI18n()
+const { t, locale } = useI18n()
 
 function settingFor(folderName: string): AccountFolderSetting {
   const found = folderSettingFor(props.modelValue, folderName)
@@ -203,14 +203,14 @@ function setIcon(folderName: string, icon: string) {
   <div class="folder-settings">
     <header class="folder-settings__head">
       <div>
-        <h3>{{ t['settings.accounts.folders.title'] }}</h3>
-        <p>{{ t['settings.accounts.folders.hint'] }}</p>
+        <h3>{{ t('settings.accounts.folders.title') }}</h3>
+        <p>{{ t('settings.accounts.folders.hint') }}</p>
       </div>
       <button
         type="button"
         class="icon-btn"
-        :title="t['settings.accounts.folders.refresh']"
-        :aria-label="t['settings.accounts.folders.refresh']"
+        :title="t('settings.accounts.folders.refresh')"
+        :aria-label="t('settings.accounts.folders.refresh')"
         :disabled="props.loading"
         @click="emit('refresh')"
       >
@@ -228,10 +228,10 @@ function setIcon(folderName: string, icon: string) {
     </div>
     <div v-else-if="props.loading && props.folders.length === 0" class="folder-settings__state">
       <span class="folder-settings__spinner" aria-hidden="true" />
-      <span>{{ t['settings.accounts.folders.loading'] }}</span>
+      <span>{{ t('settings.accounts.folders.loading') }}</span>
     </div>
     <div v-else-if="props.folders.length === 0" class="folder-settings__state">
-      <span>{{ t['settings.accounts.folders.empty'] }}</span>
+      <span>{{ t('settings.accounts.folders.empty') }}</span>
     </div>
 
     <div v-else class="folder-settings__list">
@@ -253,7 +253,7 @@ function setIcon(folderName: string, icon: string) {
         <span
           class="folder-row__handle"
           draggable="true"
-          :title="t['settings.accounts.folders.drag']"
+          :title="t('settings.accounts.folders.drag')"
           @dragstart="onDragStart(row.name, $event)"
           @dragend="onDragEnd"
         >
@@ -265,8 +265,8 @@ function setIcon(folderName: string, icon: string) {
           size="sm"
           :aria-label="
             row.hidden
-              ? t['settings.accounts.folders.hidden']
-              : t['settings.accounts.folders.visible']
+              ? t('settings.accounts.folders.hidden')
+              : t('settings.accounts.folders.visible')
           "
           @update:checked="setVisible(row.name, $event)"
         />
@@ -276,8 +276,8 @@ function setIcon(folderName: string, icon: string) {
           :value="nameValue(row)"
           :disabled="row.hidden"
           :placeholder="row.automatic.label"
-          :title="tf('settings.accounts.folders.custom_preview', { name: row.label })"
-          :aria-label="t['settings.accounts.folders.display_name']"
+          :title="t('settings.accounts.folders.custom_preview', { name: row.label })"
+          :aria-label="t('settings.accounts.folders.display_name')"
           @input="onNameInput(row, $event)"
           @blur="clearNameDraft(row.name)"
         />

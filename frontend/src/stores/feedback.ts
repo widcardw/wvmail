@@ -43,5 +43,5 @@ export function reportFetchFailure(action: string, e: unknown) {
   const { t } = useI18n()
   console.error(action, e)
   const detail = e instanceof Error ? e.message : String(e)
-  toaster.create({ title: `${t.value['mail.refreshFailed']}: ${detail}`, type: 'error' })
+  toaster.create({ title: `${t('mail.refreshFailed')}: ${detail}`, type: 'error' })
 }

@@ -60,7 +60,7 @@ function onPageCommit(details: unknown) {
       v-if="showRefresh"
       type="button"
       class="icon-btn"
-      :title="refreshTitle || t['mail.refresh.list']"
+      :title="refreshTitle || t('mail.refresh.list')"
       :disabled="refreshing"
       @click="emit('refresh')"
     >
@@ -84,7 +84,7 @@ function onPageCommit(details: unknown) {
         v-model="pageInput"
         class="pager-editable"
         submit-mode="enter"
-        :aria-label="t['mail.page']"
+        :aria-label="t('mail.page')"
         @value-commit="onPageCommit"
       >
         <Editable.Area>
@@ -94,7 +94,7 @@ function onPageCommit(details: unknown) {
             min="1"
             :max="pageCount"
             inputmode="numeric"
-            :aria-label="t['mail.page']"
+            :aria-label="t('mail.page')"
           />
         </Editable.Area>
       </Editable.Root>

@@ -22,7 +22,7 @@ import {
 } from '~/composables/compose'
 
 const route = useRoute()
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const feedback = useFeedbackStore()
 
 const draftID = ref(String(route.query.id ?? ''))
@@ -158,19 +158,19 @@ async function send() {
   if (sending.value) return
   error.value = ''
   if (!canSend.value) {
-    error.value = t.value['compose.recipient_required']
+    error.value = t('compose.recipient_required')
     return
   }
   const recipientFields = [
-    { label: t.value['compose.to'], value: toText.value },
-    { label: t.value['compose.cc'], value: ccText.value },
-    { label: t.value['compose.bcc'], value: bccText.value },
+    { label: t('compose.to'), value: toText.value },
+    { label: t('compose.cc'), value: ccText.value },
+    { label: t('compose.bcc'), value: bccText.value },
   ]
   const unrecognized = recipientFields.flatMap(({ label, value }) =>
     parseRecipientTextDetailed(value).unrecognized.map((item) => `${label}: ${item}`),
   )
   if (unrecognized.length > 0) {
-    error.value = tf('compose.recipient_invalid', {
+    error.value = t('compose.recipient_invalid', {
       items: [...new Set(unrecognized)].join('; '),
     })
     return
@@ -197,7 +197,7 @@ function requestClose() {
 
 function openAIPolish(selection: { from: number; to: number; text: string }) {
   if (!selection.text.trim()) {
-    feedback.warn(t.value['compose.ai.no_selection'])
+    feedback.warn(t('compose.ai.no_selection'))
     return
   }
   polishRange.value = { from: selection.from, to: selection.to }
@@ -278,17 +278,17 @@ onBeforeUnmount(() => {
     <header class="compose-topbar">
       <div class="compose-heading">
         <i class="i-ri:quill-pen-line" aria-hidden="true" />
-        <span>{{ t['compose.title'] }}</span>
+        <span>{{ t('compose.title') }}</span>
       </div>
       <div class="compose-top-actions">
         <button type="button" class="btn btn--ghost" :disabled="sending" @click="requestClose">
-          {{ t['compose.discard'] }}
+          {{ t('compose.discard') }}
         </button>
         <BusyButton
           class="btn btn--primary"
-          :label="t['compose.send']"
+          :label="t('compose.send')"
           :busy="sending"
-          :busy-label="t['compose.sending']"
+          :busy-label="t('compose.sending')"
           :disabled="loading || !canSend"
           @click="send"
         >
@@ -302,67 +302,67 @@ onBeforeUnmount(() => {
       class="compose-alert"
       tone="error"
       dismissible
-      :close-label="t['cancel']"
+      :close-label="t('cancel')"
       @dismiss="error = ''"
     >
       {{ error }}
     </UiAlert>
 
-    <div v-if="loading" class="compose-loading">{{ t['mail.loading'] }}</div>
+    <div v-if="loading" class="compose-loading">{{ t('mail.loading') }}</div>
     <div v-else class="compose-form">
       <div class="compose-field compose-field--from">
-        <label class="compose-label">{{ t['compose.from'] }}</label>
+        <label class="compose-label">{{ t('compose.from') }}</label>
         <UiSelect
           v-model="accountID"
           :options="accountOptions"
-          :placeholder="t['compose.from']"
+          :placeholder="t('compose.from')"
           width="100%"
           :disabled="accounts.length < 2"
         />
       </div>
 
       <div class="compose-field compose-recipient-row">
-        <label class="compose-label" for="compose-to">{{ t['compose.to'] }}</label>
+        <label class="compose-label" for="compose-to">{{ t('compose.to') }}</label>
         <ComposeRecipientInput
           id="compose-to"
           v-model="toText"
-          :label="t['compose.to']"
-          :placeholder="t['compose.recipient_placeholder']"
+          :label="t('compose.to')"
+          :placeholder="t('compose.recipient_placeholder')"
         />
         <button v-if="!showCc" type="button" class="link-btn" @click="showCc = true">
-          {{ t['compose.add_cc'] }}
+          {{ t('compose.add_cc') }}
         </button>
         <button v-if="!showBcc" type="button" class="link-btn" @click="showBcc = true">
-          {{ t['compose.add_bcc'] }}
+          {{ t('compose.add_bcc') }}
         </button>
       </div>
 
       <div v-if="showCc" class="compose-field compose-recipient-row">
-        <label class="compose-label" for="compose-cc">{{ t['compose.cc'] }}</label>
+        <label class="compose-label" for="compose-cc">{{ t('compose.cc') }}</label>
         <ComposeRecipientInput
           id="compose-cc"
           v-model="ccText"
-          :label="t['compose.cc']"
-          :placeholder="t['compose.recipient_placeholder']"
+          :label="t('compose.cc')"
+          :placeholder="t('compose.recipient_placeholder')"
         />
       </div>
 
       <div v-if="showBcc" class="compose-field compose-recipient-row">
-        <label class="compose-label" for="compose-bcc">{{ t['compose.bcc'] }}</label>
+        <label class="compose-label" for="compose-bcc">{{ t('compose.bcc') }}</label>
         <ComposeRecipientInput
           id="compose-bcc"
           v-model="bccText"
-          :label="t['compose.bcc']"
-          :placeholder="t['compose.recipient_placeholder']"
+          :label="t('compose.bcc')"
+          :placeholder="t('compose.recipient_placeholder')"
         />
       </div>
 
       <div class="compose-field">
-        <label class="compose-label">{{ t['compose.subject'] }}</label>
+        <label class="compose-label">{{ t('compose.subject') }}</label>
         <input
           v-model="subject"
           class="compose-input"
-          :placeholder="t['compose.subject_placeholder']"
+          :placeholder="t('compose.subject_placeholder')"
           autocomplete="off"
         />
       </div>
@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
 
       <div v-if="attachments.length || inlineImages.length" class="compose-attachments">
         <span class="attachment-count">
-          {{ tf('compose.attachment_count', { count: attachments.length + inlineImages.length }) }}
+          {{ t('compose.attachment_count', { count: attachments.length + inlineImages.length }) }}
         </span>
         <div class="attachment-list">
           <div
@@ -400,7 +400,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="attachment-remove"
-              :aria-label="t['compose.remove_attachment']"
+              :aria-label="t('compose.remove_attachment')"
               @click="removeAttachment(item, item.Inline)"
             >
               <i class="i-ri:close-line" aria-hidden="true" />
@@ -412,9 +412,9 @@ onBeforeUnmount(() => {
 
     <ConfirmDialog
       :open="closePrompt"
-      :title="t['compose.close_title']"
-      :description="t['compose.close_body']"
-      :confirm-label="t['compose.discard']"
+      :title="t('compose.close_title')"
+      :description="t('compose.close_body')"
+      :confirm-label="t('compose.discard')"
       danger
       @update:open="closePrompt = $event"
       @confirm="discard"

@@ -14,7 +14,7 @@ const { t } = useI18n()
         <Toast.Description v-if="toast.description" class="toast__text">
           {{ toast.description }}
         </Toast.Description>
-        <Toast.CloseTrigger type="button" class="toast__close" :aria-label="t['cancel']">
+        <Toast.CloseTrigger type="button" class="toast__close" :aria-label="t('cancel')">
           <i class="i-ri:close-line" />
         </Toast.CloseTrigger>
       </Toast.Root>

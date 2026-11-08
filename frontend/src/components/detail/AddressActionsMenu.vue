@@ -34,10 +34,10 @@ async function copyEmail() {
   if (!props.email) return
   try {
     await Clipboard.SetText(props.email)
-    feedback.success(t.value['contacts.copied'])
+    feedback.success(t('contacts.copied'))
   } catch (error) {
     console.error('Failed to copy email', error)
-    feedback.error(t.value['contacts.copyFailed'])
+    feedback.error(t('contacts.copyFailed'))
   }
 }
 
@@ -45,10 +45,10 @@ async function addContact() {
   if (!props.email || isContact.value) return
   const saved = await contactsStore.addContact(props.name, props.email)
   if (!saved) {
-    feedback.error(t.value['contacts.saveFailed'])
+    feedback.error(t('contacts.saveFailed'))
     return
   }
-  feedback.success(t.value['contacts.added'])
+  feedback.success(t('contacts.added'))
 }
 
 async function onSelect(details: unknown) {
@@ -83,12 +83,12 @@ onMounted(() => {
         <Menu.Content class="address-menu">
           <Menu.Item value="copy-email" class="address-menu__item">
             <i class="i-ri:file-copy-line" aria-hidden="true" />
-            <Menu.ItemText>{{ t['contacts.copyEmail'] }}</Menu.ItemText>
+            <Menu.ItemText>{{ t('contacts.copyEmail') }}</Menu.ItemText>
           </Menu.Item>
           <Menu.Item value="add-contact" class="address-menu__item" :disabled="isContact">
             <i :class="isContact ? 'i-ri:check-line' : 'i-ri:user-add-line'" aria-hidden="true" />
             <Menu.ItemText>
-              {{ isContact ? t['contacts.alreadySaved'] : t['contacts.addSender'] }}
+              {{ isContact ? t('contacts.alreadySaved') : t('contacts.addSender') }}
             </Menu.ItemText>
           </Menu.Item>
         </Menu.Content>

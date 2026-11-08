@@ -19,7 +19,7 @@ const props = defineProps<{
   addresses: string[]
 }>()
 
-const { t, tf, locale } = useI18n()
+const { t, locale } = useI18n()
 
 const box = ref<HTMLElement | null>(null)
 const probe = ref<HTMLElement | null>(null)
@@ -145,7 +145,7 @@ watch(locale, () => nextTick(measure))
         :aria-expanded="expanded"
         @click="expanded = !expanded"
       >
-        {{ expanded ? t['mail.recipients.less'] : tf('mail.recipients.more', hidden) }}
+        {{ expanded ? t('mail.recipients.less') : t('mail.recipients.more', hidden) }}
       </button>
     </div>
     <div ref="probe" class="probe" aria-hidden="true">
@@ -160,7 +160,7 @@ watch(locale, () => nextTick(measure))
         </span>
         <span v-if="i < items.length - 1" data-sep class="sep">, </span>
       </template>
-      <span data-chip class="chip">{{ tf('mail.recipients.more', total) }}</span>
+      <span data-chip class="chip">{{ t('mail.recipients.more', total) }}</span>
     </div>
   </div>
 </template>

@@ -94,12 +94,12 @@ async function save() {
       updated_at: props.tag?.updated_at ?? 0,
     })
     await tagsStore.reload()
-    feedback.success(t.value['tags.saved'])
+    feedback.success(t('tags.saved'))
     emit('saved')
     emit('update:open', false)
   } catch (error) {
     console.error('Failed to save tag', error)
-    feedback.error(t.value['tags.saveFailed'])
+    feedback.error(t('tags.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -114,24 +114,24 @@ async function save() {
     @update:open="emit('update:open', $event)"
   >
     <UiDialogHeader
-      :title="tag ? t['tags.edit'] : t['tags.add']"
-      :close-label="t['cancel']"
+      :title="tag ? t('tags.edit') : t('tags.add')"
+      :close-label="t('cancel')"
       :disabled="saving"
       @close="emit('update:open', false)"
     />
     <div class="dlg-body">
       <label class="field">
-        <span class="field__label">{{ t['tags.label'] }}</span>
+        <span class="field__label">{{ t('tags.label') }}</span>
         <input v-model="label" class="input" maxlength="64" placeholder="arXiv" />
       </label>
 
       <div class="field">
-        <span class="field__label">{{ t['tags.color'] }}</span>
+        <span class="field__label">{{ t('tags.color') }}</span>
         <UiColorPicker
           variant="field"
-          :label="t['tags.color']"
-          :custom-label="t['tags.colorCustom']"
-          :default-label="t['tags.colorDefault']"
+          :label="t('tags.color')"
+          :custom-label="t('tags.colorCustom')"
+          :default-label="t('tags.colorDefault')"
           icon="i-ri:palette-line"
           :value="color"
           fallback="#4f83cc"
@@ -142,18 +142,18 @@ async function save() {
       </div>
 
       <label class="field">
-        <span class="field__label">{{ t['tags.keywords'] }}</span>
+        <span class="field__label">{{ t('tags.keywords') }}</span>
         <textarea
           v-model="keywordsText"
           class="input keyword-input"
           rows="4"
           placeholder="arxiv, kdd, aaai"
         />
-        <span class="field__hint">{{ t['tags.keywordsHint'] }}</span>
+        <span class="field__hint">{{ t('tags.keywordsHint') }}</span>
       </label>
 
       <div class="field tag-fields-field">
-        <span class="field__label">{{ t['tags.fields'] }}</span>
+        <span class="field__label">{{ t('tags.fields') }}</span>
         <div class="field-grid">
           <UiCheckbox
             v-for="field in TAG_FIELDS"
@@ -163,21 +163,21 @@ async function save() {
             :checked="fields.includes(field)"
             @update:checked="toggleField(field, $event)"
           >
-            {{ t[`tags.field.${field}`] }}
+            {{ t(`tags.field.${field}`) }}
           </UiCheckbox>
         </div>
       </div>
 
       <UiSwitch v-model:checked="enabled" class="switch-row">
-        {{ t['tags.enabled'] }}
+        {{ t('tags.enabled') }}
       </UiSwitch>
     </div>
     <footer class="dlg-foot">
       <button type="button" class="btn" :disabled="saving" @click="emit('update:open', false)">
-        {{ t['cancel'] }}
+        {{ t('cancel') }}
       </button>
       <button type="button" class="btn btn--primary" :disabled="!canSave || saving" @click="save">
-        {{ t['tags.save'] }}
+        {{ t('tags.save') }}
       </button>
     </footer>
   </UiDialog>

@@ -21,7 +21,7 @@ const props = withDefaults(
   { embedded: false },
 )
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const contactsStore = useContactsStore()
 const feedback = useFeedbackStore()
 const preferences = usePreferencesStore()
@@ -46,7 +46,7 @@ const visibleContacts = computed(() => {
 const emailValid = computed(() => COMPLETE_EMAIL_PATTERN.test(formEmail.value.trim()))
 
 function displayName(contact: Contact): string {
-  return contact.name.trim() || contact.email.split('@')[0] || t.value['contacts.unnamed']
+  return contact.name.trim() || contact.email.split('@')[0] || t('contacts.unnamed')
 }
 
 function initials(contact: Contact): string {
@@ -82,11 +82,11 @@ async function save() {
   })
   saving.value = false
   if (!saved) {
-    feedback.error(t.value['contacts.saveFailed'])
+    feedback.error(t('contacts.saveFailed'))
     return
   }
   dialogOpen.value = false
-  feedback.success(t.value['contacts.saved'])
+  feedback.success(t('contacts.saved'))
 }
 
 async function confirmDelete() {
@@ -95,11 +95,11 @@ async function confirmDelete() {
   const ok = await contactsStore.removeContact(deleteTarget.value.id)
   deleting.value = false
   if (!ok) {
-    feedback.error(t.value['contacts.deleteFailed'])
+    feedback.error(t('contacts.deleteFailed'))
     return
   }
   deleteTarget.value = null
-  feedback.success(t.value['contacts.deleted'])
+  feedback.success(t('contacts.deleted'))
 }
 
 onMounted(() => {
@@ -117,10 +117,10 @@ onMounted(() => {
       <section class="surface">
         <header class="surface__head contacts-head">
           <div class="title-row">
-            <h2>{{ t['contacts.title'] }}</h2>
+            <h2>{{ t('contacts.title') }}</h2>
             <span class="local-chip">
               <i class="i-ri:hard-drive-2-line" aria-hidden="true" />
-              {{ t['contacts.localOnly'] }}
+              {{ t('contacts.localOnly') }}
             </span>
           </div>
           <div class="contact-head-actions">
@@ -128,14 +128,14 @@ onMounted(() => {
               class="contact-auto-collect"
               size="sm"
               :checked="preferences.autoCollectContacts"
-              :title="t['contacts.autoCollectHint']"
+              :title="t('contacts.autoCollectHint')"
               @update:checked="onAutoCollectChange"
             >
-              {{ t['contacts.autoCollect'] }}
+              {{ t('contacts.autoCollect') }}
             </UiSwitch>
             <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
               <i class="i-ri:user-add-line" aria-hidden="true" />
-              {{ t['contacts.add'] }}
+              {{ t('contacts.add') }}
             </button>
           </div>
         </header>
@@ -147,14 +147,14 @@ onMounted(() => {
               v-model="filter"
               type="search"
               spellcheck="false"
-              :placeholder="t['contacts.search']"
-              :aria-label="t['contacts.search']"
+              :placeholder="t('contacts.search')"
+              :aria-label="t('contacts.search')"
             />
             <button
               v-if="filter"
               type="button"
               class="search-clear"
-              :aria-label="t['contacts.clearSearch']"
+              :aria-label="t('contacts.clearSearch')"
               @click="filter = ''"
             >
               <i class="i-ri:close-line" aria-hidden="true" />
@@ -168,7 +168,7 @@ onMounted(() => {
           </div>
           <div v-else-if="visibleContacts.length === 0" class="state state--empty">
             <i class="i-ri:contacts-book-2-line" aria-hidden="true" />
-            <p>{{ filter.trim() ? t['contacts.noMatch'] : t['contacts.empty'] }}</p>
+            <p>{{ filter.trim() ? t('contacts.noMatch') : t('contacts.empty') }}</p>
           </div>
           <template v-else>
             <div v-for="contact in visibleContacts" :key="contact.id" class="contact-row">
@@ -181,8 +181,8 @@ onMounted(() => {
                 <button
                   type="button"
                   class="icon-btn"
-                  :title="t['contacts.edit']"
-                  :aria-label="t['contacts.edit']"
+                  :title="t('contacts.edit')"
+                  :aria-label="t('contacts.edit')"
                   @click="openEdit(contact)"
                 >
                   <i class="i-ri:edit-2-line" aria-hidden="true" />
@@ -190,8 +190,8 @@ onMounted(() => {
                 <button
                   type="button"
                   class="icon-btn contact-delete"
-                  :title="t['contacts.delete']"
-                  :aria-label="t['contacts.delete']"
+                  :title="t('contacts.delete')"
+                  :aria-label="t('contacts.delete')"
                   @click="deleteTarget = contact"
                 >
                   <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
@@ -205,38 +205,38 @@ onMounted(() => {
 
     <UiDialog :open="dialogOpen" :busy="saving" size="narrow" @update:open="dialogOpen = $event">
       <UiDialogHeader
-        :title="editing ? t['contacts.edit'] : t['contacts.new']"
-        :close-label="t['cancel']"
+        :title="editing ? t('contacts.edit') : t('contacts.new')"
+        :close-label="t('cancel')"
         :disabled="saving"
         @close="dialogOpen = false"
       />
       <div class="dlg-body">
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['contacts.name'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('contacts.name') }}</Field.Label>
           <Field.Input
             v-model="formName"
             class="input"
             type="text"
-            :placeholder="t['contacts.namePlaceholder']"
+            :placeholder="t('contacts.namePlaceholder')"
           />
         </Field.Root>
         <Field.Root class="field">
-          <Field.Label class="field__label">{{ t['contacts.email'] }}</Field.Label>
+          <Field.Label class="field__label">{{ t('contacts.email') }}</Field.Label>
           <Field.Input
             v-model="formEmail"
             class="input"
             type="email"
-            :placeholder="t['contacts.emailPlaceholder']"
+            :placeholder="t('contacts.emailPlaceholder')"
             @keydown.enter="save"
           />
           <span v-if="formEmail.trim() && !emailValid" class="field-error">
-            {{ t['contacts.invalidEmail'] }}
+            {{ t('contacts.invalidEmail') }}
           </span>
         </Field.Root>
       </div>
       <footer class="dlg-foot">
         <button type="button" class="btn" :disabled="saving" @click="dialogOpen = false">
-          {{ t['cancel'] }}
+          {{ t('cancel') }}
         </button>
         <button
           type="button"
@@ -244,18 +244,18 @@ onMounted(() => {
           :disabled="!emailValid || saving"
           @click="save"
         >
-          {{ t['contacts.save'] }}
+          {{ t('contacts.save') }}
         </button>
       </footer>
     </UiDialog>
 
     <ConfirmDialog
       :open="!!deleteTarget"
-      :title="t['contacts.delete']"
+      :title="t('contacts.delete')"
       :description="
-        deleteTarget ? tf('contacts.deleteConfirm', { name: displayName(deleteTarget) }) : undefined
+        deleteTarget ? t('contacts.deleteConfirm', { name: displayName(deleteTarget) }) : undefined
       "
-      :confirm-label="t['contacts.delete']"
+      :confirm-label="t('contacts.delete')"
       danger
       :busy="deleting"
       @update:open="(open) => (!open ? (deleteTarget = null) : undefined)"

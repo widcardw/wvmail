@@ -13,7 +13,7 @@ import type { Note } from '~/stores/notes'
 // The list half of Notes. Everything about editing a single note (editor instance,
 // toolbar, autosave) lives in components/notes/NoteEditor.vue, which this view mounts
 // with `:key="note.id"` so each note gets its own editor — and its own undo history.
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const notesStore = useNotesStore()
 const feedback = useFeedbackStore()
 
@@ -42,7 +42,7 @@ const visibleNotes = computed(() => {
   // `note.title`, which is stored truncated to 15 chars for the window title.
   return notes.map((note) => ({
     note,
-    ...noteListPreview(note.content, t.value['notes.untitled']),
+    ...noteListPreview(note.content, t('notes.untitled')),
   }))
 })
 
@@ -81,12 +81,12 @@ async function confirmDelete() {
   if (!deleted) {
     // A failed delete leaves the note open, so restore its pending autosave.
     if (notesStore.selectedId === target.id) editorRef.value?.restore()
-    feedback.error(t.value['notes.deleteFailed'])
+    feedback.error(t('notes.deleteFailed'))
     return
   }
 
   deleteTarget.value = null
-  feedback.success(t.value['notes.deleted'])
+  feedback.success(t('notes.deleted'))
 }
 
 function switchNote(id: string) {
@@ -102,10 +102,10 @@ onMounted(() => {
     <!-- Sidebar -->
     <div class="notes-sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-title">{{ t['notes.title'] }}</span>
+        <span class="sidebar-title">{{ t('notes.title') }}</span>
         <button type="button" class="btn btn--primary" @click="handleNewNote">
           <i class="i-ri:pen-nib-fill" aria-hidden="true" />
-          {{ t['notes.new'] }}
+          {{ t('notes.new') }}
         </button>
       </div>
       <div class="sidebar-filter">
@@ -115,14 +115,14 @@ onMounted(() => {
           class="note-filter"
           type="search"
           spellcheck="false"
-          :placeholder="t['notes.search']"
-          :aria-label="t['notes.search']"
+          :placeholder="t('notes.search')"
+          :aria-label="t('notes.search')"
         />
         <button
           v-if="filter"
           type="button"
           class="filter-clear"
-          :aria-label="t['notes.clearSearch']"
+          :aria-label="t('notes.clearSearch')"
           @click="filter = ''"
         >
           <i class="i-ri:close-line" aria-hidden="true" />
@@ -130,7 +130,7 @@ onMounted(() => {
       </div>
       <UiScrollArea class="scroll">
         <p v-if="visibleNotes.length === 0" class="empty-pad">
-          {{ filter.trim() ? t['notes.noMatch'] : t['notes.empty'] }}
+          {{ filter.trim() ? t('notes.noMatch') : t('notes.empty') }}
         </p>
         <Menu.Root
           v-for="row in visibleNotes"
@@ -174,7 +174,7 @@ onMounted(() => {
                   @click="onMenuSelect(row.note, 'delete')"
                 >
                   <i class="i-ri:delete-bin-5-line" aria-hidden="true" />
-                  <Menu.ItemText>{{ t['notes.delete'] }}</Menu.ItemText>
+                  <Menu.ItemText>{{ t('notes.delete') }}</Menu.ItemText>
                 </Menu.Item>
               </Menu.Content>
             </Menu.Positioner>
@@ -192,20 +192,20 @@ onMounted(() => {
     />
 
     <div v-else class="editor-placeholder">
-      <p class="empty-pad">{{ t['notes.empty'] }}</p>
+      <p class="empty-pad">{{ t('notes.empty') }}</p>
     </div>
 
     <ConfirmDialog
       :open="!!deleteTarget"
-      :title="t['notes.delete']"
+      :title="t('notes.delete')"
       :description="
         deleteTarget
-          ? tf('notes.deleteConfirm', {
-              title: notePreviewText(deleteTarget.content, t['notes.untitled']),
+          ? t('notes.deleteConfirm', {
+              title: notePreviewText(deleteTarget.content, t('notes.untitled')),
             })
           : undefined
       "
-      :confirm-label="t['notes.delete']"
+      :confirm-label="t('notes.delete')"
       danger
       :busy="deleting"
       @update:open="(open) => (!open ? (deleteTarget = null) : undefined)"

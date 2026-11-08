@@ -18,13 +18,13 @@ const fb = useFeedbackStore()
 const preferences = usePreferencesStore()
 
 const targetLangOptions = computed(() => [
-  { label: t.value['settings.aiAssistant.language.zh'], value: 'zh-CN' },
-  { label: t.value['settings.aiAssistant.language.en'], value: 'en' },
+  { label: t('settings.aiAssistant.language.zh'), value: 'zh-CN' },
+  { label: t('settings.aiAssistant.language.en'), value: 'en' },
 ])
 
 const engineOptions = computed(() => [
-  { label: t.value['settings.aiAssistant.engine.llm'], value: 'llm' },
-  { label: t.value['settings.aiAssistant.engine.deepl'], value: 'deepl' },
+  { label: t('settings.aiAssistant.engine.llm'), value: 'llm' },
+  { label: t('settings.aiAssistant.engine.deepl'), value: 'deepl' },
 ])
 
 const llmConfigs = ref<LLMConfig[]>([])
@@ -138,20 +138,20 @@ function onSkipConfirmationChange(checked: boolean) {
   <div class="wrap">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.aiAssistant.translation_title'] }}</h2>
+        <h2>{{ t('settings.aiAssistant.translation_title') }}</h2>
       </header>
 
-      <p class="hint">{{ t['settings.aiAssistant.ai_hint'] }}</p>
+      <p class="hint">{{ t('settings.aiAssistant.ai_hint') }}</p>
 
       <UiAlert
         v-if="llmConfigs.length === 0 && form.DefaultEngine === 'llm'"
         class="translation-warning"
         tone="warning"
       >
-        {{ t['settings.aiAssistant.no_llm'] }}
+        {{ t('settings.aiAssistant.no_llm') }}
       </UiAlert>
 
-      <UiFieldRow :label="t['settings.aiAssistant.target_lang']">
+      <UiFieldRow :label="t('settings.aiAssistant.target_lang')">
         <UiSelect
           :options="targetLangOptions"
           :model-value="form.DefaultTargetLang"
@@ -160,7 +160,7 @@ function onSkipConfirmationChange(checked: boolean) {
         />
       </UiFieldRow>
 
-      <UiFieldRow :label="t['settings.aiAssistant.engine.label']">
+      <UiFieldRow :label="t('settings.aiAssistant.engine.label')">
         <UiSelect
           :options="engineOptions"
           :model-value="form.DefaultEngine"
@@ -170,7 +170,7 @@ function onSkipConfirmationChange(checked: boolean) {
       </UiFieldRow>
 
       <template v-if="form.DefaultEngine === 'llm'">
-        <UiFieldRow :label="t['settings.aiAssistant.llm_config']">
+        <UiFieldRow :label="t('settings.aiAssistant.llm_config')">
           <UiSelect
             :options="llmOptions"
             :model-value="form.LLMConfigName"
@@ -180,7 +180,7 @@ function onSkipConfirmationChange(checked: boolean) {
           />
         </UiFieldRow>
 
-        <UiFieldRow v-if="modelOptions.length > 0" :label="t['settings.aiAssistant.llm_model']">
+        <UiFieldRow v-if="modelOptions.length > 0" :label="t('settings.aiAssistant.llm_model')">
           <UiSelect
             :options="modelOptions"
             :model-value="form.LLMModel"
@@ -191,7 +191,7 @@ function onSkipConfirmationChange(checked: boolean) {
       </template>
 
       <template v-else-if="form.DefaultEngine === 'deepl'">
-        <UiFieldRow :label="t['settings.aiAssistant.deepl_key']">
+        <UiFieldRow :label="t('settings.aiAssistant.deepl_key')">
           <UiPasswordInput
             width="300px"
             :value="form.DeepLAuthKey"
@@ -206,16 +206,16 @@ function onSkipConfirmationChange(checked: boolean) {
 
     <section class="surface surface--spaced">
       <header class="surface__head">
-        <h2>{{ t['settings.aiAssistant.polish_title'] }}</h2>
+        <h2>{{ t('settings.aiAssistant.polish_title') }}</h2>
       </header>
 
-      <p class="hint">{{ t['settings.aiAssistant.polish_hint'] }}</p>
+      <p class="hint">{{ t('settings.aiAssistant.polish_hint') }}</p>
 
       <UiAlert v-if="llmConfigs.length === 0" class="translation-warning" tone="warning">
-        {{ t['settings.aiAssistant.no_llm'] }}
+        {{ t('settings.aiAssistant.no_llm') }}
       </UiAlert>
 
-      <UiFieldRow :label="t['settings.aiAssistant.llm_config']">
+      <UiFieldRow :label="t('settings.aiAssistant.llm_config')">
         <UiSelect
           :options="llmOptions"
           :model-value="form.PolishLLMConfigName"
@@ -225,7 +225,7 @@ function onSkipConfirmationChange(checked: boolean) {
         />
       </UiFieldRow>
 
-      <UiFieldRow v-if="polishModelOptions.length > 0" :label="t['settings.aiAssistant.llm_model']">
+      <UiFieldRow v-if="polishModelOptions.length > 0" :label="t('settings.aiAssistant.llm_model')">
         <UiSelect
           :options="polishModelOptions"
           :model-value="form.PolishLLMModel"
@@ -237,12 +237,12 @@ function onSkipConfirmationChange(checked: boolean) {
 
     <section class="surface surface--spaced">
       <header class="surface__head">
-        <h2>{{ t['settings.aiAssistant.confirm_title'] }}</h2>
+        <h2>{{ t('settings.aiAssistant.confirm_title') }}</h2>
       </header>
 
       <UiFieldRow
-        :label="t['settings.aiAssistant.skip_confirm']"
-        :hint="t['settings.aiAssistant.skip_confirm_hint']"
+        :label="t('settings.aiAssistant.skip_confirm')"
+        :hint="t('settings.aiAssistant.skip_confirm_hint')"
       >
         <UiSwitch
           :checked="preferences.skipAIAssistConfirmation"

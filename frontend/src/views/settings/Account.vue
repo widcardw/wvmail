@@ -12,7 +12,7 @@ import AvatarCropDialog from '~/components/settings/AvatarCropDialog.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import UiCheckbox from '~/components/ui/UiCheckbox.vue'
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 const accountsStore = useAccountsStore()
 const fb = useFeedbackStore()
 
@@ -198,7 +198,7 @@ async function onAvatarFile(event: Event) {
   input.value = ''
   if (!file) return
   if (!file.type.startsWith('image/')) {
-    fb.error(t.value['settings.accounts.invalid_image'])
+    fb.error(t('settings.accounts.invalid_image'))
     return
   }
 
@@ -232,24 +232,24 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 function validateForm(): string[] {
   const form = formData.value
   const errors: string[] = []
-  if (!form.Name.trim()) errors.push(t.value['settings.accounts.name'])
-  if (!form.Email.trim()) errors.push(t.value['settings.accounts.email'])
-  if (!form.IMAPHost.trim()) errors.push(t.value['settings.accounts.imap_host'])
-  if (!form.IMAPPort) errors.push(t.value['settings.accounts.imap_port'])
+  if (!form.Name.trim()) errors.push(t('settings.accounts.name'))
+  if (!form.Email.trim()) errors.push(t('settings.accounts.email'))
+  if (!form.IMAPHost.trim()) errors.push(t('settings.accounts.imap_host'))
+  if (!form.IMAPPort) errors.push(t('settings.accounts.imap_port'))
   // OAuth accounts authenticate with a stored refresh token: there is no
   // password to require, but the verification itself must have succeeded.
   if (form.AuthType === 'oauth2') {
-    if (!form.OAuthRefreshToken) errors.push(t.value['settings.accounts.oauth.not_verified'])
+    if (!form.OAuthRefreshToken) errors.push(t('settings.accounts.oauth.not_verified'))
   } else if (!form.IMAPPass) {
-    errors.push(t.value['settings.accounts.imap_pass'])
+    errors.push(t('settings.accounts.imap_pass'))
   }
-  if (!form.SMTPHost.trim()) errors.push(t.value['settings.accounts.smtp_host'])
-  if (!form.SMTPPort) errors.push(t.value['settings.accounts.smtp_port'])
+  if (!form.SMTPHost.trim()) errors.push(t('settings.accounts.smtp_host'))
+  if (!form.SMTPPort) errors.push(t('settings.accounts.smtp_port'))
   // "Custom proxy" with no address is a setting that cannot work: the dial would
   // fail with "no address" on every operation. Caught here so the message points
   // at the field instead of arriving as a connection error later.
   if (form.Proxy?.Mode === 'custom' && !form.Proxy.URL.trim()) {
-    errors.push(t.value['settings.accounts.proxy_address'])
+    errors.push(t('settings.accounts.proxy_address'))
   }
   return errors
 }
@@ -257,7 +257,7 @@ function validateForm(): string[] {
 async function handleSave() {
   const errors = validateForm()
   if (errors.length > 0) {
-    fb.error(`${t.value['settings.accounts.required_fields']}: ${errors.join(', ')}`)
+    fb.error(`${t('settings.accounts.required_fields')}: ${errors.join(', ')}`)
     return
   }
 
@@ -266,12 +266,12 @@ async function handleSave() {
     let accountId = editingId.value
     if (accountId) {
       await accountsStore.updateAccount(accountId, formData.value)
-      fb.success(t.value['settings.accounts.updated'])
+      fb.success(t('settings.accounts.updated'))
     } else {
       accountId =
         crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2)
       await accountsStore.addAccount({ ...formData.value, ID: accountId })
-      fb.success(t.value['settings.accounts.added'])
+      fb.success(t('settings.accounts.added'))
     }
 
     if (accountId && avatarFileData.value) {
@@ -350,7 +350,7 @@ function askDelete(account: EmailAccount) {
 const deleteDescription = computed(() => {
   const account = deleteTarget.value
   if (!account) return ''
-  return tf('settings.accounts.delete_body', {
+  return t('settings.accounts.delete_body', {
     name: account.Name || account.Email,
     email: account.Email,
   })
@@ -366,7 +366,7 @@ async function confirmDelete() {
   deleting.value = true
   try {
     await accountsStore.removeAccount(account.ID, { purgeCache: purgeCache.value })
-    fb.success(t.value['settings.accounts.deleted'])
+    fb.success(t('settings.accounts.deleted'))
     deleteTarget.value = null
   } catch (error) {
     // Leave the dialog up: the account is still there, and the toast says why.
@@ -428,9 +428,9 @@ onUnmounted(() => {
 
     <ConfirmDialog
       :open="deleteTarget !== null"
-      :title="t['settings.accounts.delete_title']"
+      :title="t('settings.accounts.delete_title')"
       :description="deleteDescription"
-      :confirm-label="t['settings.accounts.delete']"
+      :confirm-label="t('settings.accounts.delete')"
       :busy="deleting"
       danger
       @update:open="onDeleteDialogOpen"
@@ -443,9 +443,9 @@ onUnmounted(() => {
           label-class="cache-row__label"
           :disabled="deleting"
         >
-          {{ t['settings.accounts.delete_cache'] }}
+          {{ t('settings.accounts.delete_cache') }}
         </UiCheckbox>
-        <p class="cache-hint">{{ t['settings.accounts.delete_cache_hint'] }}</p>
+        <p class="cache-hint">{{ t('settings.accounts.delete_cache_hint') }}</p>
       </template>
     </ConfirmDialog>
   </div>

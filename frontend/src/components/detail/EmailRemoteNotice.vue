@@ -11,7 +11,7 @@ const emit = defineEmits<{
   always: []
 }>()
 
-const { t, tf } = useI18n()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -19,12 +19,12 @@ const { t, tf } = useI18n()
     <i class="i-ri:shield-keyhole-line body-bar__icon" aria-hidden="true" />
     <!-- `count` is passed as a number, so the message picks its singular or plural
          branch and can still print the number via `{count}`. -->
-    <span class="body-bar__text" :title="tf('mail.remote.blocked', props.count)">
-      {{ tf('mail.remote.blocked_short', props.count) }}
+    <span class="body-bar__text" :title="t('mail.remote.blocked', props.count)">
+      {{ t('mail.remote.blocked_short', props.count) }}
     </span>
     <div class="body-bar__actions">
       <button type="button" class="btn btn--sm btn--subtle" @click="emit('reveal')">
-        {{ t['mail.remote.show'] }}
+        {{ t('mail.remote.show') }}
       </button>
       <button
         v-if="props.canAlwaysAllow"
@@ -32,7 +32,7 @@ const { t, tf } = useI18n()
         class="btn btn--sm btn--subtle"
         @click="emit('always')"
       >
-        {{ t['mail.remote.always'] }}
+        {{ t('mail.remote.always') }}
       </button>
     </div>
   </div>

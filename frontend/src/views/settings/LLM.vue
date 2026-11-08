@@ -138,9 +138,9 @@ async function handleSave() {
     await ConfigService.SaveLLMConfigs(list)
     configs.value = list
     showModal.value = false
-    fb.success(t.value['settings.llm.save'])
+    fb.success(t('settings.llm.save'))
   } catch {
-    fb.error(t.value['settings.llm.test.fail'])
+    fb.error(t('settings.llm.test.fail'))
   } finally {
     saving.value = false
   }
@@ -252,13 +252,13 @@ function modelTags(item: LLMConfig): string[] {
   <div class="wrap">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.llm.title'] }}</h2>
+        <h2>{{ t('settings.llm.title') }}</h2>
         <button type="button" class="btn btn--primary btn--sm" @click="openAdd">
-          {{ t['settings.llm.add'] }}
+          {{ t('settings.llm.add') }}
         </button>
       </header>
 
-      <p v-if="configs.length === 0" class="empty">{{ t['settings.llm.empty'] }}</p>
+      <p v-if="configs.length === 0" class="empty">{{ t('settings.llm.empty') }}</p>
 
       <ul v-else class="rows">
         <li v-for="(item, index) in configs" :key="index" class="row">
@@ -308,15 +308,15 @@ function modelTags(item: LLMConfig): string[] {
                 'btn--ok': testResultIndex === index && testSuccess,
                 'btn--bad': testResultIndex === index && !testSuccess,
               }"
-              :label="t['settings.llm.test.label']"
-              :sizer-label="`✓ ${t['settings.llm.test.label']}`"
+              :label="t('settings.llm.test.label')"
+              :sizer-label="`✓ ${t('settings.llm.test.label')}`"
               :busy="testingIndex === index"
               @click="testItem(index)"
             >
               <template v-if="testResultIndex === index">{{ testSuccess ? '✓ ' : '✕ ' }}</template>
             </BusyButton>
             <button type="button" class="btn btn--sm" @click="openEdit(index)">
-              {{ t['settings.llm.edit'] }}
+              {{ t('settings.llm.edit') }}
             </button>
             <button
               type="button"
@@ -326,8 +326,8 @@ function modelTags(item: LLMConfig): string[] {
             >
               {{
                 confirmingDelete === index
-                  ? t['settings.llm.delete_again']
-                  : t['settings.llm.delete']
+                  ? t('settings.llm.delete_again')
+                  : t('settings.llm.delete')
               }}
             </button>
           </div>
