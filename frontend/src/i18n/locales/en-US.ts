@@ -783,6 +783,7 @@ const enUS = {
     colorCustom: 'Custom',
     colorDefault: 'Reset',
     keywords: 'Keywords',
+    keywordPlaceholder: 'Type a keyword and press Enter to add',
     keywordsHint:
       'Separate with commas or new lines. Any keyword inside one tag is enough to match.',
     fields: 'Match in',

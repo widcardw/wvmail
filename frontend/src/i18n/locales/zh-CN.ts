@@ -771,6 +771,7 @@ const zhCN = {
     colorCustom: '自定义',
     colorDefault: '恢复默认',
     keywords: '关键词',
+    keywordPlaceholder: '键入关键词，按回车添加',
     keywordsHint: '用逗号或换行分隔；同一标签内任意关键词命中即可。',
     fields: '匹配范围',
     field: {

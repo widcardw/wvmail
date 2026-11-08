@@ -21,6 +21,8 @@ const props = withDefaults(
     closeOnInteractOutside?: boolean
     /** Add card padding for compact dialogs that do not provide dlg-head/body/foot. */
     padded?: boolean
+    /** Additional class for dialog-specific sizing or layout. */
+    contentClass?: string
   }>(),
   {
     size: 'default',
@@ -28,6 +30,7 @@ const props = withDefaults(
     busy: false,
     closeOnInteractOutside: true,
     padded: false,
+    contentClass: '',
   },
 )
 
@@ -60,7 +63,13 @@ const cardClass = {
     <Teleport to="body">
       <Dialog.Backdrop class="dlg-back" />
       <Dialog.Positioner class="dlg-pos" :class="{ 'dlg-pos--top': props.size === 'top' }">
-        <Dialog.Content :class="[cardClass[props.size], { 'dlg-card--padded': props.padded }]">
+        <Dialog.Content
+          :class="[
+            cardClass[props.size],
+            props.contentClass,
+            { 'dlg-card--padded': props.padded },
+          ]"
+        >
           <slot />
         </Dialog.Content>
       </Dialog.Positioner>
