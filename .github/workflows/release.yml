@@ -15,8 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos
+          - platform: macos-arm64
             runner: macos-15
+            arch: arm64
+            asset_arch: arm64
+          - platform: macos-intel
+            runner: macos-15-intel
+            arch: amd64
+            asset_arch: intel
           - platform: windows
             runner: windows-2022
           - platform: linux
@@ -77,14 +83,14 @@ jobs:
         if: runner.os == 'Windows'
         run: Add-Content -Path $env:GITHUB_PATH -Value (Join-Path (go env GOPATH) 'bin')
 
-      - name: Build and package macOS universal app
-        if: matrix.platform == 'macos'
+      - name: Build and package macOS app
+        if: startsWith(matrix.platform, 'macos-')
         run: |
-          wails3 task darwin:package:universal
+          wails3 task darwin:package ARCH=${{ matrix.arch }}
           mkdir -p release-assets
           ditto -c -k --sequesterRsrc --keepParent \
             bin/wvmail.app \
-            "release-assets/wvmail-${GITHUB_REF_NAME}-macos-universal.zip"
+            "release-assets/wvmail-${GITHUB_REF_NAME}-macos-${{ matrix.asset_arch }}.zip"
 
       - name: Build and package Windows installer
         if: matrix.platform == 'windows'
