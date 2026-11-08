@@ -177,18 +177,23 @@ console.log(out.html.match(/<span class=\"date-mention\"[^>]*>[^<]*<\/span>/g) ?
 
 ## Due-time notifications
 
-The desktop app checks unfinished reminders while it is running, including when its
-main window is hidden to the tray. A due reminder is sent once through Wails'
-native notification service; the notification title follows the app language and
-its body contains the reminder title. Due reminders missed while the app was not
-running are sent on the next launch. Marking a reminder complete prevents a
-notification. Saving a reminder whose time is already in the past keeps it as a
-note but does not notify immediately.
+The app registers each unfinished reminder with Wails' native notification
+service when it is created or updated, and restores upcoming registrations after
+the application starts. Completing or deleting a reminder cancels its pending
+notification. The notification title follows the app language and its body
+contains the reminder title. Saving a reminder whose time is already in the past
+keeps it as a note but does not notify immediately.
 
-The delivery-attempt marker is stored in SQLite so an already handled reminder
-does not alert again on each scheduler tick or after restarting the app. Existing
-upcoming reminders remain eligible; already-overdue reminders from before
-notifications were added are not replayed on the first run.
+Scheduling support differs by platform: macOS uses a native scheduled request
+that survives app restarts, while Windows and Linux use an in-process timer and
+therefore require the app to be running at the due time. On Windows and Linux,
+an eligible reminder missed while the app was closed is delivered immediately
+when the app starts. Already-overdue reminders from before notifications were
+added are marked handled on the first run rather than replayed.
+
+The delivery marker is stored in SQLite to avoid duplicate notifications after
+restarting the app. A short-lived in-process timer only records that marker at
+the due time; it does not poll for reminders or send the notification.
 
 ## Storage
 

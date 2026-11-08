@@ -96,52 +96,60 @@ func TestReminderServiceValidation(t *testing.T) {
 	}
 }
 
-func TestReminderNotificationsFireOnceWhenDue(t *testing.T) {
+func TestReminderNotificationsScheduleAndCancel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	svc := NewRemindersService()
-	now := time.Now()
-	due, err := svc.SaveReminder(Reminder{
+	defer svc.Stop()
+	var scheduled []Reminder
+	var canceled []string
+	svc.SetNotificationHandlers(func(reminder Reminder) error {
+		scheduled = append(scheduled, reminder)
+		return nil
+	}, func(id string) error {
+		canceled = append(canceled, id)
+		return nil
+	})
+
+	reminder, err := svc.SaveReminder(Reminder{
 		Title: "评审",
-		Time:  now.Unix() + 1,
+		Time:  time.Now().Add(time.Hour).Unix(),
 	})
 	if err != nil {
 		t.Fatalf("SaveReminder: %v", err)
 	}
-	future, err := svc.SaveReminder(Reminder{
-		Title: "站会",
-		Time:  now.Unix() + 3600,
-	})
-	if err != nil {
-		t.Fatalf("SaveReminder(future): %v", err)
-	}
-	done, err := svc.SaveReminder(Reminder{
-		Title: "已完成",
-		Time:  now.Unix() - 1,
-		Done:  true,
-	})
-	if err != nil {
-		t.Fatalf("SaveReminder(done): %v", err)
+	if len(scheduled) != 1 || scheduled[0].ID != reminder.ID {
+		t.Fatalf("scheduled = %+v, want reminder %q", scheduled, reminder.ID)
 	}
 
-	var notified []string
-	svc.SetNotifier(func(reminder Reminder) error {
-		notified = append(notified, reminder.ID)
-		return nil
-	})
-
-	svc.dispatchDue(now.Add(2 * time.Second))
-	svc.dispatchDue(now.Add(3 * time.Second))
-	if len(notified) != 1 || notified[0] != due.ID {
-		t.Fatalf("notifications = %v, want only due reminder %q", notified, due.ID)
+	if err := svc.SetReminderDone(reminder.ID, true); err != nil {
+		t.Fatalf("SetReminderDone(true): %v", err)
 	}
-	if future.NotificationAttempted || !done.NotificationAttempted {
-		t.Fatalf("incorrect notification state: future=%+v done=%+v", future, done)
+	if len(canceled) != 2 || canceled[1] != reminder.ID {
+		t.Fatalf("canceled = %v, want reminder %q", canceled, reminder.ID)
+	}
+	if len(scheduled) != 1 {
+		t.Fatalf("completed reminder was rescheduled: %+v", scheduled)
+	}
+
+	if err := svc.SetReminderDone(reminder.ID, false); err != nil {
+		t.Fatalf("SetReminderDone(false): %v", err)
+	}
+	if len(scheduled) != 2 || scheduled[1].ID != reminder.ID {
+		t.Fatalf("reopened reminder was not rescheduled: %+v", scheduled)
+	}
+
+	if err := svc.DeleteReminder(reminder.ID); err != nil {
+		t.Fatalf("DeleteReminder: %v", err)
+	}
+	if len(canceled) != 4 || canceled[3] != reminder.ID {
+		t.Fatalf("canceled = %v, want final cancellation for %q", canceled, reminder.ID)
 	}
 }
 
 func TestPastReminderDoesNotNotifyAndLegacyReminderIsNotReplayed(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	svc := NewRemindersService()
+	defer svc.Stop()
 	past, err := svc.SaveReminder(Reminder{Title: "过去的提醒", Time: time.Now().Unix() - 1})
 	if err != nil {
 		t.Fatalf("SaveReminder(past): %v", err)
@@ -151,7 +159,7 @@ func TestPastReminderDoesNotNotifyAndLegacyReminderIsNotReplayed(t *testing.T) {
 	}
 
 	legacyPast := CachedReminder{ID: "legacy-past", Title: "旧提醒", Time: time.Now().Unix() - 60}
-	legacyFuture := CachedReminder{ID: "legacy-future", Title: "未来旧提醒", Time: time.Now().Unix() + 60}
+	legacyFuture := CachedReminder{ID: "legacy-future", Title: "未来旧提醒", Time: time.Now().Unix() + 3600}
 	if err := svc.db.SaveReminder(&legacyPast); err != nil {
 		t.Fatalf("SaveReminder(legacy past): %v", err)
 	}
@@ -159,14 +167,17 @@ func TestPastReminderDoesNotNotifyAndLegacyReminderIsNotReplayed(t *testing.T) {
 		t.Fatalf("SaveReminder(legacy future): %v", err)
 	}
 
-	var notified []string
-	svc.SetNotifier(func(reminder Reminder) error {
-		notified = append(notified, reminder.ID)
+	var scheduled []string
+	svc.SetNotificationHandlers(func(reminder Reminder) error {
+		scheduled = append(scheduled, reminder.ID)
+		return nil
+	}, func(string) error {
 		return nil
 	})
-	svc.dispatchDue(time.Now())
-	if len(notified) != 0 {
-		t.Fatalf("notified %v reminders, want none yet", notified)
+	svc.Start()
+	svc.Start()
+	if len(scheduled) != 1 || scheduled[0] != legacyFuture.ID {
+		t.Fatalf("scheduled %v reminders, want one registration for future legacy reminder %q", scheduled, legacyFuture.ID)
 	}
 	migrated, err := svc.db.LoadReminders()
 	if err != nil {
@@ -176,10 +187,6 @@ func TestPastReminderDoesNotNotifyAndLegacyReminderIsNotReplayed(t *testing.T) {
 		if reminder.ID == legacyFuture.ID && (reminder.NotificationAttempted == nil || *reminder.NotificationAttempted) {
 			t.Fatalf("upcoming legacy reminder should become eligible, got %+v", reminder.NotificationAttempted)
 		}
-	}
-	svc.dispatchDue(time.Now().Add(61 * time.Second))
-	if len(notified) != 1 || notified[0] != legacyFuture.ID {
-		t.Fatalf("notifications = %v, want future legacy reminder %q", notified, legacyFuture.ID)
 	}
 	reminders, err := svc.db.LoadReminders()
 	if err != nil {

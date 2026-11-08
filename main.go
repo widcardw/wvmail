@@ -114,7 +114,10 @@ func main() {
 	mailNotificationSender.SetShouldNotify(windowFocused.Load)
 	emailSvc.SetNewMailListener(mailNotificationSender.NotifyNewMail)
 	reminderSvc := services.NewRemindersService()
-	reminderSvc.SetNotifier(mailNotificationSender.SendReminder)
+	reminderSvc.SetNotificationHandlers(
+		mailNotificationSender.ScheduleReminder,
+		mailNotificationSender.CancelReminder,
+	)
 	tagSvc := services.NewTagService(cfgSvc)
 	contactsSvc := services.NewContactsService(cfgSvc)
 	emailSvc.SetMailCachedListener(func(account services.EmailAccount, folder string, messages []services.EmailSummary) error {
@@ -212,6 +215,9 @@ func main() {
 			// Same on Windows: the hook owns the decision.
 			DisableQuitOnLastWindowClosed: true,
 		},
+	})
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		reminderSvc.Start()
 	})
 
 	// Create a new window with the necessary options.
@@ -368,10 +374,6 @@ func main() {
 	syncSvc.Start()
 	defer syncSvc.Stop()
 
-	// Reminders are checked even when the main window is hidden to the tray.
-	reminderSvc.Start()
-	defer reminderSvc.Stop()
-
 	// Start the IDLE watchers (no-op for accounts with auto-sync off)
 	idleSvc.Start()
 	defer idleSvc.Stop()
@@ -388,6 +390,7 @@ func main() {
 	close(windowReady)
 
 	// Run the application. This blocks until the application has been exited.
+	defer reminderSvc.Stop()
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}

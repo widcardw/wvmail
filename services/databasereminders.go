@@ -42,8 +42,8 @@ func (m *DBManager) SetReminderDone(id string, done bool) error {
 	return db.Model(&CachedReminder{}).Where("id = ?", id).Update("done", done).Error
 }
 
-// SetReminderNotificationAttempted records whether the due notification was attempted,
-// preventing it from being emitted again on the next scheduler tick or launch.
+// SetReminderNotificationAttempted records whether the notification was handled,
+// preventing it from being emitted again after restarting the app.
 func (m *DBManager) SetReminderNotificationAttempted(id string, attempted bool) error {
 	db, err := m.getDB()
 	if err != nil {
@@ -52,4 +52,17 @@ func (m *DBManager) SetReminderNotificationAttempted(id string, attempted bool) 
 	return db.Model(&CachedReminder{}).
 		Where("id = ?", id).
 		Update("notification_attempted", attempted).Error
+}
+
+// SetReminderNotificationAttemptedAt only marks the reminder if it still has
+// the scheduled time captured by the timer. This prevents a timer racing with an
+// edit from marking the new schedule as already delivered.
+func (m *DBManager) SetReminderNotificationAttemptedAt(id string, scheduledTime int64) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Model(&CachedReminder{}).
+		Where("id = ? AND time = ? AND done = ?", id, scheduledTime, false).
+		Update("notification_attempted", true).Error
 }

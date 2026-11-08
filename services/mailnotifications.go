@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
@@ -87,8 +88,10 @@ func (s *MailNotificationSender) sendNewMail(account EmailAccount, emails []Emai
 	}
 }
 
-// SendReminder sends one due reminder as a native desktop notification.
-func (s *MailNotificationSender) SendReminder(reminder Reminder) error {
+// ScheduleReminder registers a reminder with Wails' platform notification
+// service. macOS persists the native request across app restarts; Wails uses an
+// in-process timer on Windows and Linux.
+func (s *MailNotificationSender) ScheduleReminder(reminder Reminder) error {
 	if s.service == nil {
 		return fmt.Errorf("notification service is unavailable")
 	}
@@ -113,12 +116,24 @@ func (s *MailNotificationSender) SendReminder(reminder Reminder) error {
 	if language == "zh-CN" {
 		title = "提醒事项"
 	}
-	return s.service.SendNotification(notifications.NotificationOptions{
+	options := notifications.NotificationOptions{
 		ID:       "reminder-" + reminder.ID,
 		Title:    title,
 		Body:     reminder.Title,
 		ThreadID: "reminders",
-	})
+	}
+	if reminder.Time > time.Now().Unix() {
+		options.Schedule = &notifications.NotificationSchedule{At: reminder.Time}
+	}
+	return s.service.SendNotification(options)
+}
+
+// CancelReminder removes a reminder's pending native notification.
+func (s *MailNotificationSender) CancelReminder(id string) error {
+	if s.service == nil {
+		return fmt.Errorf("notification service is unavailable")
+	}
+	return s.service.RemovePendingNotification("reminder-" + id)
 }
 
 func (s *MailNotificationSender) isSuppressed() bool {
