@@ -484,26 +484,25 @@ const showAttachments = computed(
       <div v-if="!detail && !loading" class="centerpad empty">{{ t('mail.selectFolder') }}</div>
 
       <template v-if="detail">
-        <div
-          v-if="threadEmails.length > 1"
-          class="thread-tabs"
-          role="tablist"
-          :aria-label="t('mail.thread.tabs')"
-        >
-          <button
-            v-for="email in threadEmails"
-            :key="email.uid"
-            type="button"
-            role="tab"
-            class="thread-tab"
-            :class="{ active: email.uid === accountsStore.selectedEmailUid }"
-            :aria-selected="email.uid === accountsStore.selectedEmailUid"
-            @click="selectThreadTab(email)"
-          >
-            <span v-if="!email.is_read" class="thread-tab__unread" aria-hidden="true" />
-            <span class="thread-tab__sender">{{ displaySender(email) }}</span>
-            <span class="thread-tab__date">{{ formatDateRecent(email.date, locale) }}</span>
-          </button>
+        <div v-if="threadEmails.length > 1" class="thread-tabs">
+          <UiScrollArea class="thread-tabs__scroll" horizontal>
+            <div class="thread-tabs__list" role="tablist" :aria-label="t('mail.thread.tabs')">
+              <button
+                v-for="email in threadEmails"
+                :key="email.uid"
+                type="button"
+                role="tab"
+                class="thread-tab"
+                :class="{ active: email.uid === accountsStore.selectedEmailUid }"
+                :aria-selected="email.uid === accountsStore.selectedEmailUid"
+                @click="selectThreadTab(email)"
+              >
+                <span v-if="!email.is_read" class="thread-tab__unread" aria-hidden="true" />
+                <span class="thread-tab__sender">{{ displaySender(email) }}</span>
+                <span class="thread-tab__date">{{ formatDateRecent(email.date, locale) }}</span>
+              </button>
+            </div>
+          </UiScrollArea>
         </div>
 
         <EmailHeader :detail="detail">
@@ -695,11 +694,17 @@ const showAttachments = computed(
   opacity: 0.8;
 }
 .thread-tabs {
+  border-bottom: 1px solid var(--n-border-color);
+}
+.thread-tabs__scroll {
+  height: 35px;
+}
+.thread-tabs__list {
   display: flex;
+  width: max-content;
+  min-width: 100%;
   gap: 6px;
   padding: 4px 16px 0;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--n-border-color);
 }
 .thread-tab {
   display: inline-flex;

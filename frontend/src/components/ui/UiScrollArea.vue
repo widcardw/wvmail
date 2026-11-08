@@ -89,6 +89,7 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
 .scroll-area__bar {
   z-index: 1;
   display: flex;
+  box-sizing: border-box;
   padding: 3px;
   opacity: 0;
   visibility: hidden;
@@ -102,7 +103,8 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
   top: 0;
   bottom: 0;
   right: 0;
-  width: 9px;
+  width: 7px;
+  padding: 2px;
   justify-content: center;
 }
 .scroll-area__bar[data-orientation='horizontal'] {
@@ -110,7 +112,8 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
   right: 0;
   bottom: 0;
   left: 0;
-  height: 9px;
+  height: 7px;
+  padding: 2px;
   align-items: center;
 }
 .scroll-area__thumb {
@@ -127,11 +130,11 @@ const rootStyle = computed(() => attrs.style as string | Record<string, string> 
   opacity: 0.85;
 }
 .scroll-area__bar[data-orientation='vertical'] .scroll-area__thumb {
-  width: 5px;
+  width: 3px;
   min-height: 20px;
 }
 .scroll-area__bar[data-orientation='horizontal'] .scroll-area__thumb {
-  height: 5px;
+  height: 3px;
   min-width: 20px;
 }
 

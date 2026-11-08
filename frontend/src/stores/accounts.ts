@@ -730,6 +730,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         const account = selectedAccount.value
         const folder = selectedFolder.value
         if (account && folder) {
+          void refreshSelectedThread(account, folder)
           const key = `${account.ID}:${folder}`
           const want = currentPageByFolder.value[key] || 1
           const requestId = beginFolderRequest(key)
@@ -857,6 +858,52 @@ export const useAccountsStore = defineStore('accounts', () => {
   /** Switch tabs inside the conversation already on screen. */
   async function selectThreadEmail(account: EmailAccount, folder: string, uid: number) {
     await loadEmailDetail(account, folder, uid)
+  }
+
+  async function refreshSelectedThread(account: EmailAccount, folder: string) {
+    const threadId = selectedThreadId.value
+    const selectedUid = selectedEmailUid.value
+    const requestId = threadRequestId
+    if (
+      !threadId ||
+      selectedUid == null ||
+      selectedEmailAccountId.value !== account.ID ||
+      selectedEmailFolder.value !== folder
+    ) {
+      return
+    }
+
+    try {
+      // Weak subject-based groups can receive a new stable ID when another
+      // matching message arrives. Re-read the selected message's cached thread
+      // metadata first, then load the current group by that ID.
+      const selectedEmail = await EmailService.FetchEmail(account, folder, selectedUid)
+      if (
+        requestId !== threadRequestId ||
+        selectedThreadId.value !== threadId ||
+        selectedEmailUid.value !== selectedUid ||
+        selectedEmailAccountId.value !== account.ID ||
+        selectedEmailFolder.value !== folder
+      ) {
+        return
+      }
+
+      const currentThreadId = selectedEmail?.thread_id || threadId
+      const emails = await EmailService.ListThreadEmails(account, folder, currentThreadId)
+      if (
+        requestId !== threadRequestId ||
+        selectedThreadId.value !== threadId ||
+        selectedEmailUid.value !== selectedUid ||
+        selectedEmailAccountId.value !== account.ID ||
+        selectedEmailFolder.value !== folder
+      ) {
+        return
+      }
+      selectedThreadId.value = currentThreadId
+      selectedThreadEmails.value = emails
+    } catch (e) {
+      console.error('Failed to refresh the open conversation after sync', e)
+    }
   }
 
   /**
