@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { TagService } from '#/wvmail/services'
-import { useI18n, type TranslationSchema } from '~/i18n'
+import { useI18n, type TranslationKey } from '~/i18n'
 import { useFeedbackStore } from '~/stores/feedback'
 import { useTagsStore } from '~/stores/tags'
 import type { MailTag } from '~/types/tag'
@@ -31,7 +31,7 @@ function openEdit(tag: MailTag) {
 }
 
 function fieldLabel(field: string): string {
-  return t.value[`tags.field.${field}` as keyof TranslationSchema] ?? field
+  return t.value[`tags.field.${field}` as TranslationKey] ?? field
 }
 
 async function confirmDelete() {

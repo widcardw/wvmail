@@ -11,7 +11,7 @@ import SettingsProxy from '../views/settings/Proxy.vue'
 import SettingsAccount from '../views/settings/Account.vue'
 import SettingsAbout from '../views/settings/About.vue'
 import SettingsLLM from '../views/settings/LLM.vue'
-import SettingsTranslation from '../views/settings/Translation.vue'
+import SettingsAiAssistant from '../views/settings/AiAssistant.vue'
 import SettingsTags from '../views/settings/Tags.vue'
 import SettingsContacts from '../views/settings/Contacts.vue'
 
@@ -39,7 +39,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'proxy', name: 'settings-proxy', component: SettingsProxy },
       { path: 'llm', name: 'settings-llm', component: SettingsLLM },
       { path: 'tags', name: 'settings-tags', component: SettingsTags },
-      { path: 'translation', name: 'settings-translation', component: SettingsTranslation },
+      { path: 'ai-assistant', name: 'settings-translation', component: SettingsAiAssistant },
       { path: 'about', name: 'settings-about', component: SettingsAbout },
     ],
   },

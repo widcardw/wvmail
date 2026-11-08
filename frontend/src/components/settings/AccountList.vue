@@ -86,7 +86,7 @@ function onSelect(account: EmailAccount, value: string | undefined) {
 <template>
   <section class="surface">
     <header class="surface__head">
-      <h2>{{ t['settings.accounts'] }}</h2>
+      <h2>{{ t['settings.accounts.label'] }}</h2>
       <button type="button" class="btn btn--primary btn--sm" @click="emit('add')">
         {{ t['settings.accounts.add'] }}
       </button>

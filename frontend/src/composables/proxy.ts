@@ -1,5 +1,5 @@
 import type { AccountProxy } from '#/wvmail/services'
-import type { TranslationSchema } from '~/i18n'
+import type { TranslationKey } from '~/i18n'
 
 /**
  * How one account reaches its mail server, as far as the UI is concerned.
@@ -44,7 +44,7 @@ export function resolveProxyRoute(
 }
 
 /** The three mode labels, shared by the proxy page and the account form. */
-export function proxyModeLabels(t: TranslationSchema): Array<{
+export function proxyModeLabels(t: Record<TranslationKey, string>): Array<{
   label: string
   value: ProxyMode
 }> {

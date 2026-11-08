@@ -6,18 +6,18 @@
  * FOLDER_ICON_VALUES from here and safelists it, so the picker and the
  * generated CSS can never drift apart.
  *
- * `labelKey` is type-checked against TranslationSchema, so every icon keeps a
+ * `labelKey` is type-checked against TranslationKey, so every icon keeps a
  * localized label in both locales.
  */
-import type { TranslationSchema } from '../../i18n'
+import type { TranslationKey } from '../../i18n'
 
 export interface FolderIconChoice {
   value: string
-  labelKey: keyof TranslationSchema
+  labelKey: TranslationKey
 }
 
 export interface FolderIconGroup {
-  labelKey: keyof TranslationSchema
+  labelKey: TranslationKey
   icons: FolderIconChoice[]
 }
 
@@ -203,6 +203,6 @@ export const FOLDER_ICON_CHOICES: FolderIconChoice[] = [
 ]
 
 /** Values that reach the DOM as `i-${value}` classes. */
-export const FOLDER_ICON_VALUES: string[] = FOLDER_ICON_CHOICES.map(
-  (icon) => icon.value,
-).filter(Boolean)
+export const FOLDER_ICON_VALUES: string[] = FOLDER_ICON_CHOICES.map((icon) => icon.value).filter(
+  Boolean,
+)

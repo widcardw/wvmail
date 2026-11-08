@@ -94,16 +94,16 @@ function onCollapseUtilitiesChange(checked: boolean) {
   <div class="wrap">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.common'] }}</h2>
+        <h2>{{ t['settings.common.label'] }}</h2>
       </header>
 
       <UiFieldRow :label="t['settings.common.language']">
         <UiSelect :options="localeOptions" :model-value="locale" @update:model-value="onLocale" />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.common.theme']">
+      <UiFieldRow :label="t['settings.common.theme.label']">
         <UiSelect :options="themeOptions" :model-value="theme.mode" @update:model-value="onTheme" />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.common.tagDelete']">
+      <UiFieldRow :label="t['settings.common.tagDelete.label']">
         <UiSelect
           :options="tagDeleteOptions"
           :model-value="String(preferences.tagDeletePresses)"
@@ -173,7 +173,7 @@ function onCollapseUtilitiesChange(checked: boolean) {
           {{ t['settings.common.openConfig'] }}
         </button>
         <button type="button" class="btn btn--danger" @click="showQuitDialog = true">
-          {{ t['quitApp'] }}
+          {{ t['quitApp.label'] }}
         </button>
       </div>
     </section>

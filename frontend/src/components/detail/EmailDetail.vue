@@ -596,9 +596,9 @@ const showAttachments = computed(
     />
     <ConfirmDialog
       :open="deleteOpen"
-      :title="t['mail.delete']"
+      :title="t['mail.delete.label']"
       :description="t['mail.delete.confirm_body']"
-      :confirm-label="t['mail.delete']"
+      :confirm-label="t['mail.delete.label']"
       :busy="accountsStore.deletingSelectedEmail"
       :close-on-interact-outside="false"
       danger

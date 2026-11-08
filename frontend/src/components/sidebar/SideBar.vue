@@ -60,7 +60,7 @@ const utilRows = [
     path: '/reminder',
   },
   { key: 'notes', labelKey: 'notes.title', icon: 'ri:pen-nib-line', path: '/notes' },
-  { key: 'settings', labelKey: 'settings', icon: 'ri:settings-2-line', path: '/settings' },
+  { key: 'settings', labelKey: 'settings.label', icon: 'ri:settings-2-line', path: '/settings' },
 ] as const
 
 function fkey(id: string, f: string) {

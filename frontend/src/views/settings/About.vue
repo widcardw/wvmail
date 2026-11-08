@@ -106,7 +106,7 @@ async function handleOpenRepository() {
   <div class="wrap wrap--narrow">
     <section class="surface">
       <header class="surface__head">
-        <h2>{{ t['settings.about'] }}</h2>
+        <h2>{{ t['settings.about.label'] }}</h2>
       </header>
 
       <div class="lead">
@@ -128,14 +128,14 @@ async function handleOpenRepository() {
 
       <div class="divider">{{ t['settings.about.log.title'] }}</div>
 
-      <UiFieldRow :label="t['settings.about.log.level']">
+      <UiFieldRow :label="t['settings.about.log.level.label']">
         <UiSelect
           :options="levelOptions"
           :model-value="logConfig.Level"
           @update:model-value="changeLevel"
         />
       </UiFieldRow>
-      <UiFieldRow :label="t['settings.about.log.retention']">
+      <UiFieldRow :label="t['settings.about.log.retention.label']">
         <UiSelect
           :options="retentionOptions"
           :model-value="retentionValue"

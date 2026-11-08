@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import type { Locale, TranslationSchema } from '~/i18n'
+import type { Locale, TranslationKey, TranslationSchema } from '~/i18n'
 import type { AppConfig } from '~/types/config'
 import enUSTranslations from '~/i18n/locales/en-US'
 import zhCNTranslations from '~/i18n/locales/zh-CN'
@@ -8,9 +8,25 @@ import { formatMessage, formatPlural } from '~/i18n/format'
 import type { MessageParams } from '~/i18n/format'
 import { ConfigService } from '#/wvmail/services'
 
-const TRANSLATIONS: Record<Locale, TranslationSchema> = {
-  'en-US': enUSTranslations,
-  'zh-CN': zhCNTranslations,
+function flatten(obj: TranslationSchema): Record<TranslationKey, string> {
+  const out: Record<string, string> = {}
+  function visit(node: object, prefix = '') {
+    for (const [key, value] of Object.entries(node)) {
+      const full = prefix ? `${prefix}.${key}` : key
+      if (typeof value === 'string') {
+        out[full] = value
+      } else {
+        visit(value, full)
+      }
+    }
+  }
+  visit(obj)
+  return out as Record<TranslationKey, string>
+}
+
+const TRANSLATIONS: Record<Locale, Record<TranslationKey, string>> = {
+  'en-US': flatten(enUSTranslations),
+  'zh-CN': flatten(zhCNTranslations),
 }
 
 function detectBrowserLocale(): Locale {
@@ -32,8 +48,8 @@ export const useLocaleStore = defineStore('locale', () => {
    * A plain function rather than a computed: it reads `current` on every call, so
    * whatever render or computed calls it re-runs on a language switch.
    */
-  function tf(key: keyof TranslationSchema, params: MessageParams | number = {}): string {
-    const message = TRANSLATIONS[current.value][key]
+  function tf(key: TranslationKey, params: MessageParams | number = {}): string {
+    const message = t.value[key]
     return typeof params === 'number'
       ? formatPlural(message, params, current.value)
       : formatMessage(message, params)

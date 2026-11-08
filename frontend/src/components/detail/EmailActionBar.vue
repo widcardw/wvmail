@@ -130,7 +130,7 @@ const { t } = useI18n()
 
     <div class="action-end">
       <UiIconAction
-        :label="t['mail.delete']"
+        :label="t['mail.delete.label']"
         icon="ri:delete-bin-5-line"
         danger
         :disabled="!hasDetail || deleting"

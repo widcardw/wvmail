@@ -8,15 +8,15 @@ const router = useRouter()
 const { t } = useI18n()
 
 const items = computed(() => [
-  { key: 'common', label: t.value['settings.common'], icon: 'ri:home-2-line' },
-  { key: 'accounts', label: t.value['settings.accounts'], icon: 'ri:account-circle-2-line' },
+  { key: 'common', label: t.value['settings.common.label'], icon: 'ri:home-2-line' },
+  { key: 'accounts', label: t.value['settings.accounts.label'], icon: 'ri:account-circle-2-line' },
   { key: 'contacts', label: t.value['contacts.title'], icon: 'ri:contacts-book-2-line' },
-  { key: 'security', label: t.value['settings.security'], icon: 'ri:shield-check-line' },
-  { key: 'proxy', label: t.value['settings.proxy'], icon: 'ri:route-line' },
-  { key: 'llm', label: t.value['settings.llm'], icon: 'ri:robot-2-line' },
+  { key: 'security', label: t.value['settings.security.label'], icon: 'ri:shield-check-line' },
+  { key: 'proxy', label: t.value['settings.proxy.label'], icon: 'ri:route-line' },
+  { key: 'llm', label: t.value['settings.llm.label'], icon: 'ri:robot-2-line' },
   { key: 'tags', label: t.value['settings.tags'], icon: 'ri:price-tag-3-line' },
-  { key: 'translation', label: t.value['settings.translation'], icon: 'ri:sparkling-line' },
-  { key: 'about', label: t.value['settings.about'], icon: 'ri:information-line' },
+  { key: 'ai-assistant', label: t.value['settings.aiAssistant.label'], icon: 'ri:sparkling-line' },
+  { key: 'about', label: t.value['settings.about.label'], icon: 'ri:information-line' },
 ])
 
 function isActive(key: string) {

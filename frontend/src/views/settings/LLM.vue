@@ -308,8 +308,8 @@ function modelTags(item: LLMConfig): string[] {
                 'btn--ok': testResultIndex === index && testSuccess,
                 'btn--bad': testResultIndex === index && !testSuccess,
               }"
-              :label="t['settings.llm.test']"
-              :sizer-label="`✓ ${t['settings.llm.test']}`"
+              :label="t['settings.llm.test.label']"
+              :sizer-label="`✓ ${t['settings.llm.test.label']}`"
               :busy="testingIndex === index"
               @click="testItem(index)"
             >
