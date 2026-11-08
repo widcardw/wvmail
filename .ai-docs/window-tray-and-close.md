@@ -2,7 +2,8 @@
 
 How "closing the window hides the app to the tray" is implemented, why it needs a
 Wails *hook* rather than a listener, and how the app quits (tray menu, Settings →
-退出应用, or a plain close). Applies to Wails3 `v3.0.0-beta.25`.
+退出应用, or a plain close). The behavior was checked against Wails3
+`v3.0.0-beta.25`; the project now uses Wails `v3.1.0`.
 
 ## The setting
 

@@ -3,8 +3,8 @@
 A local-first, cross-platform desktop email client built with **Wails3 (Go)** +
 **Vue 3 (TypeScript)** + **Ark UI** (headless) + **UnoCSS**.
 
-![Tech Stack](https://img.shields.io/badge/Go-1.25-blue?logo=go)
-![Wails](https://img.shields.io/badge/Wails-3.0.0--beta.25-purple)
+![Tech Stack](https://img.shields.io/badge/Go-1.26-blue?logo=go)
+![Wails](https://img.shields.io/badge/Wails-3.1.0-purple)
 ![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vue.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript)
 
@@ -116,7 +116,7 @@ as middleware at `/image-proxy`.
 - **Go** 1.25+
 - **Node.js** and **pnpm**
 - **Wails3 CLI**:
-  `go install github.com/wailsapp/wails/v3/cmd/wails3@latest`
+  `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0`
 - Platform prerequisites (see [Wails docs](https://v3.wails.io/)):
   - **macOS**: Xcode Command Line Tools
   - **Windows**: WebView2 runtime (built into Windows 10+)
@@ -161,6 +161,20 @@ wails3 task run
 wails3 task package
 ```
 
+### GitHub releases
+
+Push a version tag such as `v0.0.1` to build packages for macOS, Windows, and
+Linux and publish them to a GitHub Release:
+
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
+
+The workflow creates a universal macOS app archive, a Windows NSIS installer,
+and Linux AppImage, DEB, RPM, and Arch packages. Signing and notarization are
+not configured; macOS builds are ad-hoc signed.
+
 ### Server mode
 
 The same backend can run as a headless HTTP server:
@@ -193,7 +207,7 @@ pnpm build       # Production frontend build
 
 | Layer | Technology |
 |---|---|
-| **Desktop framework** | [Wails3](https://v3.wails.io/) (v3.0.0-beta.25) |
+| **Desktop framework** | [Wails3](https://v3.wails.io/) (v3.1.0) |
 | **Go libraries** | go-imap, go-message, GORM + SQLite, go-yaml |
 | **UI framework** | Vue 3 (Composition API, `<script setup>`) |
 | **Component library** | [Ark UI](https://ark-ui.com/) (headless) + wrappers in `components/ui/` |

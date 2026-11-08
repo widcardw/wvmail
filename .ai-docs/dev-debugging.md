@@ -47,7 +47,7 @@ macOS 26 上这条私有路径**静默失效**。本机实测（macOS 26.7 / Bui
 ### 版本提示
 
 - **alpha.97**：只设私有 `developerExtrasEnabled`，而该键在 macOS 26 上已失效 → 当时**Safari 也看不到**这个 webview。
-- **beta.25（现在）**：优先使用公开 API `webView.inspectable = YES`（macOS 13.3+），私有键仅作为老系统兜底 → **Safari 路径可用**。
+- **beta.25（当时验证）**：优先使用公开 API `webView.inspectable = YES`（macOS 13.3+），私有键仅作为老系统兜底 → **Safari 路径可用**。项目当前使用 Wails `v3.1.0`；该版本的实现尚未在本文记录中重新核对。
 
 ## 现在怎么调（两条路）
 
@@ -85,7 +85,7 @@ macOS 26 上这条私有路径**静默失效**。本机实测（macOS 26.7 / Bui
 需要 WebKit 修好应用内 inspector，或 Wails 换实现（目前**没有**公开 API 能「以编程方式打开 inspector」，`isInspectable` 只是让 Safari 能看到它）。跟踪点：
 
 - [WebKit bug 306964](https://bugs.webkit.org/show_bug.cgi?id=306964)
-- Wails 侧代码：`pkg/application/mac_private_api_darwin.go` 的 `wailsPrivateOpenWebInspector`（beta.25）
+- Wails 侧代码在 beta.25 中为 `pkg/application/mac_private_api_darwin.go` 的 `wailsPrivateOpenWebInspector`；项目现用 v3.1.0，需在当前模块源码中重新确认实现位置。
 
 ## 快速自检脚本
 

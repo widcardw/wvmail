@@ -6,7 +6,7 @@ type: project
 
 # 写信与发信：从编辑器到 SMTP
 
-本文记录 wvmail 的出站邮件链路。撰写基线为 Wails `v3.0.0-beta.25`、Go 1.25、
+本文记录 wvmail 的出站邮件链路。当前依赖基线为 Wails `v3.1.0`、Go 1.26、
 Vue 3、Tiptap `3.22.5`。
 
 > 行号会漂移；以 service、method 和组件名为稳定锚点。
@@ -395,4 +395,3 @@ pnpm build
 9. 点击邮件中的 `mailto:`，确认打开 wvmail 写信窗口而不是系统客户端。
 10. 断网后发送，确认窗口保留、草稿仍可重试。
 11. 发送成功后检查 A 的 Sent 文件夹；模拟 APPEND 失败时确认仍提示发送成功及 warning。
-

@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            runner: macos-14
+          - platform: windows
+            runner: windows-2022
+          - platform: linux
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libfuse2t64 \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev \
+            pkg-config \
+            rpm \
+            zstd
+
+      - name: Install NSIS
+        if: matrix.platform == 'windows'
+        run: choco install nsis --yes --no-progress
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.10'
+          cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.3.4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Install Wails v3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+
+      - name: Add Go tools to PATH (Unix)
+        if: runner.os != 'Windows'
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Add Go tools to PATH (Windows)
+        if: runner.os == 'Windows'
+        run: Add-Content -Path $env:GITHUB_PATH -Value (Join-Path (go env GOPATH) 'bin')
+
+      - name: Build and package macOS universal app
+        if: matrix.platform == 'macos'
+        run: |
+          wails3 task darwin:package:universal
+          mkdir -p release-assets
+          ditto -c -k --sequesterRsrc --keepParent \
+            bin/wvmail.app \
+            "release-assets/wvmail-${GITHUB_REF_NAME}-macos-universal.zip"
+
+      - name: Build and package Windows installer
+        if: matrix.platform == 'windows'
+        run: |
+          wails3 task windows:package ARCH=amd64
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item bin/wvmail-amd64-installer.exe `
+            "release-assets/wvmail-$env:GITHUB_REF_NAME-windows-amd64-setup.exe"
+        shell: pwsh
+
+      - name: Build and package Linux distributions
+        if: matrix.platform == 'linux'
+        run: |
+          wails3 task linux:package ARCH=amd64
+          mkdir -p release-assets
+          cp bin/* release-assets/
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" release-assets/* --clobber
+          else
+            gh release create "$TAG_NAME" release-assets/* \
+              --verify-tag \
+              --title "$TAG_NAME" \
+              --generate-notes
+          fi

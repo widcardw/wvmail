@@ -11,7 +11,7 @@ type: project
 发信、撰写窗口、回复/转发和 `mailto:` 是独立链路，见
 `.ai-docs/compose-and-sending.md`。
 
-> 行号会漂移，**函数名 / 组件名才是稳定锚点**。撰写时基线：Wails `v3.0.0-beta.25`，macOS 26。
+> 行号会漂移，**函数名 / 组件名才是稳定锚点**。当前依赖基线：Wails `v3.1.0`，macOS 26。
 
 ---
 

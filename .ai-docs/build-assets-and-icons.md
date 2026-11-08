@@ -1,7 +1,9 @@
 # Build Assets & App Icons (macOS)
 
 How the app icon is produced, why the Dock icon can silently stay stale, and how to
-verify a change. Applies to Wails3 `v3.0.0-beta.25` on macOS 26.
+verify a change. These behavior notes were verified against Wails3
+`v3.0.0-beta.25` on macOS 26; the project now uses Wails `v3.1.0`, so check
+the current Wails source if the icon-generation behavior differs.
 
 ## 1. Which file actually wins
 
