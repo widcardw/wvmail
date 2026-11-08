@@ -113,6 +113,8 @@ func main() {
 	mailNotificationSender := services.NewMailNotificationSender(cfgSvc, notificationService)
 	mailNotificationSender.SetShouldNotify(windowFocused.Load)
 	emailSvc.SetNewMailListener(mailNotificationSender.NotifyNewMail)
+	reminderSvc := services.NewRemindersService()
+	reminderSvc.SetNotifier(mailNotificationSender.SendReminder)
 	tagSvc := services.NewTagService(cfgSvc)
 	contactsSvc := services.NewContactsService(cfgSvc)
 	emailSvc.SetMailCachedListener(func(account services.EmailAccount, folder string, messages []services.EmailSummary) error {
@@ -175,7 +177,7 @@ func main() {
 			application.NewService(sendSvc),
 			application.NewService(composeSvc),
 			application.NewService(services.NewNotesService()),
-			application.NewService(services.NewRemindersService()),
+			application.NewService(reminderSvc),
 			application.NewService(contactsSvc),
 			application.NewService(tagSvc),
 			application.NewService(aiAssistSvc),
@@ -365,6 +367,10 @@ func main() {
 	// Start the background email sync service
 	syncSvc.Start()
 	defer syncSvc.Stop()
+
+	// Reminders are checked even when the main window is hidden to the tray.
+	reminderSvc.Start()
+	defer reminderSvc.Stop()
 
 	// Start the IDLE watchers (no-op for accounts with auto-sync off)
 	idleSvc.Start()

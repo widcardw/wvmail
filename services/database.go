@@ -132,12 +132,13 @@ type CachedFlaggedSnapshot struct {
 // CachedReminder represents a persisted reminder. `Time` is epoch seconds, the
 // unit the frontend (and the mail date detector) work in.
 type CachedReminder struct {
-	ID        string `gorm:"primaryKey;size:64"`
-	Title     string `gorm:"size:512"`
-	Time      int64  `gorm:"index"`
-	Done      bool   `gorm:"not null;default:false"`
-	CreatedAt int64  `gorm:"autoCreateTime"`
-	UpdatedAt int64  `gorm:"autoUpdateTime"`
+	ID                    string `gorm:"primaryKey;size:64"`
+	Title                 string `gorm:"size:512"`
+	Time                  int64  `gorm:"index"`
+	Done                  bool   `gorm:"not null;default:false"`
+	NotificationAttempted *bool  `gorm:"default:null"`
+	CreatedAt             int64  `gorm:"autoCreateTime"`
+	UpdatedAt             int64  `gorm:"autoUpdateTime"`
 }
 
 // CachedMailTag is a user-defined, rule-based mail label. Keywords and Fields are

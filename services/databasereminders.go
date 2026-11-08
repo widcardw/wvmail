@@ -41,3 +41,15 @@ func (m *DBManager) SetReminderDone(id string, done bool) error {
 	}
 	return db.Model(&CachedReminder{}).Where("id = ?", id).Update("done", done).Error
 }
+
+// SetReminderNotificationAttempted records whether the due notification was attempted,
+// preventing it from being emitted again on the next scheduler tick or launch.
+func (m *DBManager) SetReminderNotificationAttempted(id string, attempted bool) error {
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
+	return db.Model(&CachedReminder{}).
+		Where("id = ?", id).
+		Update("notification_attempted", attempted).Error
+}

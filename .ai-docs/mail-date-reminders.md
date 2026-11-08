@@ -175,6 +175,21 @@ console.log(out.html.match(/<span class=\"date-mention\"[^>]*>[^<]*<\/span>/g) ?
 `body_html` being plain text is normal (see the `pre` note above) — the definitive check is whether
 `findDateMentions(rawText, { now: mailDate })` finds it and `sanitizeEmailHtml` then drops it.
 
+## Due-time notifications
+
+The desktop app checks unfinished reminders while it is running, including when its
+main window is hidden to the tray. A due reminder is sent once through Wails'
+native notification service; the notification title follows the app language and
+its body contains the reminder title. Due reminders missed while the app was not
+running are sent on the next launch. Marking a reminder complete prevents a
+notification. Saving a reminder whose time is already in the past keeps it as a
+note but does not notify immediately.
+
+The delivery-attempt marker is stored in SQLite so an already handled reminder
+does not alert again on each scheduler tick or after restarting the app. Existing
+upcoming reminders remain eligible; already-overdue reminders from before
+notifications were added are not replayed on the first run.
+
 ## Storage
 
 Reminders are real rows now:

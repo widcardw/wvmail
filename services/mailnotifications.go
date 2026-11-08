@@ -87,6 +87,40 @@ func (s *MailNotificationSender) sendNewMail(account EmailAccount, emails []Emai
 	}
 }
 
+// SendReminder sends one due reminder as a native desktop notification.
+func (s *MailNotificationSender) SendReminder(reminder Reminder) error {
+	if s.service == nil {
+		return fmt.Errorf("notification service is unavailable")
+	}
+
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+	if !s.ensureAuthorized() {
+		return fmt.Errorf("notification authorization is unavailable")
+	}
+
+	language := "en-US"
+	if s.config != nil {
+		config, err := s.config.GetConfig()
+		if err != nil {
+			slog.Warn("notification: failed to load language setting", "error", err)
+		} else {
+			language = config.Language
+		}
+	}
+
+	title := "Reminder"
+	if language == "zh-CN" {
+		title = "提醒事项"
+	}
+	return s.service.SendNotification(notifications.NotificationOptions{
+		ID:       "reminder-" + reminder.ID,
+		Title:    title,
+		Body:     reminder.Title,
+		ThreadID: "reminders",
+	})
+}
+
 func (s *MailNotificationSender) isSuppressed() bool {
 	s.policyMu.RLock()
 	shouldNotify := s.shouldNotify
