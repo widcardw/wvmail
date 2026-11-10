@@ -485,7 +485,7 @@ const showAttachments = computed(
 
       <template v-if="detail">
         <div v-if="threadEmails.length > 1" class="thread-tabs">
-          <UiScrollArea class="thread-tabs__scroll" horizontal>
+          <div class="thread-tabs__scroll">
             <div class="thread-tabs__list" role="tablist" :aria-label="t('mail.thread.tabs')">
               <button
                 v-for="email in threadEmails"
@@ -502,7 +502,7 @@ const showAttachments = computed(
                 <span class="thread-tab__date">{{ formatDateRecent(email.date, locale) }}</span>
               </button>
             </div>
-          </UiScrollArea>
+          </div>
         </div>
 
         <EmailHeader :detail="detail">
@@ -697,12 +697,17 @@ const showAttachments = computed(
   border-bottom: 1px solid var(--n-border-color);
 }
 .thread-tabs__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   height: 35px;
+}
+.thread-tabs__scroll::-webkit-scrollbar {
+  display: none;
 }
 .thread-tabs__list {
   display: flex;
   width: max-content;
-  min-width: 100%;
   gap: 6px;
   padding: 4px 16px 0;
 }
